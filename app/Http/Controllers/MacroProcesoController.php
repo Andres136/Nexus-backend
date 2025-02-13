@@ -14,7 +14,8 @@ class MacroProcesoController extends Controller
      */
     public function index()
     {
-        //
+        $macroprocesos = Macroprocesos::all();
+        return response()->json($macroprocesos);
     }
 
     /**
@@ -22,7 +23,7 @@ class MacroProcesoController extends Controller
      */
     public function store(MacroProcesoRequest $request)
     {
-    
+       
 
     }
 

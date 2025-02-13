@@ -25,4 +25,7 @@ class Procesos extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+    // funcion para relacionar procesos con errores
+
+  
 }

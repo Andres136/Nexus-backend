@@ -26,8 +26,8 @@ class RegistroRequest extends FormRequest
             'email' => 'required|email|unique:users,email',
             'telefono' => 'required|string',
             'password' => 'required|string',
-            'role_id' => 'required|integer',
-            'departamento_id' => 'required|integer',
+            'role_id' => 'required',
+            'departamento_id' => 'required',
          
         ];
     }
@@ -44,10 +44,11 @@ class RegistroRequest extends FormRequest
             'password.symbols' => 'La contraseña debe incluir al menos un símbolo.',
             'password.numbers' => 'La contraseña debe contener al menos un número.',
             'telefono.required' => 'El teléfono es requerido',
+            
 
             'role_id.required' => 'El rol es requerido',
             'departamento_id.required' => 'El departamento es requerido',
-            'departamento_id.integer' => 'El departamento debe ser un número entero',
+            
   
         ];
     }

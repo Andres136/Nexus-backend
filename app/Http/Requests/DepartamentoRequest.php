@@ -23,6 +23,10 @@ class DepartamentoRequest extends FormRequest
     {
         return [
             'nombre' => 'required|string|max:100',
+            'descripcion' => 'required|string',
+            'macroprocesos_id' => 'required|exists:macroprocesos,id',
+            'icono' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048'
+
          
         ];
     }
@@ -30,7 +34,13 @@ class DepartamentoRequest extends FormRequest
     {
         return [
           'nombre.required' => 'El nombre del departamento es requerido',
-          'nombre.string' => 'El nombre del departamento debe ser un texto'
+          'nombre.string' => 'El nombre del departamento debe ser un texto',
+          'descripcion.required' => 'La descripción del departamento es requerida',
+           'descripcion.string' => 'La descripción del departamento debe ser un texto',
+            'macroprocesos_id.required' => 'El macroproceso es requerido',
+            'icono.required' => 'La imagen del icono es requerida',
+            'icono.max' => 'El ícono no debe exceder los 2 MB.',
+        
       
         ];
     }

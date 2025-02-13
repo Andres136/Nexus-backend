@@ -9,6 +9,9 @@ class Documentos extends Model
     protected $fillable =
      ['nombre', 'documento', 'user_id', 'proceso_id', 'version'];
 
+    //funv=cion para obtener la ruta del archivo
+   
+
     // funcion para relacionar con la tabla procesos
     public function procesos()
     {
@@ -20,4 +23,6 @@ class Documentos extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+
+
 }

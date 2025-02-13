@@ -3,8 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ErrorRequest;
+use App\Models\Departamentos;
 use App\Models\Errores;
+use App\Models\Procesos;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ErrorController extends Controller
 {
@@ -13,9 +17,10 @@ class ErrorController extends Controller
      */
     public function index()
     {
-        //
+       // obtener errores
+       $errores = Errores::all();
+         return response()->json($errores);
     }
-
     /**
      * Store a newly created resource in storage.
      */
@@ -23,7 +28,7 @@ class ErrorController extends Controller
     {
         Errores::create([
             'descripcion' => $request->descripcion,
-            'proceso_id' => $request->proceso_id,
+            'departamento_id' => $request->departamento_id,
         ]);
         return response()->json([
             'message' => 'Error registrado correctamente'
@@ -51,6 +56,30 @@ class ErrorController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        
     }
+    // Obtener últimos 10 errores
+   
+
+    // KPI: Total de errores y agrupados por proceso
+
+    public function kpiErrores()
+{
+    $totalErrores = Errores::count();
+
+    $erroresPorProceso = Errores::select('departamento_id', DB::raw('count(*) as total'))
+        ->groupBy('departamento_id')
+        ->get()
+        ->map(function ($error) {
+            $proceso = Departamentos::find($error->departamento_id);
+            $error->proceso_nombre = $proceso ? $proceso->nombre : "Desconocido";
+            return $error;
+        });
+
+    return response()->json([
+        'totalErrores' => $totalErrores,
+        'erroresPorProceso' => $erroresPorProceso
+    ]);
+}
+ 
 }

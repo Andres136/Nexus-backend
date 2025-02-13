@@ -14,6 +14,9 @@ class EstadoController extends Controller
     public function index()
     {
         //
+
+        $estados = Estados::all();
+        return response()->json($estados);
     }
 
     /**

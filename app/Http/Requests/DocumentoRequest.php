@@ -24,9 +24,9 @@ class DocumentoRequest extends FormRequest
         return [
             'nombre' => 'required|string',
             'documento' => 'required|mimes:pdf,doc,docx,xls,xlsx', 
-            'proceso_id' => 'required|integer',
-            'user_id' => 'required|integer',
-            'version' => 'required|string'
+            'proceso_id' => 'required',
+            'user_id' => 'required',
+            'version' => 'required'
         ];
     }
     public function messages(): array
@@ -36,10 +36,9 @@ class DocumentoRequest extends FormRequest
             'documento.required' => 'El documento es requerido',
             'documento.mimes' => 'El documento debe ser un archivo PDF, DOC o DOCX',
             'proceso_id.required' => 'El proceso es requerido',
-            'proceso_id.integer' => 'El proceso debe ser un número entero',
-            'user_id.required' => 'El usuario es requerido',
-            'user_id.integer' => 'El usuario debe ser un número entero',
-            'version.required' => 'La versión es requerida'
+            'user_id.required' => 'El usuario es requerido', 
+            'version.required' => 'La versión es requerida',
+            'version.string' => 'La versión debe ser un texto'
         ];
     }
 }

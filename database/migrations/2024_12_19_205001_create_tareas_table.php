@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('nombre',255);
             $table->text('descripcion');
-            $table->foreignId('proceso_id')->constrained()->onDelete('cascade');
+            $table->foreignId('departamento_id')->constrained()->onDelete('cascade');
             $table->foreignId('estado_id')->constrained()->onDelete('cascade');
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->timestamps();
@@ -29,12 +29,12 @@ return new class extends Migration
     {
         Schema::table('tareas', function (Blueprint $table) {
             // Eliminar claves foráneas
-            $table->dropForeign(['proceso_id']);
+            $table->dropForeign(['departamento_id']);
             $table->dropForeign(['estado_id']);
             $table->dropForeign(['user_id']);
         
             // Eliminar columnas
-            $table->dropColumn(['proceso_id', 'estado_id', 'user_id', 'nombre', 'descripcion']);
+            $table->dropColumn(['departamento_id', 'estado_id', 'user_id', 'nombre', 'descripcion']);
         });
         
         // Luego, eliminar la tabla si es necesario

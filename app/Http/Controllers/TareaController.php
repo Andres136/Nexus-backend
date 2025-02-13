@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\TareaRequest;
 use App\Models\Tareas;
+use App\Models\User;
+use App\Notifications\NuevaTareaAsignada;
 use Illuminate\Http\Request;
 
 class TareaController extends Controller
@@ -12,24 +15,33 @@ class TareaController extends Controller
      */
     public function index()
     {
-        //
+        
+        $tareas = Tareas::with('usuario','departamentos')->paginate(10);
+        return response()->json($tareas);
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(TareaRequest $request)
     {
-        Tareas::create([
+       $tarea= Tareas::create([
             'nombre' => $request->nombre,
             'descripcion' => $request->descripcion,
             'fecha_fin' => $request->fecha_fin,
             'estado_id' => 1,
-            'proceso_id' => $request->proceso_id,
+            'departamento_id' => $request->departamento_id,
             'user_id' => $request->user_id
         ]);
+
+        $usuario =User::find($request->user_id);
+
+        $usuario->notify(new NuevaTareaAsignada($tarea));
+
+
+
         return response()->json([
-            'message' => 'Tarea registrada correctamente'
+            'message' => 'Tarea registrada correctamente y notificación enviada'
         ], 201);
     }
 
@@ -38,7 +50,10 @@ class TareaController extends Controller
      */
     public function show(string $id)
     {
-        //
+        $tarea = Tareas::with('usuario','departamentos')->find($id);
+        return response()->json($tarea);
+
+
     }
 
     /**
@@ -54,6 +69,11 @@ class TareaController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        
+        $tarea = Tareas::find($id);
+        $tarea->delete();
+        return response()->json([
+            'message' => 'Tarea Completada'
+        ]);
     }
 }

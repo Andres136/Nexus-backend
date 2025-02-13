@@ -1,0 +1,60 @@
+<?php
+
+namespace App\Notifications;
+
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Notification;
+
+class NuevaTareaAsignada extends Notification
+{
+    use Queueable;
+    protected $tarea;
+
+    /**
+     * Create a new notification instance.
+     */
+    public function __construct($tarea)
+    {
+        //
+        $this->tarea = $tarea;
+    }
+
+    /**
+     * Get the notification's delivery channels.
+     *
+     * @return array<int, string>
+     */
+    public function via(object $notifiable): array
+    {
+        return ['mail', 'database'];
+    }
+
+    /**
+     * Get the mail representation of the notification.
+     */
+    public function toMail(object $notifiable): MailMessage
+    {
+        return (new MailMessage)
+        ->subject('Nueva tarea asignada')
+        ->greeting('Hola, ' . $notifiable->name)
+        ->line('Se te ha asignado una nueva tarea: ' . $this->tarea->nombre)
+        ->line('Descripción: ' . $this->tarea->descripcion)
+        ->line('Fecha límite: ' . $this->tarea->fecha_fin)
+        ->action('Ver tarea', url('/tareas/' . $this->tarea->id))
+        ->line('¡Gracias por tu trabajo!');
+    }
+
+    /**
+     * Get the array representation of the notification.
+     *
+     * @return array<string, mixed>
+     */
+   public  function toDatabase(object $notifiable): array
+    {
+        return [
+            'tarea' => $this->tarea
+        ];
+    }
+}

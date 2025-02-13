@@ -11,9 +11,18 @@ class ProcesoController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index($departamento_id)
     {
-        //
+        //listar todos los procesos
+        $procesos = Procesos::where('departamento_id', $departamento_id)->get();
+
+        if($procesos->isEmpty()){
+            return response()->json([
+                'message' => 'No hay procesos registrados'
+            ], 404);
+        }
+        return response()->json($procesos, 200);
+      
     }
 
     /**

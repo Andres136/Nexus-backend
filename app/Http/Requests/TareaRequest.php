@@ -25,7 +25,7 @@ class TareaRequest extends FormRequest
             'nombre' => 'required|string',
             'descripcion' => 'required|string',
             'fecha_fin' => 'required|date',
-            'proceso_id' => 'required|integer',
+            'departamento_id' => 'required|integer',
             'user_id' => 'required|integer'
         ];
     }
@@ -35,7 +35,7 @@ class TareaRequest extends FormRequest
             'nombre.required' => 'El nombre es obligatorio.',
             'descripcion.required' => 'La descripción es obligatoria.',
             'fecha_fin.required' => 'La fecha de fin es obligatoria.',
-            'proceso_id.required' => 'El proceso es obligatorio.',
+            'departamento_id.required' => 'El proceso es obligatorio.',
             'user_id.required' => 'El usuario es obligatorio.',
         ];
     }

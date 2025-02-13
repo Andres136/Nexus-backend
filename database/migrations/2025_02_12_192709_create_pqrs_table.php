@@ -11,10 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('errores', function (Blueprint $table) {
+        Schema::create('pqrs', function (Blueprint $table) {
             $table->id();
-            $table->text('descripcion');
-            $table->foreignId('departamento_id')->constrained()->onDelete('cascade');
+            $table->string('nombre');
+            $table->string('empresa');
+            $table->string('email');
+            $table->string('telefono');
+            $table->string('mensaje');
             $table->timestamps();
         });
     }
@@ -24,9 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('errores', function (Blueprint $table) {
-            $table->dropForeign(['departamento_id']);
-            $table->dropColumn(['departamento_id', 'descripcion']);
-        });
+        Schema::dropIfExists('pqrs');
     }
 };

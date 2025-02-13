@@ -6,12 +6,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Session;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use  HasApiTokens;
+    use  HasApiTokens,  Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -39,6 +40,32 @@ class User extends Authenticatable
     {
         return $this->hasMany(Procesos::class, 'user_id');
     }
+
+  //funcion para relacionar usuarios con departamentos
+    public function departamento()
+    {
+        return $this->belongsTo(Departamentos::class, 'departamento_id');
+    }
+
+    //funcion para relacionar usuarios con roles
+    public function role()
+    {
+        return $this->belongsTo(Roles::class, 'role_id');
+    }
+//funcion para relacionar usuarios con estados
+    public function estado()
+    {
+        return $this->belongsTo(Estados::class, 'estado_id');
+    }
+
+    //funcion para relacionar usuarios con tareas
+  
+    public function tareas()
+    {
+        return $this->hasMany(Tareas::class, 'usuario_id');
+    }
+    //funcion para relacionar usuarios con sesiones
+   
     /**
      * The attributes that should be hidden for serialization.
      *

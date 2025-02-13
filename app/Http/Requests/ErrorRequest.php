@@ -23,7 +23,7 @@ class ErrorRequest extends FormRequest
     {
         return [
             'descripcion' => 'required|string|max:100',
-           'proceso_id' => 'required|integer',
+           'departamento_id' => 'required|integer',
         ];
     }
     public function messages(): array
@@ -32,8 +32,8 @@ class ErrorRequest extends FormRequest
             'descripcion.required' => 'La descripción es requerida',
             'descripcion.string' => 'La descripción debe ser un texto',
             'descripcion.max' => 'La descripción no debe exceder los 100 caracteres',
-            'proceso_id.required' => 'El proceso es requerido',
-            'proceso_id.integer' => 'El proceso debe ser un número entero',
+            'departamento_id.required' => 'El proceso es requerido',
+            'departamento_id.integer' => 'El proceso debe ser un número entero',
         ];
     }
 }

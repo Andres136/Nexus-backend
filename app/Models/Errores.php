@@ -8,6 +8,12 @@ class Errores extends Model
 {
     protected $fillable =[
         'descripcion', 
-        'proceso_id'
+        'departamento_id'
     ];
+
+
+    public function procesos()
+    {
+        return $this->belongsTo(Procesos::class, 'proceso_id');
+    }
 }

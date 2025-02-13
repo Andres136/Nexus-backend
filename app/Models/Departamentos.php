@@ -7,8 +7,13 @@ use Illuminate\Database\Eloquent\Model;
 class Departamentos extends Model
 {
     protected $fillable =
-     ['nombre', 'descripcion', 'macroprocesos_id'];
+     ['nombre', 'descripcion', 'macroprocesos_id', 'icono'];
 
+
+     public function getIconoAttribute($value)
+     {
+         return url('storage/'.$value);
+     }
    // funcion para relacionar con la tabla macroprocesos
     public function macroprocesos()
     {
@@ -19,5 +24,22 @@ class Departamentos extends Model
     public function procesos()
     {
         return $this->hasMany(Procesos::class, 'departamento_id');
+    }
+    //funcion para relacionar departamentos con usuarios
+    public function users()
+    {
+        return $this->hasMany(User::class, 'departamento_id');
+    }
+
+    //funcion para relacionar departamentos con errores
+    public function errores()
+    {
+        return $this->hasMany(Errores::class, 'departamento_id');
+    }
+
+    //funcion para relacionar departamentos con tareas  
+    public function tareas()
+    {
+        return $this->hasMany(Tareas::class, 'departamento_id');
     }
 }

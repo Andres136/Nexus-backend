@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\DocumentoRequest;
 use App\Models\Documentos;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Contracts\Cache\Store;
 use Illuminate\Http\Request;
 
 class DocumentoController extends Controller
@@ -11,18 +13,62 @@ class DocumentoController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index($id)
     {
-        //
+        //listar todos los documentos para un usuario y a que proceso pertenecen
+        $documentos = Documentos::with('usuarios','procesos')->where('proceso_id',$id)->get();
+        if($documentos->isEmpty()){
+            return response()->json([
+                'message' => 'No hay documentos registrados'
+            ], 404);
+        }
+        return response()->json($documentos, 200);
     }
+
+    /**
+     * Download the specified resource.
+     */
+
+     public function download($id)
+     {
+         // 1) Buscamos en BD el registro con el path
+         $doc = Documentos::findOrFail($id);
+      
+     
+         // 2) Construimos la ruta física absoluta
+         //    $documento->documento = 'documentos/OTlWa3HQ.pdf' (ejemplo)
+
+
+        // $rutaRelativa =$documento->getOriginal('documento');
+
+       
+            $filepath = storage_path('app/public/' . $doc->documento);
+     
+         // 3) Verificamos que exista
+         if (!file_exists($filepath)) {
+             return response()->json([
+                 'message' => 'Documento no encontrado'
+             ], 404);
+         }
+     
+         // 4) Retornamos la descarga
+         //    El segundo parámetro es el nombre que verá el usuario al descargar
+         return response()->download($filepath, basename($doc->documento));
+     }
+      
+     
+     
 
     /**
      * Store a newly created resource in storage.
      */
     public function store(DocumentoRequest $request)
     {    
-
-        $path = $request->file('documento')->store('documentos');
+  // obtener el nombre original del archivo
+        $nombre = $request->file('documento')->getClientOriginalName();
+  $uniqueName= time().$nombre;
+        
+        $path = $request->file('documento')->storeAs('documentos',$uniqueName, 'public');
         Documentos::create([
             'nombre' => $request->nombre,
             'documento' => $path, 
