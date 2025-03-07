@@ -124,10 +124,6 @@ class AuthController extends Controller
             $admin->notify(new NotifyAdminUserLoggedIn( $user->name));
         }
 
-    
-
-       
-
         // Retornar el token y datos del usuario
         return [
             'token' => $user->createToken('auth_token')->plainTextToken,

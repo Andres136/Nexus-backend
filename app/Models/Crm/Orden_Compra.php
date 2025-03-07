@@ -1,0 +1,55 @@
+<?php
+
+namespace App\Models\Crm;
+
+use App\Models\Estados;
+use App\Models\User;
+use App\Notifications\OrdenCompraNotificacion;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Notification;
+
+class Orden_Compra extends Model
+{
+    //
+    protected $table = 'orden__compras';
+    protected $fillable = [
+        'fecha_entrega',
+        'cliente_id',
+        'user_id',
+        'estado_id',
+        'ubicacion_entrega',
+        'observaciones',
+        'valor_total',
+    ];
+
+    // funcion relacion con detalles
+    public function detalles():HasMany
+    {
+        return $this->hasMany(Orden_Compra_Detalle::class,'orden_compra_id');
+    }
+ 
+
+    // funcion relacion con cliente
+    public function cliente()
+    {
+        return $this->belongsTo(Cliente::class, 'cliente_id');
+    }
+    // funcion relacion con usuario
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+
+    }
+
+    ///funcion para relacion con estado
+    public function estado()
+    {
+        return $this->belongsTo(Estados::class, 'estado_id');
+    }
+ 
+    public function usuario() // Relación con el usuario que creó la orden
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+}

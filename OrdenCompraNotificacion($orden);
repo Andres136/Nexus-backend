@@ -1,0 +1,13 @@
+[90m= [39m[34;4mApp\Models\Crm\Orden_Compra[39;24m {#6250
+    [34mid[39m: [35m1[39m,
+    [34mfecha_entrega[39m: "[32m2025-03-29[39m",
+    [34mcliente_id[39m: [35m11[39m,
+    [34muser_id[39m: [35m1[39m,
+    [34mestado_id[39m: [35m2[39m,
+    [34mubicacion_entrega[39m: "[32mCalle 3 2 23[39m",
+    [34mobservaciones[39m: "[32mSETASPLAST[39m",
+    [34mvalor_total[39m: "[32m29274.00[39m",
+    [34mcreated_at[39m: "[32m2025-03-05 21:57:03[39m",
+    [34mupdated_at[39m: "[32m2025-03-05 21:59:02[39m",
+  }
+

@@ -64,6 +64,8 @@ class User extends Authenticatable
     {
         return $this->hasMany(Tareas::class, 'usuario_id');
     }
+
+    //
     //funcion para relacionar usuarios con sesiones
    
     /**

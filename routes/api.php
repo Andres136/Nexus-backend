@@ -1,11 +1,16 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Crm\ClienteController;
+use App\Http\Controllers\Crm\OrdenCompraController;
+use App\Http\Controllers\Crm\OrdenCompraDetallesController;
+use App\Http\Controllers\Crm\SeguimientoController;
 use App\Http\Controllers\DepartamentoController;
 use App\Http\Controllers\DocumentoController;
 use App\Http\Controllers\ErrorController;
 use App\Http\Controllers\EstadoController;
 use App\Http\Controllers\MacroProcesoController;
+use App\Http\Controllers\NotificacionOrdenController;
 use App\Http\Controllers\PqrController;
 use App\Http\Controllers\ProcesoController;
 use App\Http\Controllers\RolController;
@@ -25,8 +30,23 @@ Route::middleware('auth:sanctum')->group(function(){
 
     Route::post('/logout', [AuthController::class,'logout']);
   Route::put('/users/{id}/estado',[AuthController::class,'desactivar']);
+Route::get('/clientes-registro-user',[ClienteController::class,'clientesUsuario']);
+
+Route::apiResource('clientes',ClienteController::class);
+Route::get('clientes-todos',[ClienteController::class,'clientesTodos']);
+
+
+Route::apiResource('orden-compras',OrdenCompraController::class);
+Route::post('/orden-trabajo/{id}', [OrdenCompraController::class, 'generarOrdenTrabajo']);
+
+Route::get('ordenes-trabajo',[OrdenCompraController::class,'obtenerOrdenesTrabajo']);
+Route::get('/notificaciones', [NotificacionOrdenController::class, 'listarNotificaciones']);
 
 });  
+
+
+
+Route::get('/notificar-ordenes', [NotificacionOrdenController::class, 'notificarOrdenes']);
 
 
 Route::apiResource('users',AuthController::class);
@@ -49,6 +69,10 @@ Route::apiResource('roles',RolController::class);
 Route::put('update/{id}',[UsuarioController::class,'update']);
 Route::post('pqr',[PqrController::class,'store']);
 Route::post('contacto',[PqrController::class,'contacto']);
+//rutas crm
+
+Route::apiResource('clientes/{cliente}/seguimientos',SeguimientoController::class);
+Route::get('/seguimientos',[SeguimientoController::class,'index']);
 
 
 
