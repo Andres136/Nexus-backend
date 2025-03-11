@@ -41,7 +41,8 @@ class OrdenesPorVencerNotificacion extends Notification
             ->line('cliente: ' .($this->ordenCompra->cliente)->nombre)
             ->line('📅 Fecha de entrega: ' . $this->ordenCompra->fecha_entrega)
             ->line('📍 Ubicación: ' . $this->ordenCompra->ubicacion_entrega)
-            ->action('Ver Orden', url('/ordenes/' . $this->ordenCompra->id))
+            ->action('Ver Orden', config('app.frontend_url') . '/auth/crm/detalles-compras/' . $this->ordenCompra->id)
+
             ->line('Gracias por gestionar tus órdenes a tiempo.');
     }
 

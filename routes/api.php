@@ -42,21 +42,23 @@ Route::post('/orden-trabajo/{id}', [OrdenCompraController::class, 'generarOrdenT
 Route::get('ordenes-trabajo',[OrdenCompraController::class,'obtenerOrdenesTrabajo']);
 Route::get('/notificaciones', [NotificacionOrdenController::class, 'listarNotificaciones']);
 
+Route::apiResource('users',AuthController::class);
+
 });  
-
-
-
 Route::get('/notificar-ordenes', [NotificacionOrdenController::class, 'notificarOrdenes']);
 
 
-Route::apiResource('users',AuthController::class);
+
+
+
+
 Route::get('procesos/departamento/{departamento_id}', [ProcesoController::class, 'index']);
 //Descargar documento
 Route::get('documentos/descargar/{id}', [DocumentoController::class, 'download']);
 Route::apiResource('macroprocesos',MacroProcesoController::class);
 Route::apiResource('departamentos',DepartamentoController::class);
 Route::apiResource('estados',EstadoController::class);
-Route::get('usuarios/departamento/{departamento_id}', [AuthController::class, 'DeparamentosUsuario']);
+Route::get('usuarios/departamento/{departamento_id}', [AuthController::class, 'DepartamentoUsuario']);
 Route::get('/documentacion/{id}', [DocumentoController::class, 'index']);
 Route::get('/errores/kpi', [ErrorController::class, 'kpiErrores']);
 Route::post('login',[AuthController::class,'login']);

@@ -169,10 +169,12 @@ public  function DeparamentosUsuario($id){
 
 public function DepartamentoUsuario($id)
 {
-    $departamento = User::with('departamento')->find($id);
-    if (!$departamento) {
-        return response()->json(["Error" => "Departamento no encontrado"], 404);
-    }
-    return response()->json($departamento);}
+    $usuarios = User::where('departamento_id', $id)->with('departamento')->get();
 
+    if ($usuarios->isEmpty()) {
+        return response()->json(["Error" => "No hay usuarios en este departamento"], 404);
+    }
+
+    return response()->json($usuarios);
+}
 }
