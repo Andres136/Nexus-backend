@@ -2,9 +2,12 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Crm\ClienteController;
+use App\Http\Controllers\Crm\DashboardController;
 use App\Http\Controllers\Crm\OrdenCompraController;
 use App\Http\Controllers\Crm\OrdenCompraDetallesController;
 use App\Http\Controllers\Crm\SeguimientoController;
+use App\Http\Controllers\Crm\SiigoController;
+use App\Http\Controllers\Crm\SiigoGlobalController;
 use App\Http\Controllers\DepartamentoController;
 use App\Http\Controllers\DocumentoController;
 use App\Http\Controllers\ErrorController;
@@ -44,11 +47,15 @@ Route::get('/notificaciones', [NotificacionOrdenController::class, 'listarNotifi
 
 Route::apiResource('users',AuthController::class);
 
+
+Route::get('/dashboard', [DashboardController::class, 'getDashboardData']);
+
 });  
+Route::get('tareas-vencidas', [NotificacionOrdenController::class, 'EnviarTaskVencida']);
+Route::apiResource('siigo/inventario',SiigoController::class);
+Route::apiResource('siigo/global/inventario',SiigoGlobalController::class);
+
 Route::get('/notificar-ordenes', [NotificacionOrdenController::class, 'notificarOrdenes']);
-
-
-
 
 
 
@@ -75,6 +82,7 @@ Route::post('contacto',[PqrController::class,'contacto']);
 
 Route::apiResource('clientes/{cliente}/seguimientos',SeguimientoController::class);
 Route::get('/seguimientos',[SeguimientoController::class,'index']);
+
 
 
 

@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Notifications\Crm\TareaVencidaNotificacion;
 use App\Notifications\OrdenCompraNotificacion;
+use App\Notifications\OrdenesPorVencerNotificacion;
 use App\Services\OrdenCompraService;
+use App\Services\TareaVencidaService;
 use App\Services\WhatsappService;
 use Illuminate\Http\Request;
 
@@ -14,14 +17,19 @@ class NotificacionOrdenController extends Controller
 {
     protected OrdenCompraService $ordenCompraService;
 
+    protected TareaVencidaService $tareaVencidaService;
+    
+
 
 
     
 
-    public function __construct(OrdenCompraService $ordenCompraService)
+    public function __construct(OrdenCompraService $ordenCompraService, TareaVencidaService $tareaVencidaService)
     {
         $this->ordenCompraService = $ordenCompraService;
+        $this->tareaVencidaService = $tareaVencidaService;
     }
+   
 
     
     public function notificarOrdenes()
@@ -37,22 +45,32 @@ class NotificacionOrdenController extends Controller
        Notification::send($usuariosNotificar, new OrdenCompraNotificacion($orden));
        return response()->json(['message' => 'Notificaciones enviadas'], 200);
     }
-
     public function listarNotificaciones()
-    {
-        $usuario = auth()->user(); // Obtener usuario autenticado
+{
+    $usuario = auth()->user();
     
-        if (!$usuario) {
-            return response()->json(['error' => 'Usuario no autenticado'], 401);
-        }
-    
-        // Obtener notificaciones no leídas y marcarlas como leídas
-        $notificaciones = $usuario->unreadNotifications ?? []; 
+    if (!$usuario) {
+        return response()->json(['error' => 'Usuario no autenticado'], 401);
+    }
 
-        $usuario->unreadNotifications->markAsRead();
+    $notificaciones = $usuario->unreadNotifications->groupBy('type'); // Agrupar por tipo
+
+    return response()->json([
+        'notificaciones' => [
+            'ordenes_compra' => $notificaciones[OrdenesPorVencerNotificacion::class] ?? [],
+            'tareas' => $notificaciones[TareaVencidaNotificacion::class] ?? [],
+            'total_no_leidas' => $usuario->unreadNotifications->count(),
+        ]
+    ]);
+}
+
     
-        return response()->json(['notificaciones' => $notificaciones], 200);
+    public function EnviarTaskVencida()
+    {
+        $this->tareaVencidaService->notificarTareasVencidas();
+        return response()->json(['message' => 'Notificaciones enviadas'], 200);
     }
     
+
     
 }

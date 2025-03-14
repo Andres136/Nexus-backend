@@ -34,5 +34,12 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    'siigo' => [
+        'base_url' => env('SIIGO_API_URL'),
+        'username' => env('SIIGO_USERNAME'),
+        'access_key' => env('SIIGO_ACCESS_KEY'),
+        
+    ],
+
 
 ];

@@ -13,13 +13,21 @@ class TareaController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        
-        $tareas = Tareas::with('usuario','departamentos')->paginate(10);
+        $query = Tareas::with('usuario', 'departamentos');
+    
+        // Filtrar por nombre de usuario si se envía un parámetro de búsqueda
+        if ($request->has('usuario')) {
+            $query->whereHas('usuario', function ($q) use ($request) {
+                $q->where('name', 'like', '%' . $request->usuario . '%');
+            });
+        }
+    
+        $tareas = $query->paginate(10);
         return response()->json($tareas);
     }
-
+    
     /**
      * Store a newly created resource in storage.
      */
