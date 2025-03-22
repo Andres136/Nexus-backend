@@ -40,7 +40,10 @@ class ClientesRequest extends FormRequest
     {
         return [
             'nombre.required' => 'El nombre es requerido',
+            'nombre.unique' => 'El nombre ya existe',
             'email.required' => 'El email es requerido',
+            'email.email' => 'El email no es valido',
+            'email.unique' => 'El email ya existe',
             'telefono.required' => 'El telefono es requerido',
             'direccion.required' => 'La direccion es requerida',
             'nit.required' => 'El nit es requerido',

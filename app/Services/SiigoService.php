@@ -46,7 +46,7 @@ class SiigoService
     /**
      * Llama a Siigo para obtener la lista de productos (inventario).
      */
-    public function getProducts()
+    public function getProducts($params = [])
     {
         Log::info('Iniciando getProducts en SiigoService');
 
@@ -61,7 +61,7 @@ class SiigoService
         'Authorization' => 'Bearer ' . $token,
         'Partner-Id'    => env('SIIGO_PARTNER_ID'),
         'Content-Type'  => 'application/json',
-    ])->get('https://api.siigo.com/v1/products');
+    ])->get('https://api.siigo.com/v1/products', $params);
 
     // Log de la respuesta
     Log::info('Siigo API status: ' . $response->status());

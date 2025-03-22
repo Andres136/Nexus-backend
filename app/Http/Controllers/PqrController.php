@@ -73,7 +73,7 @@ class PqrController extends Controller
         ];
     
         Mail::send('emails.contacto', $data, function($message) use ($data){
-            $message->to('elveral100@gmail.com')
+            $message->to('comercialsetasplast6@gmail.com')
                     ->subject('Contacto desde la web')
                     ->from('setas@carpediemdistribuidores.com', 'Notificaciones SETASPLAST ') // Remitente autorizado
                     ->replyTo($data['email'], $data['nombre'],$data['telefono'],$data['empresa']); // Para que el admin pueda responder al usuario

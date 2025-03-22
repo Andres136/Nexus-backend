@@ -1,8 +1,10 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Crm\CarpetaController;
 use App\Http\Controllers\Crm\ClienteController;
 use App\Http\Controllers\Crm\DashboardController;
+use App\Http\Controllers\Crm\DocumentosAdministrativosController;
 use App\Http\Controllers\Crm\OrdenCompraController;
 use App\Http\Controllers\Crm\OrdenCompraDetallesController;
 use App\Http\Controllers\Crm\SeguimientoController;
@@ -26,66 +28,66 @@ use Illuminate\Support\Facades\Route;
 
 
 
-Route::middleware('auth:sanctum')->group(function(){
-   Route::get('/user', function(Request $request){
-        return $request->user();
-    });  
+Route::middleware('auth:sanctum')->group(function () {
+  Route::get('/user', function (Request $request) {
+    return $request->user();
+  });
 
-    Route::post('/logout', [AuthController::class,'logout']);
-  Route::put('/users/{id}/estado',[AuthController::class,'desactivar']);
-Route::get('/clientes-registro-user',[ClienteController::class,'clientesUsuario']);
-
-Route::apiResource('clientes',ClienteController::class);
-Route::get('clientes-todos',[ClienteController::class,'clientesTodos']);
-
-
-Route::apiResource('orden-compras',OrdenCompraController::class);
-Route::post('/orden-trabajo/{id}', [OrdenCompraController::class, 'generarOrdenTrabajo']);
-
-Route::get('ordenes-trabajo',[OrdenCompraController::class,'obtenerOrdenesTrabajo']);
-Route::get('/notificaciones', [NotificacionOrdenController::class, 'listarNotificaciones']);
-
-Route::apiResource('users',AuthController::class);
-
-
+  Route::post('/logout', [AuthController::class, 'logout']);
+  Route::put('/users/{id}/estado', [AuthController::class, 'desactivar']);
+  Route::get('/clientes-registro-user', [ClienteController::class, 'clientesUsuario']);
+  Route::apiResource('clientes', ClienteController::class);
+  Route::get('clientes-todos', [ClienteController::class, 'clientesTodos']);
+  Route::apiResource('orden-compras', OrdenCompraController::class);
+  Route::get('/notificaciones', [NotificacionOrdenController::class, 'listarNotificaciones']);
+  Route::apiResource('users', AuthController::class);
 Route::get('/dashboard', [DashboardController::class, 'getDashboardData']);
-
-});  
+Route::post('/orden-trabajo/{id}', [OrdenCompraController::class, 'generarOrdenTrabajo']);
 Route::get('tareas-vencidas', [NotificacionOrdenController::class, 'EnviarTaskVencida']);
-Route::apiResource('siigo/inventario',SiigoController::class);
-Route::apiResource('siigo/global/inventario',SiigoGlobalController::class);
+Route::apiResource('macroprocesos', MacroProcesoController::class);
+Route::apiResource('departamentos', DepartamentoController::class);
+Route::apiResource('estados', EstadoController::class);
+Route::get('usuarios/departamento/{departamento_id}', [AuthController::class, 'DepartamentoUsuario']);
+Route::get('/documentacion/{id}', [DocumentoController::class, 'index']);
+Route::get('/errores/kpi', [ErrorController::class, 'kpiErrores']);
+Route::apiResource('clientes/{cliente}/seguimientos', SeguimientoController::class);
+
+Route::get('stock', [SiigoController::class, 'stock']);
+Route::get('stock-global', [SiigoGlobalController::class, 'stock']);
+Route::apiResource('siigo/inventario', SiigoController::class);
+Route::get('ordenes-compra-facturar', [OrdenCompraController::class, 'ordenesFacturar']);
+Route::apiResource('registrar-documentacion', DocumentosAdministrativosController::class);
+
+});
+
+Route::get('documentos/descargar/{id}', [DocumentoController::class, 'download']);
+
+
+
+Route::apiResource('procesos', ProcesoController::class);
+Route::apiResource('documentos', DocumentoController::class);
+Route::apiResource('tareas', TareaController::class);
+Route::put('tareas/estado/{id}/', [TareaController::class, 'destroy']);
+Route::apiResource('errores', ErrorController::class);
+Route::apiResource('roles', RolController::class);
+Route::put('update/{id}', [UsuarioController::class, 'update']);
+Route::post('pqr', [PqrController::class, 'store']);
+Route::post('contacto', [PqrController::class, 'contacto']);
+//rutas crm
+
+
+Route::get('/seguimientos', [SeguimientoController::class, 'index']);
+
+Route::apiResource('siigo/global/inventario', SiigoGlobalController::class);
+Route::get('ordenes-trabajo', [OrdenCompraController::class, 'obtenerOrdenesTrabajo']);
+
+Route::get('procesos/departamento/{departamento_id}', [ProcesoController::class, 'index']);
 
 Route::get('/notificar-ordenes', [NotificacionOrdenController::class, 'notificarOrdenes']);
 
 
+Route::get('download/{id}', [DocumentosAdministrativosController::class, 'downloand']);
+Route::apiResource('carpetas', CarpetaController::class);
 
-Route::get('procesos/departamento/{departamento_id}', [ProcesoController::class, 'index']);
+Route::post('login', [AuthController::class, 'login'])->name('login');
 //Descargar documento
-Route::get('documentos/descargar/{id}', [DocumentoController::class, 'download']);
-Route::apiResource('macroprocesos',MacroProcesoController::class);
-Route::apiResource('departamentos',DepartamentoController::class);
-Route::apiResource('estados',EstadoController::class);
-Route::get('usuarios/departamento/{departamento_id}', [AuthController::class, 'DepartamentoUsuario']);
-Route::get('/documentacion/{id}', [DocumentoController::class, 'index']);
-Route::get('/errores/kpi', [ErrorController::class, 'kpiErrores']);
-Route::post('login',[AuthController::class,'login']);
-Route::apiResource('procesos',ProcesoController::class);
-Route::apiResource('documentos',DocumentoController::class);
-Route::apiResource('tareas',TareaController::class);
-Route::put('tareas/estado/{id}/',[TareaController::class,'destroy']);
-Route::apiResource('errores',ErrorController::class);
-Route::apiResource('roles',RolController::class);
-Route::put('update/{id}',[UsuarioController::class,'update']);
-Route::post('pqr',[PqrController::class,'store']);
-Route::post('contacto',[PqrController::class,'contacto']);
-//rutas crm
-
-Route::apiResource('clientes/{cliente}/seguimientos',SeguimientoController::class);
-Route::get('/seguimientos',[SeguimientoController::class,'index']);
-
-
-
-
-
-
-

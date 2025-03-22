@@ -16,4 +16,9 @@ class Errores extends Model
     {
         return $this->belongsTo(Procesos::class, 'proceso_id');
     }
+    // Relacion con departamentos
+    public function departamento()
+    {
+        return $this->belongsTo(Departamentos::class, 'departamento_id');
+    } 
 }

@@ -318,6 +318,8 @@ public function obtenerOrdenesTrabajo(Request $request)
     /**
      * Update the specified resource in storage.
      */
+
+
     public function update(Request $request, string $id)
     {
         //
@@ -330,4 +332,32 @@ public function obtenerOrdenesTrabajo(Request $request)
     {
         //
     }
+
+    //Listar todas las ordenes de compra con cantidad enviada para facturar
+    public function ordenesFacturar(Request $request)
+    {
+        $search = $request->input('search');
+    
+        // Obtener órdenes de compra con detalles, cliente, usuario y estado
+        $ordenesCompra = Orden_Compra::with(['detalles', 'cliente', 'user', 'estado', 'ordenesTrabajo'])
+            ->whereHas('detalles', function ($query) {
+                // Filtrar solo las órdenes con cantidad enviada mayor a 0
+                $query->where('cantidad_enviada', '>', 0);
+            })
+            ->when($search, function ($query, $search) {
+                $query->whereHas('cliente', function ($query) use ($search) {
+                    $query->where('nombre', 'LIKE', "%$search%");
+                })->orWhere('fecha_entrega', 'LIKE', "%$search%")
+                  ->orWhereHas('user', function ($query) use ($search) {
+                      $query->where('name', 'LIKE', "%$search%");
+                  });
+            })
+            ->orderBy('created_at', 'desc') // Ordenar por fecha de creación (más reciente)
+            ->paginate(5) // Paginación
+            ->appends(request()->query()); // Mantiene parámetros en la URL
+    
+        return response()->json($ordenesCompra);
+    }
+    
+
 }

@@ -52,4 +52,10 @@ class Orden_Compra extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+    //relacion con ordenes de trabajo
+ public function ordenesTrabajo()
+ {
+     return $this->hasMany(OrdenDeTrabajo::class,'orden_compra_id');
+ }
+   
 }

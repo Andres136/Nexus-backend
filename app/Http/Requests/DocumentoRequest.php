@@ -34,7 +34,7 @@ class DocumentoRequest extends FormRequest
         return [
             'nombre.required' => 'El nombre es requerido',
             'documento.required' => 'El documento es requerido',
-            'documento.mimes' => 'El documento debe ser un archivo PDF, DOC o DOCX',
+            'documento.mimes' => 'El documento debe ser un archivo PDF, DOC o DOCX, XLS o XLSX',
             'proceso_id.required' => 'El proceso es requerido',
             'user_id.required' => 'El usuario es requerido', 
             'version.required' => 'La versión es requerida',

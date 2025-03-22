@@ -46,7 +46,7 @@ class SiigoGlobalService
     /**
      * Llama a Siigo Global para obtener la lista de productos (inventario).
      */
-    public function getProducts()
+    public function getProducts($params = [])
     {
         Log::info('Iniciando getProducts en SiigoGlobalService');
 
@@ -61,7 +61,7 @@ class SiigoGlobalService
             'Authorization' => 'Bearer ' . $token,
             'Partner-Id'    => env('SIIGO2_PARTNER_ID'),
             'Content-Type'  => 'application/json',
-        ])->get('https://api.siigo.com/v1/products');
+        ])->get('https://api.siigo.com/v1/products', $params);
 
         // Log de la respuesta
         Log::info('Siigo Global API status: ' . $response->status());

@@ -42,7 +42,6 @@ class NuevaTareaAsignada extends Notification
         ->line('Se te ha asignado una nueva tarea: ' . $this->tarea->nombre)
         ->line('Descripción: ' . $this->tarea->descripcion)
         ->line('Fecha límite: ' . $this->tarea->fecha_fin)
-        ->action('Ver tarea', url('/tareas/' . $this->tarea->id))
         ->line('¡Gracias por tu trabajo!');
     }
 
