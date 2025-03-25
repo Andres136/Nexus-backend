@@ -46,7 +46,7 @@ class OrdenCompraNotificacion extends Notification
             ->line('Fecha de entrega: ' . $this->ordenCompra->fecha_entrega)
             ->line('Ubicación de entrega: ' . $this->ordenCompra->ubicacion_entrega)
             ->line('Valor Total: $' . number_format($this->ordenCompra->valor_total, 2))
-            ->action('Ver Orden', config('app.frontend_url') . '/auth/crm/detalles-compras/' . $this->ordenCompra->id)
+            ->action('Ver Orden', config('app.frontend_url') . '/auth/crm')
 
             ->line('Gracias por usar nuestro sistema.');
     }

@@ -14,13 +14,14 @@ class RolesSeeder extends Seeder
     {
         $roles = [
             'Administrador',
-            'Usuario',
+            'HSEQ',
             'Invitado',
-            'Hsq',
+            'Administativo',
             'Compras',
             'Inventario',
-            'PQRS',
-            'Produccion',
+            'Comercial',
+            'Transporte',
+            'Ejecutivo Comercial',
 
         ];
 

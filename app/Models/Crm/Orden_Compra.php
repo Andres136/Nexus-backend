@@ -4,10 +4,13 @@ namespace App\Models\Crm;
 
 use App\Models\Estados;
 use App\Models\User;
-use App\Notifications\OrdenCompraNotificacion;
+
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Facades\Notification;
+use App\Models\Crm\OrdenDeTrabajo; // Importar el modelo OrdenDeTrabajo
+use App\Models\Crm\Cliente;
+
+
 
 class Orden_Compra extends Model
 {
@@ -57,5 +60,16 @@ class Orden_Compra extends Model
  {
      return $this->hasMany(OrdenDeTrabajo::class,'orden_compra_id');
  }
+
+ // funcion creador de orden de compra
+    public function creador()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+    public function ordenTrabajo()
+{
+    return $this->hasOne(OrdenDeTrabajo::class , 'orden_compra_id');
+}
+
    
 }

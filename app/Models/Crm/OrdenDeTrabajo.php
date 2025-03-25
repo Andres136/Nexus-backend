@@ -5,6 +5,8 @@ namespace App\Models\Crm;
 use App\Models\Estados;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Crm\Cliente;
+
 
 class OrdenDeTrabajo extends Model
 {
