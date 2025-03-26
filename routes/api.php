@@ -31,7 +31,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth:sanctum')->group(function () {
   Route::get('/user', function (Request $request) {
     return $request->user();
-  });
+  });  Route::apiResource('users', AuthController::class);
   Route::post('/logout', [AuthController::class, 'logout']);
   Route::put('/users/{id}/estado', [AuthController::class, 'desactivar']);
   Route::get('/clientes-registro-user', [ClienteController::class, 'clientesUsuario']);
@@ -39,7 +39,7 @@ Route::middleware('auth:sanctum')->group(function () {
   Route::get('clientes-todos', [ClienteController::class, 'clientesTodos']);
   Route::apiResource('orden-compras', OrdenCompraController::class);
   Route::get('/notificaciones', [NotificacionOrdenController::class, 'listarNotificaciones']);
-  Route::apiResource('users', AuthController::class);
+
   Route::post('/orden-trabajo/{id}', [OrdenCompraController::class, 'generarOrdenTrabajo']);
   Route::get('tareas-vencidas', [NotificacionOrdenController::class, 'EnviarTaskVencida']);
   Route::apiResource('macroprocesos', MacroProcesoController::class);
@@ -73,7 +73,7 @@ Route::post('pqr', [PqrController::class, 'store']);
 Route::post('contacto', [PqrController::class, 'contacto']);
 //rutas crm
 Route::get('/seguimientos', [SeguimientoController::class, 'index']);
-Route::apiResource('siigo/global/inventario', SiigoGlobalController::class);
+
 Route::get('ordenes-trabajo', [OrdenCompraController::class, 'obtenerOrdenesTrabajo']);
 Route::get('procesos/departamento/{departamento_id}', [ProcesoController::class, 'index']);
 
