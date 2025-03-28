@@ -54,10 +54,10 @@ Route::middleware('auth:sanctum')->group(function () {
   Route::apiResource('registrar-documentacion', DocumentosAdministrativosController::class);
   Route::get('/notificar-ordenes', [NotificacionOrdenController::class, 'notificarOrdenes']);
 
-   Route::get('stock', [SiigoController::class, 'stock']);
+ Route::get('stock', [SiigoController::class, 'stock']);
+   
   Route::get('stock-global', [SiigoGlobalController::class, 'stock']);
 });
- 
 
 
 Route::get('/dashboard', [DashboardController::class, 'getDashboardData']);
