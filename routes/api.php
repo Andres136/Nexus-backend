@@ -48,14 +48,16 @@ Route::middleware('auth:sanctum')->group(function () {
   Route::get('/documentacion/{id}', [DocumentoController::class, 'index']);
   Route::get('/errores/kpi', [ErrorController::class, 'kpiErrores']);
   Route::apiResource('clientes/{cliente}/seguimientos', SeguimientoController::class);
-  Route::get('stock', [SiigoController::class, 'stock']);
-  Route::get('stock-global', [SiigoGlobalController::class, 'stock']);
-  Route::apiResource('siigo/inventario', SiigoController::class);
+
+  
   Route::get('ordenes-compra-facturar', [OrdenCompraController::class, 'ordenesFacturar']);
   Route::apiResource('registrar-documentacion', DocumentosAdministrativosController::class);
   Route::get('/notificar-ordenes', [NotificacionOrdenController::class, 'notificarOrdenes']);
-});
 
+   Route::get('stock', [SiigoController::class, 'stock']);
+  Route::get('stock-global', [SiigoGlobalController::class, 'stock']);
+});
+ 
 
 
 Route::get('/dashboard', [DashboardController::class, 'getDashboardData']);

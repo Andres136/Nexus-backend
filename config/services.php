@@ -38,8 +38,16 @@ return [
         'base_url' => env('SIIGO_API_URL'),
         'username' => env('SIIGO_USERNAME'),
         'access_key' => env('SIIGO_ACCESS_KEY'),
+        'partner_id' => env('SIIGO_PARTNER_ID'),
         
     ],
+    'siigo2' => [
+    'api_url'    => env('SIIGO2_API_URL', 'https://api.siigo.com'),
+    'username'   => env('SIIGO2_USERNAME'),
+    'access_key' => env('SIIGO2_ACCESS_KEY'),
+    'partner_id' => env('SIIGO2_PARTNER_ID'),
+],
+
 
 
 ];

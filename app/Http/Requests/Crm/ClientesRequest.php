@@ -22,8 +22,8 @@ class ClientesRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nombre' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
+            'nombre'   => 'required|string|max:255|unique:clientes,nombre'.$this->route('clientes'),
+            'email'    => 'required|email|max:255|unique:clientes,email',
             'telefono' => 'required|string|max:255',
             'direccion' => 'required|string|max:255',
             'nit' => 'required|string|max:255',

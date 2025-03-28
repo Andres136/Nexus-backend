@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
@@ -8,22 +9,24 @@ use Illuminate\Support\Facades\Log;
 class SiigoGlobalService
 {
     /**
-     * Obtiene el token de Siigo y lo cachea por 24 horas.
+     * Obtiene el token de Siigo Global y lo cachea con la duración adecuada.
      */
-    private function getSiigoToken()
+    private function getSiigoToken(bool $forzarRenovacion = false)
     {
-        // Verificar si el token ya está en caché
-        if (Cache::has('siigo2_token')) {
+        if (!$forzarRenovacion && Cache::has('siigo2_token')) {
             return Cache::get('siigo2_token');
         }
 
-        // Obtener un nuevo token de Siigo Global
-        $response = Http::post('https://api.siigo.com/auth', [
-            'username'   => env('SIIGO2_USERNAME'),
-            'access_key' => env('SIIGO2_ACCESS_KEY'),
-        ]);
+        try {
+            $response = Http::post(config('services.siigo2.api_url') . '/auth', [
+                'username'   => config('services.siigo2.username'),
+                'access_key' => config('services.siigo2.access_key'),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Excepción al autenticar con Siigo Global', ['message' => $e->getMessage()]);
+            return null;
+        }
 
-        // Si la petición falló, retorna null
         if ($response->failed()) {
             Log::error('Error al autenticar con Siigo Global', ['response' => $response->body()]);
             return null;
@@ -31,20 +34,28 @@ class SiigoGlobalService
 
         $data = $response->json();
         $token = $data['access_token'] ?? null;
+        $expiresIn = $data['expires_in'] ?? 3600;
 
         if (!$token) {
             Log::error('No se recibió un token válido de Siigo Global', ['data' => $data]);
             return null;
         }
 
-        // Cachear el token por 24 horas
-        Cache::put('siigo2_token', $token, now()->addHours(24));
+        Cache::put('siigo2_token', $token, now()->addSeconds($expiresIn - 60)); // Margen de seguridad
 
         return $token;
     }
 
     /**
-     * Llama a Siigo Global para obtener la lista de productos (inventario).
+     * Permite forzar la renovación del token manualmente.
+     */
+    public function renovarTokenManualmente()
+    {
+        return $this->getSiigoToken(true);
+    }
+
+    /**
+     * Llama a Siigo Global para obtener la lista de productos.
      */
     public function getProducts($params = [])
     {
@@ -56,14 +67,29 @@ class SiigoGlobalService
             return null;
         }
 
-        // Petición a Siigo Global
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . $token,
-            'Partner-Id'    => env('SIIGO2_PARTNER_ID'),
+            'Partner-Id'    => config('services.siigo2.partner_id'),
             'Content-Type'  => 'application/json',
-        ])->get('https://api.siigo.com/v1/products', $params);
+        ])->get(config('services.siigo2.api_url') . '/v1/products', $params);
 
-        // Log de la respuesta
+        if ($response->status() === 401) {
+            Log::warning('Token expirado en Siigo Global. Renovando...');
+
+            $token = $this->getSiigoToken(true);
+
+            if (!$token) {
+                Log::error('No se pudo renovar el token de Siigo Global');
+                return null;
+            }
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $token,
+                'Partner-Id'    => config('services.siigo2.partner_id'),
+                'Content-Type'  => 'application/json',
+            ])->get(config('services.siigo2.api_url') . '/v1/products', $params);
+        }
+
         Log::info('Siigo Global API status: ' . $response->status());
         Log::info('Siigo Global API body: ' . $response->body());
 

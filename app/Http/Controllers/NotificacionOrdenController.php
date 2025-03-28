@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Notifications\Crm\TareaVencidaNotificacion;
+use App\Notifications\NotifyAdminUserLoggedIn;
 use App\Notifications\OrdenCompraNotificacion;
 use App\Notifications\OrdenesPorVencerNotificacion;
 use App\Services\OrdenCompraService;
@@ -46,24 +47,31 @@ class NotificacionOrdenController extends Controller
        return response()->json(['message' => 'Notificaciones enviadas'], 200);
     }
     public function listarNotificaciones()
-{
-    $usuario = auth()->user();
+    {
+        $usuario = auth()->user();
     
-    if (!$usuario) {
-        return response()->json(['error' => 'Usuario no autenticado'], 401);
+        if (!$usuario) {
+            return response()->json(['error' => 'Usuario no autenticado'], 401);
+        }
+    
+        $notificacionesNoLeidas = $usuario->unreadNotifications;
+    
+        // Agrupar por tipo
+        $notificacionesAgrupadas = $notificacionesNoLeidas->groupBy('type');
+    
+        // Marcar como leídas
+        $notificacionesNoLeidas->markAsRead();
+    
+        return response()->json([
+            'notificaciones' => [
+                'ordenes_compra' => $notificacionesAgrupadas[OrdenesPorVencerNotificacion::class] ?? [],
+                'tareas'         => $notificacionesAgrupadas[TareaVencidaNotificacion::class] ?? [],
+                'ingresos'       => $notificacionesAgrupadas[NotifyAdminUserLoggedIn::class] ?? [],
+                'total_no_leidas'=> 0, // Ya están leídas, puedes devolver 0
+            ]
+        ]);
     }
-
-    $notificaciones = $usuario->unreadNotifications->groupBy('type'); // Agrupar por tipo
-
-    return response()->json([
-        'notificaciones' => [
-            'ordenes_compra' => $notificaciones[OrdenesPorVencerNotificacion::class] ?? [],
-            'tareas' => $notificaciones[TareaVencidaNotificacion::class] ?? [],
-            'total_no_leidas' => $usuario->unreadNotifications->count(),
-        ]
-    ]);
-}
-
+    
     
     public function EnviarTaskVencida()
     {
