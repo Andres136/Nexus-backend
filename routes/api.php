@@ -57,6 +57,8 @@ Route::middleware('auth:sanctum')->group(function () {
  Route::get('stock', [SiigoController::class, 'stock']);
    
   Route::get('stock-global', [SiigoGlobalController::class, 'stock']);
+  Route::put('tareas/estado/{id}/', [TareaController::class, 'destroy']);
+  Route::apiResource('tareas', TareaController::class);
 });
 
 
@@ -66,8 +68,8 @@ Route::apiResource('departamentos', DepartamentoController::class);
 Route::get('documentos/descargar/{id}', [DocumentoController::class, 'download']);
 Route::apiResource('procesos', ProcesoController::class);
 Route::apiResource('documentos', DocumentoController::class);
-Route::apiResource('tareas', TareaController::class);
-Route::put('tareas/estado/{id}/', [TareaController::class, 'destroy']);
+
+
 Route::apiResource('errores', ErrorController::class);
 Route::apiResource('roles', RolController::class);
 Route::put('update/{id}', [UsuarioController::class, 'update']);
