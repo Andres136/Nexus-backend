@@ -27,7 +27,7 @@ class DashboardController extends Controller
     
             if ($fechaVencida) {
                 $estado = 'Vencida';
-            } elseif ($tieneFaltantes && $tieneEnviados) {
+            } elseif ($tieneFaltantes ) {
                 $estado = 'Con faltantes';
             } elseif ($tieneEnviados) {
                 $estado = 'Lista';
