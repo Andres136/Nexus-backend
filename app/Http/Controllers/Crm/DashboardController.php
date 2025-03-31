@@ -29,7 +29,7 @@ class DashboardController extends Controller
                 $estado = 'Vencida';
             } elseif ($tieneFaltantes && $tieneEnviados) {
                 $estado = 'Con faltantes';
-            } elseif ($tieneEnviados && !$tieneFaltantes) {
+            } elseif ($tieneEnviados) {
                 $estado = 'Lista';
             } elseif ($tieneOT) {
                 $estado = 'En orden trabajo';
