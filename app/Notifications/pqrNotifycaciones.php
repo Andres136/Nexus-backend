@@ -73,9 +73,8 @@ class pqrNotifycaciones extends Notification
        //guardarla y enviarla auna url
 
        return [
-           'tipo' => $this->pqr['tipo'],
-           'mensaje' => $this->pqr['mensaje'],
-           'email' => $this->emailSolicitante
+           'tipo' =>'pqr',
+     
        ];
 
     }

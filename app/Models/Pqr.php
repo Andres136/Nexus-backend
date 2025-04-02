@@ -13,4 +13,9 @@ class Pqr extends Model
         'telefono',
         'mensaje',
     ];
+
+    public function estado()
+    {
+        return $this->belongsTo(Estados::class);
+    }
 }

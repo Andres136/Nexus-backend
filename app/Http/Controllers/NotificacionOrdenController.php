@@ -9,8 +9,7 @@ use App\Notifications\OrdenCompraNotificacion;
 use App\Notifications\OrdenesPorVencerNotificacion;
 use App\Services\OrdenCompraService;
 use App\Services\TareaVencidaService;
-use App\Services\WhatsappService;
-use Illuminate\Http\Request;
+
 
 use Illuminate\Support\Facades\Notification;
 
@@ -54,21 +53,27 @@ class NotificacionOrdenController extends Controller
             return response()->json(['error' => 'Usuario no autenticado'], 401);
         }
     
-        // Obtén las notificaciones sin leer y clónalas para trabajar en ellas sin afectar la relación original
+        // Obtén las notificaciones sin leer
         $notificaciones = $usuario->unreadNotifications;
-        $notificacionesListar = collect($notificaciones->all()); // Clonamos la colección
     
-        // Agrupar las notificaciones clonadas por el tipo
+        // Si quieres verlas en el debug:
+        // dd($notificaciones);
+    
+        // Clona la colección para agrupar
+        $notificacionesListar = collect($notificaciones->all());
+    
+        // Agrupa por type (asegúrate de usar el namespace correcto)
         $agrupadas = $notificacionesListar->groupBy('type');
     
-        // Marcar las notificaciones originales como leídas
+        // (Opcional) Marca como leídas
         $usuario->unreadNotifications->markAsRead();
     
+        // Retorna la respuesta
         return response()->json([
             'notificaciones' => [
-                'ordenes_compra'  => $agrupadas[OrdenesPorVencerNotificacion::class] ?? [],
-                'tareas'          => $agrupadas[TareaVencidaNotificacion::class] ?? [],
-                'ingresos'        => $agrupadas[NotifyAdminUserLoggedIn::class] ?? [],
+                'ordenes_compra'  => $agrupadas[\App\Notifications\OrdenesPorVencerNotificacion::class] ?? [],
+                'tareas'          => $agrupadas[\App\Notifications\Crm\TareaVencidaNotificacion::class] ?? [],
+                'ingresos'        => $agrupadas[\App\Notifications\NotifyAdminUserLoggedIn::class] ?? [],
                 'total_no_leidas' => $notificacionesListar->count(),
             ]
         ]);
@@ -80,5 +85,38 @@ class NotificacionOrdenController extends Controller
         $this->tareaVencidaService->notificarTareasVencidas();
         return response()->json(['message' => 'Notificaciones enviadas'], 200);
     }
+
+    public function notificacionesPqrs($tipo='pqr')
+{
+    $usuario = auth()->user();
+
+    if (!$usuario) {
+        return response()->json(['error' => 'Usuario no autenticado'], 401);
+    }
+
+    // Obtén las notificaciones sin leer
+    $notificaciones = $usuario->unreadNotifications;
+
+    // Si quieres verlas en el debug:
+    // dd($notificaciones);
+
+    // Clona la colección para agrupar
+    $notificacionesListar = collect($notificaciones->all());
+
+    // Agrupa por type (asegúrate de usar el namespace correcto)
+    $agrupadas = $notificacionesListar->groupBy('type');
+
+    // (Opcional) Marca como leídas
+    $usuario->unreadNotifications->markAsRead();
+
+    // Retorna la respuesta
+    return response()->json([
+        'notificaciones' => [
+            'pqrs' => $agrupadas[\App\Notifications\PqrNotifycaciones::class] ?? [],
+            'total_no_leidas' => $notificacionesListar->count(),
+        ]
+    ]);
+}
+
 }
 

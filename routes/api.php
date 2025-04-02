@@ -59,6 +59,8 @@ Route::middleware('auth:sanctum')->group(function () {
   Route::get('stock-global', [SiigoGlobalController::class, 'stock']);
   Route::put('tareas/estado/{id}/', [TareaController::class, 'destroy']);
   Route::apiResource('tareas', TareaController::class);
+  Route::put('/pqrs/{id}/estado', [PqrController::class, 'cambiarEstado']);
+  Route::get('notifications-pqrs/pqr', [NotificacionOrdenController::class, 'notificacionesPqrs']);
 });
 
 
@@ -74,6 +76,7 @@ Route::apiResource('errores', ErrorController::class);
 Route::apiResource('roles', RolController::class);
 Route::put('update/{id}', [UsuarioController::class, 'update']);
 Route::post('pqr', [PqrController::class, 'store']);
+Route::get('pqrs', [PqrController::class, 'index']);
 Route::post('contacto', [PqrController::class, 'contacto']);
 //rutas crm
 Route::get('/seguimientos', [SeguimientoController::class, 'index']);
