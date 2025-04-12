@@ -12,6 +12,7 @@ use App\Models\Crm\Vehiculo;
 use Carbon\Carbon;
 use GuzzleHttp\Promise\Create;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class VehiculoController extends Controller
 {
@@ -180,7 +181,26 @@ class VehiculoController extends Controller
             'anterior' => Inspeccion::whereMonth('created_at', $mesAnterior)->count(),
         ],
         'historico_gastos' => $historico_gastos,
+        'documentos_estado' => [
+    'vencidos' => DocumentoVehiculo::where('fecha_vencimiento', '<', $now)->count(),
+    'por_vencer' => DocumentoVehiculo::whereBetween('fecha_vencimiento', [$now, $now->copy()->addDays(30)])->count(),
+    'vigentes' => DocumentoVehiculo::where('fecha_vencimiento', '>', $now->copy()->addDays(30))->count(),
+],
+'ultimos_mantenimientos' => Mantenimiento::whereNotNull('fecha_realizado')
+    ->latest('fecha_realizado')
+    ->take(3)
+    ->with('vehiculo') // Asegúrate de tener la relación en el modelo
+    ->get(['id', 'vehiculo_id', 'fecha_realizado']),
+    'tipos_mantenimiento' => Mantenimiento::select('tipo_mantenimiento', DB::raw('count(*) as total'))
+    ->groupBy('tipo_mantenimiento')
+    ->get(),
+
+'tipos_mantenimiento' => Mantenimiento::select('tipo_mantenimiento', DB::raw('count(*) as total'))
+    ->groupBy('tipo_mantenimiento')
+    ->get(),
+
     ]);
+
    }
    
 

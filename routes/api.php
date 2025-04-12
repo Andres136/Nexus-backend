@@ -74,10 +74,10 @@ Route::apiResource('inspecciones', InspeccionController::class);
 Route::apiResource('documentos-vehiculos', DocumentoVehiculoController::class);
 Route::get('dashboard-vehiculos', [VehiculoController::class, 'getDashboardVehiculos']);
 Route::get('vehiculos-all', [VehiculoController::class, 'vehiculosAll']);
-
+Route::apiResource('ordenes-compra-proveedor', OrdenCompraProveedorController::class);
 Route::apiResource('proveedores',ProveedorController::class);
 });
-Route::apiResource('ordenes-compra-proveedor', OrdenCompraProveedorController::class);
+
 
 Route::get('/dashboard', [DashboardController::class, 'getDashboardData']);
 route::get('dashboard-entregas-hoy', [DashboardController::class, 'ordenesEntreganHoy']);
