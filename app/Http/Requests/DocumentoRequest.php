@@ -23,7 +23,7 @@ class DocumentoRequest extends FormRequest
     {
         return [
             'nombre' => 'required|string',
-            'documento' => 'required|mimes:pdf,doc,docx,xls,xlsx', 
+            'documento.max' => 'El documento no debe exceder los 5MB',
             'proceso_id' => 'required',
             'user_id' => 'required',
             'version' => 'required'
@@ -35,6 +35,7 @@ class DocumentoRequest extends FormRequest
             'nombre.required' => 'El nombre es requerido',
             'documento.required' => 'El documento es requerido',
             'documento.mimes' => 'El documento debe ser un archivo PDF, DOC o DOCX, XLS o XLSX',
+            'documento.max' => 'El documento no debe exceder los 5MB',
             'proceso_id.required' => 'El proceso es requerido',
             'user_id.required' => 'El usuario es requerido', 
             'version.required' => 'La versión es requerida',

@@ -5,11 +5,17 @@ use App\Http\Controllers\Crm\CarpetaController;
 use App\Http\Controllers\Crm\ClienteController;
 use App\Http\Controllers\Crm\DashboardController;
 use App\Http\Controllers\Crm\DocumentosAdministrativosController;
+use App\Http\Controllers\Crm\DocumentoVehiculoController;
+use App\Http\Controllers\Crm\InspeccionController;
+use App\Http\Controllers\Crm\MantenimientoController;
 use App\Http\Controllers\Crm\OrdenCompraController;
 use App\Http\Controllers\Crm\OrdenCompraDetallesController;
+use App\Http\Controllers\Crm\OrdenCompraProveedorController;
+use App\Http\Controllers\Crm\ProveedorController;
 use App\Http\Controllers\Crm\SeguimientoController;
 use App\Http\Controllers\Crm\SiigoController;
 use App\Http\Controllers\Crm\SiigoGlobalController;
+use App\Http\Controllers\Crm\VehiculoController;
 use App\Http\Controllers\DepartamentoController;
 use App\Http\Controllers\DocumentoController;
 use App\Http\Controllers\ErrorController;
@@ -61,8 +67,17 @@ Route::middleware('auth:sanctum')->group(function () {
   Route::apiResource('tareas', TareaController::class);
   Route::put('/pqrs/{id}/estado', [PqrController::class, 'cambiarEstado']);
   Route::get('notifications-pqrs/pqr', [NotificacionOrdenController::class, 'notificacionesPqrs']);
-});
+  //vehiculos
+Route::apiResource('vehiculos', VehiculoController::class);
+Route::apiResource('mantenimientos', MantenimientoController::class);
+Route::apiResource('inspecciones', InspeccionController::class);
+Route::apiResource('documentos-vehiculos', DocumentoVehiculoController::class);
+Route::get('dashboard-vehiculos', [VehiculoController::class, 'getDashboardVehiculos']);
+Route::get('vehiculos-all', [VehiculoController::class, 'vehiculosAll']);
 
+Route::apiResource('proveedores',ProveedorController::class);
+});
+Route::apiResource('ordenes-compra-proveedor', OrdenCompraProveedorController::class);
 
 Route::get('/dashboard', [DashboardController::class, 'getDashboardData']);
 route::get('dashboard-entregas-hoy', [DashboardController::class, 'ordenesEntreganHoy']);
@@ -87,4 +102,8 @@ Route::get('procesos/departamento/{departamento_id}', [ProcesoController::class,
 Route::get('download/{id}', [DocumentosAdministrativosController::class, 'downloand']);
 Route::apiResource('carpetas', CarpetaController::class);
 Route::post('login', [AuthController::class, 'login'])->name('login');
-//Descargar documento
+
+
+
+
+
