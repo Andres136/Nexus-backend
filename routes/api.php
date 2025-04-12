@@ -75,6 +75,8 @@ Route::apiResource('documentos-vehiculos', DocumentoVehiculoController::class);
 Route::get('dashboard-vehiculos', [VehiculoController::class, 'getDashboardVehiculos']);
 Route::get('vehiculos-all', [VehiculoController::class, 'vehiculosAll']);
 Route::apiResource('ordenes-compra-proveedor', OrdenCompraProveedorController::class);
+Route::post('/notificaciones/marcar-leidas', [NotificacionOrdenController::class, 'marcarTodasComoLeidas']);
+Route::get('/notifications-pqrs/pqr', [NotificacionOrdenController::class, 'listarNotificacionesPqrs']);
 Route::apiResource('proveedores',ProveedorController::class);
 });
 

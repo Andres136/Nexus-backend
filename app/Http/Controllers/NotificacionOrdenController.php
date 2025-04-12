@@ -45,40 +45,32 @@ class NotificacionOrdenController extends Controller
         Notification::send($usuariosNotificar, new OrdenCompraNotificacion($orden));
         return response()->json(['message' => 'Notificaciones enviadas'], 200);
     }
+    //Lista las notificaciones de un usuario
     public function listarNotificaciones()
     {
-        $usuario = auth()->user();
-    
-        if (!$usuario) {
-            return response()->json(['error' => 'Usuario no autenticado'], 401);
-        }
-    
-        // Obtén las notificaciones sin leer
-        $notificaciones = $usuario->unreadNotifications;
-    
-        // Si quieres verlas en el debug:
-        // dd($notificaciones);
-    
-        // Clona la colección para agrupar
-        $notificacionesListar = collect($notificaciones->all());
-    
-        // Agrupa por type (asegúrate de usar el namespace correcto)
-        $agrupadas = $notificacionesListar->groupBy('type');
-    
-        // (Opcional) Marca como leídas
-        $usuario->unreadNotifications->markAsRead();
-    
-        // Retorna la respuesta
+        $notificaciones = auth()->user()->unreadNotifications;
+
+        //Limpiar notificaciones
+
+        auth()->user()->unreadNotifications;
+
         return response()->json([
-            'notificaciones' => [
-                'ordenes_compra'  => $agrupadas[\App\Notifications\OrdenesPorVencerNotificacion::class] ?? [],
-                'tareas'          => $agrupadas[\App\Notifications\Crm\TareaVencidaNotificacion::class] ?? [],
-                'ingresos'        => $agrupadas[\App\Notifications\NotifyAdminUserLoggedIn::class] ?? [],
-                'total_no_leidas' => $notificacionesListar->count(),
-            ]
+            'notificaciones' => $notificaciones,
+            'total_no_leidas' => $notificaciones->count(),
         ]);
     }
     
+//Marcar notificaciones como leídas
+public function marcarTodasComoLeidas()
+{
+    auth()->user()->unreadNotifications->markAsRead();
+
+    return response()->json(['success' => true]);
+}
+
+
+
+
 
     public function EnviarTaskVencida()
     {
@@ -115,6 +107,21 @@ class NotificacionOrdenController extends Controller
             'pqrs' => $agrupadas[\App\Notifications\PqrNotifycaciones::class] ?? [],
             'total_no_leidas' => $notificacionesListar->count(),
         ]
+    ]);
+}
+
+    // Método para listar notificaciones de PQRs
+public function listarNotificacionesPqrs()
+{
+    $user = auth()->user();
+
+    $notificacionesPqrs = $user->unreadNotifications->filter(function ($noti) {
+        return $noti->type === \App\Notifications\pqrNotifycaciones::class;
+    });
+
+    return response()->json([
+        'notificaciones'  => $notificacionesPqrs->values(), // limpiar índices
+        'total'           => $notificacionesPqrs->count(),
     ]);
 }
 
