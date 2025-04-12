@@ -29,7 +29,7 @@ class VehiculoUpdateRequest extends FormRequest
             'anio' => 'required|integer|min:1900|max:' . date('Y'),
             'tipo' => 'required|string|max:50', // Cambiado de tipo_vehiculo a tipo
             'estado'=> 'required|in:Activo,En mantenimiento,Retirado',
-            'foto' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', // Tamaño máximo de 2MB
+            'foto' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:10000', // Tamaño máximo de 2MB
             'observaciones' => 'nullable|string|max:255',
         ];
     }
@@ -49,7 +49,7 @@ class VehiculoUpdateRequest extends FormRequest
             'estado.in' => 'El estado debe ser uno de los siguientes: Activo, En mantenimiento, Retirado.',
             'foto.image' => 'El archivo debe ser una imagen.',
             'foto.mimes' => 'La imagen debe ser de tipo jpeg, png, jpg o gif.',
-            'foto.max' => 'La imagen no puede exceder los 2MB.',
+            'foto.max' => 'El tamaño máximo de la imagen es de 10MB.',
         ];
     } 
 }

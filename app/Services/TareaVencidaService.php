@@ -14,34 +14,33 @@ class TareaVencidaService
     public function notificarTareasVencidas()
     {
         $hoy = Carbon::now();
-
-        // 🔹 Buscar tareas PENDIENTES (estado_id = 1) con fecha de vencimiento definida
+    
+        // Buscar tareas PENDIENTES (estado_id = 1) con fecha de vencimiento definida
         $tareas = Tareas::with('usuario')
             ->where('estado_id', 1)
-            ->whereNotNull('fecha_fin') // Solo tareas con fecha de vencimiento
+            ->whereNotNull('fecha_fin')
             ->get();
-
+    
         foreach ($tareas as $tarea) {
             $fechaFin = Carbon::parse($tarea->fecha_fin);
             $dosDiasAntes = $fechaFin->copy()->subDays(2);
-
+    
             if ($hoy->greaterThanOrEqualTo($dosDiasAntes)) {
                 try {
-                    // 🔹 Obtener los usuarios CON tareas asignadas o que son Administradores (role_id = 2)
-                    $usuariosNotificar = User::where('role_id', 2) // Administradores
-                        ->orWhere('id', $tarea->user_id) // Usuarios con tareas asignadas
-                        ->get();
-
-                    // 🔹 Enviar notificación en segundo plano (queue)
+                    // 🔔 Solo notificar al usuario asignado
+                    $usuariosNotificar = User::where('id', $tarea->user_id)->get();
+    
+                    // Enviar notificación en segundo plano (queue)
                     Notification::send($usuariosNotificar, new CrmTareaVencidaNotificacion($tarea));
-
-                    // 🔹 Registrar en logs
+    
+                    // Registrar en logs
                     Log::info("Notificación enviada para tarea {$tarea->id} con fecha límite {$tarea->fecha_fin}");
-
+    
                 } catch (\Exception $e) {
                     Log::error("Error al enviar notificación para tarea {$tarea->id}: " . $e->getMessage());
                 }
             }
         }
     }
+    
 }

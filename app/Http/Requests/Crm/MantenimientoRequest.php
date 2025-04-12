@@ -30,7 +30,7 @@ class MantenimientoRequest extends FormRequest
             'costo' => 'required|numeric|min:0',
             'kilometro_programado' => 'required|string|max:255',
             'tipo_mantenimiento' => 'required|string|max:255',
-            'archivo' => 'required|file|mimes:pdf,jpg,jpeg,png|max:5000', // Validar el archivo
+            'archivo' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10000', // Validar el archivo
         ];
     }
 
@@ -51,7 +51,7 @@ class MantenimientoRequest extends FormRequest
             'archivo.required' => 'Debes subir un soporte del mantenimiento.',
             'archivo.file' => 'El campo archivo debe ser un archivo.',
             'archivo.mimes' => 'El campo archivo debe ser un archivo de tipo: pdf, jpg, jpeg, png.',
-            'archivo.max' => 'El campo archivo no debe ser mayor de 5MB.',
+            'archivo.max' => 'El tamaño máximo del archivo es de 10MB.',
         ];
     }
 }
