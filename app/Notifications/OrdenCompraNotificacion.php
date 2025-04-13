@@ -58,6 +58,7 @@ class OrdenCompraNotificacion extends Notification
     {
         return [
             'orden_compra_id' => $this->ordenCompra->id ?? 'Sin ID',
+            'usuario_nombre' => $notifiable->name,
             'cliente' => optional($this->ordenCompra->cliente)->nombre ?? 'Cliente no definido',
             'fecha_entrega' => $this->ordenCompra->fecha_entrega ?? 'No especificada',
             'ubicacion_entrega' => $this->ordenCompra->ubicacion_entrega ?? 'No especificada',

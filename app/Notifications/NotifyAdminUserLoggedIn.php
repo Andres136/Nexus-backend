@@ -61,8 +61,10 @@ class NotifyAdminUserLoggedIn extends Notification
      */
     public function toDatabase($notifiable)
     {
-           return [
-   
-            'name' => $this->name,  ];
+        return [
+            'mensaje' => 'El usuario "' . $this->name . '" ha iniciado sesión en el sistema.',
+          
+        ];
     }
+    
 }
