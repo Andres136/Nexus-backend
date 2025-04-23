@@ -29,6 +29,7 @@ class InspeccionesRequest extends FormRequest
             'responsable' => 'required|string|max:255',
             'observaciones' => 'required|string|max:1000',
             'estado_general' => 'required|string|max:255',
+            'documento' => 'required|file|mimes:pdf,doc,docx,xlsx,xls|max:5120', // Tamaño máximo de 5MB
         ];
     }
     public function messages()
@@ -44,6 +45,12 @@ class InspeccionesRequest extends FormRequest
             'observaciones.string' => 'El campo observaciones debe ser una cadena de texto.',
             'observaciones.max' => 'El campo observaciones no puede tener más de 1000 caracteres.',
             'estado_general.required' => 'Selecciona un estado general.',
+            'estado_general.string' => 'El campo estado general debe ser una cadena de texto.',
+            'estado_general.max' => 'El campo estado general no puede tener más de 255 caracteres.',
+            'documento.required' => 'El documento es obligatorio.',
+            'documento.file' => 'El documento debe ser un archivo.',
+            'documento.mimes' => 'El documento debe ser un archivo PDF, DOC o DOCX, XLS o XLSX',
+            'documento.max' => 'El documento no debe exceder los 5MB',
 
       
         ];

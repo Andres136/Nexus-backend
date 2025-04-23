@@ -30,8 +30,10 @@ class VehiculoRequest extends FormRequest
             'kilometraje_actual' => 'required|integer|min:0',
             'tipo' => 'required|string|max:50', // Cambiado de tipo_vehiculo a tipo
             'estado'=> 'required|in:Activo,En mantenimiento,Retirado',
-            'foto' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:10000', // Tamaño máximo de 5MB
+            'foto' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:10240', // Tamaño máximo de 5MB
             'observaciones' => 'nullable|string|max:255',
+            'licencia_transito' => 'required|string|max:50',
+            'conductor' => 'nullable|string|max:50',
             //
         ];
 
@@ -57,6 +59,12 @@ class VehiculoRequest extends FormRequest
             'foto.image' => 'El archivo debe ser una imagen.',
             'foto.mimes' => 'La imagen debe ser de tipo jpeg, png, jpg o gif.',
             'foto.max' => 'El tamaño máximo de la imagen es de 10MB.',
+            'observaciones.string' => 'Las observaciones deben ser un texto.',
+            'observaciones.max' => 'Las observaciones no pueden exceder los 255 caracteres.',
+            'licencia_transito.required' => 'La licencia de tránsito es obligatoria.',
+            'licencia_transito.string' => 'La licencia de tránsito debe ser un texto.',
+            'conductor.string' => 'El conductor debe ser un texto.',
+            'conductor.max' => 'El nombre del conductor no puede exceder los 50 caracteres.',
         ];
     }
 }

@@ -50,6 +50,7 @@ class OrdenesPorVencerNotificacion extends Notification
     {
         return [
             'orden_id' => $this->ordenCompra->id,
+            "nombre" => $this->ordenCompra->nombre,
             'fecha_entrega' => $this->ordenCompra->fecha_entrega,
             'cliente' => $this->ordenCompra->cliente->nombre,
             'ubicacion_entrega' => $this->ordenCompra->ubicacion_entrega,

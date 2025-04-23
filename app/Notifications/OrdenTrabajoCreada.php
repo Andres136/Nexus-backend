@@ -33,7 +33,9 @@ class OrdenTrabajoCreada extends Notification
     public function toArray($notifiable)
     {
         return [
-            'mensaje' => 'Se generó una orden de trabajo para tu orden de compra',
+            'mensaje' => 'Se generó una orden de trabajo para tu orden de compra',  
+            'nombre' => $this->ordenTrabajo->nombre,
+            'fecha_entrega' => $this->ordenTrabajo->fecha_entrega,
             'orden_trabajo_id' => $this->ordenTrabajo->id,
         ];
     }

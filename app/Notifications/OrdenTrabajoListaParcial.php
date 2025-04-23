@@ -44,6 +44,8 @@ class OrdenTrabajoListaParcial extends Notification
     {
         return [
             'mensaje' => 'Tu orden tiene productos listos. Faltantes: ' . $this->faltantes,
+            'nombre' => $this->ordenTrabajo->nombre,
+            'fecha_entrega' => $this->ordenTrabajo->fecha_entrega,
             'orden_trabajo_id' => $this->ordenTrabajo->id,
         ];
     }

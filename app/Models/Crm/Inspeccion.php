@@ -13,6 +13,8 @@ class Inspeccion extends Model
         'fecha',
         'responsable',
         'estado_general',
+        'observaciones',
+        'documento',    
       
     ];
     public function vehiculo()

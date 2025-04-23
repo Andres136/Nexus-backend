@@ -74,6 +74,14 @@ class pqrNotifycaciones extends Notification
 
        return [
            'tipo' =>'pqr',
+              'mensaje' => 'Se ha recibido una nueva PQR.',
+          
+                'nombre' => $this->pqr['nombre'],
+                'empresa' => $this->pqr['empresa'],
+                'telefono' => $this->pqr['telefono'],
+                'correo' => $this->emailSolicitante,
+                'mensaje_pqr' => $this->pqr['mensaje'],
+                'estado' => 'pendiente',
      
        ];
 

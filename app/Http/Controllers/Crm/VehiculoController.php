@@ -55,6 +55,8 @@ class VehiculoController extends Controller
                 'estado' => $request->estado,
                 'observaciones' => $request->observaciones,
                 'foto' => $rutaFoto,
+                'licencia_transito' => $request->licencia_transito,
+                'conductor' => $request->conductor,
             ]);
         
             return response()->json([
@@ -93,6 +95,8 @@ class VehiculoController extends Controller
         $vehiculo->kilometraje_actual = $request->kilometraje_actual;
         $vehiculo->estado = $request->estado;
         $vehiculo->observaciones = $request->observaciones;
+        $vehiculo->licencia_transito = $request->licencia_transito;
+        $vehiculo->conductor = $request->conductor;
     
         if ($request->hasFile('foto')) {
             $nombre = $request->file('foto')->getClientOriginalName();

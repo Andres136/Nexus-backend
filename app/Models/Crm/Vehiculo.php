@@ -19,6 +19,8 @@ class Vehiculo extends Model
         'estado',
         'observaciones',
         'foto',
+        'licencia_transito',
+        'conductor',
 
        
     ];

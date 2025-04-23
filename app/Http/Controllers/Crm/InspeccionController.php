@@ -22,12 +22,22 @@ class InspeccionController extends Controller
      */
     public function store(InspeccionesRequest $request)
     {
+
+            //traer el nombre original del archivo
+            $nombre = $request->file('documento')->getClientOriginalName();
+            $uniqueName = time() . $nombre;
+            //subir el archivo y almacenar su ruta
+            $rutaDocumento = $request->file('documento')->storeAs('inspecciones', $uniqueName, 'public');
+    
+
         $inspeccion = Inspeccion::create([
             'vehiculo_id' => $request->vehiculo_id,
             'fecha' => $request->fecha,
             'responsable' => $request->responsable,
             'observaciones' => $request->observaciones,
             'estado_general' => $request->estado_general,
+            'documento' => $rutaDocumento,
+            
 
         ]);
 
@@ -53,7 +63,26 @@ class InspeccionController extends Controller
     public function update(Request $request, string $id)
     {
         $inspeccion = Inspeccion::findOrFail($id);
-        $inspeccion->update($request->all());
+
+        // Verificar si se ha subido un nuevo documento
+        if ($request->hasFile('documento')) {
+            // Obtener el nombre original del archivo
+            $nombre = $request->file('documento')->getClientOriginalName();
+            $uniqueName = time() . $nombre;
+            // Subir el archivo y almacenar su ruta
+            $rutaDocumento = $request->file('documento')->storeAs('inspecciones', $uniqueName, 'public');
+            $inspeccion->documento = $rutaDocumento;
+        }
+
+        // Actualizar otros campos
+        $inspeccion->vehiculo_id = $request->vehiculo_id;
+        $inspeccion->fecha = $request->fecha;
+        $inspeccion->responsable = $request->responsable;
+        $inspeccion->observaciones = $request->observaciones;
+        $inspeccion->estado_general = $request->estado_general;
+
+        // Guardar los cambios
+        $inspeccion->save();
 
         return response()->json([
             'message' => 'Inspección actualizada correctamente',
