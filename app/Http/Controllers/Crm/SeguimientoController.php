@@ -17,23 +17,22 @@ class SeguimientoController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
-    {
+
+
+     public function index()
+     {
+         $fechaLimite = Carbon::now()->subDays(30); // Últimos 30 días
      
-
-         // Obtener la fecha de hace 10 días
-    $fechaLimite = Carbon::now()->subDays(30);
-
-    $gestionClientesPorUsuario = User::leftJoin('clientes', 'users.id', '=', 'clientes.user_id')
-        ->select('users.id as user_id', 'users.name as nombre', DB::raw('COUNT(clientes.id) as total'))
-        ->where('clientes.created_at', '>=', $fechaLimite) // Filtrar clientes registrados en los últimos 10 días
-        ->groupBy('users.id', 'users.name')
-        ->get();
-
-    return response()->json($gestionClientesPorUsuario);
-
-    }
-
+         $gestiones = DB::table('seguimiento_clientes')
+             ->join('users', 'seguimiento_clientes.user_id', '=', 'users.id')
+             ->select('users.name as nombre', DB::raw('COUNT(seguimiento_clientes.id) as total'))
+             ->where('seguimiento_clientes.created_at', '>=', $fechaLimite)
+             ->groupBy('users.name')
+             ->get();
+     
+         return response()->json($gestiones);
+     }
+     
     /**
      * Store a newly created resource in storage.
      */

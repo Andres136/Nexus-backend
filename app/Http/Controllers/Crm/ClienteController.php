@@ -16,16 +16,17 @@ class ClienteController extends Controller
      */
     public function clientesTodos(Request $request)
     {
-        $search = $request->input('search', ''); // Por defecto, vacío
-
-        // Si hay una búsqueda, filtrar; si no, traer todos los clientes
-        $clientes = Cliente::when($search, function ($query, $search) {
-            return $query->where('nombre', 'LIKE', "%$search%");
-        })->get();
+        $search = $request->input('search', '');
     
-        return response()->json(['data' => $clientes]); //
-   
+        $clientes = Cliente::when($search, function ($query, $search) {
+                return $query->where('nombre', 'LIKE', "%$search%");
+            })
+            ->orderBy('created_at', 'desc') // 🔽 Clientes más recientes primero
+            ->get();
+    
+        return response()->json(['data' => $clientes]);
     }
+    
 
     public function index(Request $request)
     {

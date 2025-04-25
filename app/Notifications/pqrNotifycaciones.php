@@ -62,7 +62,7 @@ class pqrNotifycaciones extends Notification
             ->line('')
             ->line('Nuestro equipo de soporte ha iniciado la revisión de la información proporcionada. En un plazo de hasta 15 días hábiles nos comunicaremos con usted para informarle los próximos pasos o, si es necesario, solicitar información adicional.')
             ->line('')
-            ->line('Si su solicitud requiere atención prioritaria, puede comunicarse con nuestra línea de atención al cliente al [Número de Teléfono].')
+            ->line('Si su solicitud requiere atención prioritaria, puede comunicarse con nuestra línea de atención al cliente al 3112890067.')
             ->line('')
             ->line('Agradecemos su paciencia y la confianza depositada en nosotros.')
             ->line('')
