@@ -22,13 +22,16 @@ class RolesSeeder extends Seeder
             'Comercial',
             'Transporte',
             'Ejecutivo Comercial',
+            'Gerente Comercial',
+            'Tecnología',
 
         ];
 
         foreach ($roles as $rol) {
-            \App\Models\Roles::create([
+            \App\Models\Roles::firstOrCreate([
                 'nombre' => $rol
             ]);
         }
+        
     }
 }

@@ -102,7 +102,7 @@ class VehiculoController extends Controller
             $nombre = $request->file('foto')->getClientOriginalName();
             $uniqueName = time() . '_' . $nombre;
             $rutaFoto = $request->file('foto')->storeAs('vehiculos', $uniqueName, 'public');
-            $vehiculo->foto = asset('storage/' . $rutaFoto);
+            $vehiculo->foto = $rutaFoto;
         }
     
         $vehiculo->save();
