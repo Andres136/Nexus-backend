@@ -78,8 +78,11 @@ Route::apiResource('ordenes-compra-proveedor', OrdenCompraProveedorController::c
 Route::post('/notificaciones/marcar-leidas', [NotificacionOrdenController::class, 'marcarTodasComoLeidas']);
 Route::get('/notifications-pqrs/pqr', [NotificacionOrdenController::class, 'listarNotificacionesPqrs']);
 Route::apiResource('proveedores',ProveedorController::class);
-});
+Route::get('linea-tiempo-tareas',[TareaController::class,'lineaTiempo']);
 
+
+});
+Route::get('/tareas-resumen-mensual', [TareaController::class, 'resumenMensualFiltrado']);
 
 Route::get('/dashboard', [DashboardController::class, 'getDashboardData']);
 route::get('dashboard-entregas-hoy', [DashboardController::class, 'ordenesEntreganHoy']);
@@ -104,6 +107,7 @@ Route::get('procesos/departamento/{departamento_id}', [ProcesoController::class,
 Route::get('download/{id}', [DocumentosAdministrativosController::class, 'downloand']);
 Route::apiResource('carpetas', CarpetaController::class);
 Route::post('login', [AuthController::class, 'login'])->name('login');
+
 
 
 

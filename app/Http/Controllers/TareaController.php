@@ -84,4 +84,79 @@ class TareaController extends Controller
             'message' => 'Tarea Completada'
         ]);
     }
+    public function lineaTiempo()
+    {
+        $tareas = Tareas::with('usuario') // si necesitas el nombre del usuario
+            ->orderBy('created_at', 'asc')
+            ->get()
+            ->map(function ($tarea) {
+                return [
+                    'id' => $tarea->id,
+                    'nombre' => $tarea->nombre,
+                    'estado' => $tarea->estado_id,
+                    'usuario' => $tarea->usuario->name ?? 'N/A',
+                    'inicio' => $tarea->created_at->format('Y-m-d'),
+                    'fin' => $tarea->fecha_fin,
+                    'vencida' => now()->gt($tarea->fecha_fin),
+                ];
+            });
+    
+        return response()->json($tareas);
+    }
+
+
+    public function resumenMensualFiltrado(Request $request)
+    {
+        // 1) Query base con eager‐loads (igual que en index)
+        $query = Tareas::with('usuario','departamentos');
+    
+        if ($request->filled('user_id')) {
+            $query->where('user_id', $request->user_id);
+        }
+        if ($request->filled('departamento_id')) {
+            $query->where('departamento_id', $request->departamento_id);
+        }
+    
+        // 2) Resumen mensual (clone para no “ensuciar” el builder principal)
+        $resumen = (clone $query)
+            ->selectRaw('MONTH(created_at) AS mes')
+            ->selectRaw('COUNT(*) AS total')
+            ->selectRaw('SUM(CASE WHEN estado_id = 1 THEN 1 ELSE 0 END) AS pendientes')
+            ->selectRaw('SUM(CASE WHEN estado_id = 2 THEN 1 ELSE 0 END) AS completadas')
+            ->groupByRaw('MONTH(created_at)')
+            ->orderByRaw('MONTH(created_at)')
+            ->get();
+    
+        // 3) Lista de usuarios únicos
+        $usuarios = (clone $query)
+            ->get()
+            ->pluck('usuario')               // trae el modelo User
+            ->unique('id')
+            ->values()
+            ->map(fn($u) => [
+                'id'   => $u->id,
+                'name' => $u->name,
+            ]);
+    
+        // 4) Lista de departamentos únicos
+        $departamentos = (clone $query)
+            ->get()
+            ->pluck('departamentos')        // trae el modelo Departamento
+            ->unique('id')
+            ->values()
+            ->map(fn($d) => [
+                'id'     => $d->id,
+                'nombre' => $d->nombre,
+            ]);
+    
+        return response()->json([
+            'resumen'      => $resumen,
+            'usuarios'     => $usuarios,
+            'departamentos'=> $departamentos,
+        ]);
+    }
+    
+    
+    
+
 }
