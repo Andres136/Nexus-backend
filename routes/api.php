@@ -80,6 +80,7 @@ Route::get('/notifications-pqrs/pqr', [NotificacionOrdenController::class, 'list
 Route::apiResource('proveedores',ProveedorController::class);
 Route::get('/tareasKpi', [TareaController::class, 'resumenMensualFiltrado']);
 
+
 });
 
 

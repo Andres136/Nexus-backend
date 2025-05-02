@@ -28,7 +28,7 @@ class OrdenCompraService
 
             if ($hoy->greaterThanOrEqualTo($dosDiasAntes)) {
                 // 🔹 Obtener los usuarios con role_id específico
-                $usuariosNotificar = User::whereIn('role_id', [1, 5, 3])->get(); // Ajusta los IDs de roles según la base de datos
+                $usuariosNotificar = User::whereIn('role_id', [ 5,4,6,7])->get(); // Ajusta los IDs de roles según la base de datos
 
                 // 🔹 Enviar notificación a los usuarios correspondientes
                 Notification::send($usuariosNotificar, new OrdenesPorVencerNotificacion($orden));
