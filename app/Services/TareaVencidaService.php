@@ -7,12 +7,19 @@ use App\Notifications\Crm\TareaVencidaNotificacion as CrmTareaVencidaNotificacio
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
-use App\Notifications\TareaVencidaNotificacion;
+use Illuminate\Support\Facades\Cache;
 
 class TareaVencidaService
 {
     public function notificarTareasVencidas()
     {
+        $hoy = Carbon::now()->toDateString(); // ej: '2025-05-05'
+
+        // ✅ Verificar si ya se ejecutó hoy
+        if (Cache::has('notificacion_tareas_' . $hoy)) {
+            return; // Ya se ejecutó hoy
+        }
+
         $hoy = Carbon::now();
     
         // Buscar tareas PENDIENTES (estado_id = 1) con fecha de vencimiento definida
@@ -27,20 +34,17 @@ class TareaVencidaService
     
             if ($hoy->greaterThanOrEqualTo($dosDiasAntes)) {
                 try {
-                    // 🔔 Solo notificar al usuario asignado
                     $usuariosNotificar = User::where('id', $tarea->user_id)->get();
-    
-                    // Enviar notificación en segundo plano (queue)
                     Notification::send($usuariosNotificar, new CrmTareaVencidaNotificacion($tarea));
-    
-                    // Registrar en logs
                     Log::info("Notificación enviada para tarea {$tarea->id} con fecha límite {$tarea->fecha_fin}");
-    
                 } catch (\Exception $e) {
                     Log::error("Error al enviar notificación para tarea {$tarea->id}: " . $e->getMessage());
                 }
             }
         }
+
+        // ✅ Marcar como ejecutado por 24 horas
+        Cache::put('notificacion_tareas_' . $hoy, true, now()->addDay());
     }
-    
 }
+

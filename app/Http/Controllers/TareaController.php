@@ -23,7 +23,7 @@ class TareaController extends Controller
                 $q->where('name', 'like', '%' . $request->usuario . '%');
             });
         }
-    
+        $query->orderByRaw('estado_id = 1 DESC');
         $tareas = $query->paginate(10);
         return response()->json($tareas);
     }
@@ -69,21 +69,32 @@ class TareaController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        //
+        $tarea = Tareas::find($id);
+
+        if (!$tarea) {
+            return response()->json(['message' => 'Tarea no encontrada'], 404);
+        }
+    
+        $tarea->estado_id = 2; // Asume que "2" representa "completada"
+        $tarea->save();
+    
+        return response()->json([
+            'message' => 'Tarea marcada como completada'
+        ]);
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
-    {
+    // public function destroy(string $id)
+    // {
         
-        $tarea = Tareas::find($id);
-        $tarea->delete();
-        return response()->json([
-            'message' => 'Tarea Completada'
-        ]);
-    }
+    //     $tarea = Tareas::find($id);
+    //     $tarea->delete();
+    //     return response()->json([
+    //         'message' => 'Tarea Completada'
+    //     ]);
+    // }
     public function lineaTiempo()
     {
         $tareas = Tareas::with('usuario') // si necesitas el nombre del usuario

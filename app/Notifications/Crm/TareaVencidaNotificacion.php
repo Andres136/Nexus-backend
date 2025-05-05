@@ -46,6 +46,7 @@ class TareaVencidaNotificacion extends Notification
             ->greeting('Hola ' . $notifiable->name . ',')
             ->line($mensaje)
             ->line('Tarea: ' . $this->tarea->nombre)
+            ->line('🔢 Codigo de tarea: ' . $this->tarea->id)
             ->line('📅 Fecha de entrega: ' . $this->tarea->fecha_fin)
             ->line('📝 Descripción: ' . $this->tarea->descripcion)  
             ->line('Gracias por gestionar tus tareas a tiempo.');

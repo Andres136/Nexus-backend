@@ -63,7 +63,7 @@ Route::middleware('auth:sanctum')->group(function () {
  Route::get('stock', [SiigoController::class, 'stock']);
    
   Route::get('stock-global', [SiigoGlobalController::class, 'stock']);
-  Route::put('tareas/estado/{id}/', [TareaController::class, 'destroy']);
+  Route::patch('tareas/estado/{id}/', [TareaController::class, 'update']);
   Route::apiResource('tareas', TareaController::class);
   Route::put('/pqrs/{id}/estado', [PqrController::class, 'cambiarEstado']);
   Route::get('notifications-pqrs/pqr', [NotificacionOrdenController::class, 'notificacionesPqrs']);
@@ -78,11 +78,11 @@ Route::apiResource('ordenes-compra-proveedor', OrdenCompraProveedorController::c
 Route::post('/notificaciones/marcar-leidas', [NotificacionOrdenController::class, 'marcarTodasComoLeidas']);
 Route::get('/notifications-pqrs/pqr', [NotificacionOrdenController::class, 'listarNotificacionesPqrs']);
 Route::apiResource('proveedores',ProveedorController::class);
-Route::get('/tareasKpi', [TareaController::class, 'resumenMensualFiltrado']);
+
 
 
 });
-
+Route::get('/tareasKpi', [TareaController::class, 'resumenMensualFiltrado']);
 
 
 Route::get('/dashboard', [DashboardController::class, 'getDashboardData']);
