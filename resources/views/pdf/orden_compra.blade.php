@@ -88,8 +88,8 @@
                     <td>{{ $detalle->cantidad_requerida_kg }}</td>
                     <td>{{ $detalle->descripcion }}</td>
                     <td>{{ $detalle->cantidad }}</td>
-                    <td>${{ number_format($detalle->valor_unitario, 0, ',', '.') }}</td>
-                    <td>${{ number_format($detalle->valor_total, 0, ',', '.') }}</td>
+                    <td>${{ number_format($detalle->valor_unitario, 2, ',', '.') }}</td>
+                    <td>${{ number_format($detalle->valor_total, 2, ',', '.') }}</td>
                 </tr>
             @endforeach
         </tbody>

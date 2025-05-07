@@ -28,13 +28,15 @@ class OrdenComprasRequest extends FormRequest
         $rules['detalles.*.cantidad'] = 'required_with:detalles';
         $rules['detalles.*.cantidad_enviada'] = 'nullable_with:detalles';
         $rules['detalles.*.faltantes'] = 'nullable_with:detalles';
-        $rules['detalles.*.valor_unitario'] = 'required_with:detalles';
+        $rules['detalles.*.valor_unitario'] = 'required_with:detalles|numeric|regex:/^\d+(\.\d{1,2})?$/';
+
         $rules['detalles.*.peso_bolsa'] = 'required_with:detalles';
         $rules['detalles.*.numero_bolsas'] = 'required_with:detalles|integer';
         $rules['detalles.*.cliente_clb'] = 'required_with:detalles';
         $rules['detalles.*.cantidad_requerida_kg'] = 'required_with:detalles';
         $rules['detalles.*.descripcion'] = 'required_with:detalles';
-        $rules['detalles.*.valor_total'] = 'required_with:detalles';
+        $rules['detalles.*.valor_total'] = 'required_with:detalles|numeric|regex:/^\d+(\.\d{1,2})?$/';
+
 
 
         return $rules;
