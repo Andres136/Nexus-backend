@@ -83,6 +83,7 @@ Route::apiResource('proveedores',ProveedorController::class);
 
 });
 Route::get('/tareasKpi', [TareaController::class, 'resumenMensualFiltrado']);
+Route::get('/orden-compras/{id}/pdf', [OrdenCompraController::class, 'generarPdf']);
 
 
 Route::get('/dashboard', [DashboardController::class, 'getDashboardData']);

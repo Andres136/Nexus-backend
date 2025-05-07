@@ -13,6 +13,7 @@ use App\Notifications\OrdenCompraNotificacion;
 use App\Notifications\OrdenTrabajoCreada;
 use App\Notifications\OrdenTrabajoListaParcial;
 use App\Services\OrdenCompraService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
@@ -90,6 +91,7 @@ class OrdenCompraController extends Controller
 
             return response()->json([
                 'message' => 'Orden de compra creada con éxito',
+                'orden_compra_id' => $ordenCompra->id,
                 'orden_compra' => $ordenCompra->load('detalles')
             ], 201);
         } catch (\Exception $e) {
@@ -111,7 +113,7 @@ class OrdenCompraController extends Controller
                 ['orden_compra_id' => $ordenCompra->id], // Condición para "buscar" existente
                 [
                     'cliente_id'    => $ordenCompra->cliente_id,
-                    'user_id'       => auth()->id(),  // Usuario actual
+                    'user_id'       => $ordenCompra->user_id,  // Usuario actual
                     'fecha_entrega' => $ordenCompra->fecha_entrega,
                     // Observaciones a nivel de Orden de Trabajo
                     'observaciones' => $request->input('observaciones', ''),
@@ -379,5 +381,15 @@ class OrdenCompraController extends Controller
             ->appends(request()->query()); // Mantiene parámetros en la URL
 
         return response()->json($ordenesCompra);
+    }
+
+    public function generarPDF(Request $request, $id)
+    {
+     
+    $orden = Orden_Compra::with('cliente', 'detalles','usuario')->findOrFail($id);
+
+    $pdf = Pdf::loadView('pdf.orden_compra', compact('orden'));
+
+    return $pdf->download("orden_compra_{$orden->id}.pdf");
     }
 }
