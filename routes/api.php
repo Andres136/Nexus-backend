@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Crm\CarpetaController;
 use App\Http\Controllers\Crm\ClienteController;
+use App\Http\Controllers\Crm\CotizacionController;
 use App\Http\Controllers\Crm\DashboardController;
 use App\Http\Controllers\Crm\DocumentosAdministrativosController;
 use App\Http\Controllers\Crm\DocumentoVehiculoController;
@@ -78,13 +79,19 @@ Route::apiResource('ordenes-compra-proveedor', OrdenCompraProveedorController::c
 Route::post('/notificaciones/marcar-leidas', [NotificacionOrdenController::class, 'marcarTodasComoLeidas']);
 Route::get('/notifications-pqrs/pqr', [NotificacionOrdenController::class, 'listarNotificacionesPqrs']);
 Route::apiResource('proveedores',ProveedorController::class);
-
-
-
-});
 Route::get('/tareasKpi', [TareaController::class, 'resumenMensualFiltrado']);
-Route::get('/orden-compras/{id}/pdf', [OrdenCompraController::class, 'generarPdf']);
 
+
+Route::put('orden-compras/{id}', [OrdenCompraController::class, 'update']);
+Route::get('mis-ordenes', [OrdenCompraController::class, 'misOrdenes']);
+});
+
+
+
+
+Route::get('/orden-compras/{id}/pdf', [OrdenCompraController::class, 'generarPdf']);
+Route::get('/cotizaciones/{id}/pdf', [CotizacionController::class, 'descargarPDF']);
+Route::apiResource('/cotizaciones', CotizacionController::class);
 
 Route::get('/dashboard', [DashboardController::class, 'getDashboardData']);
 route::get('dashboard-entregas-hoy', [DashboardController::class, 'ordenesEntreganHoy']);

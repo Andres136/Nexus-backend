@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Crm;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\NotificacionOrdenController;
 use App\Http\Requests\Crm\OrdenComprasRequest;
+use App\Http\Requests\Crm\OrdenComprasUpdateRequest;
 use App\Http\Requests\Crm\OrdenTrabajoRequest;
 use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\OrdenDeTrabajo;
@@ -12,16 +13,16 @@ use App\Models\User;
 use App\Notifications\OrdenCompraNotificacion;
 use App\Notifications\OrdenTrabajoCreada;
 use App\Notifications\OrdenTrabajoListaParcial;
-use App\Services\OrdenCompraService;
+
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
 
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+
 use Illuminate\Support\Facades\Notification;
-use PhpParser\Node\Stmt\TryCatch;
+
 
 class OrdenCompraController extends Controller
 {
@@ -344,10 +345,78 @@ class OrdenCompraController extends Controller
      */
 
 
-    public function update(Request $request, string $id)
-    {
-        //
-    }
+     public function update(Request $request, $id)
+     {
+         DB::beginTransaction();
+         try {
+             /** @var Orden_Compra $oc */
+             $oc = Orden_Compra::with('ordenTrabajo')->findOrFail($id);
+     
+             // ⛔️ Bloqueamos la edición si ya existe OT
+             if ($oc->ordenTrabajo) {
+                 return response()->json([
+                     'error' => 'La Orden de Trabajo ya fue generada; esta OC no puede modificarse.'
+                 ], 422);
+             }
+     
+             // 1. Actualizar cabecera
+             $oc->update([
+                 'fecha_entrega'     => $request->fecha_entrega,
+                 'cliente_id'        => $request->cliente_id,
+                 'ubicacion_entrega' => $request->ubicacion_entrega,
+                 'observaciones'     => $request->observaciones,
+             ]);
+     
+             // 2. Reconciliar detalles  (3 estrategias posibles)
+             //    A) destruir todos y volver a crear
+             //    B) upsert por ID (con createMany/update/delete faltantes)  ✅
+             //    C) solo updateCampos permitidos
+             $idsEnRequest = collect($request->detalles)->pluck('id')->filter()->all();
+     
+             // B-1) Eliminar detalles que ya no vienen
+             $oc->detalles()->whereNotIn('id', $idsEnRequest)->delete();
+     
+             foreach ($request->detalles as $d) {
+                 $oc->detalles()->updateOrCreate(
+                     ['id' => $d['id'] ?? null],
+                     [
+                         'largo_cm'       => $d['largo_cm'],
+                         'ancho_cm'       => $d['ancho_cm'],
+                         'calibre'        => $d['calibre'],
+                         'cliente_clb'    => $d['cliente_clb']    ?? 0,
+                         'peso_bolsa'     => $d['peso_bolsa']     ?? 0,
+                         'numero_bolsas'  => $d['numero_bolsas']  ?? 0,
+                         'cantidad_requerida_kg'=> $d['cantidad_requerida_kg'] ?? 0,
+                         'descripcion'    => $d['descripcion']    ?? '',
+                         'cantidad'       => $d['cantidad'],
+                         'valor_unitario' => $d['valor_unitario'] ?? 0,
+                         'valor_total'    => $d['valor_total']    ?? 0,
+                         'observaciones'  => $d['observaciones']  ?? '',
+                     ]
+                 );
+             }
+     
+             // 3. Recalcular valor_total
+             $valorTotal = $oc->detalles()->sum('valor_total');
+             $oc->update(['valor_total' => $valorTotal]);
+     
+             DB::commit();
+     
+             return response()->json([
+                 'message'      => 'Orden de compra actualizada',
+                 'orden_compra' => $oc->load('detalles')
+             ], 200);
+         } catch (\Throwable $e) {
+             DB::rollBack();
+             return response()->json([
+                 'error' => 'No se pudo actualizar la OC: ',
+                 'message' => $e->getMessage(),
+                 'linea' => $e->getLine(),
+                 'archivo' => $e->getFile(),
+             ], 500);
+         }
+     }
+     
 
     /**
      * Remove the specified resource from storage.
@@ -392,4 +461,22 @@ class OrdenCompraController extends Controller
 
     return $pdf->download("orden_compra_{$orden->id}.pdf");
     }
+    public function misOrdenes(Request $request)
+{
+    $search = $request->input('search');
+
+    $ordenes = Orden_Compra::with('detalles', 'cliente', 'user', 'estado')
+        ->where('user_id', auth()->id())
+        ->when($search, function ($query, $search) {
+            return $query->whereHas('cliente', function ($q) use ($search) {
+                $q->where('nombre', 'like', "%$search%");
+            });
+        })
+        ->orderBy('created_at', 'desc')
+        ->paginate(5)
+        ->appends(request()->query());
+
+    return response()->json($ordenes);
+}
+
 }

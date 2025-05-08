@@ -74,7 +74,7 @@
                 <th>Valor Unitario</th>
                 <th>Valor Total</th>
             </tr>
-        </thead>
+        </thead>de equipo y mucho más
         <tbody>
             @foreach($orden->detalles as $index => $detalle)
                 <tr>
