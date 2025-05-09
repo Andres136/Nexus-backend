@@ -21,7 +21,8 @@ class CotizacionDetalles extends Model
         'cantidad_requerida_kg',
         'descripcion',
         'cliente_clb',
-        'observaciones'
+        'observaciones',
+        'precio_paquete',
     ];
 
     public function cotizacion()

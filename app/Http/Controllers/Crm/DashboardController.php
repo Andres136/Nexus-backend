@@ -25,7 +25,7 @@ class DashboardController extends Controller
             $fechaVencida   = now()->gt($orden->fecha_entrega);
             $tieneOT        = $orden->ordenTrabajo !== null;
     
-            if ($fechaVencida) {
+            if ($fechaVencida  && !$tieneEnviados) {
                 $estado = 'Vencida';
             } elseif ($tieneFaltantes && $tieneEnviados) {
                 $estado = 'Con faltantes';
