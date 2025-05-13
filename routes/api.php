@@ -12,6 +12,7 @@ use App\Http\Controllers\Crm\MantenimientoController;
 use App\Http\Controllers\Crm\OrdenCompraController;
 use App\Http\Controllers\Crm\OrdenCompraDetallesController;
 use App\Http\Controllers\Crm\OrdenCompraProveedorController;
+use App\Http\Controllers\Crm\ordenTrabajoController;
 use App\Http\Controllers\Crm\ProveedorController;
 use App\Http\Controllers\Crm\SeguimientoController;
 use App\Http\Controllers\Crm\SiigoController;
@@ -87,6 +88,7 @@ Route::get('mis-ordenes', [OrdenCompraController::class, 'misOrdenes']);
 });
 
 
+Route::get('/orden-trabajo/{id}', [ordenTrabajoController::class, 'show']);
 
 
 Route::get('/orden-compras/{id}/pdf', [OrdenCompraController::class, 'generarPdf']);
