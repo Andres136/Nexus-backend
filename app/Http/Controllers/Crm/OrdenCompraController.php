@@ -282,22 +282,27 @@ class OrdenCompraController extends Controller
     public function obtenerOrdenesTrabajo(Request $request)
     {
         $search = $request->input('search');
-
-        // Obtener órdenes de trabajo con paginación y ordenarlas primero por estado (Pendientes primero) y luego por fecha de creación
+        $fecha  = $request->input('fecha'); // solo una fecha exacta
+    
         $ordenesTrabajo = OrdenDeTrabajo::with('ordenCompra.usuario', 'ordenCompra', 'cliente', 'estado', 'ordenCompra.detalles', 'user')
             ->when($search, function ($query, $search) {
                 return $query->whereHas('cliente', function ($query) use ($search) {
                     $query->where('nombre', 'LIKE', "%$search%");
                 });
             })
-            ->orderByRaw("CASE WHEN estado_id = 1 THEN 0 ELSE 1 END") // Ordenar primero los pendientes
-            ->orderBy('created_at', 'desc') // Luego ordenarlos por fecha de creación
+            ->when($fecha, function ($query, $fecha) {
+                return $query->whereHas('ordenCompra', function ($q) use ($fecha) {
+                    $q->whereDate('fecha_entrega', $fecha);
+                });
+            })
+            ->orderByRaw("CASE WHEN estado_id = 1 THEN 0 ELSE 1 END")
+            ->orderBy('created_at', 'desc')
             ->paginate(5)
             ->appends(request()->query());
-
+    
         return response()->json($ordenesTrabajo);
     }
-
+    
 
     /**
      * Enviar notificación a los usuarios con el rol de inventarios y al usuario que creó la orden de compra y orden de trabajo que la esta vencida 
@@ -422,9 +427,21 @@ class OrdenCompraController extends Controller
      * Remove the specified resource from storage.
      */
     public function destroy(string $id)
-    {
-        //
+{
+    $ordenCompra = Orden_Compra::findOrFail($id);
+
+    if ($ordenCompra->estado_id !== 1) {
+        return response()->json([
+            'error' => 'Solo se pueden eliminar órdenes en estado Pendiente.'
+        ], 403);
     }
+
+    $ordenCompra->detalles()->delete(); // Eliminar detalles asociados
+    $ordenCompra->delete(); // Eliminar la orden de compra
+
+    return response()->json(['message' => 'Orden de compra eliminada con éxito'], 200);
+}
+
 
     //Listar todas las ordenes de compra con cantidad enviada para facturar
     public function ordenesFacturar(Request $request)
