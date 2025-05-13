@@ -85,10 +85,10 @@ Route::get('/tareasKpi', [TareaController::class, 'resumenMensualFiltrado']);
 
 Route::put('orden-compras/{id}', [OrdenCompraController::class, 'update']);
 Route::get('mis-ordenes', [OrdenCompraController::class, 'misOrdenes']);
-Route::get('ordenes-compra/{id}', [OrdenCompraController::class, 'show']);
-Route::delete('orden-compras/{id}', [OrdenCompraController::class, 'destroy']);
-});
 
+
+});Route::delete('orden-compras/{id}', [OrdenCompraController::class, 'destroy']);
+Route::get('ordenes-compra/{id}', [OrdenCompraController::class, 'show']);
 
 Route::get('/orden-trabajo/{id}', [ordenTrabajoController::class, 'show']);
 
