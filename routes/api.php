@@ -80,13 +80,14 @@ Route::apiResource('ordenes-compra-proveedor', OrdenCompraProveedorController::c
 Route::post('/notificaciones/marcar-leidas', [NotificacionOrdenController::class, 'marcarTodasComoLeidas']);
 Route::get('/notifications-pqrs/pqr', [NotificacionOrdenController::class, 'listarNotificacionesPqrs']);
 Route::apiResource('proveedores',ProveedorController::class);
+
+Route::apiResource('/cotizaciones', CotizacionController::class);
 Route::get('/tareasKpi', [TareaController::class, 'resumenMensualFiltrado']);
 
 
 Route::put('orden-compras/{id}', [OrdenCompraController::class, 'update']);
 Route::get('mis-ordenes', [OrdenCompraController::class, 'misOrdenes']);
-
-
+Route::get("/mis-cotizaciones", [CotizacionController::class, 'misCotizaciones']);
 });Route::delete('orden-compras/{id}', [OrdenCompraController::class, 'destroy']);
 Route::get('ordenes-compra/{id}', [OrdenCompraController::class, 'show']);
 
@@ -95,7 +96,7 @@ Route::get('/orden-trabajo/{id}', [ordenTrabajoController::class, 'show']);
 
 Route::get('/orden-compras/{id}/pdf', [OrdenCompraController::class, 'generarPdf']);
 Route::get('/cotizaciones/{id}/pdf', [CotizacionController::class, 'descargarPDF']);
-Route::apiResource('/cotizaciones', CotizacionController::class);
+
 
 Route::get('/dashboard', [DashboardController::class, 'getDashboardData']);
 route::get('dashboard-entregas-hoy', [DashboardController::class, 'ordenesEntreganHoy']);

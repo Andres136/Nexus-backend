@@ -30,9 +30,9 @@ class CotizacionRequest extends FormRequest
             'detalles.*.largo_cm' => 'nullable|numeric|min:0',
             'detalles.*.ancho_cm' => 'nullable|numeric|min:0',
             'detalles.*.calibre' => 'nullable|numeric|min:0',
-            'detalles.*.numero_bolsas' => 'required|integer|min:1',
+            'detalles.*.numero_bolsas' => 'nullable|integer|min:1',
             'detalles.*.cantidad' => 'required|numeric|min:0.01',
-            'detalles.*.precio_total' => 'required|numeric|min:0.01',
+            'detalles.*.precio_total' => 'nullable|numeric|min:0.01',
             'detalles.*.descripcion' => 'nullable|string',
             'detalles.*.cliente_clb' => 'nullable|string',
             'detalles.*.observaciones' => 'nullable|string',
@@ -44,8 +44,10 @@ class CotizacionRequest extends FormRequest
             'cliente_id.required' => 'El cliente es obligatorio.',
             'empresa.required' => 'Debe seleccionar una empresa.',
             'detalles.required' => 'Debe agregar al menos un detalle.',
-            'detalles.*.precio_total.required' => 'El precio total es obligatorio en cada ítem.',
-            'detalles.*.numero_bolsas.required' => 'El número de bolsas es obligatorio en cada ítem.',
+            'detalles.*.cantidad.required' => 'La cantidad es obligatoria.',
+            'detalles.*.cantidad.numeric' => 'La cantidad debe ser un número.',
+            'detalles.*.cantidad.min' => 'La cantidad debe ser mayor a 0.',
+            'detalles.*.precio_total.numeric' => 'El precio total debe ser un número.',
 
         ];
     }

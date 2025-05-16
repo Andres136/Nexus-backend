@@ -37,14 +37,13 @@ class NuevaTareaAsignada extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-        ->subject('Nueva tarea asignada')
-        ->greeting('Hola, ' . $notifiable->name)
-        ->line('Se te ha asignado una nueva tarea: ' . $this->tarea->nombre)
-        ->line('Con numero de tarea: ' . $this->tarea->id)
-        ->line('Descripción: ' . $this->tarea->descripcion)
-        ->line('Fecha límite: ' . $this->tarea->fecha_fin)
-        ->line('¡Gracias por tu trabajo!');
+            ->subject('Nueva tarea asignada')
+            ->markdown('emails.nueva_tarea', [
+                'nombre' => $notifiable->name,
+                'tarea' => $this->tarea
+            ]);
     }
+    
 
     /**
      * Get the array representation of the notification.
