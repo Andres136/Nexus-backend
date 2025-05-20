@@ -87,6 +87,7 @@ Route::get('/tareasKpi', [TareaController::class, 'resumenMensualFiltrado']);
 
 Route::put('orden-compras/{id}', [OrdenCompraController::class, 'update']);
 Route::get('mis-ordenes', [OrdenCompraController::class, 'misOrdenes']);
+
 Route::get("/mis-cotizaciones", [CotizacionController::class, 'misCotizaciones']);
 });Route::delete('orden-compras/{id}', [OrdenCompraController::class, 'destroy']);
 Route::get('ordenes-compra/{id}', [OrdenCompraController::class, 'show']);
@@ -96,7 +97,7 @@ Route::get('/orden-trabajo/{id}', [ordenTrabajoController::class, 'show']);
 
 Route::get('/orden-compras/{id}/pdf', [OrdenCompraController::class, 'generarPdf']);
 Route::get('/cotizaciones/{id}/pdf', [CotizacionController::class, 'descargarPDF']);
-
+Route::get("/usuarios-comerciales",[ClienteController::class,'usuariosComerciales']);
 
 Route::get('/dashboard', [DashboardController::class, 'getDashboardData']);
 route::get('dashboard-entregas-hoy', [DashboardController::class, 'ordenesEntreganHoy']);

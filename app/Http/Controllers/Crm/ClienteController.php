@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Crm;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Crm\ClientesRequest;
 use App\Models\Crm\Cliente;
+use App\Models\User;
 use GuzzleHttp\Client;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -146,5 +147,12 @@ class ClienteController extends Controller
         ->paginate(5);
 
     return response()->json($clientes);
+}
+
+//traer usuarios solo con rol 9
+public function usuariosComerciales()
+{
+    $usuarios = User::where('role_id', 9)->get();
+    return response()->json($usuarios);
 }
 }
