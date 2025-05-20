@@ -478,6 +478,10 @@ class OrdenCompraController extends Controller
 
     return $pdf->download("orden_compra_{$orden->id}.pdf");
     }
+
+
+
+
     public function misOrdenes(Request $request)
 {
     $search = $request->input('search');
@@ -496,4 +500,11 @@ class OrdenCompraController extends Controller
     return response()->json($ordenes);
 }
 
+public function edit(string $id)
+{
+    $orden = Orden_Compra::with('detalles', 'cliente', 'user', 'estado')
+                ->findOrFail($id);
+
+    return response()->json($orden, 200);
+}
 }

@@ -89,8 +89,11 @@ Route::put('orden-compras/{id}', [OrdenCompraController::class, 'update']);
 Route::get('mis-ordenes', [OrdenCompraController::class, 'misOrdenes']);
 
 Route::get("/mis-cotizaciones", [CotizacionController::class, 'misCotizaciones']);
-});Route::delete('orden-compras/{id}', [OrdenCompraController::class, 'destroy']);
 Route::get('ordenes-compra/{id}', [OrdenCompraController::class, 'show']);
+Route::get('orden-compras/{id}/edit', [OrdenCompraController::class, 'edit']);
+});
+Route::delete('orden-compras/{id}', [OrdenCompraController::class, 'destroy']);
+
 
 Route::get('/orden-trabajo/{id}', [ordenTrabajoController::class, 'show']);
 

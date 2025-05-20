@@ -3,16 +3,18 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+
+use App\Models\Crm\Orden_Compra;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Session;
 use Laravel\Sanctum\HasApiTokens;
-
+use Spatie\Permission\Traits\HasRoles;  // ← IMPORTA ESTO
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use  HasApiTokens,  Notifiable;
+    use  HasApiTokens,  Notifiable ;
 
     /**
      * The attributes that are mass assignable.
@@ -52,6 +54,8 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Roles::class, 'role_id');
     }
+
+  
 //funcion para relacionar usuarios con estados
     public function estado()
     {
@@ -66,7 +70,11 @@ class User extends Authenticatable
     }
 
     //
-    //funcion para relacionar usuarios con sesiones
+    //funcion para relacionar usuarios con ordenes de compra
+    public function ordenes()
+    {
+        return $this->hasMany(Orden_Compra::class, 'user_id');
+    }
    
     /**
      * The attributes that should be hidden for serialization.
