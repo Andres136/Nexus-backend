@@ -77,7 +77,7 @@
     <p><strong>Teléfono:</strong> {{ $cotizacion->cliente->telefono ?? 'N/A' }}</p>
     <p><strong>Correo:</strong> {{ $cotizacion->cliente->email ?? 'N/A' }}</p>
     <p><strong>Fecha de Cotización:</strong> {{ $cotizacion->created_at->format('d/m/Y') }}</p>
-    <p><strong>Elaborado:</strong>{{ $cotizacion->user->name }}</p>
+    <p><strong>Elaborado:</strong> {{ $cotizacion->user->name }}</p>
     
 
 
@@ -133,35 +133,51 @@
     @php
     // 1) Carga el usuario que firma
     $firmante = $cotizacion->user;
-
-    // 2) Fichero físico real dentro de storage/app/public/usuarios
-    $path = $firmante && $firmante->imagen
-        ? storage_path('app/public/' . $firmante->imagen)
-        : public_path('images/firma-por-defecto.png');
-
-    // 3) Lee el contenido y monta el Data URI
-    if (file_exists($path)) {
-        $type    = pathinfo($path, PATHINFO_EXTENSION);
-        $data    = file_get_contents($path);
-        $base64  = 'data:image/' . $type . ';base64,' . base64_encode($data);
+  
+    // 2) Define ruta al fichero dentro de storage/app/public
+    //    Asegúrate de que $firmante->imagen === "usuarios/tu-archivo.png"
+    $relativePath = $firmante && $firmante->imagen
+      ? 'app/public/' . $firmante->imagen
+      : null;
+  
+    // 3) Construye la ruta absoluta
+    $path = $relativePath
+      ? storage_path($relativePath)
+      : public_path('images/firma-por-defecto.png');
+  
+    // DEBUG: Descomenta para ver en tu log/console cuál es el $path
+    // \Log::debug('Firma path: ' . $path);
+  
+    // 4) Lee el fichero y genera el Data-URI
+    if ($path && file_exists($path)) {
+        $type   = pathinfo($path, PATHINFO_EXTENSION);
+        $data   = file_get_contents($path);
+        $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
     } else {
-        $base64 = '';
+        // Si no existe, deja vacío para no romper el <img>
+        $base64 = null;
+        // \Log::warning("No se encontró firma en ruta: $path");
     }
-@endphp
-
-<footer style="position: fixed; bottom: 20px; width: 100%; text-align: center;">
+  @endphp
+  
+  <footer style="position: fixed; bottom: 20px; width: 100%; text-align: center;">
     @if($base64)
-      <img src="{{ $base64 }}"
-           alt="Firma autorizada"
-           style="height: 100px; width: auto; margin-bottom: 4px;">
+      <img
+        src="{{ $base64 }}"
+        alt="Firma autorizada"
+        style="height: 100px; width: auto; margin-bottom: 4px;"
+      >
     @else
-      <p style="color: #999; font-size: 10px;">[Firma no disponible]</p>
+      <p style="color: #999; font-size: 10px;">
+        {{ $firmante?->name ?? 'Firma no disponible' }}
+      </p>
     @endif
-
+  
     <div style="font-size: 10px; color: #666;">
-      Firma autorizada 
+      Firma autorizada
     </div>
-</footer>
+  </footer>
+  
 
   
       
