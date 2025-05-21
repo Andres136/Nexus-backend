@@ -28,6 +28,7 @@ class RegistroRequest extends FormRequest
             'password' => 'required|string',
             'role_id' => 'required',
             'departamento_id' => 'required',
+            'imagen' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', // Validación para la imagen
          
         ];
     }
@@ -48,7 +49,9 @@ class RegistroRequest extends FormRequest
 
             'role_id.required' => 'El rol es requerido',
             'departamento_id.required' => 'El departamento es requerido',
-            
+            'imagen.image' => 'El archivo debe ser una imagen',
+            'imagen.mimes' => 'La imagen debe ser de tipo jpeg, png, jpg o gif',
+            'imagen.max' => 'La imagen no debe exceder los 2MB',
   
         ];
     }

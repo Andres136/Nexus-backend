@@ -22,7 +22,7 @@ class CotizacionDetalles extends Model
         'descripcion',
         'cliente_clb',
         'observaciones',
-        'precio_paquete',
+        'valor_paquete',
     ];
 
     public function cotizacion()

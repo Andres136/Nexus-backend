@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Notifications\NotifyAdminUserLoggedIn;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class AuthController extends Controller
 {
@@ -31,6 +32,14 @@ class AuthController extends Controller
      */
     public function store(RegistroRequest $request)
     {
+
+            // si subieron un archivo, lo almacenamos y guardamos la ruta
+    $rutaImagen = null;
+    if ($request->hasFile('imagen')) {
+        $rutaImagen = $request->file('imagen')
+            ->store('usuarios', 'public'); // guarda en storage/app/public/usuarios
+    }
+
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
@@ -39,6 +48,7 @@ class AuthController extends Controller
             'role_id' => $request->role_id,
             'estado_id' => 3,
             'departamento_id' => $request->departamento_id,
+            'imagen' => $rutaImagen,
        
         ]);
 
@@ -70,20 +80,45 @@ class AuthController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        $user = User::find($id);
-        $user->name = $request->name;
-        $user->email = $request->email;
-        $user->telefono = $request->telefono;
-        $user->password = bcrypt($request->password);
-        $user->role_id = $request->role_id;
+        // 1) Busca el usuario o falla
+        $user = User::findOrFail($id);
+    
+
+    
+        // 3) Si envían archivo nuevo, bórralo y guarda la ruta
+        if ($request->hasFile('imagen')) {
+            // Borra la anterior, si existe
+            if ($user->imagen) {
+                    Storage::disk('public')->delete($user->imagen);
+            }
+            // Almacena la nueva y asigna la ruta
+            $user->imagen = $request->file('imagen')
+                                ->store('usuarios','public');
+        }
+    
+        // 4) Rellena el resto de campos
+        $user->name            = $request->name;
+        $user->email           = $request->email;
+        $user->telefono        = $request->telefono;
+        $user->role_id         = $request->role_id;
         $user->departamento_id = $request->departamento_id;
-        $user->estado_id = $request->estado_id;
+        $user->estado_id = $request->estado_id ?? $user->estado_id;
+
+        // 5) Sólo cambia password si llegó uno nuevo
+        if ($request->filled('password')) {
+            $user->password = bcrypt($request->password);
+        }
+    
+        // 6) Guarda todo
         $user->save();
+    
+        // 7) Devuelve respuesta
         return response()->json([
             'message' => 'Usuario actualizado correctamente',
-            'user' => $user
+            'user'    => $user,
         ]);
     }
+    
 
     /**
      * Remove the specified resource from storage.
