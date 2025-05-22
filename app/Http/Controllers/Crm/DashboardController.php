@@ -16,26 +16,31 @@ class DashboardController extends Controller
     public function getDashboardData()
     {
         $ordenes = Orden_Compra::with('ordenTrabajo', 'detalles', 'cliente', 'creador')->get();
-        $hoy = now()->format('Y-m-d');
+        $hoy      = now()->startOfDay();
     
-        // Paso 1: Mapear cada orden a un estado único
-        $ordenesConEstado = $ordenes->map(function ($orden) {
+        $ordenesConEstado = $ordenes->map(function ($orden) use ($hoy) {
+            // convierte a Carbon si no está casteada
+            $fechaEntrega = Carbon::parse($orden->fecha_entrega);
+    
             $tieneFaltantes = $orden->detalles->sum('faltantes') > 0;
             $tieneEnviados  = $orden->detalles->sum('cantidad_enviada') > 0;
-            $fechaVencida   = now()->gt($orden->fecha_entrega);
+            $fechaVencida   = $fechaEntrega->lt($hoy);          // antes de hoy
             $tieneOT        = $orden->ordenTrabajo !== null;
     
-            if ($fechaVencida  && !$tieneEnviados) {
-                $estado = 'Vencida';
-            } elseif ($tieneFaltantes && $tieneEnviados) {
+            if ($tieneFaltantes && $tieneEnviados) {
                 $estado = 'Con faltantes';
             } elseif ($tieneEnviados) {
                 $estado = 'Lista';
             } elseif ($tieneOT) {
+                // Si tiene OT, no puede ser "Vencida", aunque esté vencida
                 $estado = 'En orden trabajo';
+            } elseif ($fechaVencida && !$tieneEnviados) {
+                // Solo si no tiene OT, y está vencida
+                $estado = 'Vencida';
             } else {
                 $estado = 'Registrada';
             }
+            
     
             return [
                 'id'             => $orden->id,
