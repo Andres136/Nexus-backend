@@ -13,34 +13,38 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
+   
+   
+
     public function getDashboardData()
     {
         $ordenes = Orden_Compra::with('ordenTrabajo', 'detalles', 'cliente', 'creador')->get();
-        $hoy      = now()->startOfDay();
+        // Defino "hoy" a las 00:00:00
+        $hoy = now()->startOfDay();
     
         $ordenesConEstado = $ordenes->map(function ($orden) use ($hoy) {
-            // convierte a Carbon si no está casteada
-            $fechaEntrega = Carbon::parse($orden->fecha_entrega);
+            // Parseo fecha de entrega y la pongo también al inicio del día
+            $fechaEntrega = Carbon::parse($orden->fecha_entrega)->startOfDay();
     
             $tieneFaltantes = $orden->detalles->sum('faltantes') > 0;
             $tieneEnviados  = $orden->detalles->sum('cantidad_enviada') > 0;
-            $fechaVencida   = $fechaEntrega->lt($hoy);          // antes de hoy
             $tieneOT        = $orden->ordenTrabajo !== null;
     
-            if ($tieneFaltantes && $tieneEnviados) {
+            // Solo se considera vencida si la fecha_entrega es ANTERIOR a hoy
+            // y no se ha enviado nada
+            $fechaVencida = $fechaEntrega->lt($hoy) && ! $tieneEnviados;
+    
+            if ($fechaVencida) {
+                $estado = 'Vencida';
+            } elseif ($tieneFaltantes && $tieneEnviados) {
                 $estado = 'Con faltantes';
             } elseif ($tieneEnviados) {
                 $estado = 'Lista';
             } elseif ($tieneOT) {
-                // Si tiene OT, no puede ser "Vencida", aunque esté vencida
                 $estado = 'En orden trabajo';
-            } elseif ($fechaVencida && !$tieneEnviados) {
-                // Solo si no tiene OT, y está vencida
-                $estado = 'Vencida';
             } else {
                 $estado = 'Registrada';
             }
-            
     
             return [
                 'id'             => $orden->id,
@@ -51,41 +55,37 @@ class DashboardController extends Controller
             ];
         });
     
-        // Paso 2: Agrupar por estado
         $agrupadoPorEstado = $ordenesConEstado->groupBy('estado');
         $porCliente = $ordenesConEstado->groupBy('cliente')->map->count();
         $porUsuario = $ordenesConEstado->groupBy('usuario')->map->count();
     
-        // Paso 3: Calcular órdenes listas recientes (últimos 5 días)
         $listasRecientes = $agrupadoPorEstado->get('Lista', collect())
-            ->filter(function ($orden) use ($ordenes) {
-                $original = $ordenes->firstWhere('id', $orden['id']);
-                return $original?->ordenTrabajo?->updated_at > now()->subDays(5);
-            });
+            ->filter(fn($o) => optional(
+                $ordenes->firstWhere('id', $o['id'])
+            )->ordenTrabajo->updated_at > now()->subDays(5));
     
-        // Paso 4: Retornar datos para el dashboard
         return response()->json([
             'total'              => $ordenes->count(),
             'registradas'        => $agrupadoPorEstado->get('Registrada', collect())->count(),
             'en_orden_trabajo'   => $agrupadoPorEstado->get('En orden trabajo', collect())->count(),
-            'listas'             => $listasRecientes->count(), // Solo listas recientes
+            'listas'             => $listasRecientes->count(),
             'faltantes'          => $agrupadoPorEstado->get('Con faltantes', collect())->count(),
             'vencidas'           => $agrupadoPorEstado->get('Vencida', collect())->count(),
-            'hoy'                => $ordenesConEstado->filter(fn($o) => $o['fecha_entrega'] == $hoy)->count(),
-    
-            // Para tooltips o vistas por estado
+            'hoy'                => $ordenesConEstado
+                                        ->filter(fn($o) =>
+                                            Carbon::parse($o['fecha_entrega'])
+                                                  ->startOfDay()
+                                                  ->eq($hoy)
+                                        )->count(),
             'en_orden_trabajo_detalle' => $agrupadoPorEstado->get('En orden trabajo', collect())->pluck('cliente')->values(),
-            'listas_detalle'           => $listasRecientes->pluck('cliente')->values(), // Solo recientes
+            'listas_detalle'           => $listasRecientes->pluck('cliente')->values(),
             'faltantes_detalle'        => $agrupadoPorEstado->get('Con faltantes', collect())->pluck('cliente')->values(),
             'vencidas_detalle'         => $agrupadoPorEstado->get('Vencida', collect())->pluck('cliente')->values(),
-    
             'por_cliente' => $porCliente,
             'por_usuario' => $porUsuario,
         ]);
     }
     
-
-
 
 
 }
