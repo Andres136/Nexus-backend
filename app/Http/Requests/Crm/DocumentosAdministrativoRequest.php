@@ -23,7 +23,7 @@ class DocumentosAdministrativoRequest extends FormRequest
     {
         return [
             'nombre' => 'required|string|max:255',
-            'archivo' => 'required|mimes:pdf,doc,docx,xls,xlsx|max:5120', 
+            'archivo' => 'required|mimes:pdf,doc,docx,xls,xlsx|max:10240', 
             'carpeta_id' => 'required|exists:carpetas,id',
    
         ];
