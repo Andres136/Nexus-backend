@@ -107,6 +107,16 @@ class DocumentoController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        $documento = Documentos::find($id);
+        if (!$documento) {
+            return response()->json(["Error" => "Documento no encontrado"], 404);
+        }
+        // Eliminar el archivo físico
+        Storage::disk('public')->delete($documento->documento);
+        // Eliminar el registro de la base de datos
+        $documento->delete();
+        return response()->json([
+            'message' => 'Documento eliminado correctamente'
+        ], 200);
     }
 }

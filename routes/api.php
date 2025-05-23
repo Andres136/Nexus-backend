@@ -97,6 +97,7 @@ Route::delete('orden-compras/{id}', [OrdenCompraController::class, 'destroy']);
 
 Route::get('/orden-trabajo/{id}', [ordenTrabajoController::class, 'show']);
 
+Route::get('dashboard/monthly', [DashboardController::class, 'getMonthlyStats']);
 
 Route::get('/orden-compras/{id}/pdf', [OrdenCompraController::class, 'generarPdf']);
 Route::get('/cotizaciones/{id}/pdf', [CotizacionController::class, 'descargarPDF']);
@@ -123,6 +124,7 @@ Route::get('ordenes-trabajo', [OrdenCompraController::class, 'obtenerOrdenesTrab
 Route::get('procesos/departamento/{departamento_id}', [ProcesoController::class, 'index']);
 
 Route::get('download/{id}', [DocumentosAdministrativosController::class, 'downloand']);
+Route::delete('documentos-administrativos/{id}', [DocumentosAdministrativosController::class, 'destroy']);
 Route::apiResource('carpetas', CarpetaController::class);
 Route::post('login', [AuthController::class, 'login'])->name('login');
 

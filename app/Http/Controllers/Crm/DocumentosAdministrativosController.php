@@ -8,6 +8,7 @@ use App\Http\Requests\Crm\DocumentosAdministrativoRequest;
 use App\Models\Crm\Carpeta;
 use App\Models\Crm\Documentos_Administrativos;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class DocumentosAdministrativosController extends Controller
 {
@@ -85,5 +86,17 @@ class DocumentosAdministrativosController extends Controller
     }
 return response()->download($filepath, basename($documentos->archivo));
 
+}
+
+//Eliminar un documento administrativo
+public function destroy($id)
+{
+    $documento = Documentos_Administrativos::findOrFail($id);
+    // Eliminar el archivo físico
+    Storage::disk('public')->delete($documento->archivo);
+    $documento->delete();
+    return response()->json([
+        'message' => 'Documento eliminado correctamente'
+    ], 200);
 }
 }

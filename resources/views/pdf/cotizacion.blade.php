@@ -108,7 +108,7 @@
                         {{ mb_strtoupper($item->descripcion) }}
 
                         @if ($item->ancho_cm > 0 && $item->largo_cm > 0 && $item->calibre > 0)
-                            {{ sinCeros($item->ancho_cm) }}*{{ sinCeros($item->largo_cm) }} Cal.{{ sinCeros($item->calibre) }}
+                            {{ sinCeros($item->ancho_cm) }}*{{ sinCeros($item->largo_cm) }} Cal.{{ sinCeros($item->cliente_clb) }}
                         @endif
                     </td>
                     
@@ -160,12 +160,12 @@
     }
   @endphp
   
-  <footer style="position: fixed; bottom: 20px; width: 100%; text-align: center;">
+  <footer style="position: fixed; bottom: 20px; width: 100%;  left: 20px; text-align: left;">
     @if($base64)
       <img
         src="{{ $base64 }}"
         alt="Firma autorizada"
-        style="height: 100px; width: auto; margin-bottom: 4px;"
+        style="height: 120px; width: auto; margin-bottom: 4px;"
       >
     @else
       <p style="color: #999; font-size: 10px;">

@@ -88,4 +88,29 @@ class DashboardController extends Controller
     
 
 
+// en App\Http\Controllers\Crm\DashboardController.php
+
+public function getMonthlyStats(Request $request)
+{
+    $year  = $request->input('year', now()->year);
+    $month = $request->input('month', now()->month);
+
+    $start = Carbon::create($year, $month, 1)->startOfDay();
+    $end   = Carbon::create($year, $month, 1)->endOfMonth()->endOfDay();
+
+    $ordenes = Orden_Compra::with('detalles')
+        ->whereBetween('fecha_entrega', [$start, $end])
+        ->get();
+
+    $total       = $ordenes->count();
+    $despachadas = $ordenes->filter(fn($o) => $o->detalles->sum('cantidad_enviada') > 0)->count();
+    $vencidas    = $ordenes->filter(fn($o) => Carbon::parse($o->fecha_entrega)->lt(now()->startOfDay()) && $o->detalles->sum('cantidad_enviada') == 0)->count();
+    $pendientes  = $total - $despachadas - $vencidas;
+
+    return response()->json(compact(
+        'year', 'month', 'total', 'despachadas', 'vencidas', 'pendientes'
+    ));
+}
+
+
 }
