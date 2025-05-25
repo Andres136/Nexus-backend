@@ -149,6 +149,7 @@ class CotizacionController extends Controller
         // 4. Procesar cada detalle
         foreach ($detallesRequest as $index => $detalle) {
             $precioTotal   = floatval($detalle['precio_total'] ?? 0);
+            $valor_paquete = floatval($detalle['valor_paquete'] ?? 0);
             $numeroBolsas  = max(1, intval($detalle['numero_bolsas'] ?? 1));
             $valorUnitario = round($precioTotal / $numeroBolsas, 2);
             $cantidad      = floatval($detalle['cantidad'] ?? 0);
@@ -165,6 +166,7 @@ class CotizacionController extends Controller
                 'precio_total'   => $precioTotal,
                 'valor_unitario' => $valorUnitario,
                 'valor_total'    => $valorTotal,
+                'valor_paquete'  => $valor_paquete,
                 'cantidad'       => $detalle['cantidad'] ?? 0,
                 'cliente_clb'    => $detalle['cliente_clb'] ?? null,
                 'cantidad_requerida_kg' => $detalle['cantidad_requerida_kg'] ?? null,
