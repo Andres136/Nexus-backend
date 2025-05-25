@@ -24,4 +24,9 @@ class OrdenCompraProveedorDetalle extends Model
     {
         return $this->belongsTo(OrdenCompraProveedor::class, 'orden_id');
     }
+    //Relacion con el modelo EntregaProveedor
+    public function entregas()
+    {
+        return $this->hasMany(EntregaProveedor::class, 'detalle_id');
+    }
 }

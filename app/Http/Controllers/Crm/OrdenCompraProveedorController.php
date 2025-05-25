@@ -87,27 +87,36 @@ class OrdenCompraProveedorController extends Controller
      */      //Consultar una orden y su estado actual (con detalles y análisis de cantidades entregadas vs solicitadas).
      public function show($id)
      {
-         $orden = OrdenCompraProveedor::with(['proveedor', 'usuario', 'estado', 'detalles'])->findOrFail($id);
+         $orden = OrdenCompraProveedor::with(['proveedor', 'usuario', 'estado', 'detalles.entregas',])->findOrFail($id);
      
          $detalles = $orden->detalles->map(function ($detalle) {
-             $estado = 'Pendiente';
-     
-             if ($detalle->cantidad_entregada >= $detalle->cantidad_solicitada) {
-                 $estado = $detalle->cantidad_entregada > $detalle->cantidad_solicitada
-                     ? 'Con entrega extra'
-                     : 'Completo';
-             }
-     
-             return [
-                 'id' => $detalle->id,
-                    'item' => $detalle->item,
-                 'descripcion' => $detalle->descripcion,
-                 'cantidad_solicitada' => (float) $detalle->cantidad_solicitada,
-                 'cantidad_entregada' => (float) $detalle->cantidad_entregada,
-                 'estado_producto' => $estado,
-                 'updated_at' => $detalle->updated_at, 
-             ];
-         });
+            $estado = 'Pendiente';
+        
+            if ($detalle->cantidad_entregada >= $detalle->cantidad_solicitada) {
+                $estado = $detalle->cantidad_entregada > $detalle->cantidad_solicitada
+                    ? 'Con entrega extra'
+                    : 'Completo';
+            }
+        
+            return [
+                'id' => $detalle->id,
+                'item' => $detalle->item,
+                'descripcion' => $detalle->descripcion,
+                'cantidad_solicitada' => (float) $detalle->cantidad_solicitada,
+                'cantidad_entregada' => (float) $detalle->cantidad_entregada,
+                'estado_producto' => $estado,
+                'updated_at' => $detalle->updated_at,
+                'entregas' => $detalle->entregas->map(function ($entrega) {
+                    return [
+                        'id' => $entrega->id,
+                        'cantidad_entregada' => (float) $entrega->cantidad_entregada,
+                        'fecha_entrega' => $entrega->fecha_entrega->format('Y-m-d H:i:s'),
+                        'observaciones' => $entrega->observaciones,
+                    ];
+                }),
+            ];
+        });
+        
      
          $total = $detalles->count();
          $completados = $detalles->whereIn('estado_producto', ['Completo', 'Con entrega extra'])->count();
@@ -135,30 +144,7 @@ class OrdenCompraProveedorController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    // public function update(UpdateOrdenCompraProveedorDetallesRequest $request, string $id)
-    // {
-        
-    // DB::beginTransaction();
-
-    // try {
-    //     foreach ($request->detalles as $item) {
-    //         $detalle = OrdenCompraProveedorDetalle::find($item['id']);
-
-    //         // Acumular entrega
-    //         $detalle->cantidad_entregada += $item['cantidad_entregada'];
-    //         $detalle->save();
-    //     }
-
-    //     DB::commit();
-    //     return response()->json(['message' => 'Entrega parcial actualizada con éxito.']);
-    // } catch (\Exception $e) {
-    //     DB::rollBack();
-    //     return response()->json([
-    //         'error' => 'Error al actualizar la entrega.',
-    //         'detalles' => $e->getMessage()
-    //     ], 500);
-    // }
-    // }
+    
 
     public function update(UpdateOrdenCompraProveedorDetallesRequest $request, string $id)
 {

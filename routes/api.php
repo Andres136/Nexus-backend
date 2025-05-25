@@ -7,6 +7,7 @@ use App\Http\Controllers\Crm\CotizacionController;
 use App\Http\Controllers\Crm\DashboardController;
 use App\Http\Controllers\Crm\DocumentosAdministrativosController;
 use App\Http\Controllers\Crm\DocumentoVehiculoController;
+use App\Http\Controllers\Crm\EntregaProveedorController;
 use App\Http\Controllers\Crm\InspeccionController;
 use App\Http\Controllers\Crm\MantenimientoController;
 use App\Http\Controllers\Crm\OrdenCompraController;
@@ -91,6 +92,7 @@ Route::get('mis-ordenes', [OrdenCompraController::class, 'misOrdenes']);
 Route::get("/mis-cotizaciones", [CotizacionController::class, 'misCotizaciones']);
 Route::get('ordenes-compra/{id}', [OrdenCompraController::class, 'show']);
 Route::get('orden-compras/{id}/edit', [OrdenCompraController::class, 'edit']);
+Route::post('entregas-proveedor', [EntregaProveedorController::class, 'store']);
 });
 Route::delete('orden-compras/{id}', [OrdenCompraController::class, 'destroy']);
 
