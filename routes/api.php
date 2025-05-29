@@ -95,7 +95,7 @@ Route::get('orden-compras/{id}/edit', [OrdenCompraController::class, 'edit']);
 Route::post('entregas-proveedor', [EntregaProveedorController::class, 'store']);
 });
 Route::delete('orden-compras/{id}', [OrdenCompraController::class, 'destroy']);
-
+Route::get('estadisticas-comerciales',[SeguimientoController::class, 'resumenMensualPorUsuario']);
 
 Route::get('/orden-trabajo/{id}', [ordenTrabajoController::class, 'show']);
 
