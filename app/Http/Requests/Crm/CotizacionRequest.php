@@ -32,7 +32,7 @@ class CotizacionRequest extends FormRequest
             'detalles.*.calibre' => 'nullable|numeric|min:0',
             'detalles.*.numero_bolsas' => 'nullable|integer|min:1',
             'detalles.*.cantidad' => 'required|numeric|min:0.01',
-            'detalles.*.precio_total' => 'nullable|numeric|min:0.01',
+          
             'detalles.*.descripcion' => 'nullable|string',
             'detalles.*.cliente_clb' => 'nullable|string',
             'detalles.*.observaciones' => 'nullable|string',

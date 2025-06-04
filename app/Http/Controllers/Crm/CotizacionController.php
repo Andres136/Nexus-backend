@@ -34,9 +34,11 @@ class CotizacionController extends Controller
                 ->map(function (array $detalle, int $index) {
                     $precioTotal   = floatval($detalle['precio_total'] ?? 0);
                     $numeroBolsas  = max(1, intval($detalle['numero_bolsas'] ?? 1));
-                    $valorUnitario = round($precioTotal / $numeroBolsas, 2);
+                    $valorUnitario = isset($detalle['valor_unitario']) ? floatval($detalle['valor_unitario']) : round($precioTotal / $numeroBolsas, 2);
+                    $valorTotal    = isset($detalle['valor_total']) ? floatval($detalle['valor_total']) : round($cantidad * $valorUnitario * 1.19, 2);
+                    
                     $cantidad      = floatval($detalle['cantidad'] ?? 0);
-                    $valorTotal    = round($cantidad * $valorUnitario * 1.19, 2);
+               
     
                     return array_merge($detalle, [
                         'item'           => $index + 1,
