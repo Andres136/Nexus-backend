@@ -108,7 +108,11 @@ class OrdenCompraController extends Controller
         try {
             // 1. Buscar la Orden de Compra correspondiente
             $ordenCompra = Orden_Compra::findOrFail($id);
-
+            // ✅ Asignar la sede a la orden de compra si aún no tiene
+if (!$ordenCompra->sede_id && $request->filled('sede_id')) {
+    $ordenCompra->sede_id = $request->input('sede_id');
+    $ordenCompra->save();
+}
             // 2. Crear u obtener la Orden de Trabajo asociada a la Orden de Compra
             $ordenTrabajo = OrdenDeTrabajo::firstOrCreate(
                 ['orden_compra_id' => $ordenCompra->id], // Condición para "buscar" existente
@@ -120,6 +124,8 @@ class OrdenCompraController extends Controller
                     'observaciones' => $request->input('observaciones', ''),
                     'valor_total'   => $ordenCompra->valor_total,
                     'estado_id'     => 1, // estado inicial
+          
+     
                 ]
             );
 
@@ -158,6 +164,7 @@ class OrdenCompraController extends Controller
                             'observaciones'  => $detalleData['observaciones']  ?? $detalle->observaciones,
                             'valor_unitario' => $detalleData['valor_unitario'] ?? $detalle->valor_unitario,
                             'valor_total'    => $detalleData['valor_total']    ?? $detalle->valor_total,
+
                             // 'observaciones' => $detalleData['observaciones'] ?? $detalle->observaciones, // si lo requieres
                         ];
 
@@ -274,24 +281,50 @@ class OrdenCompraController extends Controller
 
  
     
-
-
-
-
-
     public function obtenerOrdenesTrabajo(Request $request)
     {
         $search = $request->input('search');
-        $fecha  = $request->input('fecha'); // solo una fecha exacta
+        $fecha  = $request->input('fecha');
+        $sedeId = $request->input('sede');
     
-        $ordenesTrabajo = OrdenDeTrabajo::with('ordenCompra.usuario', 'ordenCompra', 'cliente', 'estado', 'ordenCompra.detalles', 'user')
-            ->when($search, function ($query, $search) {
-                return $query->whereHas('cliente', function ($query) use ($search) {
-                    $query->where('nombre', 'LIKE', "%$search%");
+        $user = auth()->user();
+    
+        $ordenesTrabajo = OrdenDeTrabajo::with([
+                'ordenCompra.sede',
+                'ordenCompra.usuario',
+                'ordenCompra',
+                'ordenCompra.detalles',
+                'cliente',
+                'estado',
+                'user'
+            ])
+            ->when(!in_array($user->role_id, [1, 4, 6]), function ($query) use ($user) {
+                $query->whereHas('ordenCompra', function ($q) use ($user) {
+                    $q->where('sede_id', $user->sede_id);
                 });
             })
+            ->when($sedeId, function ($query, $sedeId) {
+                $query->whereHas('ordenCompra', function ($q) use ($sedeId) {
+                    $q->where('sede_id', $sedeId);
+                });
+            })
+            ->when($search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    // Buscar por nombre del cliente
+                    $q->whereHas('cliente', function ($q2) use ($search) {
+                        $q2->where('nombre', 'LIKE', "%$search%");
+                    })
+                    // Buscar por nombre de la sede
+                    ->orWhereHas('ordenCompra.sede', function ($q3) use ($search) {
+                        $q3->where('nombre', 'LIKE', "%$search%");
+                    })
+                    // Buscar por ID de orden si se escribe un número exacto
+                    ->orWhere('id', $search);
+                });
+            })
+            
             ->when($fecha, function ($query, $fecha) {
-                return $query->whereHas('ordenCompra', function ($q) use ($fecha) {
+                $query->whereHas('ordenCompra', function ($q) use ($fecha) {
                     $q->whereDate('fecha_entrega', $fecha);
                 });
             })
@@ -302,6 +335,8 @@ class OrdenCompraController extends Controller
     
         return response()->json($ordenesTrabajo);
     }
+    
+ 
     
 
     /**

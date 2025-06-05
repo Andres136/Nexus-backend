@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegistroRequest;
 use App\Http\Requests\TareaRequest;
+use App\Models\Crm\Sede;
 use App\Models\Tareas;
 use App\Models\User;
 use App\Notifications\NotifyAdminUserLoggedIn;
@@ -17,15 +18,22 @@ class AuthController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        //traer registros de usuarios con el departamento y el rol
-        $users = User::with('departamento', 'role', 'estado')->paginate(10);
-        return response()->json($users);
-       
-
-       
+        $query = User::with('departamento', 'role', 'estado', 'sede');
+    
+        if ($request->has('search') && $request->search !== null) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('telefono', 'like', "%{$search}%");
+            });
+        }
+    
+        return response()->json($query->paginate(10));
     }
+    
 
     /**
      * Store a newly created resource in storage.
@@ -39,7 +47,12 @@ class AuthController extends Controller
         $rutaImagen = $request->file('imagen')
             ->store('usuarios', 'public'); // guarda en storage/app/public/usuarios
     }
-
+    
+    //Crear la Sede
+    $sede= Sede::create([
+        'nombre' => $request->sede_nombre,
+        'direccion' => $request->sede_direccion,
+    ]);
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
@@ -48,6 +61,7 @@ class AuthController extends Controller
             'role_id' => $request->role_id,
             'estado_id' => 3,
             'departamento_id' => $request->departamento_id,
+            'sede_id' => $sede->id, // Asignar la sede creada
             'imagen' => $rutaImagen,
        
         ]);
@@ -103,6 +117,16 @@ class AuthController extends Controller
         $user->role_id         = $request->role_id;
         $user->departamento_id = $request->departamento_id;
         $user->estado_id = $request->estado_id ?? $user->estado_id;
+        if ($request->filled('sede_nombre')) {
+            $sede = Sede::firstOrCreate([
+                'nombre' => $request->sede_nombre,
+                'direccion' => $request->sede_direccion ?? 'Sin dirección',
+            ]);
+            $user->sede_id = $sede->id;
+        } else {
+            $user->sede_id = $request->sede_id;
+        }
+        
 
         // 5) Sólo cambia password si llegó uno nuevo
         if ($request->filled('password')) {

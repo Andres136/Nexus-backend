@@ -24,6 +24,7 @@ class Orden_Compra extends Model
         'ubicacion_entrega',
         'observaciones',
         'valor_total',
+        'sede_id', // Agregar el campo sede_id
     ];
 
     // funcion relacion con detalles
@@ -70,6 +71,10 @@ class Orden_Compra extends Model
 {
     return $this->hasOne(OrdenDeTrabajo::class , 'orden_compra_id');
 }
+    public function sede()
+    {
+        return $this->belongsTo(Sede::class, 'sede_id');
+    }
 
    
 }

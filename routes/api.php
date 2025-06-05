@@ -15,6 +15,7 @@ use App\Http\Controllers\Crm\OrdenCompraDetallesController;
 use App\Http\Controllers\Crm\OrdenCompraProveedorController;
 use App\Http\Controllers\Crm\ordenTrabajoController;
 use App\Http\Controllers\Crm\ProveedorController;
+use App\Http\Controllers\Crm\SedeController;
 use App\Http\Controllers\Crm\SeguimientoController;
 use App\Http\Controllers\Crm\SiigoController;
 use App\Http\Controllers\Crm\SiigoGlobalController;
@@ -93,11 +94,15 @@ Route::get("/mis-cotizaciones", [CotizacionController::class, 'misCotizaciones']
 Route::get('ordenes-compra/{id}', [OrdenCompraController::class, 'show']);
 Route::get('orden-compras/{id}/edit', [OrdenCompraController::class, 'edit']);
 Route::post('entregas-proveedor', [EntregaProveedorController::class, 'store']);
+Route::get('/orden-trabajo/{id}', [ordenTrabajoController::class, 'show']);
+Route::get('ordenes-trabajo', [OrdenCompraController::class, 'obtenerOrdenesTrabajo']);
 });
+Route::get('/sedes', [SedeController::class, 'index']);
+
 Route::delete('orden-compras/{id}', [OrdenCompraController::class, 'destroy']);
 Route::get('estadisticas-comerciales',[SeguimientoController::class, 'resumenMensualPorUsuario']);
 
-Route::get('/orden-trabajo/{id}', [ordenTrabajoController::class, 'show']);
+
 
 Route::get('dashboard/monthly', [DashboardController::class, 'getMonthlyStats']);
 
@@ -122,7 +127,7 @@ Route::post('contacto', [PqrController::class, 'contacto']);
 //rutas crm
 Route::get('/seguimientos', [SeguimientoController::class, 'index']);
 
-Route::get('ordenes-trabajo', [OrdenCompraController::class, 'obtenerOrdenesTrabajo']);
+
 Route::get('procesos/departamento/{departamento_id}', [ProcesoController::class, 'index']);
 
 Route::get('download/{id}', [DocumentosAdministrativosController::class, 'downloand']);

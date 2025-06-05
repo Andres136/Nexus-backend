@@ -29,7 +29,9 @@ class RegistroRequest extends FormRequest
             'role_id' => 'required',
             'departamento_id' => 'required',
             'imagen' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', // Validación para la imagen
-         
+           // Reglas para la sede
+        'sede_nombre' => 'required|string|max:255',
+        'sede_direccion' => 'nullable|string|max:255',
         ];
     }
     public function messages(): array
@@ -52,6 +54,10 @@ class RegistroRequest extends FormRequest
             'imagen.image' => 'El archivo debe ser una imagen',
             'imagen.mimes' => 'La imagen debe ser de tipo jpeg, png, jpg o gif',
             'imagen.max' => 'La imagen no debe exceder los 2MB',
+            'sede_nombre.required' => 'El nombre de la sede es requerido',
+            'sede_nombre.string' => 'El nombre de la sede debe ser una cadena de texto',
+            'sede_direccion.string' => 'La dirección de la sede debe ser una cadena de texto',
+
   
         ];
     }

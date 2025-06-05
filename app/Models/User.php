@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 
 use App\Models\Crm\Orden_Compra;
+use App\Models\Crm\Sede;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -30,6 +31,7 @@ class User extends Authenticatable
         'imagen', 
         'role_id',  
         'estado_id'
+        ,'sede_id'
     ];
 
     //funcion para relacionar usuarios con documentos
@@ -77,6 +79,12 @@ class User extends Authenticatable
         return $this->hasMany(Orden_Compra::class, 'user_id');
     }
    
+
+    //Relacion con la tabla sedes
+    public function sede()
+    {
+        return $this->belongsTo(Sede::class);
+    }
     /**
      * The attributes that should be hidden for serialization.
      *
