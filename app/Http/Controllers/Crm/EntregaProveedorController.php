@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Crm;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Crm\EntregasResquest;
 use App\Models\Crm\EntregaProveedor;
+use App\Models\Crm\OrdenCompraProveedor;
 use App\Models\Crm\OrdenCompraProveedorDetalle;
 use Illuminate\Http\Request;
 
@@ -91,6 +92,37 @@ if ($todosCompletos && $orden->estado_id !== 2) {
             'detalle_actualizado' => $detalle,
         ]);
     }
+    public function referenciasExcedidas()
+    {
+        $ordenes = \App\Models\Crm\OrdenCompraProveedor::with(['detalles', 'proveedor'])->get();
+    
+        $excedidos = collect();
+    
+        foreach ($ordenes as $orden) {
+            $excedidosOrden = $orden->detalles->filter(function ($detalle) {
+                return $detalle->cantidad_entregada > $detalle->cantidad_solicitada;
+            })->map(function ($detalle) use ($orden) {
+                return [
+                    'orden_id' => $orden->id,
+                    'numero_orden' => $orden->numero_orden,
+                    'fecha_orden' => $orden->fecha,
+                    'proveedor' => $orden->proveedor->nombre ?? 'N/A',
+                    'descripcion' => $detalle->descripcion,
+                    'cantidad_solicitada' => $detalle->cantidad_solicitada,
+                    'cantidad_entregada' => $detalle->cantidad_entregada,
+                    'excedente' => $detalle->cantidad_entregada - $detalle->cantidad_solicitada,
+                    'item' => $detalle->item,
+                ];
+            });
+    
+            $excedidos = $excedidos->merge($excedidosOrden);
+        }
+    
+        return response()->json([
+            'referencias_excedidas' => $excedidos->values(),
+        ]);
+    }
+    
     
     
     

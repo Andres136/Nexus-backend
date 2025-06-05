@@ -97,8 +97,10 @@ Route::post('entregas-proveedor', [EntregaProveedorController::class, 'store']);
 Route::put('entregas-proveedor/{id}', [EntregaProveedorController::class, 'update']);
 Route::get('/orden-trabajo/{id}', [ordenTrabajoController::class, 'show']);
 Route::get('ordenes-trabajo', [OrdenCompraController::class, 'obtenerOrdenesTrabajo']);
+
 });
 Route::get('/sedes', [SedeController::class, 'index']);
+Route::get('referencias-excedidas', [EntregaProveedorController::class, 'referenciasExcedidas']);
 
 Route::delete('orden-compras/{id}', [OrdenCompraController::class, 'destroy']);
 Route::get('estadisticas-comerciales',[SeguimientoController::class, 'resumenMensualPorUsuario']);
