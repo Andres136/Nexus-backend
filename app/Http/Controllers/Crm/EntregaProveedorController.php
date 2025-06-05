@@ -123,7 +123,18 @@ if ($todosCompletos && $orden->estado_id !== 2) {
         ]);
     }
     
-    
+    public function updateDetalle(Request $request, $id)
+{
+    $detalle = OrdenCompraProveedorDetalle::findOrFail($id);
+    $detalle->update([
+        'descripcion' => $request->descripcion,
+        'cantidad_solicitada' => $request->cantidad_solicitada,
+     
+    ]);
+
+    return response()->json(['mensaje' => 'Detalle actualizado correctamente']);
+}
+
     
     
 }

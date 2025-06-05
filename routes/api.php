@@ -101,6 +101,7 @@ Route::get('ordenes-trabajo', [OrdenCompraController::class, 'obtenerOrdenesTrab
 });
 Route::get('/sedes', [SedeController::class, 'index']);
 Route::get('referencias-excedidas', [EntregaProveedorController::class, 'referenciasExcedidas']);
+Route::put('/detalles-orden/{id}', [EntregaProveedorController::class, 'updateDetalle']);
 
 Route::delete('orden-compras/{id}', [OrdenCompraController::class, 'destroy']);
 Route::get('estadisticas-comerciales',[SeguimientoController::class, 'resumenMensualPorUsuario']);
