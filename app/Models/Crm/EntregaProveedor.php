@@ -23,4 +23,10 @@ class EntregaProveedor extends Model
     {
         return $this->belongsTo(OrdenCompraProveedorDetalle::class, 'detalle_id');
     }
+    public function detalle()
+{
+    return $this->belongsTo(OrdenCompraProveedorDetalle::class, 'detalle_id');
+}
+
+
 }

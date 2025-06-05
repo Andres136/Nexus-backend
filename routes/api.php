@@ -94,6 +94,7 @@ Route::get("/mis-cotizaciones", [CotizacionController::class, 'misCotizaciones']
 Route::get('ordenes-compra/{id}', [OrdenCompraController::class, 'show']);
 Route::get('orden-compras/{id}/edit', [OrdenCompraController::class, 'edit']);
 Route::post('entregas-proveedor', [EntregaProveedorController::class, 'store']);
+Route::put('entregas-proveedor/{id}', [EntregaProveedorController::class, 'update']);
 Route::get('/orden-trabajo/{id}', [ordenTrabajoController::class, 'show']);
 Route::get('ordenes-trabajo', [OrdenCompraController::class, 'obtenerOrdenesTrabajo']);
 });
