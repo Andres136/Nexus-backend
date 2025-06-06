@@ -34,17 +34,20 @@ class DashboardController extends Controller
             // y no se ha enviado nada
             $fechaVencida = $fechaEntrega->lt($hoy) && ! $tieneEnviados;
     
-            if ($fechaVencida) {
-                $estado = 'Vencida';
-            } elseif ($tieneFaltantes && $tieneEnviados) {
-                $estado = 'Con faltantes';
-            } elseif ($tieneEnviados) {
-                $estado = 'Lista';
-            } elseif ($tieneOT) {
-                $estado = 'En orden trabajo';
-            } else {
-                $estado = 'Registrada';
-            }
+        // ✅ Clasificación considerando "Entrega Parcial"
+    if ($orden->estado_id === 5) {
+        $estado = 'Entrega Parcial';
+    } elseif ($fechaVencida) {
+        $estado = 'Vencida';
+    } elseif ($tieneFaltantes && $tieneEnviados) {
+        $estado = 'Con faltantes';
+    } elseif ($tieneEnviados) {
+        $estado = 'Lista';
+    } elseif ($tieneOT) {
+        $estado = 'En orden trabajo';
+    } else {
+        $estado = 'Registrada';
+    }
     
             return [
                 'id'             => $orden->id,
@@ -83,6 +86,9 @@ class DashboardController extends Controller
             'vencidas_detalle'         => $agrupadoPorEstado->get('Vencida', collect())->pluck('cliente')->values(),
             'por_cliente' => $porCliente,
             'por_usuario' => $porUsuario,
+            'entrega_parcial'        => $agrupadoPorEstado->get('Entrega Parcial', collect())->count(),
+'entrega_parcial_detalle'=> $agrupadoPorEstado->get('Entrega Parcial', collect())->pluck('cliente')->values(),
+
         ]);
     }
     
@@ -100,17 +106,22 @@ public function getMonthlyStats(Request $request)
 
     $ordenes = Orden_Compra::with('detalles')
         ->whereBetween('fecha_entrega', [$start, $end])
+        ->where('estado_id', '!=', 5) // ❌ Excluir Entrega Parcial
         ->get();
 
     $total       = $ordenes->count();
     $despachadas = $ordenes->filter(fn($o) => $o->detalles->sum('cantidad_enviada') > 0)->count();
-    $vencidas    = $ordenes->filter(fn($o) => Carbon::parse($o->fecha_entrega)->lt(now()->startOfDay()) && $o->detalles->sum('cantidad_enviada') == 0)->count();
+    $vencidas    = $ordenes->filter(fn($o) =>
+        Carbon::parse($o->fecha_entrega)->lt(now()->startOfDay()) &&
+        $o->detalles->sum('cantidad_enviada') == 0
+    )->count();
     $pendientes  = $total - $despachadas - $vencidas;
 
     return response()->json(compact(
         'year', 'month', 'total', 'despachadas', 'vencidas', 'pendientes'
     ));
 }
+
 
 
 }

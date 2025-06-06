@@ -10,7 +10,7 @@
             color: #333;
         }
         .logo {
-            width: 120px;
+            width: 90px;
             height:80px;
         }
         .header {

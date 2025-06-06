@@ -9,6 +9,7 @@ use App\Http\Requests\Crm\OrdenComprasUpdateRequest;
 use App\Http\Requests\Crm\OrdenTrabajoRequest;
 use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\OrdenDeTrabajo;
+use App\Models\Estados;
 use App\Models\User;
 use App\Notifications\OrdenCompraNotificacion;
 use App\Notifications\OrdenTrabajoCreada;
@@ -252,6 +253,27 @@ if (!$ordenCompra->sede_id && $request->filled('sede_id')) {
             if ($fueCreada) {
                 $user->notify(new OrdenTrabajoCreada($ordenTrabajo));
             }
+
+
+            // 6. Determinar y actualizar el estado final
+$estadoPendiente = Estados::where('nombre', 'Pendiente')->first()->id;
+$estadoParcial   = Estados::where('nombre', 'Entrega Parcial')->first()->id;
+$estadoCompleto  = Estados::where('nombre', 'Completado')->first()->id;
+
+$totalSolicitado = $ordenCompra->detalles()->sum('cantidad');
+$totalEntregado  = $ordenCompra->detalles()->sum('cantidad_enviada');
+$forzarParcial   = $request->boolean('forzar_entrega_parcial');
+
+if ($ordenCompleta) {
+    $nuevoEstado = $estadoCompleto;
+} elseif ($forzarParcial || ($totalEntregado > 0 && $totalEntregado < $totalSolicitado)) {
+    $nuevoEstado = $estadoParcial;
+} else {
+    $nuevoEstado = $estadoPendiente;
+}
+
+$ordenTrabajo->update(['estado_id' => $nuevoEstado]);
+$ordenCompra->update(['estado_id' => $nuevoEstado]);
 
             // Solo notificar si hay productos alistados
             if ($totalFaltantes < $ordenCompra->detalles->sum('cantidad')) {
