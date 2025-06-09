@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Notifications;
 
 use Illuminate\Notifications\Notification;
@@ -10,6 +11,8 @@ class OrdenTrabajoCreada extends Notification
 
     public function __construct($ordenTrabajo)
     {
+        // Cargamos relaciones necesarias si aún no vienen cargadas
+        $ordenTrabajo->loadMissing(['ordenCompra.sede', 'cliente']);
         $this->ordenTrabajo = $ordenTrabajo;
     }
 
@@ -20,23 +23,28 @@ class OrdenTrabajoCreada extends Notification
 
     public function toMail($notifiable)
     {
+        $ordenCompra = $this->ordenTrabajo->ordenCompra;
+        $sedeNombre = $ordenCompra->sede->nombre ?? 'Sede no asignada';
+
         return (new MailMessage)
             ->subject('Orden de trabajo generada')
             ->greeting('Hola ' . $notifiable->name)
-            ->line('Se ha generado una orden de trabajo con numero ' . $this->ordenTrabajo->id . ' para tu orden de compra con numero.' . $this->ordenTrabajo->ordenCompra->id)
-            ->line('Cliente: ' .($this->ordenTrabajo->cliente)->nombre)
+            ->line('Se ha generado una orden de trabajo con número ' . $this->ordenTrabajo->id . ' para la orden de compra N° ' . $ordenCompra->id)
+            ->line('Sede: ' . $sedeNombre)
+            ->line('Cliente: ' . $this->ordenTrabajo->cliente->nombre)
             ->line('Fecha de entrega: ' . $this->ordenTrabajo->fecha_entrega)
-            ->action('Ver',  config('app.frontend_url') .'/auth/crm')
+            ->action('Ver orden de trabajo', config('app.frontend_url') . '/auth/crm')
             ->line('Gracias por usar nuestro sistema.');
     }
 
     public function toArray($notifiable)
     {
         return [
-            'mensaje' => 'Se generó una orden de trabajo para tu orden de compra',  
-            'nombre' => $this->ordenTrabajo->nombre,
-            'fecha_entrega' => $this->ordenTrabajo->fecha_entrega,
+            'mensaje'          => 'Se generó una orden de trabajo',
             'orden_trabajo_id' => $this->ordenTrabajo->id,
+            'fecha_entrega'    => $this->ordenTrabajo->fecha_entrega,
+            'sede'             => $this->ordenTrabajo->ordenCompra->sede->nombre ?? 'Sede no asignada',
         ];
     }
 }
+

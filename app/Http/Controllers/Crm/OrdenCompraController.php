@@ -107,6 +107,15 @@ class OrdenCompraController extends Controller
     public function generarOrdenTrabajo(OrdenTrabajoRequest $request, $id)
     {
         try {
+            $ordenCompra = Orden_Compra::findOrFail($id);
+      
+        // ✅ Asignar sede si no está definida
+        if (!$ordenCompra->sede_id && $request->filled('sede_id')) {
+            $ordenCompra->sede_id = $request->input('sede_id');
+            $ordenCompra->save();
+        }
+
+
             // 1. Buscar la Orden de Compra correspondiente
             $ordenCompra = Orden_Compra::findOrFail($id);
             // ✅ Asignar la sede a la orden de compra si aún no tiene
@@ -249,11 +258,12 @@ if (!$ordenCompra->sede_id && $request->filled('sede_id')) {
 
             // 5. Notificaciones
             $user = $ordenCompra->user;
-
-            if ($fueCreada) {
-                $user->notify(new OrdenTrabajoCreada($ordenTrabajo));
-            }
-
+//notificar  a usuarios por sedes 
+            $usuariosSede = User::where('sede_id', $ordenCompra->sede_id)
+                ->whereIn('role_id', [ 4, 6, 2]) // Roles que deben recibir la notificación
+                ->get();
+            Notification::send($usuariosSede, new OrdenTrabajoCreada($ordenTrabajo));
+          
 
             // 6. Determinar y actualizar el estado final
 $estadoPendiente = Estados::where('nombre', 'Pendiente')->first()->id;
