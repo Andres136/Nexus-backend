@@ -320,7 +320,7 @@ $ordenCompra->update(['estado_id' => $nuevoEstado]);
                 'estado',
                 'user'
             ])
-            ->when(!in_array($user->role_id, [1, 4, 6]), function ($query) use ($user) {
+            ->when(!in_array($user->role_id, [1, 4, 6,2]), function ($query) use ($user) {
                 $query->whereHas('ordenCompra', function ($q) use ($user) {
                     $q->where('sede_id', $user->sede_id);
                 });
