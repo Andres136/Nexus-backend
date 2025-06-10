@@ -97,6 +97,9 @@ Route::post('entregas-proveedor', [EntregaProveedorController::class, 'store']);
 Route::put('entregas-proveedor/{id}', [EntregaProveedorController::class, 'update']);
 Route::get('/orden-trabajo/{id}', [ordenTrabajoController::class, 'show']);
 Route::get('ordenes-trabajo', [OrdenCompraController::class, 'obtenerOrdenesTrabajo']);
+Route::post('pqr', [PqrController::class, 'store']);
+Route::get('pqrs', [PqrController::class, 'index']);
+Route::put('/pqrs/{id}/responder', [PqrController::class, 'responder']);
 
 });
 Route::get('/sedes', [SedeController::class, 'index']);
@@ -105,6 +108,7 @@ Route::put('/detalles-orden/{id}', [EntregaProveedorController::class, 'updateDe
 
 Route::delete('orden-compras/{id}', [OrdenCompraController::class, 'destroy']);
 Route::get('estadisticas-comerciales',[SeguimientoController::class, 'resumenMensualPorUsuario']);
+Route::put('/pqrs/{id}/asignar', [PqrController::class, 'asignarArea']);
 
 
 
@@ -125,8 +129,7 @@ Route::apiResource('documentos', DocumentoController::class);
 Route::apiResource('errores', ErrorController::class);
 Route::apiResource('roles', RolController::class);
 Route::put('update/{id}', [UsuarioController::class, 'update']);
-Route::post('pqr', [PqrController::class, 'store']);
-Route::get('pqrs', [PqrController::class, 'index']);
+
 Route::post('contacto', [PqrController::class, 'contacto']);
 //rutas crm
 Route::get('/seguimientos', [SeguimientoController::class, 'index']);

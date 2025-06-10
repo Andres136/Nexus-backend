@@ -7,6 +7,7 @@ use App\Http\Requests\PqrRequest;
 use App\Models\Pqr;
 use App\Models\User;
 use App\Notifications\ContactoNotificacion;
+use App\Notifications\Crm\PqrAsignadanotificacion;
 use App\Notifications\pqrNotifycaciones;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -19,7 +20,8 @@ class PqrController extends Controller
      */
     public function index()
     {
-        $query = Pqr::with('estado');
+        $query = Pqr::with('estado', 'asignado')
+            ->where('estado_id', '!=', 3); // Excluir PQRs con estado "Resuelto"
     
         // Filtro por estado (relación)
         if (request('estado')) {
@@ -51,22 +53,39 @@ class PqrController extends Controller
         $data->email = $request->email;
         $data->telefono = $request->telefono;
         $data->mensaje = $request->mensaje;
-        $data->estado_id = 1; // Estado inicial, puedes cambiarlo según tu lógica
+        $data->estado_id = 1;
+        $data->asignado_a = null; // Pendiente para asignación manual
+    
+        // Guardar archivo
+        if ($request->hasFile('archivo')) {
+            $file = $request->file('archivo');
+            $filename = time() . '_' . $file->getClientOriginalName();
+            $file->storeAs('uploads/pqr', $filename, 'public');
+            $data->archivo = 'uploads/pqr/' . $filename;
+        }
+    
+        // Código de radicado legible
+        $fecha = now()->format('Ymd');
+        $contador = Pqr::whereDate('created_at', now())->count() + 1;
+        $data->codigo_radicado = 'PQR-' . $fecha . '-' . str_pad($contador, 4, '0', STR_PAD_LEFT);
+    
         $data->save();
-
+    
+        // Notificaciones
         $emailSolicitante = $request->email;
-        $admins = User::where('role_id', 5)->get();
-
-        // Notificar al administrador
+        $admins = User::where('role_id', 1)->get();
+    
         Notification::send($admins, new pqrNotifycaciones($data, 'admin', $emailSolicitante));
-
+    
         Notification::route('mail', $emailSolicitante)
-        ->notify(new pqrNotifycaciones($data, 'usuario', $admins->first()->email));
-
-
-
-        return response()->json(['message' => 'PQR enviada correctamente'], 200);
+            ->notify(new pqrNotifycaciones($data, 'usuario', $admins->first()->email));
+    
+        return response()->json([
+            'message' => 'PQR enviada correctamente',
+            'codigo_radicado' => $data->codigo_radicado
+        ], 200);
     }
+    
 
     /**
      * Display the specified resource.
@@ -97,6 +116,7 @@ class PqrController extends Controller
             'email'    => $request->email,
             'mensaje'  => $request->mensaje,
         ];
+        
     
         $emailAdmin = 'comercialsetasplast6@gmail.com';
         $emailSolicitante = $request->email;
@@ -125,5 +145,45 @@ class PqrController extends Controller
     return response()->json(['message' => 'Estado actualizado correctamente']);
 }
 
+    /**
+     * Asigna una PQR a un usuario.
+     */
+    public function asignarArea(Request $request, $id)
+    {
+        $request->validate([
+            'asignado_a' => 'required|exists:users,id'
+        ]);
+    
+        $pqr = Pqr::findOrFail($id);
+        $pqr->asignado_a = $request->asignado_a;
+        $pqr->save();
+    
+        // Notificar al usuario asignado
+        $userAsignado = \App\Models\User::find($request->asignado_a);
+        if ($userAsignado) {
+            $userAsignado->notify(new PqrAsignadanotificacion($pqr));
+        }
+    
+        return response()->json(['message' => 'PQR asignada correctamente al usuario']);
+    }
+    public function responder(Request $request, $id)
+{
+    $request->validate([
+        'respuesta' => 'required|string|min:10',
+    ]);
+
+    $pqr = Pqr::findOrFail($id);
+
+    if ($pqr->asignado_a !== auth()->id()) {
+        return response()->json(['message' => 'No autorizado'], 403);
+    }
+
+    $pqr->respuesta = $request->respuesta;
+    $pqr->save();
+
+    return response()->json(['message' => 'Respuesta guardada correctamente']);
+}
+
+    
     
 }

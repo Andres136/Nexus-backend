@@ -27,6 +27,9 @@ class PqrRequest extends FormRequest
             'email' => 'required|email',
             'telefono' => 'required|string',
             'mensaje' => 'required|string',
+            // Nuevas reglas de validación para las columnas añadidas
+        'archivo' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx,xlsx|max:5120', // 5MB
+
         ];
     }
 
@@ -39,6 +42,9 @@ class PqrRequest extends FormRequest
             'email.email' => 'El campo email debe ser un correo electrónico válido',
             'telefono.required' => 'El campo teléfono es obligatorio',
             'mensaje.required' => 'El campo mensaje es obligatorio',
+            'archivo.file' => 'El archivo debe ser un archivo válido',
+            'archivo.mimes' => 'El archivo debe ser de tipo: pdf, jpg, jpeg, png, doc, docx, xlsx',
+            'archivo.max' => 'El archivo no debe exceder los 5MB',
         ];
     }
 }

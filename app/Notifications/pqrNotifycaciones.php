@@ -41,36 +41,47 @@ class pqrNotifycaciones extends Notification
      */
     public function toMail(object $notifiable): MailMessage
     {
+        $codigo = $this->pqr['codigo_radicado'] ?? '---';
+        $archivoUrl = $this->pqr['archivo'] ? url('/storage/' . $this->pqr['archivo']) : null;
+    
         if ($this->tipo === 'admin') {
-            return (new MailMessage)
+            $mail = (new MailMessage)
                 ->subject('Nueva PQR Recibida')
-                ->line('Se ha recibido una nueva PQR.')
-            
-                ->line('Mensaje: ' . $this->pqr['mensaje'])
-                ->line('Nombre : ' . $this->pqr['nombre'])
-                ->line('Empresa: ' . $this->pqr['empresa'])
-                ->line('Teléfono : ' . $this->pqr['telefono'])
-                ->line('Correo del solicitante: ' . $this->emailSolicitante)
-                ->line('Por favor, revisa la solicitud.');
-        } else {
-            return (new MailMessage)
-            ->subject('Confirmación de recepción de PQR')
-            ->line('Estimado/a Cliente,')
-            ->line('Le agradecemos por contactarnos. Confirmamos la recepción de su solicitud, la cual contiene los siguientes detalles:')
-            ->line('')
-            ->line('📩 *Mensaje:* ' . $this->pqr['mensaje'])
-            ->line('')
-            ->line('Nuestro equipo de soporte ha iniciado la revisión de la información proporcionada. En un plazo de hasta 15 días hábiles nos comunicaremos con usted para informarle los próximos pasos o, si es necesario, solicitar información adicional.')
-            ->line('')
-            ->line('Si su solicitud requiere atención prioritaria, puede comunicarse con nuestra línea de atención al cliente al 3112890067.')
-            ->line('')
-            ->line('Agradecemos su paciencia y la confianza depositada en nosotros.')
-            ->line('')
-            ->line('Atentamente,')
-            ->line('El equipo de soporte de SETASPLAST SAS BIC');
-        
+                ->greeting('📥 Nueva solicitud registrada')
+                ->line('🔹 Código de radicado: **' . $codigo . '**')
+                ->line('📩 Mensaje: ' . $this->pqr['mensaje'])
+                ->line('👤 Nombre: ' . $this->pqr['nombre'])
+                ->line('🏢 Empresa: ' . $this->pqr['empresa'])
+                ->line('📞 Teléfono: ' . $this->pqr['telefono'])
+                ->line('📧 Correo del solicitante: ' . $this->emailSolicitante)
+                ->line('🕒 Estado: Pendiente');
+    
+            if ($archivoUrl) {
+                $mail->action('📎 Ver archivo adjunto', $archivoUrl);
+            }
+    
+            return $mail->salutation('Sistema de PQR - SETASPLAST');
         }
+    
+        // Tipo: usuario
+        $mail = (new MailMessage)
+            ->subject('Confirmación de recepción de PQR')
+            ->greeting('Estimado/a Cliente,')
+            ->line('Hemos recibido su solicitud correctamente.')
+            ->line('🆔 Código de radicado: **' . $codigo . '**')
+            ->line('📩 Mensaje: ' . $this->pqr['mensaje'])
+            ->line('')
+            ->line('Nuestro equipo la revisará y responderá en máximo 15 días hábiles.')
+            ->line('Para atención prioritaria, puede comunicarse al 3112890067.');
+    
+        if ($archivoUrl) {
+            $mail->action('📎 Ver archivo que adjuntó', $archivoUrl);
+        }
+    
+        return $mail->salutation('Atentamente, equipo de soporte SETASPLAST SAS BIC');
     }
+    
+
 
     /**
      * Get the array representation of the notification.
@@ -84,7 +95,7 @@ class pqrNotifycaciones extends Notification
        return [
            'tipo' =>'pqr',
               'mensaje' => 'Se ha recibido una nueva PQR.',
-          
+              'codigo_radicado' => $this->pqr['codigo_radicado'],
                 'nombre' => $this->pqr['nombre'],
                 'empresa' => $this->pqr['empresa'],
                 'telefono' => $this->pqr['telefono'],
