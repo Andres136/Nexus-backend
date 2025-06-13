@@ -78,7 +78,7 @@ Route::apiResource('inspecciones', InspeccionController::class);
 Route::apiResource('documentos-vehiculos', DocumentoVehiculoController::class);
 Route::get('dashboard-vehiculos', [VehiculoController::class, 'getDashboardVehiculos']);
 Route::get('vehiculos-all', [VehiculoController::class, 'vehiculosAll']);
-Route::apiResource('ordenes-compra-proveedor', OrdenCompraProveedorController::class);
+
 Route::post('/notificaciones/marcar-leidas', [NotificacionOrdenController::class, 'marcarTodasComoLeidas']);
 Route::get('/notifications-pqrs/pqr', [NotificacionOrdenController::class, 'listarNotificacionesPqrs']);
 Route::apiResource('proveedores',ProveedorController::class);
@@ -93,15 +93,23 @@ Route::get('mis-ordenes', [OrdenCompraController::class, 'misOrdenes']);
 Route::get("/mis-cotizaciones", [CotizacionController::class, 'misCotizaciones']);
 Route::get('ordenes-compra/{id}', [OrdenCompraController::class, 'show']);
 Route::get('orden-compras/{id}/edit', [OrdenCompraController::class, 'edit']);
-Route::post('entregas-proveedor', [EntregaProveedorController::class, 'store']);
-Route::put('entregas-proveedor/{id}', [EntregaProveedorController::class, 'update']);
+
+
 Route::get('/orden-trabajo/{id}', [ordenTrabajoController::class, 'show']);
 Route::get('ordenes-trabajo', [OrdenCompraController::class, 'obtenerOrdenesTrabajo']);
-Route::post('pqr', [PqrController::class, 'store']);
+
 Route::get('pqrs', [PqrController::class, 'index']);
 Route::put('/pqrs/{id}/responder', [PqrController::class, 'responder']);
+Route::apiResource('ordenes-compra-proveedor', OrdenCompraProveedorController::class);
+Route::put('/ordenes-compra-proveedor/{id}/update-proveedor', [OrdenCompraProveedorController::class, 'updateProveedor']);
 
+Route::post('/detalles-orden', [OrdenCompraProveedorController::class, 'storeDetalle']);
+Route::post('entregas-proveedor', [EntregaProveedorController::class, 'store']);
+Route::put('/detalles-orden/{id}', [OrdenCompraProveedorController::class, 'updateDetalle']);
+Route::put('entregas-proveedor/{id}', [EntregaProveedorController::class, 'update']);
 });
+Route::post('pqr', [PqrController::class, 'store']);
+
 Route::get('/sedes', [SedeController::class, 'index']);
 Route::get('referencias-excedidas', [EntregaProveedorController::class, 'referenciasExcedidas']);
 Route::put('/detalles-orden/{id}', [EntregaProveedorController::class, 'updateDetalle']);

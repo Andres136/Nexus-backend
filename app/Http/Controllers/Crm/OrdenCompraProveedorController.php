@@ -134,7 +134,7 @@ class OrdenCompraProveedorController extends Controller
              'observaciones' => $orden->observaciones,
              'estado_registrado' => $orden->estado->nombre,
              'estado_calculado' => $estado_orden,
-             'proveedor' => $orden->proveedor->nombre,
+             'proveedor_id' => $orden->proveedor_id,
              'usuario' => $orden->usuario->name ?? null,
              'productos' => $detalles,
          ]);
@@ -146,49 +146,56 @@ class OrdenCompraProveedorController extends Controller
      */
     
 
-    public function update(UpdateOrdenCompraProveedorDetallesRequest $request, string $id)
-{
-    DB::beginTransaction();
-
-    try {
-        foreach ($request->detalles as $item) {
-            $detalle = OrdenCompraProveedorDetalle::find($item['id']);
-
-            // Acumular entrega
-            $detalle->cantidad_entregada += $item['cantidad_entregada'];
-            $detalle->save();
-        }
-
-        // Obtener la orden y todos sus detalles
-        $orden = OrdenCompraProveedor::with('detalles')->findOrFail($id);
-
-        // Verificar si todos los ítems están completos
-        $estadoCompleto = $orden->detalles->every(function ($detalle) {
-            return $detalle->cantidad_entregada >= $detalle->cantidad_solicitada;
-        });
-
-        // Actualizar estado de la orden
-        $orden->estado_id = $estadoCompleto ? 2 : 1;
-        $orden->save();
-
-        DB::commit();
-
-        return response()->json(['message' => 'Entrega registrada correctamente.']);
-    } catch (\Exception $e) {
-        DB::rollBack();
-        return response()->json([
-            'error' => 'Error al actualizar la entrega.',
-            'detalles' => $e->getMessage()
-        ], 500);
-    }
-}
-
-
+ 
+     
+     public function updateProveedor(Request $request, $id)
+     {
+         $request->validate([
+             'proveedor_id' => 'required|exists:proveedores,id'
+         ]);
+     
+         $orden = OrdenCompraProveedor::findOrFail($id);
+         $orden->proveedor_id = $request->proveedor_id;
+         $orden->save();
+     
+         return response()->json(['message' => 'Proveedor actualizado correctamente.']);
+     }
+     
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function storeDetalle(Request $request)
     {
-        //
+        $request->validate([
+            'orden_id' => 'required|exists:orden_compra_proveedores,id',
+            'descripcion' => 'required|string|max:255',
+            'cantidad_solicitada' => 'required|numeric|min:0',
+            'item' => 'required|integer'
+        ]);
+    
+        $detalle = new OrdenCompraProveedorDetalle();
+        $detalle->orden_id = $request->orden_id;
+        $detalle->descripcion = $request->descripcion;
+        $detalle->cantidad_solicitada = $request->cantidad_solicitada;
+        $detalle->item = $request->item;
+        $detalle->save();
+    
+        return response()->json(['message' => 'Detalle creado correctamente.']);
     }
+    public function update(UpdateOrdenCompraProveedorDetallesRequest $request, $id)
+{
+    $detalle = OrdenCompraProveedorDetalle::findOrFail($id);
+
+    $request->validate([
+        'descripcion' => 'required|string|max:255',
+        'cantidad_solicitada' => 'required|numeric|min:0'
+    ]);
+
+    $detalle->descripcion = $request->descripcion;
+    $detalle->cantidad_solicitada = $request->cantidad_solicitada;
+    $detalle->save();
+
+    return response()->json(['message' => 'Detalle actualizado correctamente.']);
+}
+
 }
