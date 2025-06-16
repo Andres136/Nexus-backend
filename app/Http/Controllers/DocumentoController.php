@@ -74,7 +74,8 @@ class DocumentoController extends Controller
             'documento' => $path, 
             'proceso_id' => $request->proceso_id,
             'user_id' => $request->user_id,
-            'version' => $request->version
+            'version' => $request->version,
+            'observaciones' => $request->observaciones,
         ]);
         return response()->json([
             'message' => 'Documento registrado correctamente'

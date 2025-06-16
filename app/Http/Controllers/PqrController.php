@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\ContactoWebRequest;
 use App\Http\Requests\PqrRequest;
+use App\Models\Departamentos;
+use App\Models\Documentos;
 use App\Models\Pqr;
+use App\Models\Procesos;
 use App\Models\User;
 use App\Notifications\ContactoNotificacion;
 use App\Notifications\Crm\PqrAsignadanotificacion;
@@ -101,11 +104,13 @@ class PqrController extends Controller
  
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function destroy($id)
     {
-        //
+        $pqr = Pqr::findOrFail($id);
+        $pqr->delete();
+        return response()->json(['message' => 'PQR eliminada correctamente.']);
     }
- 
+    
     
     public function contacto(ContactoWebRequest $request)
     {
@@ -158,14 +163,25 @@ class PqrController extends Controller
         $pqr->asignado_a = $request->asignado_a;
         $pqr->save();
     
-        // Notificar al usuario asignado
         $userAsignado = \App\Models\User::find($request->asignado_a);
-        if ($userAsignado) {
-            $userAsignado->notify(new PqrAsignadanotificacion($pqr));
-        }
     
-        return response()->json(['message' => 'PQR asignada correctamente al usuario']);
+        // Buscamos el procedimiento vigente (dinámico)
+        $departamento = Departamentos::where('nombre', 'Tecnología')->first();
+        $proceso = Procesos::where('departamento_id', $departamento->id)->where('nombre', 'PQR')->first();
+        $documento = Documentos::where('proceso_id', $proceso->id)->orderByDesc('created_at')->first();
+    
+        $rutaCompleta = $documento ? storage_path('app/public/' . $documento->documento) : null;
+    
+        // Enviamos notificación profesional
+        $userAsignado->notify(new PqrAsignadanotificacion($pqr, $documento, $rutaCompleta));
+    
+        return response()->json(['message' => 'PQR asignada correctamente al usuario con procedimiento adjunto']);
     }
+
+
+    /**
+     * Responde a una PQR.
+     */    
     public function responder(Request $request, $id)
 {
     $request->validate([
@@ -184,6 +200,7 @@ class PqrController extends Controller
     return response()->json(['message' => 'Respuesta guardada correctamente']);
 }
 
-    
+
+
     
 }

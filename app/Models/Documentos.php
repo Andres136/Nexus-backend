@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Documentos extends Model
 {
     protected $fillable =
-     ['nombre', 'documento', 'user_id', 'proceso_id', 'version'];
+     ['nombre', 'documento', 'user_id', 'proceso_id', 'version', 'observaciones'];
 
     //funv=cion para obtener la ruta del archivo
    

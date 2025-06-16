@@ -12,13 +12,17 @@ class PqrAsignadanotificacion extends Notification
 {
     use Queueable;
     public $pqr;
+    public $documento;
+    public $rutaProcedimiento;
 
     /**
      * Create a new notification instance.
      */
-    public function __construct(Pqr $pqr)
+    public function __construct(Pqr $pqr, $documento = null, $rutaProcedimiento = null)
     {
         $this->pqr = $pqr;
+        $this->documento = $documento;
+        $this->rutaProcedimiento = $rutaProcedimiento;
     }
    
 
@@ -47,12 +51,22 @@ class PqrAsignadanotificacion extends Notification
             ->line('📩 Mensaje: ' . $this->pqr->mensaje)
             ->line('👤 Nombre: ' . $this->pqr->nombre)
             ->line('🏢 Empresa: ' . $this->pqr->empresa)
-            ->line('📞 Teléfono: ' . $this->pqr->telefono)
-            ->line('🕒 Estado: Pendiente');
+            ->line('📞 Teléfono: ' . $this->pqr->telefono)     
+            ->line('Esta PQR debera responderla en un plazo de 24 horas, al correo: tecnologiasetasplast@gmail.com 
+            adjunto encontra el documento base para analizar la respuesta.');
+    
     
         if ($archivoUrl) {
             $mail->action('📎 Ver archivo adjunto', $archivoUrl);
         }
+
+            // Si hay un procedimiento vigente en el SGI
+    if ($this->rutaProcedimiento && file_exists($this->rutaProcedimiento)) {
+        $mail->attach($this->rutaProcedimiento, [
+            'as' => $this->documento->nombre . '.pdf',
+            'mime' => 'application/pdf',
+        ]);
+    }
     
         return $mail->salutation('Sistema de PQR - SETASPLAST');
     }

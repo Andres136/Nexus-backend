@@ -26,7 +26,10 @@ class DocumentoRequest extends FormRequest
             'documento.max' => 'El documento no debe exceder los 5MB',
             'proceso_id' => 'required',
             'user_id' => 'required',
-            'version' => 'required'
+            'version' => 'required',
+            'documento' => 'required|mimes:pdf,doc,docx,xls,xlsx|max:5120', // 5MB in KB
+            'observaciones' => 'nullable|string',
+
         ];
     }
     public function messages(): array
@@ -39,7 +42,11 @@ class DocumentoRequest extends FormRequest
             'proceso_id.required' => 'El proceso es requerido',
             'user_id.required' => 'El usuario es requerido', 
             'version.required' => 'La versión es requerida',
-            'version.string' => 'La versión debe ser un texto'
+            'version.string' => 'La versión debe ser un texto',
+            'observaciones.string' => 'Las observaciones deben ser un texto',
+            'observaciones.nullable' => 'Las observaciones son opcionales',
+        
+
         ];
     }
 }

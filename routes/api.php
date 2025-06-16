@@ -99,15 +99,17 @@ Route::get('/orden-trabajo/{id}', [ordenTrabajoController::class, 'show']);
 Route::get('ordenes-trabajo', [OrdenCompraController::class, 'obtenerOrdenesTrabajo']);
 
 Route::get('pqrs', [PqrController::class, 'index']);
+Route::delete('/pqrs/{id}', [PqrController::class, 'destroy']);
+
 Route::put('/pqrs/{id}/responder', [PqrController::class, 'responder']);
 Route::apiResource('ordenes-compra-proveedor', OrdenCompraProveedorController::class);
-Route::put('/ordenes-compra-proveedor/{id}/update-proveedor', [OrdenCompraProveedorController::class, 'updateProveedor']);
+
 
 Route::post('/detalles-orden', [OrdenCompraProveedorController::class, 'storeDetalle']);
 Route::post('entregas-proveedor', [EntregaProveedorController::class, 'store']);
 Route::put('/detalles-orden/{id}', [OrdenCompraProveedorController::class, 'updateDetalle']);
 Route::put('entregas-proveedor/{id}', [EntregaProveedorController::class, 'update']);
-});
+});Route::put('/ordenes-compra-proveedor/{id}/update-proveedor', [OrdenCompraProveedorController::class, 'updateProveedor']);
 Route::post('pqr', [PqrController::class, 'store']);
 
 Route::get('/sedes', [SedeController::class, 'index']);
