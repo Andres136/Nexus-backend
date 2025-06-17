@@ -37,4 +37,8 @@ class Vehiculo extends Model
         return $this->hasMany(DocumentoVehiculo::class, 'vehiculo_id');
     }
   
+    public function fotos()
+    {
+        return $this->hasMany(VehiculoFoto::class, 'vehiculo_id');
+    }
 }

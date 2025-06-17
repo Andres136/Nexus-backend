@@ -137,6 +137,7 @@ class CotizacionController extends Controller
         $cotizacion->update([
             'empresa'       => $request->empresa,
             'observaciones' => $request->observaciones,
+            'cliente_id'    => $request->cliente_id,
         ]);
 
         // 2. Obtener IDs de los detalles recibidos
