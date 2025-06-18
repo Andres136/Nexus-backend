@@ -20,6 +20,7 @@ use App\Http\Controllers\Crm\SeguimientoController;
 use App\Http\Controllers\Crm\SiigoController;
 use App\Http\Controllers\Crm\SiigoGlobalController;
 use App\Http\Controllers\Crm\VehiculoController;
+use App\Http\Controllers\Crm\VehiculoFotoController;
 use App\Http\Controllers\DepartamentoController;
 use App\Http\Controllers\DocumentoController;
 use App\Http\Controllers\ErrorController;
@@ -109,7 +110,9 @@ Route::post('/detalles-orden', [OrdenCompraProveedorController::class, 'storeDet
 Route::post('entregas-proveedor', [EntregaProveedorController::class, 'store']);
 Route::put('/detalles-orden/{id}', [OrdenCompraProveedorController::class, 'updateDetalle']);
 Route::put('entregas-proveedor/{id}', [EntregaProveedorController::class, 'update']);
-});Route::put('/ordenes-compra-proveedor/{id}/update-proveedor', [OrdenCompraProveedorController::class, 'updateProveedor']);
+Route::apiResource('/vehiculos/{vehiculo}/fotos',VehiculoFotoController::class);
+});
+Route::put('/ordenes-compra-proveedor/{id}/update-proveedor', [OrdenCompraProveedorController::class, 'updateProveedor']);
 Route::post('pqr', [PqrController::class, 'store']);
 
 Route::get('/sedes', [SedeController::class, 'index']);

@@ -39,6 +39,6 @@ class Vehiculo extends Model
   
     public function fotos()
     {
-        return $this->hasMany(VehiculoFoto::class, 'vehiculo_id');
+        return $this->hasMany(VehiculoFoto::class);
     }
 }

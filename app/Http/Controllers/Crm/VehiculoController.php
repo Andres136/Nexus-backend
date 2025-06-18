@@ -19,17 +19,22 @@ class VehiculoController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
-    {
-        //
+   public function index(Request $request)
+{
+    $search = $request->query('search');
 
-        // 1. Obtener todos los vehículos
-        $vehiculos = Vehiculo::all();
-        // 2. Retornar la vista con los vehículos
-        return response()->json([
-            'vehiculos' => $vehiculos
-        ], 200);
-    }
+   $vehiculos = Vehiculo::with(['fotos', 'documentos', 'mantenimientos', 'inspecciones'])
+                     ->where('placa', 'like', "%$search%")
+                     ->orWhere('marca', 'like', "%$search%")
+                     ->orWhere('modelo', 'like', "%$search%")
+                     ->get();
+
+
+    return response()->json([
+        'vehiculos' => $vehiculos
+    ], 200);
+}
+
 
     /**
      * Store a newly created resource in storage.
@@ -61,7 +66,8 @@ class VehiculoController extends Controller
         
             return response()->json([
                 'message' => 'Vehículo creado exitosamente',
-                'vehiculo' => $vehiculo
+                'vehiculo' => $vehiculo,
+                'id' => $vehiculo->id
             ], 201);
         }
         

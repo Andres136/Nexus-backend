@@ -50,43 +50,48 @@ class PqrController extends Controller
      */
     public function store(PqrRequest $request)
     {
-        $data = new Pqr();
-        $data->nombre = $request->nombre;
-        $data->empresa = $request->empresa;
-        $data->email = $request->email;
-        $data->telefono = $request->telefono;
-        $data->mensaje = $request->mensaje;
-        $data->estado_id = 1;
-        $data->asignado_a = null; // Pendiente para asignación manual
+        try {
+            $data = new Pqr();
+            $data->nombre = $request->nombre;
+            $data->empresa = $request->empresa;
+            $data->email = $request->email;
+            $data->telefono = $request->telefono;
+            $data->mensaje = $request->mensaje;
+            $data->estado_id = 1;
+            $data->asignado_a = null; // Pendiente para asignación manual
+        
+            // Guardar archivo
+            if ($request->hasFile('archivo')) {
+                $file = $request->file('archivo');
+                $filename = time() . '_' . $file->getClientOriginalName();
+                $file->storeAs('uploads/pqr', $filename, 'public');
+                $data->archivo = 'uploads/pqr/' . $filename;
+            }
+        
+            // Código de radicado legible
+            $fecha = now()->format('Ymd');
+            $contador = Pqr::whereDate('created_at', now())->count() + 1;
+            $data->codigo_radicado = 'PQR-' . $fecha . '-' . str_pad($contador, 4, '0', STR_PAD_LEFT);
+        
+            $data->save();
+        
+            // Notificaciones
+            $emailSolicitante = $request->email;
+            $admins = User::where('role_id', 1)->get();
+        
+            Notification::send($admins, new pqrNotifycaciones($data, 'admin', $emailSolicitante));
+        
+            Notification::route('mail', $emailSolicitante)
+                ->notify(new pqrNotifycaciones($data, 'usuario', $admins->first()->email));
+        
+            return response()->json([
+                'message' => 'PQR enviada correctamente',
+                'codigo_radicado' => $data->codigo_radicado
+            ], 200);
     
-        // Guardar archivo
-        if ($request->hasFile('archivo')) {
-            $file = $request->file('archivo');
-            $filename = time() . '_' . $file->getClientOriginalName();
-            $file->storeAs('uploads/pqr', $filename, 'public');
-            $data->archivo = 'uploads/pqr/' . $filename;
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Error al enviar la PQR', 'error' => $e->getMessage()], 500);
         }
-    
-        // Código de radicado legible
-        $fecha = now()->format('Ymd');
-        $contador = Pqr::whereDate('created_at', now())->count() + 1;
-        $data->codigo_radicado = 'PQR-' . $fecha . '-' . str_pad($contador, 4, '0', STR_PAD_LEFT);
-    
-        $data->save();
-    
-        // Notificaciones
-        $emailSolicitante = $request->email;
-        $admins = User::where('role_id', 1)->get();
-    
-        Notification::send($admins, new pqrNotifycaciones($data, 'admin', $emailSolicitante));
-    
-        Notification::route('mail', $emailSolicitante)
-            ->notify(new pqrNotifycaciones($data, 'usuario', $admins->first()->email));
-    
-        return response()->json([
-            'message' => 'PQR enviada correctamente',
-            'codigo_radicado' => $data->codigo_radicado
-        ], 200);
     }
     
 

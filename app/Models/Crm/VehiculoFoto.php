@@ -12,6 +12,6 @@ class VehiculoFoto extends Model
 
     public function vehiculo()
     {
-        return $this->belongsTo(Vehiculo::class, 'vehiculo_id');
+        return $this->belongsTo(Vehiculo::class);
     }
 }
