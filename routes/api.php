@@ -5,6 +5,7 @@ use App\Http\Controllers\Crm\CarpetaController;
 use App\Http\Controllers\Crm\ClienteController;
 use App\Http\Controllers\Crm\CotizacionController;
 use App\Http\Controllers\Crm\DashboardController;
+use App\Http\Controllers\Crm\DatoCondutorController;
 use App\Http\Controllers\Crm\DocumentosAdministrativosController;
 use App\Http\Controllers\Crm\DocumentoVehiculoController;
 use App\Http\Controllers\Crm\EntregaProveedorController;
@@ -34,6 +35,7 @@ use App\Http\Controllers\TareaController;
 use App\Http\Controllers\UpdateDepartamentoController;
 use App\Http\Controllers\UsuarioController;
 use App\Models\Pqr;
+use Illuminate\Container\Attributes\Auth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -42,7 +44,8 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth:sanctum')->group(function () {
   Route::get('/user', function (Request $request) {
     return $request->user();
-  });  Route::apiResource('users', AuthController::class);
+  });  
+  Route::apiResource('users', AuthController::class);
   Route::post('/logout', [AuthController::class, 'logout']);
   Route::put('/users/{id}/estado', [AuthController::class, 'desactivar']);
   Route::get('/clientes-registro-user', [ClienteController::class, 'clientesUsuario']);
@@ -50,6 +53,7 @@ Route::middleware('auth:sanctum')->group(function () {
   Route::get('clientes-todos', [ClienteController::class, 'clientesTodos']);
   Route::apiResource('orden-compras', OrdenCompraController::class);
   Route::get('/notificaciones', [NotificacionOrdenController::class, 'listarNotificaciones']);
+
 
   Route::post('/orden-trabajo/{id}', [OrdenCompraController::class, 'generarOrdenTrabajo']);
   Route::get('tareas-vencidas', [NotificacionOrdenController::class, 'EnviarTaskVencida']);
@@ -104,14 +108,22 @@ Route::delete('/pqrs/{id}', [PqrController::class, 'destroy']);
 
 Route::put('/pqrs/{id}/responder', [PqrController::class, 'responder']);
 Route::apiResource('ordenes-compra-proveedor', OrdenCompraProveedorController::class);
-
+//Conductores
+Route::apiResource('conductores', DatoCondutorController::class);
 
 Route::post('/detalles-orden', [OrdenCompraProveedorController::class, 'storeDetalle']);
 Route::post('entregas-proveedor', [EntregaProveedorController::class, 'store']);
 Route::put('/detalles-orden/{id}', [OrdenCompraProveedorController::class, 'updateDetalle']);
 Route::put('entregas-proveedor/{id}', [EntregaProveedorController::class, 'update']);
 Route::apiResource('/vehiculos/{vehiculo}/fotos',VehiculoFotoController::class);
+Route::get('/usuarios/all', [AuthController::class, 'indexUsuarios']);
+Route::get('/vehiculos-options', [VehiculoController::class, 'options']);
+
+
 });
+Route::put('/documentos/{id}/fechas', [DocumentoVehiculoController::class, 'actualizarFechas']);
+Route::get('/conductores',[AuthController::class, 'conductores']);
+
 Route::put('/ordenes-compra-proveedor/{id}/update-proveedor', [OrdenCompraProveedorController::class, 'updateProveedor']);
 Route::post('pqr', [PqrController::class, 'store']);
 

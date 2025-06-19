@@ -89,6 +89,25 @@ class DocumentoVehiculoController extends Controller
         ]);
     }
 
+    public function actualizarFechas(Request $request, string $id)
+{
+    $request->validate([
+        'fecha_vencimiento' => 'required|date',
+        'fecha_renovacion' => 'nullable|date|after_or_equal:fecha_vencimiento',
+    ]);
+
+    $documento = DocumentoVehiculo::findOrFail($id);
+    $documento->fecha_vencimiento = $request->fecha_vencimiento;
+    $documento->fecha_renovacion = $request->fecha_renovacion;
+    $documento->save();
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Fechas del documento actualizadas correctamente',
+    ]);
+}
+
+
     /**
      * Remove the specified resource from storage.
      */

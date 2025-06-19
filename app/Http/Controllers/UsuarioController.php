@@ -25,4 +25,6 @@ class UsuarioController extends Controller
             'user' => $user
         ]);
     }
+
+   
 }

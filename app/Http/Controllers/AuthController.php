@@ -236,4 +236,29 @@ public function DepartamentoUsuario($id)
 
     return response()->json($usuarios);
 }
+
+public function indexUsuarios(Request $request)
+{ 
+     $search = $request->input('search');
+    $query = User::select('id', 'name');
+
+    if ($search && strlen($search) >= 2) {
+        $query->where('name', 'like', "%$search%");
+    }
+
+    return $query->get(); // sin paginar
+}
+
+//Traer usuarios que tengan rol 8 de conductor
+
+public function conductores()
+{
+    $conductores = User::where('role_id', 8)->get(['id', 'name', 'email', 'telefono']);
+    
+    if ($conductores->isEmpty()) {
+        return response()->json(["Error" => "No hay conductores registrados"], 404);
+    }
+
+    return response()->json($conductores);
+}
 }

@@ -19,20 +19,28 @@ class VehiculoController extends Controller
     /**
      * Display a listing of the resource.
      */
-   public function index(Request $request)
+public function index(Request $request)
 {
     $search = $request->query('search');
 
-   $vehiculos = Vehiculo::with(['fotos', 'documentos', 'mantenimientos', 'inspecciones'])
-                     ->where('placa', 'like', "%$search%")
-                     ->orWhere('marca', 'like', "%$search%")
-                     ->orWhere('modelo', 'like', "%$search%")
-                     ->get();
+    $vehiculos = Vehiculo::with(['fotos', 'documentos', 'mantenimientos', 'inspecciones',''])
+        ->when($search, function ($query, $search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('placa', 'like', "%$search%")
+                  ->orWhere('marca', 'like', "%$search%")
+                  ->orWhere('modelo', 'like', "%$search%");
+            });
+        })
+        ->paginate(10); // ✅ añade paginación si es listado principal
 
+    return response()->json(
+        $vehiculos, 200);
+}
 
-    return response()->json([
-        'vehiculos' => $vehiculos
-    ], 200);
+public function options()
+{
+    $vehiculos = Vehiculo::all();
+    return response()->json($vehiculos, 200);
 }
 
 
@@ -62,6 +70,17 @@ class VehiculoController extends Controller
                 'foto' => $rutaFoto,
                 'licencia_transito' => $request->licencia_transito,
                 'conductor' => $request->conductor,
+                'nombre' => $request->nombre,
+                'tipo_servicio' => $request->tipo_servicio,
+                'color' => $request->color,
+                'tipo_carroceria' => $request->tipo_carroceria,
+                'tipo_combustible' => $request->tipo_combustible,
+                'numero_motor' => $request->numero_motor,
+                'numero_chasis' => $request->numero_chasis,
+                'propietario' => $request->propietario,
+                'identificacion' => $request->identificacion,
+                'organismo_transito' => $request->organismo_transito,
+                'fecha_matricula' => $request->fecha_matricula,
             ]);
         
             return response()->json([
@@ -82,7 +101,8 @@ class VehiculoController extends Controller
         $vehiculo = Vehiculo::find($id);
         // 2. Retornar la vista con el vehículo
         return response()->json([
-            'vehiculo' => $vehiculo
+            'vehiculo' => $vehiculo,
+
         ], 200);
     }
 
@@ -103,6 +123,17 @@ class VehiculoController extends Controller
         $vehiculo->observaciones = $request->observaciones;
         $vehiculo->licencia_transito = $request->licencia_transito;
         $vehiculo->conductor = $request->conductor;
+        $vehiculo->nombre = $request->nombre;
+        $vehiculo->tipo_servicio = $request->tipo_servicio;
+        $vehiculo->color = $request->color;
+        $vehiculo->tipo_carroceria = $request->tipo_carroceria;
+        $vehiculo->tipo_combustible = $request->tipo_combustible;
+        $vehiculo->numero_motor = $request->numero_motor;
+        $vehiculo->numero_chasis = $request->numero_chasis;
+        $vehiculo->propietario = $request->propietario;
+        $vehiculo->identificacion = $request->identificacion;
+        $vehiculo->organismo_transito = $request->organismo_transito;
+        $vehiculo->fecha_matricula = $request->fecha_matricula;
     
         if ($request->hasFile('foto')) {
             $nombre = $request->file('foto')->getClientOriginalName();
@@ -236,5 +267,7 @@ class VehiculoController extends Controller
         'vehiculos' => $vehiculos
     ]);
 }
+
+//Trear usuarios  que tengan rol 8 de conductor
 
 }

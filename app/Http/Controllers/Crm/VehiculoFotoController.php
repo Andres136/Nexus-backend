@@ -13,7 +13,10 @@ class VehiculoFotoController extends Controller
      */
     public function index()
     {
-        //
+        
+        $fotos = VehiculoFoto::with('vehiculo')->get();
+
+        return response()->json($fotos, 200);
     }
 
     /**

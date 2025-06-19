@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 
+use App\Models\Crm\DatoConductor;
 use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\Sede;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -85,6 +86,12 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Sede::class);
     }
+public function datosConductor()
+{
+    return $this->hasOne(DatoConductor::class);
+}
+
+
     /**
      * The attributes that should be hidden for serialization.
      *
