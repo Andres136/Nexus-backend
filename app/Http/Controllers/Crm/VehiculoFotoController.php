@@ -11,13 +11,13 @@ class VehiculoFotoController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
-    {
-        
-        $fotos = VehiculoFoto::with('vehiculo')->get();
+public function index($vehiculo_id)
+{
+    $fotos = VehiculoFoto::where('vehiculo_id', $vehiculo_id)->get();
 
-        return response()->json($fotos, 200);
-    }
+    return response()->json($fotos, 200);
+}
+
 
     /**
      * Store a newly created resource in storage.
@@ -48,7 +48,10 @@ class VehiculoFotoController extends Controller
      */
     public function show(string $id)
     {
-        //
+        
+        $foto = VehiculoFoto::with('vehiculo')->findOrFail($id);
+
+        return response()->json($foto, 200);
     }
 
     /**

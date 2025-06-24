@@ -27,7 +27,8 @@ class VehiculoRequest extends FormRequest
             'marca' => 'required|string|max:50',
             'modelo' => 'required|string|max:50',
             'conductor' => 'required|string|max:50',
-            'anio' => 'required|integer|min:1900|max:' . date('Y'),
+        'anio' => 'required|integer|min:1900',
+
             'kilometraje_actual' => 'required|integer|min:0',
             'tipo' => 'required|string|max:50', // Cambiado de tipo_vehiculo a tipo
             'estado'=> 'required|in:Activo,En mantenimiento,Retirado',
@@ -64,7 +65,7 @@ class VehiculoRequest extends FormRequest
             'anio.required' => 'El año es obligatorio.',
             'anio.integer' => 'El año debe ser un número entero.',
             'anio.min' => 'El año no puede ser menor a 1900.',
-            'anio.max' => 'El año no puede ser mayor al año actual.',
+       
             'tipo.required' => 'El tipo de vehículo es obligatorio.',
             'kilometraje_actual.required' => 'El kilometraje actual es obligatorio.',
              'estado.required' => 'El estado es obligatorio.',

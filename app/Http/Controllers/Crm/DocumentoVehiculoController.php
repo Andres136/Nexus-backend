@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Crm\DocumentoVehiculoRequest;
 use App\Models\Crm\DocumentoVehiculo;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class DocumentoVehiculoController extends Controller
 {
@@ -89,16 +90,30 @@ class DocumentoVehiculoController extends Controller
         ]);
     }
 
-    public function actualizarFechas(Request $request, string $id)
+public function actualizarFechas(Request $request, string $id)
 {
     $request->validate([
         'fecha_vencimiento' => 'required|date',
         'fecha_renovacion' => 'nullable|date|after_or_equal:fecha_vencimiento',
+        'documento_pdf' => 'nullable|file|mimes:pdf|max:5120', // máx 5MB
     ]);
 
     $documento = DocumentoVehiculo::findOrFail($id);
+
     $documento->fecha_vencimiento = $request->fecha_vencimiento;
     $documento->fecha_renovacion = $request->fecha_renovacion;
+
+    // Si hay archivo, reemplazar
+    if ($request->hasFile('documento_pdf')) {
+        // Elimina el archivo anterior si existe
+        if ($documento->documento_pdf && Storage::disk('public')->exists($documento->documento_pdf)) {
+            Storage::disk('public')->delete($documento->documento_pdf);
+        }
+
+        $path = $request->file('documento_pdf')->store('documentos', 'public');
+        $documento->documento_pdf = $path;
+    }
+
     $documento->save();
 
     return response()->json([
@@ -106,6 +121,7 @@ class DocumentoVehiculoController extends Controller
         'message' => 'Fechas del documento actualizadas correctamente',
     ]);
 }
+
 
 
     /**

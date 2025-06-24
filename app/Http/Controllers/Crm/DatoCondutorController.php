@@ -85,20 +85,28 @@ class DatoCondutorController extends Controller
      */
 
      //Actualizar solo los archivos del conductor
-    public function update(UpdateDatosConuctoresRequest $request, string $id)
-    {
-        $conductor= DatoConductor::findOrFail($id);
-            if ($request->hasFile('rut_archivo')) {
-                //Eliminar el archivo anterior si existe
-       if ($conductor->rut_archivo && Storage::disk('public')->exists($conductor->rut_archivo)) {
-        Storage::disk('public')->delete($conductor->rut_archivo);
-    }
+  public function update(UpdateDatosConuctoresRequest $request, string $id)
+{
+    $conductor = DatoConductor::findOrFail($id);
+
+    // Actualización de campos
+    $conductor->tipo_licencia = $request->input('tipo_licencia');
+    $conductor->fecha_expedicion = $request->input('fecha_expedicion');
+    $conductor->fecha_vencimiento = $request->input('fecha_vencimiento');
+    $conductor->categoria = $request->input('categoria');
+    $conductor->grupo_sanguineo = $request->input('grupo_sanguineo');
+
+    // Archivos - RUT
+    if ($request->hasFile('rut_archivo')) {
+        if ($conductor->rut_archivo && Storage::disk('public')->exists($conductor->rut_archivo)) {
+            Storage::disk('public')->delete($conductor->rut_archivo);
+        }
         $rutPath = $request->file('rut_archivo')->store('conductores/rut', 'public');
         $conductor->rut_archivo = $rutPath;
     }
 
+    // Archivos - Licencia
     if ($request->hasFile('licencia_archivo')) {
-        //Eliminar el archivo anterior si existe
         if ($conductor->licencia_archivo && Storage::disk('public')->exists($conductor->licencia_archivo)) {
             Storage::disk('public')->delete($conductor->licencia_archivo);
         }
@@ -106,23 +114,24 @@ class DatoCondutorController extends Controller
         $conductor->licencia_archivo = $licenciaPath;
     }
 
+    // Archivos - Comparendo
     if ($request->hasFile('comparendo_archivo')) {
-
-        //Eliminar el archivo anterior si existe
         if ($conductor->comparendo_archivo && Storage::disk('public')->exists($conductor->comparendo_archivo)) {
             Storage::disk('public')->delete($conductor->comparendo_archivo);
         }
         $comparendoPath = $request->file('comparendo_archivo')->store('conductores/comparendos', 'public');
         $conductor->comparendo_archivo = $comparendoPath;
     }
-    // Guardar los cambios
+
+    // Guardar todo
     $conductor->save();
+
     return response()->json([
         'success' => true,
         'message' => 'Conductor actualizado correctamente',
     ], 200);
-      
-    }
+}
+
 
     /**
      * Remove the specified resource from storage.

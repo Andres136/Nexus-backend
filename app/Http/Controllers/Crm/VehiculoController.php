@@ -231,7 +231,7 @@ public function options()
     ->latest('fecha_realizado')
     ->take(3)
     ->with('vehiculo') // Asegúrate de tener la relación en el modelo
-    ->get(['id', 'vehiculo_id', 'fecha_realizado']),
+    ->get(['id', 'vehiculo_id', 'fecha_realizado', 'tipo_mantenimiento', 'costo']),
     'tipos_mantenimiento' => Mantenimiento::select('tipo_mantenimiento', DB::raw('count(*) as total'))
     ->groupBy('tipo_mantenimiento')
     ->get(),
