@@ -181,9 +181,10 @@ public function options()
             // Generar histórico de gastos por mes del año actual
     $historico_gastos = [];
     for ($i = 1; $i <= 12; $i++) {
-        $total = Mantenimiento::whereYear('created_at', $now->year)
-            ->whereMonth('created_at', $i)
-            ->sum('costo');
+     $total = Mantenimiento::whereYear('fecha_realizado', $now->year)
+    ->whereMonth('fecha_realizado', $i)
+    ->sum('costo');
+
 
         $historico_gastos[] = [
             'mes' => $meses[$i - 1],
