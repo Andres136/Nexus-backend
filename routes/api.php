@@ -109,7 +109,7 @@ Route::delete('/pqrs/{id}', [PqrController::class, 'destroy']);
 Route::put('/pqrs/{id}/responder', [PqrController::class, 'responder']);
 Route::apiResource('ordenes-compra-proveedor', OrdenCompraProveedorController::class);
 //Conductores
-Route::apiResource('conductores', DatoCondutorController::class);
+Route::apiResource('datos-conductores', DatoCondutorController::class);
 
 Route::post('/detalles-orden', [OrdenCompraProveedorController::class, 'storeDetalle']);
 Route::post('entregas-proveedor', [EntregaProveedorController::class, 'store']);
@@ -121,6 +121,8 @@ Route::get('/vehiculos-options', [VehiculoController::class, 'options']);
 
 
 });
+Route::delete('/detalles-orden/{id}', [EntregaProveedorController::class, 'eliminarItem']);
+
 Route::put('/documentos/{id}/fechas', [DocumentoVehiculoController::class, 'actualizarFechas']);
 Route::get('/conductores',[AuthController::class, 'conductores']);
 

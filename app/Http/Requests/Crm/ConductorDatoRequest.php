@@ -23,13 +23,13 @@ class ConductorDatoRequest extends FormRequest
     {
         return [
             'user_id' => 'required|exists:users,id',
-            'cedula' => 'required|string|max:20',
-            'licencia_conduccion' => 'required|string|max:50',
+                  'cedula' => 'required|string|max:20|unique:datos_conductores,cedula',
+        'licencia_conduccion' => 'required|string|max:50|unique:datos_conductores,licencia_conduccion',
             'tipo_licencia' => 'required|string|max:50',
             'fecha_expedicion' => 'required|date_format:Y-m-d',
             'fecha_vencimiento' => 'required|date_format:Y-m-d|after_or_equal:fecha_expedicion',
-            'categoria' => 'nullable|string|max:20',
-            'grupo_sanguineo' => 'nullable|string|max:10',
+            'categoria' => 'required|string|max:20',
+            'grupo_sanguineo' => 'required|string|max:10',
             'rut_archivo' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5012', // Máximo 5MB
             'licencia_archivo' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5012', // Máximo 5MB
             'comparendo_archivo' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5012', // Máximo 5MB
@@ -42,9 +42,11 @@ class ConductorDatoRequest extends FormRequest
         return [
             'user_id.required' => 'El usuario es obligatorio.',
             'user_id.exists' => 'El usuario seleccionado no existe.',
+            'cedula.unique' => 'La cédula ya está registrada.',
             'cedula.required' => 'La cédula es obligatoria.',
             'cedula.string' => 'La cédula debe ser una cadena de texto.',
             'cedula.max' => 'La cédula no puede tener más de 20 caracteres.',
+            'licencia_conduccion.unique' => 'La licencia de conducción ya está registrada.',
             'licencia_conduccion.required' => 'La licencia de conducción es obligatoria.',
             'licencia_conduccion.string' => 'La licencia de conducción debe ser una cadena de texto.',
             'licencia_conduccion.max' => 'La licencia de conducción no puede tener más de 50 caracteres.',
@@ -56,8 +58,10 @@ class ConductorDatoRequest extends FormRequest
             'fecha_vencimiento.required' => 'La fecha de vencimiento es obligatoria.',
             'fecha_vencimiento.date_format' => 'La fecha de vencimiento debe tener el formato Y-m-d.',
             'fecha_vencimiento.after_or_equal' => 'La fecha de vencimiento debe ser igual o posterior a la fecha de expedición.',
+            'categoria.required' => 'La categoría es obligatoria.',
             'categoria.string' => 'La categoría debe ser una cadena de texto.',
             'categoria.max' => 'La categoría no puede tener más de 20 caracteres.',
+            'grupo_sanguineo.required' => 'El grupo sanguíneo es obligatorio.',
             'grupo_sanguineo.string' => 'El grupo sanguíneo debe ser una cadena de texto.',
             'grupo_sanguineo.max' => 'El grupo sanguíneo no puede tener más de 10 caracteres.',
             'rut_archivo.file' => 'El archivo del RUT debe ser un archivo.',

@@ -135,6 +135,23 @@ if ($todosCompletos && $orden->estado_id !== 2) {
     return response()->json(['mensaje' => 'Detalle actualizado correctamente']);
 }
 
-    
+    //Eliminar item de la orden 
+
+   public function eliminarItem(Request $request, $id)
+{
+    $detalle = OrdenCompraProveedorDetalle::findOrFail($id);
+
+    // Validación extra si necesitas proteger entregas ya realizadas
+    if ($detalle->entregas()->exists()) {
+        return response()->json([
+            'message' => 'No se puede eliminar: ya tiene entregas registradas.'
+        ], 422);
+    }
+
+    $detalle->delete();
+
+    return response()->json(['message' => 'Ítem eliminado correctamente']);
+}
+
     
 }
