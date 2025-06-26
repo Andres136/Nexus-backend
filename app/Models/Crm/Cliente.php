@@ -27,4 +27,9 @@ class Cliente extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+    // Relación con la tabla ordenes_compra
+    public function ordenes()
+    {
+        return $this->hasMany(Orden_Compra::class, 'cliente_id');
+    }
 }

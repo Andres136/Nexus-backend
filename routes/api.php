@@ -138,14 +138,15 @@ Route::get('estadisticas-comerciales',[SeguimientoController::class, 'resumenMen
 Route::put('/pqrs/{id}/asignar', [PqrController::class, 'asignarArea']);
 
 
-
+//Dashboard y reportes principal
+Route::get('top-clients', [DashboardController::class, 'getTopClients']);
 Route::get('dashboard/monthly', [DashboardController::class, 'getMonthlyStats']);
-
+Route::get('/dashboard', [DashboardController::class, 'getDashboardData']);
 Route::get('/orden-compras/{id}/pdf', [OrdenCompraController::class, 'generarPdf']);
 Route::get('/cotizaciones/{id}/pdf', [CotizacionController::class, 'descargarPDF']);
 Route::get("/usuarios-comerciales",[ClienteController::class,'usuariosComerciales']);
 
-Route::get('/dashboard', [DashboardController::class, 'getDashboardData']);
+
 route::get('dashboard-entregas-hoy', [DashboardController::class, 'ordenesEntreganHoy']);
 Route::apiResource('departamentos', DepartamentoController::class);
 Route::get('documentos/descargar/{id}', [DocumentoController::class, 'download']);

@@ -121,7 +121,52 @@ public function getMonthlyStats(Request $request)
         'year', 'month', 'total', 'despachadas', 'vencidas', 'pendientes'
     ));
 }
+//Traer estadisticas de los clientes que mas compran
+public function getTopClients(Request $request)
+{
+    $year = $request->input('year', now()->year);
+    $month = $request->input('month', now()->month);
+    $sedeId = $request->input('sede_id');
+    $tipoOrden = $request->input('tipo_orden');
+    $vendedorId = $request->input('vendedor_id');
 
+    $start = Carbon::create($year, $month, 1)->startOfDay();
+    $end = Carbon::create($year, $month, 1)->endOfMonth()->endOfDay();
+
+    $clientes = Cliente::with(['ordenes' => function ($query) use ($start, $end, $sedeId, $tipoOrden, $vendedorId) {
+        $query->whereBetween('fecha_entrega', [$start, $end]);
+
+        if ($sedeId) {
+            $query->where('sede_id', $sedeId);
+        }
+        if ($tipoOrden) {
+            $query->where('tipo_orden', $tipoOrden);
+        }
+        if ($vendedorId) {
+            $query->where('vendedor_id', $vendedorId);
+        }
+    }])->get();
+
+    $topClients = $clientes->sortByDesc(fn($cliente) => $cliente->ordenes->count())
+        ->take(10)
+        ->values();
+
+    return response()->json([
+        'mes' => "$month/$year",
+        'filtros_aplicados' => [
+            'sede_id' => $sedeId,
+            'tipo_orden' => $tipoOrden,
+            'vendedor_id' => $vendedorId
+        ],
+        'clientes_top' => $topClients->map(function ($cliente) {
+            return [
+                'cliente_id' => $cliente->id,
+                'nombre' => $cliente->nombre,
+                'cantidad_ordenes' => $cliente->ordenes->count()
+            ];
+        })
+    ]);
+}
 
 
 }
