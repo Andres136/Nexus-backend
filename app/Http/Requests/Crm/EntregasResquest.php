@@ -24,7 +24,7 @@ class EntregasResquest extends FormRequest
         return [
             'detalle_id' => 'required|exists:orden_compra_proveedor_detalles,id',
             'cantidad_entregada' => 'nullable|numeric|min:0',
-            'fecha_entrega' => 'required|date',
+            'fecha_entrega' => 'nullable|date',
             'observaciones' => 'nullable|string|max:255',
         ];
 

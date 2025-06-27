@@ -119,6 +119,9 @@ Route::apiResource('/vehiculos/{vehiculo}/fotos',VehiculoFotoController::class);
 Route::get('/usuarios/all', [AuthController::class, 'indexUsuarios']);
 Route::get('/vehiculos-options', [VehiculoController::class, 'options']);
 
+Route::post('clientes/importar-excel', [ClienteController::class, 'importExcel']);
+   
+
 
 });
 Route::delete('/detalles-orden/{id}', [EntregaProveedorController::class, 'eliminarItem']);

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Crm;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Crm\ClientesRequest;
+use App\Http\Requests\Crm\ImportarClientesExelRequest;
 use App\Models\Crm\Cliente;
 use App\Models\User;
 use GuzzleHttp\Client;
@@ -155,4 +156,31 @@ public function usuariosComerciales()
     $usuarios = User::where('role_id', 9)->get();
     return response()->json($usuarios);
 }
+// app/Http/Controllers/ClienteController.php
+public function importExcel(ImportarClientesExelRequest $request)
+{
+    $data = $request->validated();
+
+    // Opcional: evitar duplicados por nit o email
+    $insertados = 0;
+    foreach ($data['clientes'] as $row) {
+        Cliente::updateOrCreate(
+            ['nit' => $row['nit']],                     // criterio único
+            [
+                'nombre'    => $row['nombre'],
+                'email'     => $row['email'],
+                'telefono'  => $row['telefono'],
+                'direccion' => $row['direccion'],
+                'user_id'   => Auth::id(), 
+            ]
+        );
+        $insertados++;
+    }
+
+    return response()->json([
+        'message'   => "Se importaron/actualizaron $insertados clientes",
+    ]);
+}
+
+
 }
