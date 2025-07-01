@@ -110,7 +110,7 @@ class OrdenCompraProveedorController extends Controller
                     return [
                         'id' => $entrega->id,
                         'cantidad_entregada' => (float) $entrega->cantidad_entregada,
-                        'fecha_entrega' => $entrega->fecha_entrega->format('Y-m-d H:i:s'),
+                        'fecha_entrega' => $entrega->fecha_entrega?->format('Y-m-d H:i:s'),
                         'observaciones' => $entrega->observaciones,
                     ];
                 }),
