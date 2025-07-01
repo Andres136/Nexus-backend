@@ -23,9 +23,13 @@ class EntregasResquest extends FormRequest
     {
         return [
             'detalle_id' => 'required|exists:orden_compra_proveedor_detalles,id',
-            'cantidad_entregada' => 'nullable|numeric|min:0',
-            'fecha_entrega' => 'nullable|date',
-            'observaciones' => 'nullable|string|max:255',
+           // Solo aceptamos el par cantidad+fecha si ambos están presentes.
+        // — Si no se envía cantidad → no se procesa (nullable)
+        // — Si se envía, debe ser >0 y traer fecha
+        'cantidad_entregada' => 'nullable|numeric|min:0.01|required_with:fecha_entrega',
+        'fecha_entrega'      => 'nullable|date|required_with:cantidad_entregada',
+
+        'observaciones'      => 'nullable|string|max:255',
         ];
 
     }
@@ -35,11 +39,17 @@ class EntregasResquest extends FormRequest
             'detalle_id.required' => 'El campo detalle_id es obligatorio.',
             'detalle_id.exists' => 'El detalle_id no existe en la base de datos.',
        
-            'cantidad_entregada.numeric' => 'El campo cantidad_entregada debe ser un número.',
-            'cantidad_entregada.min' => 'El campo cantidad_entregada debe ser mayor o igual a 0.',
-            'fecha_entrega.required' => 'El campo fecha_entrega es obligatorio.',
-            'observaciones.string' => 'El campo observaciones debe ser una cadena de texto.',
-            'observaciones.max' => 'El campo observaciones no puede tener más de 255 caracteres.',
+            'cantidad_entregada.numeric' => 'La cantidad entregada debe ser un número.',
+        'cantidad_entregada.min'     => 'La cantidad entregada debe ser mayor a 0.',
+        'cantidad_entregada.required_with'
+            => 'Debe indicar la cantidad si desea registrar una fecha de entrega.',
+
+        'fecha_entrega.required_with'
+            => 'Debe indicar la fecha cuando se registra una cantidad entregada.',
+        'fecha_entrega.date'         => 'La fecha de entrega no tiene un formato válido.',
+
+        'observaciones.string'       => 'Las observaciones deben ser texto.',
+        'observaciones.max'          => 'Las observaciones no pueden exceder 255 caracteres.',
         ];
     }
 }
