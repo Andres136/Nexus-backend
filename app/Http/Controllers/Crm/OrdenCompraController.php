@@ -9,6 +9,7 @@ use App\Http\Requests\Crm\OrdenComprasUpdateRequest;
 use App\Http\Requests\Crm\OrdenTrabajoRequest;
 use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\OrdenDeTrabajo;
+use App\Models\Departamentos;
 use App\Models\Estados;
 use App\Models\User;
 use App\Notifications\OrdenCompraNotificacion;
@@ -259,9 +260,13 @@ if (!$ordenCompra->sede_id && $request->filled('sede_id')) {
             // 5. Notificaciones
             $user = $ordenCompra->user;
 //notificar  a usuarios por sedes 
-            $usuariosSede = User::where('sede_id', $ordenCompra->sede_id)
-                ->whereIn('role_id', [ 4, 6, 2]) // Roles que deben recibir la notificación
-                ->get();
+            
+           $operacionesId = Departamentos::where('nombre', 'Operaciones')->value('id');
+
+$usuariosSede = User::where('sede_id', $ordenCompra->sede_id)
+    ->where('departamento_id', $operacionesId)
+    ->whereIn('role_id', [4, 6]) // Roles que deben recibir la notificación
+    ->get();
             Notification::send($usuariosSede, new OrdenTrabajoCreada($ordenTrabajo));
           
 

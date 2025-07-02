@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Departamentos;
 use App\Models\User;
 use App\Notifications\Crm\TareaVencidaNotificacion;
 use App\Notifications\NotifyAdminUserLoggedIn;
@@ -40,7 +41,11 @@ class NotificacionOrdenController extends Controller
 
     public function enviarOrdenCreada($orden)
     {
-        $usuariosNotificar = User::whereIn('role_id', [4, 5, 6])->get();
+        $operacionesId = Departamentos::where('nombre', 'Operaciones')->value('id');
+
+        $usuariosNotificar = User::whereIn('role_id', [4, 5, 6])
+            ->where('departamento_id', $operacionesId) // Asegúrate de que el departamento sea correcto
+            ->get();
         //Enviar notificación por correo
         Notification::send($usuariosNotificar, new OrdenCompraNotificacion($orden));
         return response()->json(['message' => 'Notificaciones enviadas'], 200);
