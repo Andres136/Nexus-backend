@@ -9,8 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\Crm\OrdenDeTrabajo; // Importar el modelo OrdenDeTrabajo
 use App\Models\Crm\Cliente;
-
-
+use App\Models\Departamentos;
 
 class Orden_Compra extends Model
 {
@@ -76,5 +75,6 @@ class Orden_Compra extends Model
         return $this->belongsTo(Sede::class, 'sede_id');
     }
 
-   
+
+ 
 }
