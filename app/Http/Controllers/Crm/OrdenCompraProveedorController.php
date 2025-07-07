@@ -15,30 +15,56 @@ class OrdenCompraProveedorController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $request)
-    {
-        $query = OrdenCompraProveedor::with(['proveedor', 'usuario', 'estado'])
-                    ->orderBy('id', 'desc');
-    
-        if ($request->has('search')) {
-            $search = $request->search;
-    
-            $query->where(function($q) use ($search) {
-                $q->where('numero_orden', 'LIKE', "%$search%")
-                  ->orWhereHas('proveedor', function($q) use ($search) {
-                      $q->where('nombre', 'LIKE', "%$search%");
-                  });
-            });
-        }
-    
-        $ordenes = $query->paginate(10);
-    
-        return response()->json([
-            'message' => 'Lista paginada de ordenes de compra',
-            'ordenes' => $ordenes
-        ], 200);
+ public function index(Request $request)
+{
+    $query = OrdenCompraProveedor::with(['proveedor', 'usuario', 'estado', 'detalles.entregas'])
+                ->orderBy('id', 'desc');
+
+    if ($request->has('search')) {
+        $search = $request->search;
+
+        $query->where(function($q) use ($search) {
+            $q->where('numero_orden', 'LIKE', "%$search%")
+              ->orWhereHas('proveedor', function($q) use ($search) {
+                  $q->where('nombre', 'LIKE', "%$search%");
+              });
+        });
     }
-    
+
+    $ordenes = $query->paginate(10);
+
+    // Calculamos el estado_calculado para cada orden
+    $ordenes->getCollection()->transform(function ($orden) {
+        $detalles = $orden->detalles->map(function ($detalle) {
+            $estado = 'Pendiente';
+            if ($detalle->cantidad_entregada >= $detalle->cantidad_solicitada) {
+                $estado = $detalle->cantidad_entregada > $detalle->cantidad_solicitada
+                    ? 'Con entrega extra'
+                    : 'Completo';
+            }
+            return [
+                'estado_producto' => $estado
+            ];
+        });
+
+        $total = $detalles->count();
+        $completados = $detalles->whereIn('estado_producto', ['Completo', 'Con entrega extra'])->count();
+
+        $orden->estado_calculado = match (true) {
+            $completados === 0 => 'Pendiente',
+            $completados < $total => 'Parcialmente Entregada',
+            default => 'Completada',
+        };
+
+        return $orden;
+    });
+
+    return response()->json([
+        'message' => 'Lista paginada de órdenes de compra',
+        'ordenes' => $ordenes
+    ], 200);
+}
+
 
     /**
      * Store a newly created resource in storage.

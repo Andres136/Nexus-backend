@@ -17,6 +17,7 @@ class Mantenimiento extends Model
         'costo',
         'kilometro_programado',
         'archivo',
+        'kilometraje_actual', // Nuevo campo para el kilometraje actual
         'descripcion_trabajo',
     ];
 

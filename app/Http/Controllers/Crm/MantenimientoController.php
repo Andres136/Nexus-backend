@@ -39,6 +39,7 @@ class MantenimientoController extends Controller
                 'kilometro_programado'=> $request->kilometro_programado,
                 'tipo_mantenimiento'=> $request->tipo_mantenimiento,
                 'archivo' => $nombreArchivo, // Guardar el nombre del archivo en la base de datos
+                'kilometraje_actual' => $request->kilometraje_actual, // Guardar el kilometraje actual
             ]);
     
             return response()->json([
@@ -68,6 +69,8 @@ class MantenimientoController extends Controller
      $mantenimiento->costo = $request->costo;
      $mantenimiento->kilometro_programado = $request->kilometro_programado;
      $mantenimiento->tipo_mantenimiento = $request->tipo_mantenimiento;
+     $mantenimiento->kilometraje_actual = $request->kilometraje_actual;
+
      // Verificar si se ha subido un nuevo archivo
         if ($request->hasFile('archivo')) {
             // Obtener el nombre del nuevo archivo

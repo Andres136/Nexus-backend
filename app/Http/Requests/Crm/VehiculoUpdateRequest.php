@@ -26,7 +26,7 @@ class VehiculoUpdateRequest extends FormRequest
             'placa' => 'required|string|max:10|unique:vehiculos,placa,' . $id,
             'marca' => 'required|string|max:50',
             'modelo' => 'required|string|max:50',
-            'anio' => 'required|integer|min:1900|max:' . date('Y'),
+           'anio' => 'required|integer|min:1900',
             'tipo' => 'required|string|max:50', // Cambiado de tipo_vehiculo a tipo
             'estado'=> 'required|in:Activo,En mantenimiento,Retirado',
             'foto' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:10240', // Tam
@@ -59,7 +59,7 @@ class VehiculoUpdateRequest extends FormRequest
             'anio.required' => 'El año es obligatorio.',
             'anio.integer' => 'El año debe ser un número entero.',
             'anio.min' => 'El año no puede ser menor a 1900.',
-            'anio.max' => 'El año no puede ser mayor al año actual.',
+      
             'tipo.required' => 'El tipo de vehículo es obligatorio.',
              'estado.required' => 'El estado es obligatorio.',
             'estado.in' => 'El estado debe ser uno de los siguientes: Activo, En mantenimiento, Retirado.',
