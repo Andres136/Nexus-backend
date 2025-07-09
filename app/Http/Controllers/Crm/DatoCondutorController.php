@@ -77,7 +77,11 @@ class DatoCondutorController extends Controller
      */
     public function show(string $id)
     {
-        //
+        $conductor = DatoConductor::with('user')->findOrFail($id);
+        return response()->json([
+            'success' => true,
+            'data' => $conductor,
+        ], 200);
     }
 
     /**

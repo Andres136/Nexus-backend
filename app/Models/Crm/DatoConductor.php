@@ -26,4 +26,8 @@ class DatoConductor extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+    public function revisionComparendos()
+    {
+        return $this->hasMany(RevisionComparendo::class, 'conductor_id');
+    }
 }

@@ -16,6 +16,7 @@ use App\Http\Controllers\Crm\OrdenCompraDetallesController;
 use App\Http\Controllers\Crm\OrdenCompraProveedorController;
 use App\Http\Controllers\Crm\ordenTrabajoController;
 use App\Http\Controllers\Crm\ProveedorController;
+use App\Http\Controllers\Crm\RevisionComparendoController;
 use App\Http\Controllers\Crm\SedeController;
 use App\Http\Controllers\Crm\SeguimientoController;
 use App\Http\Controllers\Crm\SiigoController;
@@ -121,6 +122,8 @@ Route::get('/vehiculos-options', [VehiculoController::class, 'options']);
 
 Route::post('clientes/importar-excel', [ClienteController::class, 'importExcel']);
    
+Route::apiResource('revision-comparendos',RevisionComparendoController::class);
+Route::get('/revision-comparendos/conductor/{id}', [RevisionComparendoController::class, 'porConductor']);
 
 
 });
