@@ -253,7 +253,7 @@ public function indexUsuarios(Request $request)
 
 public function conductores()
 {
-    $conductores = User::whereIn('role_id',[8,6])->get(['id', 'name', 'email', 'telefono']);
+    $conductores = User::whereIn('role_id',[8,6,5,4])->get(['id', 'name', 'email', 'telefono']);
 
     if ($conductores->isEmpty()) {
         return response()->json(["Error" => "No hay conductores registrados"], 404);

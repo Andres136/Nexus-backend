@@ -208,6 +208,7 @@ class OrdenCompraProveedorController extends Controller
     
         return response()->json(['message' => 'Detalle creado correctamente.']);
     }
+    
     public function update(UpdateOrdenCompraProveedorDetallesRequest $request, $id)
 {
     $detalle = OrdenCompraProveedorDetalle::findOrFail($id);

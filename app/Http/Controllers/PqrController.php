@@ -171,7 +171,7 @@ class PqrController extends Controller
         $userAsignado = \App\Models\User::find($request->asignado_a);
     
         // Buscamos el procedimiento vigente (dinámico)
-        $departamento = Departamentos::where('nombre', 'Tecnología')->first();
+        $departamento = Departamentos::where('nombre', 'Marketing y Comunicaciones')->first();
         $proceso = Procesos::where('departamento_id', $departamento->id)->where('nombre', 'PQR')->first();
         $documento = Documentos::where('proceso_id', $proceso->id)->orderByDesc('created_at')->first();
     
