@@ -177,11 +177,13 @@ class AuthController extends Controller
         }
         // Enviar notificación al administrador de que un usuario ha iniciado sesión
 
-        $admin = User::where('role_id', 1)->first();  // Ajusta a tu criterio
-     
-        if ($admin) {
-            $admin->notify(new NotifyAdminUserLoggedIn( $user->name));
-        }
+    // Obtener todos los administradores
+$admins = User::where('role_id', 1)->get(); // O ajusta a tu criterio
+
+foreach ($admins as $admin) {
+    $admin->notify(new NotifyAdminUserLoggedIn($user->name));
+}
+
 
         // Retornar el token y datos del usuario
         return [
