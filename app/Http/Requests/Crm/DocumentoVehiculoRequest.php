@@ -26,7 +26,7 @@ class DocumentoVehiculoRequest extends FormRequest
             'tipo_documento' => 'required|string|max:255',
             'fecha_vencimiento' => 'required|date',
             'fecha_renovacion' => 'required|date',
-            'documento_pdf' => 'required|file|mimes:pdf,jpg,jpeg,png|max:5000',
+            'documento_pdf' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10024', // 10MB = 10240KB
             'estado' => 'required|',
         ];
     }
@@ -46,7 +46,7 @@ class DocumentoVehiculoRequest extends FormRequest
             'documento_pdf.required' => 'El campo  es obligatorio.',
             'documento_pdf.file' => 'El campo documento_pdf debe ser un archivo.',
             'documento_pdf.mimes' => 'El campo documento_pdf debe ser un archivo de tipo: pdf, jpg, jpeg, png.',
-            'documento_pdf.max' => 'El campo documento_pdf no puede tener más de 5MB.',
+            'documento_pdf.max' => 'El campo documento_pdf no puede tener más de 10MB.',
             'estado.required' => 'El campo estado es obligatorio.',
         ];
     }

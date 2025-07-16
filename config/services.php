@@ -48,6 +48,14 @@ return [
     'partner_id' => env('SIIGO2_PARTNER_ID'),
 ],
 
+ 'whatsapp' => [
+        // Base URL, sin el phone_id al final
+        'api_url'      => env('WHATSAPP_API_URL', 'https://graph.facebook.com/v17.0'),
+        'business_id'  => env('WHATSAPP_BUSINESS_ID'),
+        'phone_id'     => env('WHATSAPP_PHONE_ID'),
+        'access_token' => env('WHATSAPP_ACCESS_TOKEN'),
+        'verify_token' => env('VERIFY_TOKEN'),
+    ],
 
 
 ];

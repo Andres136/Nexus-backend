@@ -7,39 +7,56 @@ use Illuminate\Support\Facades\Log;
 
 class WhatsappService
 {
-    protected $apiUrl;
-    protected $businessId;
-    protected $accessToken;
-    protected $phoneId;
+    protected string $baseUrl;
+    protected string $apiUrl;
+    protected string $accessToken;
 
     public function __construct()
     {
-        $this->apiUrl = "https://graph.facebook.com/v22.0/{$this->phoneId}/messages";
-        $this->businessId = env('WHATSAPP_BUSINESS_ID');
-        $this->accessToken = env('WHATSAPP_ACCESS_TOKEN');
-        $this->phoneId = env('WHATSAPP_PHONE_ID');
+        $this->baseUrl     = config('services.whatsapp.api_url');
+        $this->accessToken = config('services.whatsapp.access_token');
+
+        // Construye la URL completa de envío
+        $phoneId = config('services.whatsapp.phone_id');
+        $this->apiUrl = "{$this->baseUrl}/{$phoneId}/messages";
     }
 
-    public function sendMessage($telefono)
+    public function sendTemplateMessage(string $to): array
     {
-        if (empty($telefono)) {
+        if (! $to) {
+            Log::warning('WhatsappService: número vacío');
             return ['error' => 'Número de teléfono vacío.'];
         }
-    
-        $url = "https://graph.facebook.com/v22.0/{$this->phoneId}/messages";
-    
-        $response = Http::withToken($this->accessToken)->post($url, [
-            'messaging_product' => 'whatsapp',
-            'recipient_type' => 'individual',
-            'to' => $telefono,
-            'type' => 'template',
-            'template' => [
-                'name' => 'hello_world',
-                'language' => ['code' => 'en_US']
-            ]
-        ]);
-    
-        return $response->json();
+
+        return Http::withToken($this->accessToken)
+            ->post($this->apiUrl, [
+                'messaging_product' => 'whatsapp',
+                'to'                => $to,
+                'type'              => 'template',
+                'template'          => [
+                    'name'     => 'hello_world',
+                    'language' => ['code' => 'en_US'],
+                ],
+            ])
+            ->throw()
+            ->json();
     }
-    
+
+    public function sendTextMessage(string $to, string $body): array
+    {
+        if (! $to || ! $body) {
+            Log::warning('WhatsappService: destinatario o mensaje vacío', compact('to', 'body'));
+            return ['error' => 'Datos insuficientes para enviar texto.'];
+        }
+
+        return Http::withToken($this->accessToken)
+            ->post($this->apiUrl, [
+                'messaging_product' => 'whatsapp',
+                'to'                => $to,
+                'type'              => 'text',
+                'text'              => ['body' => $body],
+            ])
+            ->throw()
+            ->json();
+    }
 }

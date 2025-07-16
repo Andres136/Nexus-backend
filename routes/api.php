@@ -35,6 +35,7 @@ use App\Http\Controllers\RolController;
 use App\Http\Controllers\TareaController;
 use App\Http\Controllers\UpdateDepartamentoController;
 use App\Http\Controllers\UsuarioController;
+use App\Http\Controllers\whatsapp\WhatsappWebhookController;
 use App\Models\Pqr;
 use Illuminate\Container\Attributes\Auth;
 use Illuminate\Http\Request;
@@ -175,7 +176,8 @@ Route::get('download/{id}', [DocumentosAdministrativosController::class, 'downlo
 Route::delete('documentos-administrativos/{id}', [DocumentosAdministrativosController::class, 'destroy']);
 Route::apiResource('carpetas', CarpetaController::class);
 Route::post('login', [AuthController::class, 'login'])->name('login');
-
+//Whatsapp Webhook
+Route::match(['GET', 'POST'], '/webhook', [WhatsappWebhookController::class, 'handle']);
 
 
 
