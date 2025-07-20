@@ -52,10 +52,19 @@ class ProcesoController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
+public function update(Request $request, $id)
+{
+    $request->validate([
+        'nombre' => 'required|string|max:255',
+    ]);
+
+    $proceso = Procesos::findOrFail($id);
+    $proceso->nombre = $request->nombre;
+    $proceso->save();
+
+    return response()->json(['message' => 'Actualizado correctamente']);
+}
+
 
     /**
      * Remove the specified resource from storage.
