@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Crm\Cliente;
 use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\OrdenDeTrabajo;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use GuzzleHttp\Client;
 use Illuminate\Http\Request;
@@ -166,7 +167,47 @@ public function getTopClients(Request $request)
             ];
         })
     ]);
+
 }
+//Traer ordenes de trabajo con faltantes y vencidas a  entregar hoy para descargar
+
+
+
+public function descargarOrdenesCriticasHoy(Request $request)
+{
+    $fecha = $request->filled('fecha')
+        ? Carbon::parse($request->input('fecha'))->startOfDay()
+        : now()->startOfDay();
+
+    $ordenes = Orden_Compra::with(['detalles', 'cliente'])
+        ->whereDate('fecha_entrega', '<=', $fecha)
+        ->get();
+
+    $ordenesCriticas = $ordenes->filter(function ($orden) use ($fecha) {
+        $tieneFaltantes = $orden->detalles->sum('faltantes') > 0;
+        $enviados       = $orden->detalles->sum('cantidad_enviada');
+        $vencida        = Carbon::parse($orden->fecha_entrega)->lt($fecha) && $enviados == 0;
+
+        return $tieneFaltantes || $vencida || Carbon::parse($orden->fecha_entrega)->eq($fecha);
+    });
+
+    if ($ordenesCriticas->isEmpty()) {
+        return response()->json(['mensaje' => 'No hay órdenes críticas para la fecha.'], 404);
+    }
+
+    $pdf = Pdf::loadView('pdf.ordenes_criticas', [
+        'ordenes' => $ordenesCriticas,
+        'fecha' => $fecha->toDateString()
+    ]);
+
+    $filename = 'ordenes_criticas_' . $fecha->format('Ymd') . '.pdf';
+    return response($pdf->output(), 200, [
+        'Content-Type' => 'application/pdf',
+        'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+    ]);
+}
+
+
 
 
 }

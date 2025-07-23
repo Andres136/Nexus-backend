@@ -179,7 +179,7 @@ Route::post('login', [AuthController::class, 'login'])->name('login');
 //Whatsapp Webhook
 Route::match(['GET', 'POST'], '/webhook', [WhatsappWebhookController::class, 'handle']);
 
-
-
+//Descargar órdenes críticas de hoy en PDF
+Route::get('/dashboard/ordenespdf', [DashboardController::class, 'descargarOrdenesCriticasHoy']);
 
 
