@@ -181,5 +181,8 @@ Route::match(['GET', 'POST'], '/webhook', [WhatsappWebhookController::class, 'ha
 
 //Descargar órdenes críticas de hoy en PDF
 Route::get('/dashboard/ordenespdf', [DashboardController::class, 'descargarOrdenesCriticasHoy']);
+//Descargar pendientes de ordenes de proveedor
+
+Route::get('/entregas/items-pendientes/pdf', [EntregaProveedorController::class, 'descargarPendientes']);
 
 

@@ -172,32 +172,56 @@ public function getTopClients(Request $request)
 //Traer ordenes de trabajo con faltantes y vencidas a  entregar hoy para descargar
 
 
-
 public function descargarOrdenesCriticasHoy(Request $request)
 {
     $fecha = $request->filled('fecha')
         ? Carbon::parse($request->input('fecha'))->startOfDay()
         : now()->startOfDay();
 
-    $ordenes = Orden_Compra::with(['detalles', 'cliente'])
-        ->whereDate('fecha_entrega', '<=', $fecha)
-        ->get();
+    $ordenes = Orden_Compra::with(['detalles', 'cliente'])->get();
 
-    $ordenesCriticas = $ordenes->filter(function ($orden) use ($fecha) {
-        $tieneFaltantes = $orden->detalles->sum('faltantes') > 0;
-        $enviados       = $orden->detalles->sum('cantidad_enviada');
-        $vencida        = Carbon::parse($orden->fecha_entrega)->lt($fecha) && $enviados == 0;
-
-        return $tieneFaltantes || $vencida || Carbon::parse($orden->fecha_entrega)->eq($fecha);
+    // 🔴 VENCIDAS
+    $vencidas = $ordenes->filter(function ($orden) use ($fecha) {
+        $enviados = $orden->detalles->sum('cantidad_enviada');
+        return Carbon::parse($orden->fecha_entrega)->lt($fecha) && $enviados == 0;
     });
 
-    if ($ordenesCriticas->isEmpty()) {
+    // 🟡 FALTANTES
+    $conFaltantes = $ordenes->filter(function ($orden) use ($fecha) {
+        $tieneFaltantes = $orden->detalles->sum('faltantes') > 0;
+        $enviados = $orden->detalles->sum('cantidad_enviada');
+        $vencida = Carbon::parse($orden->fecha_entrega)->lt($fecha) && $enviados == 0;
+        return $tieneFaltantes && !$vencida;
+    });
+
+    // 🟢 ENTREGAR HOY
+    $hoy = $ordenes->filter(function ($orden) use ($fecha) {
+        return Carbon::parse($orden->fecha_entrega)->eq($fecha);
+    });
+
+    // 🔁 Limpiar detalles según el caso
+    $vencidas->each(function ($orden) {
+        $orden->detalles = $orden->detalles->filter(function ($d) {
+            return ($d->cantidad_enviada ?? 0) == 0;
+        })->values();
+    });
+
+    $conFaltantes->each(function ($orden) {
+        $orden->detalles = $orden->detalles->filter(function ($d) {
+            return ($d->faltantes ?? 0) > 0;
+        })->values();
+    });
+
+    if ($vencidas->isEmpty() && $conFaltantes->isEmpty() && $hoy->isEmpty()) {
         return response()->json(['mensaje' => 'No hay órdenes críticas para la fecha.'], 404);
     }
 
     $pdf = Pdf::loadView('pdf.ordenes_criticas', [
-        'ordenes' => $ordenesCriticas,
-        'fecha' => $fecha->toDateString()
+        'fecha'     => $fecha->toDateString(),
+    
+        'vencidas'  => $vencidas,
+        'faltantes' => $conFaltantes,
+        'hoy'       => $hoy,
     ]);
 
     $filename = 'ordenes_criticas_' . $fecha->format('Ymd') . '.pdf';
@@ -206,6 +230,7 @@ public function descargarOrdenesCriticasHoy(Request $request)
         'Content-Disposition' => 'attachment; filename="' . $filename . '"',
     ]);
 }
+
 
 
 
