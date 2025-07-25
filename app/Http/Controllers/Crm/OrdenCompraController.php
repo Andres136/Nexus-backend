@@ -7,6 +7,8 @@ use App\Http\Controllers\NotificacionOrdenController;
 use App\Http\Requests\Crm\OrdenComprasRequest;
 use App\Http\Requests\Crm\OrdenComprasUpdateRequest;
 use App\Http\Requests\Crm\OrdenTrabajoRequest;
+use App\Http\Requests\Crm\RequestMeta;
+use App\Models\Crm\MetaMensual;
 use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\OrdenDeTrabajo;
 use App\Models\Departamentos;
@@ -579,4 +581,59 @@ public function edit(string $id)
 
     return response()->json($orden, 200);
 }
+
+
+
+
+public function registrarMeta(RequestMeta $request)
+{
+    $meta = MetaMensual::updateOrCreate(
+        ['anio' => $request->anio, 'mes' => $request->mes],
+        ['valor_meta' => $request->valor_meta]
+    );
+    return response()->json([
+        'message' => 'Meta mensual registrada exitosamente',
+        'meta' => $meta
+    ], 201);
+}
+public function graficoMetaMensual(Request $request)
+{
+    $anio = $request->input('anio', now()->year);
+
+    // Traer todas las metas registradas en el año
+    $metas = MetaMensual::where('anio', $anio)
+        ->orderBy('mes')
+        ->get();
+
+    if ($metas->isEmpty()) {
+        return response()->json(['error' => 'No hay metas registradas para este año.'], 404);
+    }
+
+    $data = $metas->map(function ($meta) use ($anio) {
+        // Obtener valor total de órdenes del mes
+        $ordenesDelMes = Orden_Compra::whereYear('created_at', $anio)
+            ->whereMonth('created_at', $meta->mes)
+            ->sum('valor_total');
+
+        // Calcular cumplimiento
+        $cumplimiento = $meta->valor_meta > 0
+            ? round(($ordenesDelMes / $meta->valor_meta) * 100, 2)
+            : 0;
+
+        return [
+            'mes' => ucfirst(Carbon::create()->month($meta->mes)->locale('es')->isoFormat('MMM')),
+            'meta_millones' => (float) $meta->valor_meta,
+            'ordenes_millones' => round($ordenesDelMes, 2),
+            'cumplimiento' => $cumplimiento,
+        ];
+    });
+
+    return response()->json([
+        'anio' => $anio,
+        'data' => $data,
+    ]);
+}
+
+
+
 }

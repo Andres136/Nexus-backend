@@ -89,96 +89,129 @@ class SeguimientoController extends Controller
     {
         //
     }
-    public function resumenMensualPorUsuario()
-    {
-        $inicio = Carbon::now()->subMonths(6)->startOfMonth();
-    
-        // 1) Gestiones
-        $gestiones = DB::table('seguimiento_clientes')
-            ->join('users', 'seguimiento_clientes.user_id', '=', 'users.id')
-            ->select(
-                'users.id as user_id',
-                'users.name as usuario',
-                DB::raw('DATE_FORMAT(seguimiento_clientes.created_at, "%Y-%m") as mes'),
-                DB::raw('COUNT(seguimiento_clientes.id) as total_gestiones')
-            )
-            ->where('seguimiento_clientes.created_at', '>=', $inicio)
-            ->groupBy('mes', 'users.id', 'users.name');
-    
-        // 2) Cotizaciones
-        $cotizaciones = DB::table('cotizaciones')
-            ->join('users', 'cotizaciones.user_id', '=', 'users.id')
-            ->select(
-                'users.id as user_id',
-                'users.name as usuario',
-                DB::raw('DATE_FORMAT(cotizaciones.created_at, "%Y-%m") as mes'),
-                DB::raw('COUNT(cotizaciones.id) as total_cotizaciones')
-            )
-            ->where('cotizaciones.created_at', '>=', $inicio)
-            ->groupBy('mes', 'users.id', 'users.name');
-    
-        // 3) Órdenes de compra  ← aquí el nombre correcto de la tabla
-        $ordenes = DB::table('orden__compras')
-            ->join('users', 'orden__compras.user_id', '=', 'users.id')
-            ->select(
-                'users.id as user_id',
-                'users.name as usuario',
-                DB::raw('DATE_FORMAT(orden__compras.created_at, "%Y-%m") as mes'),
-                DB::raw('COUNT(orden__compras.id) as total_ordenes')
-            )
-            ->where('orden__compras.created_at', '>=', $inicio)
-            ->groupBy('mes', 'users.id', 'users.name');
-    
-        // 4) Clientes nuevos
-        $clientes = DB::table('clientes')
-            ->join('users', 'clientes.user_id', '=', 'users.id')
-            ->select(
-                'users.id as user_id',
-                'users.name as usuario',
-                DB::raw('DATE_FORMAT(clientes.created_at, "%Y-%m") as mes'),
-                DB::raw('COUNT(clientes.id) as total_clientes')
-            )
-            ->where('clientes.created_at', '>=', $inicio)
-            ->groupBy('mes', 'users.id', 'users.name');
-    
-        // 5) Fusionar en un array
-        $resultado = [];
-    
-        foreach ([$gestiones, $cotizaciones, $ordenes, $clientes] as $query) {
-            foreach ($query->get() as $r) {
-                $key = $r->user_id.'_'.$r->mes;
-                if (! isset($resultado[$key])) {
-                    $resultado[$key] = [
-                        'usuario'            => $r->usuario,
-                        'mes'                => $r->mes,
-                        'total_gestiones'    => 0,
-                        'total_cotizaciones' => 0,
-                        'total_ordenes'      => 0,
-                        'total_clientes'     => 0,
-                    ];
-                }
-                if (isset($r->total_gestiones)) {
-                    $resultado[$key]['total_gestiones'] = $r->total_gestiones;
-                }
-                if (isset($r->total_cotizaciones)) {
-                    $resultado[$key]['total_cotizaciones'] = $r->total_cotizaciones;
-                }
-                if (isset($r->total_ordenes)) {
-                    $resultado[$key]['total_ordenes'] = $r->total_ordenes;
-                }
-                if (isset($r->total_clientes)) {
-                    $resultado[$key]['total_clientes'] = $r->total_clientes;
-                }
+   public function resumenMensualPorUsuario()
+{
+    $inicio = Carbon::now()->subMonths(6)->startOfMonth();
+
+    $gestiones = DB::table('seguimiento_clientes')
+        ->join('users', 'seguimiento_clientes.user_id', '=', 'users.id')
+        ->select(
+            'users.id as user_id',
+            'users.name as usuario',
+            DB::raw('DATE_FORMAT(seguimiento_clientes.created_at, "%Y-%m") as mes'),
+            DB::raw('COUNT(seguimiento_clientes.id) as total_gestiones')
+        )
+        ->where('seguimiento_clientes.created_at', '>=', $inicio)
+        ->groupBy('mes', 'users.id', 'users.name');
+
+    $cotizaciones = DB::table('cotizaciones')
+        ->join('users', 'cotizaciones.user_id', '=', 'users.id')
+        ->select(
+            'users.id as user_id',
+            'users.name as usuario',
+            DB::raw('DATE_FORMAT(cotizaciones.created_at, "%Y-%m") as mes'),
+            DB::raw('COUNT(cotizaciones.id) as total_cotizaciones')
+        )
+        ->where('cotizaciones.created_at', '>=', $inicio)
+        ->groupBy('mes', 'users.id', 'users.name');
+
+    $ordenes = DB::table('orden__compras')
+        ->join('users', 'orden__compras.user_id', '=', 'users.id')
+        ->select(
+            'users.id as user_id',
+            'users.name as usuario',
+            DB::raw('DATE_FORMAT(orden__compras.created_at, "%Y-%m") as mes'),
+            DB::raw('COUNT(orden__compras.id) as total_ordenes'),
+            DB::raw('SUM(orden__compras.valor_total) as total_valor_ordenes')
+        )
+        ->where('orden__compras.created_at', '>=', $inicio)
+        ->groupBy('mes', 'users.id', 'users.name');
+
+    $clientes = DB::table('clientes')
+        ->join('users', 'clientes.user_id', '=', 'users.id')
+        ->select(
+            'users.id as user_id',
+            'users.name as usuario',
+            DB::raw('DATE_FORMAT(clientes.created_at, "%Y-%m") as mes'),
+            DB::raw('COUNT(clientes.id) as total_clientes')
+        )
+        ->where('clientes.created_at', '>=', $inicio)
+        ->groupBy('mes', 'users.id', 'users.name');
+
+    // Metas por mes
+    $metas = DB::table('meta_mensuals')
+        ->select(DB::raw('DATE_FORMAT(created_at, "%Y-%m") as mes'), 'valor_meta')
+        ->get()
+        ->keyBy('mes');
+
+    // Reunir todos los datos
+    $resultado = [];
+
+    foreach ([$gestiones, $cotizaciones, $ordenes, $clientes] as $query) {
+        foreach ($query->get() as $r) {
+            $key = $r->user_id . '_' . $r->mes;
+
+            if (!isset($resultado[$key])) {
+                $resultado[$key] = [
+                    'usuario'              => $r->usuario,
+                    'mes'                  => $r->mes,
+                    'total_gestiones'      => 0,
+                    'total_cotizaciones'   => 0,
+                    'total_ordenes'        => 0,
+                    'total_valor_ordenes'  => 0,
+                    'total_clientes'       => 0,
+                    'meta'                 => 0,
+                    'meta_individual'      => 0,
+                    'cumplimiento'         => 0
+                ];
+            }
+
+            if (isset($r->total_gestiones)) {
+                $resultado[$key]['total_gestiones'] = $r->total_gestiones;
+            }
+            if (isset($r->total_cotizaciones)) {
+                $resultado[$key]['total_cotizaciones'] = $r->total_cotizaciones;
+            }
+            if (isset($r->total_ordenes)) {
+                $resultado[$key]['total_ordenes'] = $r->total_ordenes;
+            }
+            if (isset($r->total_valor_ordenes)) {
+                $resultado[$key]['total_valor_ordenes'] = (float) $r->total_valor_ordenes;
+            }
+            if (isset($r->total_clientes)) {
+                $resultado[$key]['total_clientes'] = $r->total_clientes;
             }
         }
-    
-        // 6) Devolver ordenado
-        return response()->json(
-            collect($resultado)
-                ->sortBy(['mes','usuario'])
-                ->values()
-        );
     }
+
+    // Agrupar por mes para contar usuarios únicos
+    $usuariosPorMes = [];
+
+    foreach ($resultado as $key => $registro) {
+        $mes = $registro['mes'];
+        $usuariosPorMes[$mes][] = $registro['usuario'];
+    }
+
+    // Cálculo de metas individuales y cumplimiento
+    foreach ($resultado as $key => &$registro) {
+        $mes = $registro['mes'];
+        $metaTotal = $metas[$mes]->valor_meta ?? 0;
+        $usuariosActivos = count(array_unique($usuariosPorMes[$mes] ?? []));
+        $metaIndividual = $usuariosActivos > 0 ? round($metaTotal / $usuariosActivos, 2) : 0;
+        $totalValorOrdenes = $registro['total_valor_ordenes'];
+
+        $registro['meta'] = $metaTotal;
+        $registro['meta_individual'] = $metaIndividual;
+        $registro['cumplimiento'] = $metaIndividual > 0
+            ? round(($totalValorOrdenes / $metaIndividual) * 100, 2)
+            : 0;
+    }
+
+    return response()->json(
+        collect($resultado)->sortBy(['mes', 'usuario'])->values()
+    );
+}
+
     
 
 }

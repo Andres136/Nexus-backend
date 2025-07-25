@@ -186,3 +186,7 @@ Route::get('/dashboard/ordenespdf', [DashboardController::class, 'descargarOrden
 Route::get('/entregas/items-pendientes/pdf', [EntregaProveedorController::class, 'descargarPendientes']);
 
 
+//Registrar meta mensual
+Route::post('/meta-mensual', [OrdenCompraController::class, 'registrarMeta']);
+//Resumen de meta mensual
+Route::get('/meta-mensual/resumen', [OrdenCompraController::class, 'graficoMetaMensual']);
