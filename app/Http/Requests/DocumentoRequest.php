@@ -27,7 +27,7 @@ class DocumentoRequest extends FormRequest
             'proceso_id' => 'required',
             'user_id' => 'required',
             'version' => 'required',
-            'documento' => 'required|mimes:pdf,doc,docx,xls,xlsx|max:5120', // 5MB in KB
+            'documento' => 'required|mimes:pdf,doc,docx,xls,xlsx|max:10240', // 10MB in KB
             'observaciones' => 'nullable|string',
 
         ];
@@ -38,7 +38,7 @@ class DocumentoRequest extends FormRequest
             'nombre.required' => 'El nombre es requerido',
             'documento.required' => 'El documento es requerido',
             'documento.mimes' => 'El documento debe ser un archivo PDF, DOC o DOCX, XLS o XLSX',
-            'documento.max' => 'El documento no debe exceder los 5MB',
+            'documento.max' => 'El documento no debe exceder los 10MB',
             'proceso_id.required' => 'El proceso es requerido',
             'user_id.required' => 'El usuario es requerido', 
             'version.required' => 'La versión es requerida',
