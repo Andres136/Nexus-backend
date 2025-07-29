@@ -21,6 +21,12 @@
         <h3>{{ $titulo }}</h3>
         @foreach ($grupo as $orden)
             <p><strong>OC #{{ $orden->id }}</strong> - Cliente: {{ $orden->cliente->nombre ?? 'N/A' }}</p>
+            @if($orden->ordenTrabajo)
+    <p><strong>Orden de Trabajo:</strong> {{ $orden->ordenTrabajo->id ?? 'Sin código' }}</p>
+@else
+    <p><strong>Orden de Trabajo:</strong> No asignada</p>
+@endif
+
             <table>
                 <thead>
                     <tr>
