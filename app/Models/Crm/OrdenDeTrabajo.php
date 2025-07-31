@@ -48,5 +48,6 @@ class OrdenDeTrabajo extends Model
     }
 
  
+    
 
 }

@@ -100,7 +100,12 @@ class DocumentoController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        //
+        $documento = Documentos::find($id);
+        if (!$documento) {
+            return response()->json(["Error" => "Documento no encontrado",], 404);
+        }
+        $documento->update($request->all());
+        return response()->json("Documento actualizado correctamente", 200);
     }
 
     /**
