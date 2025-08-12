@@ -154,45 +154,44 @@ if ($todosCompletos && $orden->estado_id !== 2) {
     return response()->json(['message' => 'Ítem eliminado correctamente']);
 }
 
-public function descargarPendientes()
+public function descargarPendientes(Request $request)
 {
-    $ordenes = OrdenCompraProveedor::with(['proveedor', 'detalles'])
+    $proveedorId = $request->query('proveedor_id');
+
+    $detalles = OrdenCompraProveedorDetalle::with(['orden.proveedor'])
+        ->whereColumn('cantidad_entregada', '<', 'cantidad_solicitada')
+        ->when($proveedorId, fn ($q) => $q->whereHas('orden', fn ($qq) =>
+            $qq->where('proveedor_id', $proveedorId)
+        ))
         ->get();
 
-    $itemsPendientes = [];
-
-    foreach ($ordenes as $orden) {
-        foreach ($orden->detalles as $detalle) {
-            if ($detalle->cantidad_entregada < $detalle->cantidad_solicitada) {
-                $itemsPendientes[] = [
-                    'orden_id'           => $orden->id,
-                    'numero_orden'       => $orden->numero_orden,
-                    'fecha_orden'        => $orden->fecha,
-                    'proveedor'          => $orden->proveedor->nombre ?? 'N/A',
-                    'item'               => $detalle->item,
-                    'descripcion'        => $detalle->descripcion,
-                    'cantidad_solicitada'=> $detalle->cantidad_solicitada,
-                    'cantidad_entregada' => $detalle->cantidad_entregada,
-                    'pendiente'          => $detalle->cantidad_solicitada - $detalle->cantidad_entregada,
-                ];
-            }
-        }
-    }
-
-    if (empty($itemsPendientes)) {
+    if ($detalles->isEmpty()) {
         return response()->json(['mensaje' => 'No hay ítems pendientes.'], 404);
     }
 
+    $itemsPendientes = $detalles->map(function ($d) {
+        return [
+            'orden_id'            => $d->orden->id,
+            'numero_orden'        => $d->orden->numero_orden,
+            'fecha_orden'         => $d->orden->fecha,
+            'proveedor'           => $d->orden->proveedor->nombre ?? 'N/A',
+            'item'                => $d->item,
+            'descripcion'         => $d->descripcion,
+            'cantidad_solicitada' => $d->cantidad_solicitada,
+            'cantidad_entregada'  => $d->cantidad_entregada,
+            'pendiente'           => $d->cantidad_solicitada - $d->cantidad_entregada,
+        ];
+    });
+
     $pdf = Pdf::loadView('pdf.items_pendientes', [
-        'items'     => $itemsPendientes,
-        'generado'  => now()->format('Y-m-d H:i:s')
+        'items'    => $itemsPendientes,
+        'generado' => now()->format('Y-m-d H:i:s'),
     ]);
 
     return response($pdf->output(), 200, [
-        'Content-Type' => 'application/pdf',
+        'Content-Type'        => 'application/pdf',
         'Content-Disposition' => 'attachment; filename="items_pendientes.pdf"',
     ]);
 }
 
-    
 }

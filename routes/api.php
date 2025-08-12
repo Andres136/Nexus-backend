@@ -126,8 +126,10 @@ Route::post('clientes/importar-excel', [ClienteController::class, 'importExcel']
 Route::apiResource('revision-comparendos',RevisionComparendoController::class);
 Route::get('/revision-comparendos/conductor/{id}', [RevisionComparendoController::class, 'porConductor']);
 
-
+Route::get('/proveedores-all', [ProveedorController::class, 'proveedoresAll']);
 });
+
+
 Route::delete('/detalles-orden/{id}', [EntregaProveedorController::class, 'eliminarItem']);
 
 Route::put('/documentos/{id}/fechas', [DocumentoVehiculoController::class, 'actualizarFechas']);

@@ -34,7 +34,14 @@ class ProveedorController extends Controller
         ], 200);
     }
     
-
+public function proveedoresAll()
+    {
+        $proveedores = Proveedor::all();
+        return response()->json([
+            'message' => 'Lista de proveedores',
+            'proveedores' => $proveedores
+        ], 200);
+    }
     /**
      * Store a newly created resource in storage.
      */
