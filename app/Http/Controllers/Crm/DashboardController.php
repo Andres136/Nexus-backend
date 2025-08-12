@@ -178,38 +178,47 @@ public function descargarOrdenesCriticasHoy(Request $request)
         ? Carbon::parse($request->input('fecha'))->startOfDay()
         : now()->startOfDay();
 
-    $ordenes = Orden_Compra::with(['detalles', 'cliente'])->get();
+    $ordenes = Orden_Compra::with(['detalles','cliente'])->get();
 
-    // 🔴 VENCIDAS
+    // 1) Buckets iniciales
     $vencidas = $ordenes->filter(function ($orden) use ($fecha) {
         $enviados = $orden->detalles->sum('cantidad_enviada');
-        return Carbon::parse($orden->fecha_entrega)->lt($fecha) && $enviados == 0;
+        return $orden->fecha_entrega && Carbon::parse($orden->fecha_entrega)->lt($fecha) && $enviados == 0;
     });
 
-    // 🟡 FALTANTES
     $conFaltantes = $ordenes->filter(function ($orden) use ($fecha) {
         $tieneFaltantes = $orden->detalles->sum('faltantes') > 0;
         $enviados = $orden->detalles->sum('cantidad_enviada');
-        $vencida = Carbon::parse($orden->fecha_entrega)->lt($fecha) && $enviados == 0;
+        $vencida = $orden->fecha_entrega && Carbon::parse($orden->fecha_entrega)->lt($fecha) && $enviados == 0;
         return $tieneFaltantes && !$vencida;
     });
 
-    // 🟢 ENTREGAR HOY
     $hoy = $ordenes->filter(function ($orden) use ($fecha) {
-        return Carbon::parse($orden->fecha_entrega)->eq($fecha);
+        return $orden->fecha_entrega && Carbon::parse($orden->fecha_entrega)->startOfDay()->eq($fecha);
     });
 
-    // 🔁 Limpiar detalles según el caso
+    // 2) Exclusividad por prioridad: VENCIDAS > HOY > FALTANTES
+    $vencidas     = $vencidas->unique('id')->values();
+    $idsUsados    = $vencidas->pluck('id');
+
+    $hoy          = $hoy->reject(fn($o) => $idsUsados->contains($o->id))
+                        ->unique('id')->values();
+    $idsUsados    = $idsUsados->merge($hoy->pluck('id'));
+
+    $conFaltantes = $conFaltantes->reject(fn($o) => $idsUsados->contains($o->id))
+                                 ->unique('id')->values();
+
+    // 3) Limpiar detalles SIN modificar la misma instancia usada en otros buckets
     $vencidas->each(function ($orden) {
-        $orden->detalles = $orden->detalles->filter(function ($d) {
-            return ($d->cantidad_enviada ?? 0) == 0;
-        })->values();
+        $orden->setRelation('detalles',
+            $orden->detalles->filter(fn($d) => (int)($d->cantidad_enviada ?? 0) === 0)->values()
+        );
     });
 
     $conFaltantes->each(function ($orden) {
-        $orden->detalles = $orden->detalles->filter(function ($d) {
-            return ($d->faltantes ?? 0) > 0;
-        })->values();
+        $orden->setRelation('detalles',
+            $orden->detalles->filter(fn($d) => (int)($d->faltantes ?? 0) > 0)->values()
+        );
     });
 
     if ($vencidas->isEmpty() && $conFaltantes->isEmpty() && $hoy->isEmpty()) {
@@ -218,7 +227,6 @@ public function descargarOrdenesCriticasHoy(Request $request)
 
     $pdf = Pdf::loadView('pdf.ordenes_criticas', [
         'fecha'     => $fecha->toDateString(),
-    
         'vencidas'  => $vencidas,
         'faltantes' => $conFaltantes,
         'hoy'       => $hoy,
@@ -226,8 +234,8 @@ public function descargarOrdenesCriticasHoy(Request $request)
 
     $filename = 'ordenes_criticas_' . $fecha->format('Ymd') . '.pdf';
     return response($pdf->output(), 200, [
-        'Content-Type' => 'application/pdf',
-        'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        'Content-Type'        => 'application/pdf',
+        'Content-Disposition' => 'attachment; filename="'.$filename.'"',
     ]);
 }
 

@@ -6,27 +6,34 @@
     <style>
         body { font-family: sans-serif; font-size: 11px; }
         h2 { text-align: center; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        h3 { margin-bottom: 6px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
         th, td { border: 1px solid #000; padding: 5px; text-align: left; }
         th { background-color: #f2f2f2; }
+        .oc-header { margin: 6px 0 4px; }
     </style>
 </head>
 <body>
 <h2>Órdenes Críticas del {{ $fecha }}</h2>
 
-
-@foreach (['vencidas' => '🔴 Órdenes Vencidas', 'faltantes' => '🟡 Órdenes con Faltantes', 'hoy' => '🟢 Órdenes Entregar Hoy'] as $tipo => $titulo)
+@foreach (['vencidas' => 'Órdenes Vencidas', 'faltantes' => 'Órdenes con Faltantes', 'hoy' => 'Órdenes Entregar Hoy'] as $tipo => $titulo)
     @php $grupo = $$tipo; @endphp
     @if($grupo->isNotEmpty())
         <h3>{{ $titulo }}</h3>
-        @foreach ($grupo as $orden)
-            <p><strong>OC #{{ $orden->id }}</strong> - Cliente: {{ $orden->cliente->nombre ?? 'N/A' }}</p>
-            @if($orden->ordenTrabajo)
-    <p><strong>Orden de Trabajo:</strong> {{ $orden->ordenTrabajo->id ?? 'Sin código' }}</p>
-@else
-    <p><strong>Orden de Trabajo:</strong> No asignada</p>
-@endif
 
+        @foreach ($grupo as $orden)
+            <div class="oc-header">
+                <strong>OC #{{ $orden->id }}</strong> ·
+                Cliente: {{ data_get($orden, 'cliente.nombre', 'N/A') }} ·
+                Sede: {{ data_get($orden, 'sede.nombre', 'N/A') }} ·
+                Entrega: {{ \Carbon\Carbon::parse($orden->fecha_entrega)->format('Y-m-d') }}
+                <br>
+                Orden de Trabajo: {{ data_get($orden, 'ordenTrabajo.id', 'No asignada') }}
+                <br>
+                Observaciones: {{ $orden->observaciones ?? '—' }}
+            </div>
+
+            @if($orden->detalles->isNotEmpty())
             <table>
                 <thead>
                     <tr>
@@ -42,20 +49,22 @@
                     @foreach ($orden->detalles as $detalle)
                         <tr>
                             <td>{{ $detalle->cliente_clb ?? 'N/A' }}</td>
-                            <td>{{ $detalle->descripcion }}</td>
-                            <td>{{ $detalle->cantidad }}</td>
-                            <td>{{ $detalle->cantidad_enviada ?? 0 }}</td>
-                            <td>{{ $detalle->faltantes ?? 0 }}</td>
-                            <td>{{ $detalle->largo_cm }} x {{ $detalle->ancho_cm }} cm</td>
+                            <td>{{ $detalle->descripcion ?? '—' }}</td>
+                            <td>{{ (int) ($detalle->cantidad ?? 0) }}</td>
+                            <td>{{ (int) ($detalle->cantidad_enviada ?? 0) }}</td>
+                            <td>{{ (int) ($detalle->faltantes ?? 0) }}</td>
+                            <td>
+                                {{ $detalle->largo_cm ?? '—' }}
+                                x
+                                {{ $detalle->ancho_cm ?? '—' }} cm
+                            </td>
                         </tr>
                     @endforeach
                 </tbody>
             </table>
+            @endif
         @endforeach
     @endif
 @endforeach
-
 </body>
 </html>
-
-
