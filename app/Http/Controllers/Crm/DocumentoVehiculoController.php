@@ -129,6 +129,19 @@ public function actualizarFechas(Request $request, string $id)
      */
     public function destroy(string $id)
     {
-        //
+        $documento = DocumentoVehiculo::findOrFail($id);
+
+        // Eliminar el archivo del sistema de archivos
+        if ($documento->documento_pdf && Storage::disk('public')->exists($documento->documento_pdf)) {
+            Storage::disk('public')->delete($documento->documento_pdf);
+        }
+
+        // Eliminar el registro de la base de datos
+        $documento->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Documento eliminado correctamente',
+        ]);
     }
 }

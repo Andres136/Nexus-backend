@@ -15,6 +15,7 @@ use App\Http\Controllers\Crm\OrdenCompraController;
 use App\Http\Controllers\Crm\OrdenCompraDetallesController;
 use App\Http\Controllers\Crm\OrdenCompraProveedorController;
 use App\Http\Controllers\Crm\ordenTrabajoController;
+use App\Http\Controllers\Crm\procesoBolsasController;
 use App\Http\Controllers\Crm\ProveedorController;
 use App\Http\Controllers\Crm\RevisionComparendoController;
 use App\Http\Controllers\Crm\SedeController;
@@ -47,9 +48,13 @@ Route::middleware('auth:sanctum')->group(function () {
   Route::get('/user', function (Request $request) {
     return $request->user();
   });  
+
+  //Usuarios
   Route::apiResource('users', AuthController::class);
   Route::post('/logout', [AuthController::class, 'logout']);
   Route::put('/users/{id}/estado', [AuthController::class, 'desactivar']);
+  //Clientes
+
   Route::get('/clientes-registro-user', [ClienteController::class, 'clientesUsuario']);
   Route::apiResource('clientes', ClienteController::class);
   Route::get('clientes-todos', [ClienteController::class, 'clientesTodos']);
@@ -109,14 +114,12 @@ Route::get('pqrs', [PqrController::class, 'index']);
 Route::delete('/pqrs/{id}', [PqrController::class, 'destroy']);
 
 Route::put('/pqrs/{id}/responder', [PqrController::class, 'responder']);
-Route::apiResource('ordenes-compra-proveedor', OrdenCompraProveedorController::class);
+
 //Conductores
 Route::apiResource('datos-conductores', DatoCondutorController::class);
 
-Route::post('/detalles-orden', [OrdenCompraProveedorController::class, 'storeDetalle']);
-Route::post('entregas-proveedor', [EntregaProveedorController::class, 'store']);
-Route::put('/detalles-orden/{id}', [OrdenCompraProveedorController::class, 'updateDetalle']);
-Route::put('entregas-proveedor/{id}', [EntregaProveedorController::class, 'update']);
+
+
 Route::apiResource('/vehiculos/{vehiculo}/fotos',VehiculoFotoController::class);
 Route::get('/usuarios/all', [AuthController::class, 'indexUsuarios']);
 Route::get('/vehiculos-options', [VehiculoController::class, 'options']);
@@ -126,21 +129,45 @@ Route::post('clientes/importar-excel', [ClienteController::class, 'importExcel']
 Route::apiResource('revision-comparendos',RevisionComparendoController::class);
 Route::get('/revision-comparendos/conductor/{id}', [RevisionComparendoController::class, 'porConductor']);
 
+
+//Rutas Proveedores detalles item
+Route::post('/detalles-orden', [OrdenCompraProveedorController::class, 'storeDetalle']);
+Route::put('/detalles-orden/{id}', [EntregaProveedorController::class, 'updateDetalle']);
+Route::put('/ordenes-compra-proveedor/{id}/update-proveedor', [OrdenCompraProveedorController::class, 'updateProveedor']);
+Route::delete('/detalles-orden/{id}', [EntregaProveedorController::class, 'eliminarItem']);
+
+
+Route::post('entregas-proveedor', [EntregaProveedorController::class, 'store']);
+Route::put('entregas-proveedor/{id}', [EntregaProveedorController::class, 'update']);
+//Todos los
 Route::get('/proveedores-all', [ProveedorController::class, 'proveedoresAll']);
+
+
+Route::apiResource('ordenes-compra-proveedor', OrdenCompraProveedorController::class);
+
+
+
+
+Route::get('referencias-excedidas', [EntregaProveedorController::class, 'referenciasExcedidas']);
+
+Route::get('/dashboard/ordenespdf', [DashboardController::class, 'descargarOrdenesCriticasHoy']);
+
+//Descargar pendientes de ordenes de proveedor
+
+Route::get('/entregas/items-pendientes/pdf', [EntregaProveedorController::class, 'descargarPendientes']);
+//Proceso bolsas
+Route::apiResource('registrar-proceso-bolsa',procesoBolsasController::class);
 });
 
-
-Route::delete('/detalles-orden/{id}', [EntregaProveedorController::class, 'eliminarItem']);
 
 Route::put('/documentos/{id}/fechas', [DocumentoVehiculoController::class, 'actualizarFechas']);
 Route::get('/conductores',[AuthController::class, 'conductores']);
 
-Route::put('/ordenes-compra-proveedor/{id}/update-proveedor', [OrdenCompraProveedorController::class, 'updateProveedor']);
+
 Route::post('pqr', [PqrController::class, 'store']);
 
 Route::get('/sedes', [SedeController::class, 'index']);
-Route::get('referencias-excedidas', [EntregaProveedorController::class, 'referenciasExcedidas']);
-Route::put('/detalles-orden/{id}', [EntregaProveedorController::class, 'updateDetalle']);
+
 
 Route::delete('orden-compras/{id}', [OrdenCompraController::class, 'destroy']);
 Route::get('estadisticas-comerciales',[SeguimientoController::class, 'resumenMensualPorUsuario']);
@@ -182,10 +209,7 @@ Route::post('login', [AuthController::class, 'login'])->name('login');
 Route::match(['GET', 'POST'], '/webhook', [WhatsappWebhookController::class, 'handle']);
 
 //Descargar órdenes críticas de hoy en PDF
-Route::get('/dashboard/ordenespdf', [DashboardController::class, 'descargarOrdenesCriticasHoy']);
-//Descargar pendientes de ordenes de proveedor
 
-Route::get('/entregas/items-pendientes/pdf', [EntregaProveedorController::class, 'descargarPendientes']);
 
 
 //Registrar meta mensual

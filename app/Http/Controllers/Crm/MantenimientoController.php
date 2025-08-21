@@ -7,6 +7,7 @@ use App\Http\Requests\Crm\MantenimientoRequest;
 use App\Http\Requests\Crm\MantenimientoUpdateRequest;
 use App\Models\Crm\Mantenimiento;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class MantenimientoController extends Controller
 {
@@ -93,6 +94,18 @@ class MantenimientoController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        $mantenimiento = Mantenimiento::findOrFail($id);
+
+        // Eliminar el archivo del sistema de archivos
+        if ($mantenimiento->archivo && Storage::disk('public')->exists($mantenimiento->archivo)) {
+            Storage::disk('public')->delete($mantenimiento->archivo);
+        }
+
+        // Eliminar el registro de la base de datos
+        $mantenimiento->delete();
+
+        return response()->json([
+            'message' => 'Mantenimiento eliminado correctamente',
+        ]);
     }
 }

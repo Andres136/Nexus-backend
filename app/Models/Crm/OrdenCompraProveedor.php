@@ -37,4 +37,9 @@ class OrdenCompraProveedor extends Model
     {
         return $this->belongsTo(User::class, 'usuario_id');
     }
+
+    
+  
+    
+
 }

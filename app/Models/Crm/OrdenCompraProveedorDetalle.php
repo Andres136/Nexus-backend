@@ -13,6 +13,8 @@ class OrdenCompraProveedorDetalle extends Model
         'cantidad_solicitada',
         'cantidad_entregada',
         'item',
+        'proceso_bolsas_id',
+        'proveedor_id',
     ];
     protected $casts = [
         'cantidad_solicitada' => 'float',
@@ -28,5 +30,15 @@ class OrdenCompraProveedorDetalle extends Model
     public function entregas()
     {
         return $this->hasMany(EntregaProveedor::class, 'detalle_id');
+    }
+    //Relacion con el modelo ProcesoBolsas
+    public function procesoBolsas()
+    {
+        return $this->belongsTo(proceso_bolsas::class, 'proceso_bolsas_id', 'id');
+    }
+    //Relacion con el modelo Proveedor
+    public function proveedor()
+    {
+        return $this->belongsTo(Proveedor::class, 'proveedor_id', 'id');
     }
 }

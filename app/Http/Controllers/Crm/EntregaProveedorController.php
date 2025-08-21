@@ -20,11 +20,14 @@ class EntregaProveedorController extends Controller
             'cantidad_entregada' => $request->cantidad_entregada,
             'fecha_entrega' => $request->fecha_entrega, 
             'observaciones' => $request->observaciones,
+         
         ]);
     
         // 2. Sumar la cantidad entregada al detalle principal
         $detalle = OrdenCompraProveedorDetalle::find($request->detalle_id);
         $detalle->cantidad_entregada += $request->cantidad_entregada;
+           
+ 
         $detalle->save();
     
         // 3. Verificar si todos los detalles están completamente entregados
@@ -33,6 +36,7 @@ class EntregaProveedorController extends Controller
             return $d->cantidad_entregada >= $d->cantidad_solicitada;
         });
     
+
         // 4. Si todos están completos, actualizar estado de la orden
         if ($todosCompletos) {
             $orden->estado_id = 2; // Estado COMPLETO
@@ -57,6 +61,8 @@ class EntregaProveedorController extends Controller
             'cantidad_entregada' => $request->cantidad_entregada,
             'fecha_entrega' => $request->fecha_entrega,
             'observaciones' => $request->observaciones,
+     
+           
         ]);
     
         // 3. Buscar el detalle actualizado y recalcular total entregado
@@ -65,6 +71,14 @@ class EntregaProveedorController extends Controller
         // Aquí NO se suma directamente: se recalcula con todas las entregas
         $totalEntregado = $detalle->entregas()->sum('cantidad_entregada');
         $detalle->cantidad_entregada = $totalEntregado;
+        // ✅ GUARDAR proveedor_id y proceso_bolsas_id en el DETALLE
+        if ($request->has('proveedor_id')) {
+            $detalle->proveedor_id = $request->proveedor_id;
+        }
+
+        if ($request->has('proceso_bolsas_id')) {
+            $detalle->proceso_bolsas_id = $request->proceso_bolsas_id;
+        }
         $detalle->save();
     
         // 4. Cargar la orden relacionada con sus detalles
@@ -93,6 +107,9 @@ if ($todosCompletos && $orden->estado_id !== 2) {
             'detalle_actualizado' => $detalle,
         ]);
     }
+
+
+    
     public function referenciasExcedidas()
     {
         $ordenes = \App\Models\Crm\OrdenCompraProveedor::with(['detalles', 'proveedor'])->get();
@@ -130,7 +147,9 @@ if ($todosCompletos && $orden->estado_id !== 2) {
     $detalle->update([
         'descripcion' => $request->descripcion,
         'cantidad_solicitada' => $request->cantidad_solicitada,
-     
+        'cantidad_entregada' => $request->cantidad_entregada,
+        'proceso_bolsas_id' => $request->proceso_bolsas_id,
+        'proveedor_id' => $request->proveedor_id,
     ]);
 
     return response()->json(['mensaje' => 'Detalle actualizado correctamente']);

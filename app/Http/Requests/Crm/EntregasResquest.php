@@ -30,6 +30,7 @@ class EntregasResquest extends FormRequest
         'fecha_entrega'      => 'nullable|date|required_with:cantidad_entregada',
 
         'observaciones'      => 'nullable|string|max:255',
+            
         ];
 
     }

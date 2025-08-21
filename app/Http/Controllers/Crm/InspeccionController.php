@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Crm\InspeccionesRequest;
 use App\Models\Crm\Inspeccion;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class InspeccionController extends Controller
 {
@@ -95,6 +96,18 @@ class InspeccionController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        $inspeccion = Inspeccion::findOrFail($id);
+
+        // Eliminar el archivo del sistema de archivos
+        if ($inspeccion->documento && Storage::disk('public')->exists($inspeccion->documento)) {
+            Storage::disk('public')->delete($inspeccion->documento);
+        }
+
+        // Eliminar el registro de la base de datos
+        $inspeccion->delete();
+
+        return response()->json([
+            'message' => 'Inspección eliminada correctamente',
+        ]);
     }
 }
