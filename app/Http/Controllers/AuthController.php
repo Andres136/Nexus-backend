@@ -10,6 +10,7 @@ use App\Models\Tareas;
 use App\Models\User;
 use App\Notifications\NotifyAdminUserLoggedIn;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -175,22 +176,52 @@ class AuthController extends Controller
                 'errors' => ['Tu cuenta está inactiva. Contacta al administrador.']
             ], 403);
         }
-        // Enviar notificación al administrador de que un usuario ha iniciado sesión
+        
+        // Crear el token para el usuario autenticado
+        try {
+            $token = $user->createToken('auth_token')->plainTextToken;
+        } catch (\Exception $e) {
+            // Si hay problema con createToken, retornar sin token (puede usarse sesión)
+            Log::error('Error creando token: ' . $e->getMessage());
+            $token = null;
+        }
+        
+        // Enviar notificación al administrador de login (con manejo seguro de errores)
+        // Esto NO debe afectar el funcionamiento del login bajo ninguna circunstancia
+        try {
+            $admins = User::where('role_id', 1)
+                         ->where('estado_id', 3) // Solo admins activos
+                         ->get();
+            
+            if ($admins->count() > 0) {
+                foreach ($admins as $admin) {
+                    try {
+                        if ($admin->email && $admin->id !== $user->id) { // No notificar a sí mismo
+                            $admin->notify(new NotifyAdminUserLoggedIn($user->name));
+                        }
+                    } catch (\Exception $notifError) {
+                        // Error individual de notificación - continúa con los demás
+                        Log::warning('Error notificando al admin ' . $admin->email . ': ' . $notifError->getMessage());
+                        continue;
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            // Error general de notificaciones - NO debe afectar el login
+            Log::error('Error general enviando notificaciones de login: ' . $e->getMessage());
+        }
 
-    // Obtener todos los administradores
-$admins = User::where('role_id', 1)->get(); // O ajusta a tu criterio
-
-foreach ($admins as $admin) {
-    $admin->notify(new NotifyAdminUserLoggedIn($user->name));
-}
-
-
-        // Retornar el token y datos del usuario
-        return [
-            'token' => $user->createToken('auth_token')->plainTextToken,
+        // Retornar respuesta (LOGIN SIEMPRE FUNCIONA independiente de las notificaciones)
+        $response = [
             'message' => 'Bienvenido a nuestro sistema de gestión, Hola: ' . $user->name,
             'user' => $user,
         ];
+        
+        if ($token) {
+            $response['token'] = $token;
+        }
+        
+        return $response;
     }
     
 

@@ -16,12 +16,14 @@ use App\Models\Estados;
 use App\Models\User;
 use App\Notifications\OrdenCompraNotificacion;
 use App\Notifications\OrdenTrabajoCreada;
+use App\Notifications\OrdenTrabajoGeneradaParaCreador;
 use App\Notifications\OrdenTrabajoListaParcial;
 
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 use Illuminate\Support\Facades\DB;
 
@@ -262,14 +264,47 @@ if (!$ordenCompra->sede_id && $request->filled('sede_id')) {
             // 5. Notificaciones
             $user = $ordenCompra->user;
 //notificar  a usuarios por sedes 
+            // 5. Notificaciones de Orden de Trabajo Creada - SISTEMA MEJORADO
             
-           $operacionesId = Departamentos::where('nombre', 'Operaciones')->value('id');
+            // Obtener IDs de departamentos
+            $operacionesId = Departamentos::where('nombre', 'Operaciones')->value('id');
+            $inventarioId = Departamentos::where('nombre', 'Inventario')->value('id');
 
-$usuariosSede = User::where('sede_id', $ordenCompra->sede_id)
-    ->where('departamento_id', $operacionesId)
-    ->whereIn('role_id', [4, 6]) // Roles que deben recibir la notificación
-    ->get();
-            Notification::send($usuariosSede, new OrdenTrabajoCreada($ordenTrabajo));
+            // 1. Notificar al usuario que creó la orden de compra (mensaje específico)
+            if ($ordenCompra->user) {
+                $ordenCompra->user->notify(new OrdenTrabajoGeneradaParaCreador($ordenTrabajo));
+            }
+
+            // 2. Notificar a usuarios de Inventario de la sede específica para preparar materiales
+            $usuariosInventarioSede = User::where('sede_id', $ordenCompra->sede_id)
+                ->where('departamento_id', $inventarioId)
+                ->whereNotNull('email') // Solo usuarios con email válido
+                ->get();
+            
+            if ($usuariosInventarioSede->count() > 0) {
+                Notification::send($usuariosInventarioSede, new OrdenTrabajoCreada($ordenTrabajo));
+            }
+
+            // 3. Notificar SOLO a Operaciones + role_id 5 (técnicos/operarios) de la sede específica
+            $operariosSede = User::where('sede_id', $ordenCompra->sede_id)
+                ->where('departamento_id', $operacionesId) // FILTRO: Solo Operaciones
+                ->where('role_id', 5) // FILTRO: Solo técnicos/operarios
+                ->whereNotNull('email') // Solo usuarios con email válido
+                ->get();
+                
+            if ($operariosSede->count() > 0) {
+                Notification::send($operariosSede, new OrdenTrabajoCreada($ordenTrabajo));
+            }
+
+            // Log para seguimiento
+            Log::info('Notificaciones de Orden de Trabajo enviadas', [
+                'orden_trabajo_id' => $ordenTrabajo->id,
+                'orden_compra_id' => $ordenCompra->id,
+                'usuario_creador' => $ordenCompra->user->name ?? 'N/A',
+                'inventario_notificados' => $usuariosInventarioSede->count(),
+                'operarios_notificados' => $operariosSede->count(),
+                'sede' => $ordenCompra->sede->nombre ?? 'N/A'
+            ]);
           
 
             // 6. Determinar y actualizar el estado final

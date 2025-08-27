@@ -6,7 +6,7 @@ use App\Models\Departamentos;
 use App\Models\User;
 use App\Notifications\Crm\TareaVencidaNotificacion;
 use App\Notifications\NotifyAdminUserLoggedIn;
-use App\Notifications\OrdenCompraNotificacion;
+use App\Notifications\OrdenCompraNotificacionMejorada;
 use App\Notifications\OrdenesPorVencerNotificacion;
 use App\Services\OrdenCompraService;
 use App\Services\TareaVencidaService;
@@ -43,11 +43,16 @@ class NotificacionOrdenController extends Controller
     {
         $operacionesId = Departamentos::where('nombre', 'Operaciones')->value('id');
 
-        $usuariosNotificar = User::whereIn('role_id', [4, 5, 6])
-            ->where('departamento_id', $operacionesId) // Asegúrate de que el departamento sea correcto
+        // CORRECCIÓN: SOLO departamento Operaciones (todos los roles)
+        $usuariosNotificar = User::where('departamento_id', $operacionesId)
+            ->whereNotNull('email') // Solo usuarios con email válido
             ->get();
-        //Enviar notificación por correo
-        Notification::send($usuariosNotificar, new OrdenCompraNotificacion($orden));
+            
+        // Enviar notificación por correo
+        if ($usuariosNotificar->count() > 0) {
+            Notification::send($usuariosNotificar, new OrdenCompraNotificacionMejorada($orden));
+        }
+        
         return response()->json(['message' => 'Notificaciones enviadas'], 200);
     }
     //Lista las notificaciones de un usuario
@@ -56,9 +61,7 @@ class NotificacionOrdenController extends Controller
         $notificaciones = auth()->user()->unreadNotifications;
 
         //Limpiar notificaciones
-
         auth()->user()->unreadNotifications;
-
         return response()->json([
             'notificaciones' => $notificaciones,
             'total_no_leidas' => $notificaciones->count(),

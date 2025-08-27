@@ -23,21 +23,19 @@ class OrdenTrabajoListaParcial extends Notification
 
     public function toMail($notifiable)
     {
-        $mensaje = new MailMessage;
-        $mensaje->subject('Orden de trabajo lista (parcial o completa)')
-            ->greeting('Hola ' . $notifiable->name)
-            ->line('Tu orden de trabajo numero ' .$this->ordenTrabajo->id .' ya tiene productos listos para entrega.');
+        $estaCompleta = $this->faltantes == 0;
+        $subject = $estaCompleta ? 
+            '✅ Orden de Trabajo #' . str_pad($this->ordenTrabajo->id, 6, '0', STR_PAD_LEFT) . ' - COMPLETA' :
+            '⚠️ Orden de Trabajo #' . str_pad($this->ordenTrabajo->id, 6, '0', STR_PAD_LEFT) . ' - Lista Parcial';
 
-        if ($this->faltantes > 0) {
-            $mensaje->line('⚠️ Aún hay ' . $this->faltantes . ' unidades pendientes.');
-        } else {
-            $mensaje->line('✅ Tu orden está completamente lista.');
-        }
-
-        $mensaje->action('Ver ',config('app.frontend_url') . '/auth/crm')
-            ->line('Gracias por usar nuestro sistema.');
-
-        return $mensaje;
+        return (new MailMessage)
+            ->subject($subject)
+            ->view('emails.orden-trabajo-lista-limpia', [
+                'usuario' => $notifiable,
+                'ordenTrabajo' => $this->ordenTrabajo,
+                'faltantes' => $this->faltantes,
+                'url' => config('app.frontend_url') . '/auth/crm'
+            ]);
     }
 
     public function toArray($notifiable)

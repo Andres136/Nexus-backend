@@ -36,14 +36,12 @@ class OrdenesPorVencerNotificacion extends Notification
 
         return (new MailMessage)
             ->subject('📢 Estado de Orden de Compra')
-            ->greeting('Hola ' . $notifiable->name . ',')
-            ->line($mensaje)
-            ->line('cliente: ' .($this->ordenCompra->cliente)->nombre)
-            ->line('📅 Fecha de entrega: ' . $this->ordenCompra->fecha_entrega)
-            ->line('📍 Ubicación: ' . $this->ordenCompra->ubicacion_entrega)
-            ->action('Ver Orden', config('app.frontend_url') . '/auth/crm' )
-
-            ->line('Gracias por gestionar tus órdenes a tiempo.');
+            ->view('emails.orden-urgente', [
+                'usuario' => $notifiable,
+                'ordenCompra' => $this->ordenCompra,
+                'mensaje' => $mensaje,
+                'url' => config('app.frontend_url') . '/auth/crm/ordenes-compra/' . $this->ordenCompra->id
+            ]);
     }
 
     public function toArray($notifiable)

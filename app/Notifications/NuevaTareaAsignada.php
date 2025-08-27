@@ -37,10 +37,11 @@ class NuevaTareaAsignada extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Nueva tarea asignada')
-            ->markdown('emails.nueva_tarea', [
-                'nombre' => $notifiable->name,
-                'tarea' => $this->tarea
+            ->subject('✅ Nueva Tarea Asignada - ' . ($this->tarea->titulo ?? $this->tarea->nombre ?? 'Tarea Importante'))
+            ->view('emails.nueva-tarea', [
+                'usuario' => $notifiable,
+                'tarea' => $this->tarea,
+                'url' => config('app.frontend_url') . '/auth/crm/tareas/' . $this->tarea->id
             ]);
     }
     

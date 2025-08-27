@@ -11,7 +11,8 @@ use App\Models\Procesos;
 use App\Models\User;
 use App\Notifications\ContactoNotificacion;
 use App\Notifications\Crm\PqrAsignadanotificacion;
-use App\Notifications\pqrNotifycaciones;
+use App\Notifications\PqrNotificaciones;
+use App\Notifications\PqrNotifycaciones;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
@@ -79,11 +80,11 @@ class PqrController extends Controller
             $emailSolicitante = $request->email;
             $admins = User::where('role_id', 1)->get();
         
-            Notification::send($admins, new pqrNotifycaciones($data, 'admin', $emailSolicitante));
+            Notification::send($admins, new PqrNotifycaciones($data, 'admin', $emailSolicitante));
         
             Notification::route('mail', $emailSolicitante)
-                ->notify(new pqrNotifycaciones($data, 'usuario', $admins->first()->email));
-        
+                ->notify(new PqrNotifycaciones($data, 'usuario', $admins->first()->email));
+
             return response()->json([
                 'message' => 'PQR enviada correctamente',
                 'codigo_radicado' => $data->codigo_radicado

@@ -46,12 +46,11 @@ class NotifyAdminUserLoggedIn extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-        ->subject('📢 Nuevo inicio de sesión en tu sistema')
-        ->greeting('¡Hola Administrador!')
-        ->line('El usuario "' . $this->name . '" ha iniciado sesión en el sistema.')
-        ->action('Revisar actividad', url('/'))
-        ->line('Si no reconoces esta actividad, por favor revisa la seguridad de tu cuenta.')
-        ->salutation('Saludos, El equipo de Setasplast');
+            ->subject('Inicio de sesión - ' . $this->name)
+            ->view('notifications.login-admin-limpia', [
+                'usuario' => $notifiable,
+                'nombreUsuario' => $this->name
+            ]);
     }
 
     /**

@@ -37,19 +37,22 @@ class TareaVencidaNotificacion extends Notification
     {
         $hoy = now();
         $fechaFin = Carbon::parse($this->tarea->fecha_fin);
+        $tareasVencidas = collect([$this->tarea]);
 
-        $mensaje = $hoy->greaterThan($fechaFin)
-            ? '⚠️ ¡Esta tarea ya ha vencido! Por favor, toma acción de inmediato.'
-            : '🔔 ¡Tarea por vencer! Toma acción antes de la fecha límite.';
+        $esVencida = $hoy->greaterThan($fechaFin);
+        $subject = $esVencida 
+            ? '🚨 TAREA VENCIDA - Acción Inmediata Requerida'
+            : '⚠️ TAREA POR VENCER - Atención Requerida';
+
         return (new MailMessage)
-            ->subject('📢 Estado de Tarea')
-            ->greeting('Hola ' . $notifiable->name . ',')
-            ->line($mensaje)
-            ->line('Tarea: ' . $this->tarea->nombre)
-            ->line('🔢 Codigo de tarea: ' . $this->tarea->id)
-            ->line('📅 Fecha de entrega: ' . $this->tarea->fecha_fin)
-            ->line('📝 Descripción: ' . $this->tarea->descripcion)  
-            ->line('Gracias por gestionar tus tareas a tiempo.');
+            ->subject($subject)
+            ->view('emails.tarea-vencida', [
+                'usuario' => $notifiable,
+                'tarea' => $this->tarea,
+                'tareasVencidas' => $tareasVencidas,
+                'esVencida' => $esVencida,
+                'url' => config('app.frontend_url') . '/auth/crm/tareas/' . $this->tarea->id
+            ]);
     }
 
     /**
