@@ -268,7 +268,7 @@ if (!$ordenCompra->sede_id && $request->filled('sede_id')) {
             
             // Obtener IDs de departamentos
             $operacionesId = Departamentos::where('nombre', 'Operaciones')->value('id');
-            $inventarioId = Departamentos::where('nombre', 'Inventario')->value('id');
+
 
             // 1. Notificar al usuario que creó la orden de compra (mensaje específico)
             if ($ordenCompra->user) {
@@ -277,7 +277,8 @@ if (!$ordenCompra->sede_id && $request->filled('sede_id')) {
 
             // 2. Notificar a usuarios de Inventario de la sede específica para preparar materiales
             $usuariosInventarioSede = User::where('sede_id', $ordenCompra->sede_id)
-                ->where('departamento_id', $inventarioId)
+                ->where('departamento_id')
+                ->where('role_id', 6)
                 ->whereNotNull('email') // Solo usuarios con email válido
                 ->get();
             
@@ -288,7 +289,7 @@ if (!$ordenCompra->sede_id && $request->filled('sede_id')) {
             // 3. Notificar SOLO a Operaciones + role_id 5 (técnicos/operarios) de la sede específica
             $operariosSede = User::where('sede_id', $ordenCompra->sede_id)
                 ->where('departamento_id', $operacionesId) // FILTRO: Solo Operaciones
-                ->where('role_id', 5) // FILTRO: Solo técnicos/operarios
+                ->where('role_id', 6) // FILTRO: Solo técnicos/operarios
                 ->whereNotNull('email') // Solo usuarios con email válido
                 ->get();
                 
