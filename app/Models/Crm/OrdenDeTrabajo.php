@@ -27,7 +27,7 @@ class OrdenDeTrabajo extends Model
     //Relacion con la tabla orden_compras
     public function ordenCompra()
     {
-        return $this->belongsTo(Orden_Compra::class, 'orden_compra_id')->with('detalles');
+        return $this->belongsTo(Orden_Compra::class, 'orden_compra_id');
     }
 
     //Relacion con la tabla clientes
@@ -47,7 +47,20 @@ class OrdenDeTrabajo extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
- 
-    
+
+
+    //Relacion con la tabla orden_trabajo_entregas
+
+    public function entregas()
+    {
+        return $this->hasMany(OrdenTrabajoEntrega::class, 'orden_trabajo_id', 'id')
+                    ->with('usuario:id,name') // ✅ Incluimos usuario en la misma relación
+                    ->orderBy('created_at', 'asc');
+    }
+    public function detalles() {
+    return $this->hasMany(Orden_Compra_Detalle::class, 'orden_compra_id', 'orden_compra_id')
+        ->with(['entregas' => fn($q) => $q->with('usuario:id,name')->orderBy('created_at','asc')]);
+}
+
 
 }

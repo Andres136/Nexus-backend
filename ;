@@ -1,0 +1,21 @@
+[90m= [39m[34;4mApp\Models\Crm\Orden_Compra_Detalle[39;24m {#6438
+    [34mid[39m: [35m1[39m,
+    [34morden_compra_id[39m: [35m1[39m,
+    [34mlargo_cm[39m: "[32m100.00[39m",
+    [34mancho_cm[39m: "[32m90.00[39m",
+    [34mcalibre[39m: [33m2.0[39m,
+    [34mcantidad[39m: [35m100[39m,
+    [34mcantidad_enviada[39m: [35m100[39m,
+    [34mfaltantes[39m: [35m0[39m,
+    [34mvalor_unitario[39m: "[32m123.00[39m",
+    [34mpeso_bolsa[39m: [33m84.26[39m,
+    [34mnumero_bolsas[39m: [35m11[39m,
+    [34mcliente_clb[39m: "[32m2[39m",
+    [34mcantidad_requerida_kg[39m: "[32m8.30[39m",
+    [34mobservaciones[39m: "[32m1[39m",
+    [34mvalor_total[39m: "[32m12300.00[39m",
+    [34mdescripcion[39m: "[32mnegra[39m",
+    [34mcreated_at[39m: "[32m2025-06-04 19:19:00[39m",
+    [34mupdated_at[39m: "[32m2025-06-04 20:55:42[39m",
+  }
+

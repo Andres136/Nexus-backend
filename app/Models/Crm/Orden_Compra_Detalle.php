@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Models\Crm;
-
+use App\Models\Crm\OrdenTrabajoEntrega;
 use Illuminate\Database\Eloquent\Model;
 
 class Orden_Compra_Detalle extends Model
@@ -30,7 +30,19 @@ class Orden_Compra_Detalle extends Model
     // funcion relacion con orden de compra
 
     public function orden(){
-        return $this->belongsTo(Orden_Compra::class, 'orden_compra_id');
+        return 
+        $this->belongsTo(Orden_Compra::class, 'orden_compra_id');
     }
-    
+
+    //Relacion con la tabla orden_trabajo_entregas
+ // app/Models/Crm/Orden_Compra_Detalle.php
+public function entregas()
+{
+    return $this->hasMany(\App\Models\Crm\OrdenTrabajoEntrega::class, 'detalle_id', 'id')
+        ->with('usuario:id,name')
+        ->orderBy('created_at','asc');
+}
+
+
+
 }

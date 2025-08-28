@@ -11,6 +11,7 @@ use App\Http\Requests\Crm\RequestMeta;
 use App\Models\Crm\MetaMensual;
 use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\OrdenDeTrabajo;
+use App\Models\Crm\OrdenTrabajoEntrega;
 use App\Models\Departamentos;
 use App\Models\Estados;
 use App\Models\User;
@@ -121,13 +122,7 @@ class OrdenCompraController extends Controller
         }
 
 
-            // 1. Buscar la Orden de Compra correspondiente
-            $ordenCompra = Orden_Compra::findOrFail($id);
-            // ✅ Asignar la sede a la orden de compra si aún no tiene
-if (!$ordenCompra->sede_id && $request->filled('sede_id')) {
-    $ordenCompra->sede_id = $request->input('sede_id');
-    $ordenCompra->save();
-}
+
             // 2. Crear u obtener la Orden de Trabajo asociada a la Orden de Compra
             $ordenTrabajo = OrdenDeTrabajo::firstOrCreate(
                 ['orden_compra_id' => $ordenCompra->id], // Condición para "buscar" existente
@@ -209,6 +204,20 @@ if (!$ordenCompra->sede_id && $request->filled('sede_id')) {
                             $totalFaltantes += $faltantes;
                         }
 
+                    // Registrar historial solo si hay envío nuevo
+            if ($nuevaCantidadEnviada > 0) {
+                OrdenTrabajoEntrega::create([
+                    'orden_trabajo_id' => $ordenTrabajo->id,
+                    'detalle_id'       => $detalle->id,
+                    'cantidad'         => $nuevaCantidadEnviada,
+                    'faltante'         => $faltantes,
+                    'fecha_entrega'    => now(),
+                    'usuario_id'       => auth()->id(),
+                    'observaciones'    => $detalleData['observaciones'] ?? '',
+                ]);
+            }
+
+
                         // Finalmente, actualizamos el detalle
                         $detalle->update($updatedFields);
                     } else {
@@ -230,6 +239,9 @@ if (!$ordenCompra->sede_id && $request->filled('sede_id')) {
                             // 'observaciones' => $detalleData['observaciones'] ?? '', // si lo requieres
                         ]);
 
+
+                
+
                         // Manejo de cantidad_enviada y faltantes para el nuevo detalle
                         $nuevaCantidadEnviada = (int) ($detalleData['cantidad_enviada'] ?? 0);
                         $cantidadRequerida    = (int) ($detalleData['cantidad'] ?? 0);
@@ -243,12 +255,25 @@ if (!$ordenCompra->sede_id && $request->filled('sede_id')) {
                             'cantidad_enviada' => $totalCantidadEnviada,
                             'faltantes'        => $faltantes,
                         ]);
-
+                             // Registrar historial solo si se envió algo
+            if ($nuevaCantidadEnviada > 0) {
+                OrdenTrabajoEntrega::create([
+                    'orden_trabajo_id' => $ordenTrabajo->id,
+                    'detalle_id'       => $detalle->id,
+                    'cantidad'         => $nuevaCantidadEnviada,
+                    'faltante'         => $faltantes,
+                    'fecha_entrega'    => now(),
+                    'usuario_id'       => auth()->id(),
+                    'observaciones'    => $detalleData['observaciones'] ?? '',
+                ]);
+            }
                         // Si hay faltantes, la orden no está completa
                         if ($faltantes > 0) {
                             $ordenCompleta = false;
                         }
                         $totalFaltantes += $faltantes;
+
+
                     }
                 }
             }
@@ -277,7 +302,7 @@ if (!$ordenCompra->sede_id && $request->filled('sede_id')) {
 
             // 2. Notificar a usuarios de Inventario de la sede específica para preparar materiales
             $usuariosInventarioSede = User::where('sede_id', $ordenCompra->sede_id)
-                ->where('departamento_id')
+                ->where('departamento_id',$operacionesId)
                 ->where('role_id', 6)
                 ->whereNotNull('email') // Solo usuarios con email válido
                 ->get();
@@ -368,10 +393,10 @@ $ordenCompra->update(['estado_id' => $nuevoEstado]);
                 'ordenCompra.sede',
                 'ordenCompra.usuario',
                 'ordenCompra',
-                'ordenCompra.detalles',
                 'cliente',
                 'estado',
-                'user'
+                'user',
+                'entregas.usuario:id,name',
             ])
             ->when(!in_array($user->role_id, [1, 4, 6,2]), function ($query) use ($user) {
                 $query->whereHas('ordenCompra', function ($q) use ($user) {
@@ -407,12 +432,29 @@ $ordenCompra->update(['estado_id' => $nuevoEstado]);
             ->orderBy('created_at', 'desc')
             ->paginate(5)
             ->appends(request()->query());
-    
+
+         
+
         return response()->json($ordenesTrabajo);
     }
     
  
-    
+    //Traer Entregas
+public function obtenerEntregas(Request $request)
+{
+    $id = $request->route('id');
+
+    $entregas = OrdenTrabajoEntrega::with(['usuario:id,name', 'detalle:id,descripcion'])
+        ->where('orden_trabajo_id', $id)
+        ->orderBy('created_at', 'asc') // historial cronológico
+        ->get();
+
+    return response()->json([
+        'orden_trabajo_id' => $id,
+        'total'            => $entregas->count(),
+        'entregas'         => $entregas
+    ]);
+}
 
     /**
      * Enviar notificación a los usuarios con el rol de inventarios y al usuario que creó la orden de compra y orden de trabajo que la esta vencida 

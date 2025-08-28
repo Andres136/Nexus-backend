@@ -157,6 +157,8 @@ Route::get('/dashboard/ordenespdf', [DashboardController::class, 'descargarOrden
 Route::get('/entregas/items-pendientes/pdf', [EntregaProveedorController::class, 'descargarPendientes']);
 //Proceso bolsas
 Route::apiResource('registrar-proceso-bolsa',procesoBolsasController::class);
+Route::get('entregas/{id}', [OrdenCompraController::class, 'obtenerEntregas']);
+
 });
 
 
