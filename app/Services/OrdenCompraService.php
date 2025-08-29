@@ -33,42 +33,32 @@ public function notificarOrdenesPorVencer()
         ->whereNotNull('sede_id')
         ->get();
 
-    foreach ($ordenes as $orden) {
-        $fechaEntrega = Carbon::parse($orden->fecha_entrega);
-        $dosDiasAntes = $fechaEntrega->copy()->subDays(2);
+foreach ($ordenes as $orden) {
+    $fechaEntrega = Carbon::parse($orden->fecha_entrega);
+    $dosDiasAntes = $fechaEntrega->copy()->subDays(2);
 
-        if (Carbon::now()->greaterThanOrEqualTo($dosDiasAntes)) {
+    if (Carbon::now()->greaterThanOrEqualTo($dosDiasAntes)) {
+        // Solo notificar a usuarios de Operaciones, excluyendo role_id 3 (pero sí role_id 6)
+        if ($orden->departamento_id == $operacionesId) {
+            $usuariosSede = User::where('sede_id', $orden->sede_id)
+                ->where('departamento_id', $operacionesId)
+                ->where('role_id', '!=', 3) // Excluye role_id 3
+                ->whereNotNull('email')
+                ->get();
 
-            // ⬇️ Solo notificar si el departamento es Operaciones
-            if ($orden->departamento_id == $operacionesId) {
-                $usuariosSede = User::where('sede_id', $orden->sede_id)
-                    ->whereIn('role_id', [5])
-                    ->get();
-
+            if ($usuariosSede->count() > 0) {
                 Notification::send($usuariosSede, new OrdenesPorVencerNotificacion($orden));
             }
+        }
 
-            // Siempre notifica al creador de la orden si existe
-            if ($orden->user) {
-                $orden->user->notify(new OrdenesPorVencerNotificacion($orden));
-            }
+        // Siempre notifica al creador de la orden si existe
+        if ($orden->user) {
+            $orden->user->notify(new OrdenesPorVencerNotificacion($orden));
         }
     }
-
-    // Notificar coordinadores de operaciones (siempre)
-    $coordinadores = User::whereIn('role_id', [4, 6])->get();
-
-    foreach ($ordenes as $orden) {
-        $fechaEntrega = Carbon::parse($orden->fecha_entrega);
-        $dosDiasAntes = $fechaEntrega->copy()->subDays(2);
-
-        if (Carbon::now()->greaterThanOrEqualTo($dosDiasAntes)) {
-            Notification::send($coordinadores, new OrdenesPorVencerNotificacion($orden));
-        }
-    }
-
-    Cache::put('notificacion_ordenes_' . $hoy, true, now()->addDay());
 }
+Cache::put('notificacion_ordenes_' . $hoy, true, now()->addDay());
+  
 
-
+}
 }

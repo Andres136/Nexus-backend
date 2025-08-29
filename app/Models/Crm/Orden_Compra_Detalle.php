@@ -35,7 +35,7 @@ class Orden_Compra_Detalle extends Model
     }
 
     //Relacion con la tabla orden_trabajo_entregas
- // app/Models/Crm/Orden_Compra_Detalle.php
+
 public function entregas()
 {
     return $this->hasMany(\App\Models\Crm\OrdenTrabajoEntrega::class, 'detalle_id', 'id')
