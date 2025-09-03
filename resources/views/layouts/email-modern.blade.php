@@ -533,7 +533,7 @@
         <!-- Header -->
         <div class="email-header">
             <div class="logo-container">
-                <img src="{{ public_path('images/SETAS.png') }}" alt="{{ config('app.name') }}" class="company-logo">
+                <img src="{{ asset('images/SETAS.png') }}" alt="{{ config('app.name') }}" class="company-logo">
                 <h1 class="company-name">{{ config('app.name') }}</h1>
                 <p class="tagline">Sistema Integral de Gestión</p>
             </div>

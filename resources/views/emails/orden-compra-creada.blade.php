@@ -7,7 +7,7 @@
     $appUrl   = rtrim(config('app.frontend_url', config('app.url')), '/');
     $id       = (string)($orden->id ?? 0);
     $numOc    = str_pad($id, 6, '0', STR_PAD_LEFT);
-    $entrega  = $orden->fecha_entrega ? Carbon::parse($orden->fecha_entrega) : null;
+    $entrega  = $orden->fecha_entrega ? Carbon::parse($orden->fecha_entrega)->setTimezone('America/Bogota') : null;
     $fechaEnt = $entrega ? $entrega->format('d/m/Y') : 'Sin fecha';
     $cliente  = optional($orden->cliente)->nombre ?? 'No especificado';
     $ubic     = $orden->ubicacion_entrega ?? 'No especificada';

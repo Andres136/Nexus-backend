@@ -5,8 +5,8 @@
     use Carbon\Carbon;
     $appUrl = rtrim(config('app.frontend_url', config('app.url')), '/');
     $venc = $tarea->fecha_fin ?? null;
-    $fechaLegible = $venc ? Carbon::parse($venc)->format('d/m/Y') : 'Sin fecha';
-    $humano = $venc ? Carbon::parse($venc)->diffForHumans() : '';
+    $fechaLegible = $venc ? Carbon::parse($venc)->setTimezone('America/Bogota')->format('d/m/Y H:i') : 'Sin fecha';
+    $humano = $venc ? Carbon::parse($venc)->setTimezone('America/Bogota')->diffForHumans() : '';
 @endphp
 
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;margin:0 auto;">
