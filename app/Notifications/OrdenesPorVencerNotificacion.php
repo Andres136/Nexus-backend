@@ -7,6 +7,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class OrdenesPorVencerNotificacion extends Notification
 {
@@ -28,6 +29,14 @@ class OrdenesPorVencerNotificacion extends Notification
     {
         $hoy = Carbon::now();
         $fechaEntrega = Carbon::parse($this->ordenCompra->fecha_entrega);
+
+        $cacheKey = 'orden_por_vencer_' . $this->ordenCompra->id;
+
+        if (Cache::has($cacheKey)) {
+             return null; // Ya se envió la notificación, no hacer nada
+        } else {
+            Cache::put($cacheKey, true, now()->addDay());
+        }
 
         // Si la orden ya venció, cambia el mensaje
         $mensaje = $hoy->greaterThan($fechaEntrega)

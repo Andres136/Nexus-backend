@@ -7,6 +7,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\Facades\Cache;
 
 class TareaVencidaNotificacion extends Notification
 {
@@ -38,6 +39,13 @@ class TareaVencidaNotificacion extends Notification
         $hoy = now();
         $fechaFin = Carbon::parse($this->tarea->fecha_fin);
         $tareasVencidas = collect([$this->tarea]);
+        $cacheKey = 'tareas_vencidas_' . $this->tarea->id;
+
+        if (Cache::has($cacheKey)) {
+            $tareasVencidas = Cache::get($cacheKey);
+        } else {
+            Cache::put($cacheKey, $tareasVencidas, now()->addDay());
+        }
 
         $esVencida = $hoy->greaterThan($fechaFin);
         $subject = $esVencida 
