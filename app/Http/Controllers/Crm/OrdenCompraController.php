@@ -204,7 +204,7 @@ class OrdenCompraController extends Controller
                                 'detalle_id'       => $detalle->id,
                                 'cantidad'         => $nuevaCantidadEnviada,
                                 'faltante'         => $faltantes,
-                                'fecha_entrega'    => now(),
+                                'fecha_entrega'    => Carbon::now('America/Bogota'),
                                 'usuario_id'       => auth()->id(),
                                 'observaciones'    => $detalleData['observaciones'] ?? '',
                             ]);
@@ -254,7 +254,7 @@ class OrdenCompraController extends Controller
                                 'detalle_id'       => $detalle->id,
                                 'cantidad'         => $nuevaCantidadEnviada,
                                 'faltante'         => $faltantes,
-                                'fecha_entrega'    => now(),
+                                'fecha_entrega'    => Carbon::now('America/Bogota'),
                                 'usuario_id'       => auth()->id(),
                                 'observaciones'    => $detalleData['observaciones'] ?? '',
                             ]);

@@ -94,7 +94,7 @@ public function actualizarFechas(Request $request, string $id)
 {
     $request->validate([
         'fecha_vencimiento' => 'required|date',
-        'fecha_renovacion' => 'nullable|date|after_or_equal:fecha_vencimiento',
+        'fecha_renovacion' => 'nullable|date',
         'documento_pdf' => 'nullable|file|mimes:pdf|max:5120', // máx 5MB
     ]);
 

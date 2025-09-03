@@ -49,11 +49,8 @@ class AuthController extends Controller
             ->store('usuarios', 'public'); // guarda en storage/app/public/usuarios
     }
     
-    //Crear la Sede
-    $sede= Sede::create([
-        'nombre' => $request->sede_nombre,
-        'direccion' => $request->sede_direccion,
-    ]);
+    
+ 
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
@@ -62,7 +59,8 @@ class AuthController extends Controller
             'role_id' => $request->role_id,
             'estado_id' => 3,
             'departamento_id' => $request->departamento_id,
-            'sede_id' => $sede->id, // Asignar la sede creada
+            'sede_id' => $request->sede_id ?? null,
+       
             'imagen' => $rutaImagen,
        
         ]);
@@ -118,15 +116,7 @@ class AuthController extends Controller
         $user->role_id         = $request->role_id;
         $user->departamento_id = $request->departamento_id;
         $user->estado_id = $request->estado_id ?? $user->estado_id;
-        if ($request->filled('sede_nombre')) {
-            $sede = Sede::firstOrCreate([
-                'nombre' => $request->sede_nombre,
-                'direccion' => $request->sede_direccion ?? 'Sin dirección',
-            ]);
-            $user->sede_id = $sede->id;
-        } else {
-            $user->sede_id = $request->sede_id;
-        }
+        $user->sede_id = $request->sede_id ?? $user->sede_id;
         
 
         // 5) Sólo cambia password si llegó uno nuevo
