@@ -43,8 +43,10 @@ class NotificacionOrdenController extends Controller
     {
         $operacionesId = Departamentos::where('nombre', 'Operaciones')->value('id');
 
-        // CORRECCIÓN: SOLO departamento Operaciones (todos los roles)
+  
+        $rolesPermitidos= [4,6]; // Agrega aquí los role_id permitidos
         $usuariosNotificar = User::where('departamento_id', $operacionesId)
+            ->whereIn('role_id', $rolesPermitidos) // Filtrar por roles permitidos
             ->whereNotNull('email') // Solo usuarios con email válido
             ->get();
             

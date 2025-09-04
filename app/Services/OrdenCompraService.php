@@ -26,6 +26,7 @@ public function notificarOrdenesPorVencer()
         return;
     }
 
+    $rolesPermitidos= [4,6]; // Agrega aquí los role_id permitidos
     $operacionesId = Departamentos::where('nombre', 'Operaciones')->value('id');
 
     $ordenes = Orden_Compra::with(['user', 'cliente', 'sede'])
@@ -42,7 +43,7 @@ foreach ($ordenes as $orden) {
         if ($orden->departamento_id == $operacionesId) {
             $usuariosSede = User::where('sede_id', $orden->sede_id)
                 ->where('departamento_id', $operacionesId)
-                ->where('role_id', '!=', 3) // Excluye role_id 3
+                ->whereIn('role_id', $rolesPermitidos) // Filtrar por roles permitidos
                 ->whereNotNull('email')
                 ->get();
 
