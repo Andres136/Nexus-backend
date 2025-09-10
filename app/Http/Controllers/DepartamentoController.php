@@ -36,7 +36,8 @@ class DepartamentoController extends Controller
             'nombre' => $request->nombre,
             'descripcion' => $request->descripcion,
             'macroprocesos_id' => $request->macroprocesos_id,
-            'icono' => $icono
+            'icono' => $icono,
+            'responsable_id' => $request->responsable_id,
         ]);
         return response()->json([
             'message' => 'Departamento creado con éxito'
@@ -72,6 +73,7 @@ class DepartamentoController extends Controller
         $departamento->nombre = $request->nombre;
         $departamento->descripcion = $request->descripcion;
         $departamento->macroprocesos_id = $request->macroprocesos_id;
+        $departamento->responsable_id = $request->responsable_id;
         // Si se envía un icono, se actualiza
         if ($request->hasFile('icono')) {
             // Eliminar el icono anterior

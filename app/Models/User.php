@@ -52,6 +52,10 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Departamentos::class, 'departamento_id');
     }
+    public function esResponsableDeSuDepartamento(): bool
+    {
+        return $this->departamento && $this->departamento->responsable_id === $this->id;
+    }
 
     //funcion para relacionar usuarios con roles
     public function role()
@@ -114,4 +118,5 @@ public function datosConductor()
             'password' => 'hashed',
         ];
     }
+
 }

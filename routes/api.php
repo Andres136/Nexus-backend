@@ -28,16 +28,19 @@ use App\Http\Controllers\DepartamentoController;
 use App\Http\Controllers\DocumentoController;
 use App\Http\Controllers\ErrorController;
 use App\Http\Controllers\EstadoController;
+use App\Http\Controllers\IndicadoresProcesosController;
 use App\Http\Controllers\MacroProcesoController;
 use App\Http\Controllers\NotificacionOrdenController;
 use App\Http\Controllers\PqrController;
 use App\Http\Controllers\ProcesoController;
+use App\Http\Controllers\RegistroIndicadoresController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\TareaController;
 use App\Http\Controllers\UpdateDepartamentoController;
 use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\whatsapp\WhatsappWebhookController;
 use App\Models\Pqr;
+use App\Models\Registro_indicadores;
 use Illuminate\Container\Attributes\Auth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -161,13 +164,21 @@ Route::get('entregas/{id}', [OrdenCompraController::class, 'obtenerEntregas']);
 
 //Sedes
 Route::apiResource('sedes', SedeController::class);
-
+//Departamentos
 
 });
+Route::middleware(['auth:sanctum', 'es_responsable_del_departamento'])->group(function () {
+    Route::apiResource('/indicadores', IndicadoresProcesosController::class);
+    Route::apiResource('registro-indicadores',RegistroIndicadoresController::class);
+    Route::get('/rendimiento-indicadores', [RegistroIndicadoresController::class, 'indexByCompany']);
+    // ...otras rutas protegidas por el middleware...
+});
 
-
+//Ruta para descargar archivos de el registro de indicadores
+Route::get('/registro-indicadores/descargar/{id}', [RegistroIndicadoresController::class, 'descargarDocumento']);
+Route::apiResource('departamentos', DepartamentoController::class);
 Route::put('/documentos/{id}/fechas', [DocumentoVehiculoController::class, 'actualizarFechas']);
-Route::get('/conductores',[AuthController::class, 'conductores']);
+Route::get('/conductores',[AuthController::class, 'userAll']);
 
 
 Route::post('pqr', [PqrController::class, 'store']);
@@ -190,7 +201,7 @@ Route::get("/usuarios-comerciales",[ClienteController::class,'usuariosComerciale
 
 
 route::get('dashboard-entregas-hoy', [DashboardController::class, 'ordenesEntreganHoy']);
-Route::apiResource('departamentos', DepartamentoController::class);
+
 Route::get('documentos/descargar/{id}', [DocumentoController::class, 'download']);
 Route::apiResource('procesos', ProcesoController::class);
 Route::apiResource('documentos', DocumentoController::class);

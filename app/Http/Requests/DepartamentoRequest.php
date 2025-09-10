@@ -25,7 +25,8 @@ class DepartamentoRequest extends FormRequest
             'nombre' => 'required|string|max:100',
             'descripcion' => 'required|string',
             'macroprocesos_id' => 'required|exists:macroprocesos,id',
-            'icono' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048'
+            'icono' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'responsable_id' => 'nullable|exists:users,id',
 
          
         ];
@@ -40,8 +41,7 @@ class DepartamentoRequest extends FormRequest
             'macroprocesos_id.required' => 'El macroproceso es requerido',
             'icono.required' => 'La imagen del icono es requerida',
             'icono.max' => 'El ícono no debe exceder los 2 MB.',
-        
-      
+            'responsable_id.exists' => 'El responsable debe ser un usuario existente.',
         ];
     }
 }

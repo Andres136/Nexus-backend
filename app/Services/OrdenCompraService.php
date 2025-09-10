@@ -39,7 +39,7 @@ foreach ($ordenes as $orden) {
     $dosDiasAntes = $fechaEntrega->copy()->subDays(2);
 
     if (Carbon::now()->greaterThanOrEqualTo($dosDiasAntes)) {
-        // Solo notificar a usuarios de Operaciones, excluyendo role_id 3 (pero sí role_id 6)
+            // Notificar a usuarios del departamento de Operaciones en la misma sede
         if ($orden->departamento_id == $operacionesId) {
             $usuariosSede = User::where('sede_id', $orden->sede_id)
                 ->where('departamento_id', $operacionesId)

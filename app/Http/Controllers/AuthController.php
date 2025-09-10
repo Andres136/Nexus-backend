@@ -22,7 +22,7 @@ class AuthController extends Controller
     public function index(Request $request)
     {
         $query = User::with('departamento', 'role', 'estado', 'sede');
-    
+
         if ($request->has('search') && $request->search !== null) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
@@ -274,7 +274,7 @@ public function indexUsuarios(Request $request)
 
 //Traer usuarios que tengan rol 8 de conductor
 
-public function conductores()
+public function userAll()
 {
     $conductores = User::all();
 

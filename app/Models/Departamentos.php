@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Departamentos extends Model
 {
     protected $fillable =
-     ['nombre', 'descripcion', 'macroprocesos_id', 'icono'];
+     ['nombre', 'descripcion', 'macroprocesos_id', 'icono', 'responsable_id'];
 
 
      public function getIconoAttribute($value)
@@ -42,4 +42,9 @@ class Departamentos extends Model
     {
         return $this->hasMany(Tareas::class, 'departamento_id');
     }
+    public function responsable()
+    {
+        return $this->belongsTo(User::class, 'responsable_id');
+    }
+    
 }
