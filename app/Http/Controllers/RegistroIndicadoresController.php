@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateRejistroIndicadoresRequest;
 use App\Models\Indicadores;
 
 use App\Models\RegistroIndicador;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -14,13 +15,14 @@ use Illuminate\Support\Facades\Storage;
 class RegistroIndicadoresController extends Controller
 {
     /**
-     * Display a listing of the resource.
-     */
+     *
 public function index(Request $request)
 {
     // 1. Verifica que el usuario sea responsable de algún departamento
     $user = auth()->user();
     $departamento = $user->departamento;
+
+
 
     if (!$departamento || $departamento->responsable_id != $user->id) {
         return response()->json([
@@ -65,7 +67,90 @@ public function index(Request $request)
 
     return response()->json(['data' => $registros], 200);
 }
+ Display a listing of the resource.
+     */
 
+public function index(Request $request)
+{
+    $user = auth()->user();
+    $departamento = $user->departamento;
+
+    if (!$departamento || $departamento->responsable_id != $user->id) {
+        return response()->json([
+            'message' => 'No autorizado para ver registros en este departamento.'
+        ], 403);
+    }
+
+    $mes = (int)$request->input('mes', date('m'));
+    $anio = (int)$request->input('anio', date('Y'));
+
+    $indicadores = Indicadores::where('departamento_id', $departamento->id)->get();
+
+    $registros = $indicadores->map(function ($indicador) use ($mes, $anio) {
+        $frecuencia = $indicador->frecuencia;
+        $query = RegistroIndicador::where('indicador_id', $indicador->id);
+
+        switch ($frecuencia) {
+            case 'Trimestral':
+                $inicio = Carbon::create($anio, $mes, 1)->startOfQuarter();
+                $fin = Carbon::create($anio, $mes, 1)->endOfQuarter();
+                break;
+            case 'Bimestral':
+                $bimestre = ceil($mes / 2);
+                $inicio = Carbon::create($anio, ($bimestre - 1) * 2 + 1, 1)->startOfMonth();
+                $fin = Carbon::create($anio, $bimestre * 2, 1)->endOfMonth();
+                break;
+            case 'Cuatrimestral':
+                $cuatrimestre = ceil($mes / 4);
+                $inicio = Carbon::create($anio, ($cuatrimestre - 1) * 4 + 1, 1)->startOfMonth();
+                $fin = Carbon::create($anio, $cuatrimestre * 4, 1)->endOfMonth();
+                break;
+            case 'Semestral':
+                $semestre = ($mes <= 6) ? 1 : 2;
+                $inicio = Carbon::create($anio, $semestre == 1 ? 1 : 7, 1)->startOfMonth();
+                $fin = Carbon::create($anio, $semestre == 1 ? 6 : 12, 1)->endOfMonth();
+                break;
+            case 'Anual':
+                $inicio = Carbon::create($anio, 1, 1)->startOfYear();
+                $fin = Carbon::create($anio, 12, 1)->endOfYear();
+                break;
+            case 'Quincenal':
+                // Primera quincena: días 1-15, segunda: 16-fin de mes
+                $dia = (int)date('d');
+                if ($dia <= 15) {
+                    $inicio = Carbon::create($anio, $mes, 1)->startOfDay();
+                    $fin = Carbon::create($anio, $mes, 15)->endOfDay();
+                } else {
+                    $inicio = Carbon::create($anio, $mes, 16)->startOfDay();
+                    $fin = Carbon::create($anio, $mes, 1)->endOfMonth();
+                }
+                break;
+            case 'Mensual':
+            default:
+                $inicio = Carbon::create($anio, $mes, 1)->startOfMonth();
+                $fin = Carbon::create($anio, $mes, 1)->endOfMonth();
+                break;
+        }
+
+        $registro = $query->whereBetween('fecha', [$inicio, $fin])
+                          ->orderBy('fecha', 'desc')
+                          ->first();
+
+        return [
+            'id' => $indicador->id,
+            'nombre' => $indicador->nombre,
+            'meta' => $indicador->meta,
+            'frecuencia' => $indicador->frecuencia,
+            'departamento' => [
+                'id' => $indicador->departamento->id,
+                'nombre' => $indicador->departamento->nombre,
+            ],
+            'registro' => $registro ? $this->procesarRegistro($registro) : null
+        ];
+    });
+
+    return response()->json(['data' => $registros], 200);
+}
     /**
      * Store a newly created resource in storage.
      */
