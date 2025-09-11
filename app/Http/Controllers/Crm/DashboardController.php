@@ -108,35 +108,28 @@ public function getMonthlyStats(Request $request)
     $end   = Carbon::create($year, $month, 1)->endOfMonth()->endOfDay();
 
     // 1. Órdenes con entrega programada en el mes (para el total)
- $ordenes = Orden_Compra::with('detalles')
-    ->where(function($q) use ($start, $end) {
-        $q->whereBetween('fecha_despacho', [$start, $end])
-          ->orWhere(function($q2) use ($start, $end) {
-              $q2->whereNull('fecha_despacho')
-                 ->whereBetween('updated_at', [$start, $end]);
-          });
-    })
-    ->where('estado_id', '!=', 5)
-    ->get();
+    $ordenes = Orden_Compra::with('detalles')
+        ->whereBetween('fecha_entrega', [$start, $end])
+        ->where('estado_id', '!=', 5)
+        ->get();
+
     $total = $ordenes->count();
 
-    // 2. Despachadas a tiempo: fecha_despacho (o updated_at) dentro del mes Y antes o igual a fecha_entrega
-    $despachadas = $ordenes->filter(function ($o) use ($start, $end) {
+    // 2. Despachadas a tiempo: fecha_despacho (o updated_at) <= fecha_entrega
+    $despachadas = $ordenes->filter(function ($o) {
         $fechaDespacho = $o->fecha_despacho ?? $o->updated_at;
         return $fechaDespacho &&
-            Carbon::parse($fechaDespacho)->between($start, $end) && // Despachada en el mes consultado
             Carbon::parse($fechaDespacho)->lte(Carbon::parse($o->fecha_entrega)) &&
             $o->detalles->sum('cantidad_enviada') > 0;
     })->count();
 
     // 3. Vencidas: no despachadas o despachadas fuera de plazo
-    $vencidas = $ordenes->filter(function ($o) use ($start, $end) {
+    $vencidas = $ordenes->filter(function ($o) {
         $fechaDespacho = $o->fecha_despacho ?? $o->updated_at;
         return (
-            // No despachada en el mes consultado o despachada después de la fecha de entrega
-            (!$fechaDespacho || !Carbon::parse($fechaDespacho)->between($start, $end) || Carbon::parse($fechaDespacho)->gt(Carbon::parse($o->fecha_entrega)))
-            && Carbon::parse($o->fecha_entrega)->lt(now()->startOfDay())
-        );
+            !$fechaDespacho ||
+            Carbon::parse($fechaDespacho)->gt(Carbon::parse($o->fecha_entrega))
+        ) && Carbon::parse($o->fecha_entrega)->lt(now()->startOfDay());
     })->count();
 
     $pendientes = $total - $despachadas - $vencidas;
@@ -199,72 +192,82 @@ public function getMonthlyStats(Request $request)
     //Traer ordenes de trabajo con faltantes y vencidas a  entregar hoy para descargar
 
 
-    public function descargarOrdenesCriticasHoy(Request $request)
-    {
-        $fecha = $request->filled('fecha')
-            ? Carbon::parse($request->input('fecha'))->startOfDay()
-            : now()->startOfDay();
 
-        $ordenes = Orden_Compra::with(['detalles', 'cliente'])->get();
+public function descargarOrdenesCriticasHoy(Request $request)
+{
+    $fecha = $request->filled('fecha')
+        ? Carbon::parse($request->input('fecha'))->startOfDay()
+        : now()->startOfDay();
 
-        // 1) Buckets iniciales
-        $vencidas = $ordenes->filter(function ($orden) use ($fecha) {
-            $enviados = $orden->detalles->sum('cantidad_enviada');
-            return $orden->fecha_entrega && Carbon::parse($orden->fecha_entrega)->lt($fecha) && $enviados == 0;
-        });
+    $ordenes = Orden_Compra::with(['detalles', 'cliente'])->get();
 
-        $conFaltantes = $ordenes->filter(function ($orden) use ($fecha) {
-            $tieneFaltantes = $orden->detalles->sum('faltantes') > 0;
-            $enviados = $orden->detalles->sum('cantidad_enviada');
-            $vencida = $orden->fecha_entrega && Carbon::parse($orden->fecha_entrega)->lt($fecha) && $enviados == 0;
-            return $tieneFaltantes && !$vencida;
-        });
+    // 1) Buckets iniciales
+    $vencidas = $ordenes->filter(function ($orden) use ($fecha) {
+        $enviados = $orden->detalles->sum('cantidad_enviada');
+        return $orden->fecha_entrega
+            && Carbon::parse($orden->fecha_entrega)->lt($fecha)
+            && $enviados == 0;
+    });
 
-        $hoy = $ordenes->filter(function ($orden) use ($fecha) {
-            return $orden->fecha_entrega && Carbon::parse($orden->fecha_entrega)->startOfDay()->eq($fecha);
-        });
+    $hoy = $ordenes->filter(function ($orden) use ($fecha) {
+        return $orden->fecha_entrega
+            && Carbon::parse($orden->fecha_entrega)->startOfDay()->eq($fecha);
+    });
 
-        // 2) Exclusividad por prioridad: VENCIDAS > HOY > FALTANTES
-        $vencidas     = $vencidas->unique('id')->values();
-        $idsUsados    = $vencidas->pluck('id');
+    $conFaltantes = $ordenes->filter(function ($orden) use ($fecha) {
+        $tieneFaltantes = $orden->detalles->sum('faltantes') > 0;
+        $enviados = $orden->detalles->sum('cantidad_enviada');
+        $vencida = $orden->fecha_entrega
+            && Carbon::parse($orden->fecha_entrega)->lt($fecha)
+            && $enviados == 0;
+        // Solo incluye si la fecha_entrega es <= fecha consultada
+        return $tieneFaltantes
+            && !$vencida
+            && $orden->fecha_entrega
+            && Carbon::parse($orden->fecha_entrega)->lte($fecha);
+    });
 
-        $hoy          = $hoy->reject(fn($o) => $idsUsados->contains($o->id))
-            ->unique('id')->values();
-        $idsUsados    = $idsUsados->merge($hoy->pluck('id'));
+    // 2) Exclusividad por prioridad: VENCIDAS > HOY > FALTANTES
+    $vencidas     = $vencidas->unique('id')->values();
+    $idsUsados    = $vencidas->pluck('id');
 
-        $conFaltantes = $conFaltantes->reject(fn($o) => $idsUsados->contains($o->id))
-            ->unique('id')->values();
+    $hoy          = $hoy->reject(fn($o) => $idsUsados->contains($o->id))
+        ->unique('id')->values();
+    $idsUsados    = $idsUsados->merge($hoy->pluck('id'));
 
-        // 3) Limpiar detalles SIN modificar la misma instancia usada en otros buckets
-        $vencidas->each(function ($orden) {
-            $orden->setRelation(
-                'detalles',
-                $orden->detalles->filter(fn($d) => (int)($d->cantidad_enviada ?? 0) === 0)->values()
-            );
-        });
+    $conFaltantes = $conFaltantes->reject(fn($o) => $idsUsados->contains($o->id))
+        ->unique('id')->values();
 
-        $conFaltantes->each(function ($orden) {
-            $orden->setRelation(
-                'detalles',
-                $orden->detalles->filter(fn($d) => (int)($d->faltantes ?? 0) > 0)->values()
-            );
-        });
+    // 3) Limpiar detalles SIN modificar la misma instancia usada en otros buckets
+    $vencidas->each(function ($orden) {
+        $orden->setRelation(
+            'detalles',
+            $orden->detalles->filter(fn($d) => (int)($d->cantidad_enviada ?? 0) === 0)->values()
+        );
+    });
 
-        if ($vencidas->isEmpty() && $conFaltantes->isEmpty() && $hoy->isEmpty()) {
-            return response()->json(['mensaje' => 'No hay órdenes críticas para la fecha.'], 404);
-        }
+    $conFaltantes->each(function ($orden) {
+        $orden->setRelation(
+            'detalles',
+            $orden->detalles->filter(fn($d) => (int)($d->faltantes ?? 0) > 0)->values()
+        );
+    });
 
-        $pdf = Pdf::loadView('pdf.ordenes_criticas', [
-            'fecha'     => $fecha->toDateString(),
-            'vencidas'  => $vencidas,
-            'faltantes' => $conFaltantes,
-            'hoy'       => $hoy,
-        ]);
-
-        $filename = 'ordenes_criticas_' . $fecha->format('Ymd') . '.pdf';
-        return response($pdf->output(), 200, [
-            'Content-Type'        => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-        ]);
+    if ($vencidas->isEmpty() && $conFaltantes->isEmpty() && $hoy->isEmpty()) {
+        return response()->json(['mensaje' => 'No hay órdenes críticas para la fecha.'], 404);
     }
+
+    $pdf = Pdf::loadView('pdf.ordenes_criticas', [
+        'fecha'     => $fecha->toDateString(),
+        'vencidas'  => $vencidas,
+        'faltantes' => $conFaltantes,
+        'hoy'       => $hoy,
+    ]);
+
+    $filename = 'ordenes_criticas_' . $fecha->format('Ymd') . '.pdf';
+    return response($pdf->output(), 200, [
+        'Content-Type'        => 'application/pdf',
+        'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+    ]);
+}
 }
