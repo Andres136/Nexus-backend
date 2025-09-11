@@ -114,5 +114,39 @@ public function store(StoreIndicadoresRequest $request)
 
 
 
+public function indexAdmin(Request $request)
+{
+    
+    $user = $request->user();
+    $perPage = $request->input('per_page', 10);
+    $departamentoId = $request->input('departamento_id');
+
+    // Si es admin o supervisor (role_id 1 o 2)
+    if (in_array($user->role_id, [1, 2])) {
+        $query = Indicadores::with('departamento', 'user');
+
+        // Si viene el filtro desde el frontend, úsalo
+        if ($departamentoId) {
+            $query->where('departamento_id', $departamentoId);
+        } elseif ($user->departamento_id) {
+            // Si no viene filtro, pero el usuario tiene departamento, filtra por ese
+            $query->where('departamento_id', $user->departamento_id);
+        }
+        $indicadores = $query->paginate($perPage);
+        return response()->json($indicadores);
+    }
+
+    // Solo mostrar indicadores si el usuario es responsable de su departamento
+    $departamento = $user->departamento;
+    if (!$departamento || $departamento->responsable_id !== $user->id) {
+        return response()->json(['message' => 'No autorizado.'], 403);
+    }
+
+    $indicadores = Indicadores::with('departamento', 'user')
+        ->where('departamento_id', $departamento->id)
+        ->paginate($perPage);
+
+    return response()->json($indicadores);
+}
     
 }

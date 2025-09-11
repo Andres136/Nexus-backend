@@ -26,7 +26,7 @@ class RegistroIndicadoresRequest extends FormRequest
             'valor' => 'required|numeric',
             'fecha' => 'required|date',
             'observaciones' => 'nullable|string',
-            'documento' => 'required|file|max:5048|mimes:pdf,jpg,jpeg,png',
+            'documento' => 'nullable|file|max:5048|mimes:doc,docx,xls,xlsx',
       
 
             
@@ -34,6 +34,24 @@ class RegistroIndicadoresRequest extends FormRequest
 
     }
 
+    public function withValidator($validator)
+{
+    $validator->after(function ($validator) {
+        $observaciones = $this->input('observaciones');
+        $documento = $this->file('documento');
+
+        // Si no hay observaciones ni documento, error
+        if (empty($observaciones) && !$documento) {
+            $validator->errors()->add('observaciones', 'Debes ingresar observaciones o subir un documento.');
+            $validator->errors()->add('documento', 'Debes ingresar observaciones o subir un documento.');
+        }
+
+        // Si las observaciones son muy largas (>500 caracteres), documento es obligatorio
+        if (!empty($observaciones) && strlen($observaciones) > 500 && !$documento) {
+            $validator->errors()->add('documento', 'Si las observaciones son muy extensas, debes adjuntar un documento.');
+        }
+    });
+}
 
     public function messages(): array
     {
@@ -47,8 +65,9 @@ class RegistroIndicadoresRequest extends FormRequest
             'observaciones.string' => 'El campo observaciones debe ser una cadena de texto.',
             'documento.required' => 'Debes subir un archivo como análisis.',
             'documento.file' => 'El campo documento debe ser un archivo.',
-            'documento.max' => 'El archivo no debe exceder los 5 MB.',
-            'documento.mimes' => 'El archivo debe ser un PDF, JPG, JPEG o PNG.',
+            'documento.max' => 'El archivo no debe superar los 5MB.',
+            'documento.mimes' => 'El archivo debe ser un documento Word (.doc, .docx) o Excel (.xls, .xlsx).',
+            
          
         ];
     }

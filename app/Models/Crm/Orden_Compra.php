@@ -24,6 +24,7 @@ class Orden_Compra extends Model
         'observaciones',
         'valor_total',
         'sede_id', // Agregar el campo sede_id
+        'fecha_despacho' // Agregar el campo fecha_despacho
     ];
 
     // funcion relacion con detalles

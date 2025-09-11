@@ -171,7 +171,7 @@ Route::middleware(['auth:sanctum', 'es_responsable_del_departamento'])->group(fu
     Route::apiResource('/indicadores', IndicadoresProcesosController::class);
     Route::apiResource('registro-indicadores',RegistroIndicadoresController::class);
     Route::get('/rendimiento-indicadores', [RegistroIndicadoresController::class, 'indexByCompany']);
-    // ...otras rutas protegidas por el middleware...
+   Route::get ('/indicadoresAdmin',[IndicadoresProcesosController::class,'indexAdmin']);
 });
 
 //Ruta para descargar archivos de el registro de indicadores

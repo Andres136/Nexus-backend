@@ -76,6 +76,7 @@ class OrdenCompraController extends Controller
                 'ubicacion_entrega' => $request->ubicacion_entrega,
                 'observaciones' => $request->observaciones,
                 'valor_total' => 0, // Inicialmente 0
+
             ]);
 
             $valorTotal = 0;
@@ -134,6 +135,8 @@ class OrdenCompraController extends Controller
                     'observaciones' => $request->input('observaciones', ''),
                     'valor_total'   => $ordenCompra->valor_total,
                     'estado_id'     => 1, // estado inicial
+                    'fecha_despacho' => null, // Inicialmente nulo
+
 
 
                 ]
@@ -323,6 +326,9 @@ class OrdenCompraController extends Controller
 
             if ($ordenCompleta) {
                 $nuevoEstado = $estadoCompleto;
+                if(!$ordenCompra->fecha_despacho){
+                    $ordenCompra->fecha_despacho = Carbon::now('America/Bogota');
+                }
             } elseif ($forzarParcial || ($totalEntregado > 0 && $totalEntregado < $totalSolicitado)) {
                 $nuevoEstado = $estadoParcial;
             } else {
@@ -498,6 +504,7 @@ class OrdenCompraController extends Controller
                 'cliente_id'        => $request->cliente_id,
                 'ubicacion_entrega' => $request->ubicacion_entrega,
                 'observaciones'     => $request->observaciones,
+
             ]);
 
             // 2. Reconciliar detalles  (3 estrategias posibles)

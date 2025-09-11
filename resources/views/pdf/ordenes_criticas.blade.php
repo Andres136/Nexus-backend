@@ -11,18 +11,28 @@
         th, td { border: 1px solid #000; padding: 5px; text-align: left; }
         th { background-color: #f2f2f2; }
         .oc-header { margin: 6px 0 4px; }
+ .parcial {
+        background-color: #ffeeba;
+        border-left: 4px solid #ffc107;
+        padding-left: 6px;
+    }
+
     </style>
 </head>
 <body>
 <h2>Órdenes Críticas del {{ $fecha }}</h2>
 
 @foreach (['vencidas' => 'Órdenes Vencidas', 'faltantes' => 'Órdenes con Faltantes', 'hoy' => 'Órdenes Entregar Hoy'] as $tipo => $titulo)
-    @php $grupo = $$tipo; @endphp
-    @if($grupo->isNotEmpty())
+  @php 
+        $grupo = $$tipo;
+        $grupoOrdenado = $grupo->sortBy(function($orden) {
+            return [$orden->estado_id == 5 ? 1 : 0, \Carbon\Carbon::parse($orden->fecha_entrega)];
+        });
+    @endphp
+    @if($grupoOrdenado->isNotEmpty())
         <h3>{{ $titulo }}</h3>
-
-        @foreach ($grupo as $orden)
-            <div class="oc-header">
+        @foreach ($grupoOrdenado as $orden)
+            <div class="oc-header{{ $orden->estado_id == 5 ? ' parcial' : '' }}">
                 <strong>OC #{{ $orden->id }}</strong> ·
                 Cliente: {{ data_get($orden, 'cliente.nombre', 'N/A') }} ·
                 Sede: {{ data_get($orden, 'sede.nombre', 'N/A') }} ·
@@ -31,6 +41,9 @@
                 Orden de Trabajo: {{ data_get($orden, 'ordenTrabajo.id', 'No asignada') }}
                 <br>
                 Observaciones: {{ $orden->observaciones ?? '—' }}
+                @if($orden->estado_id == 5)
+                    <span style="color:#b8860b; font-weight:bold;">(Entrega Parcial)</span>
+                @endif
             </div>
 
             @if($orden->detalles->isNotEmpty())

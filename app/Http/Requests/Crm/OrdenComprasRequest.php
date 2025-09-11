@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Crm;
 
+use Carbon\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
 
 class OrdenComprasRequest extends FormRequest
@@ -41,6 +42,27 @@ class OrdenComprasRequest extends FormRequest
 
         return $rules;
     }
+
+
+    public function withValidator($validator)
+{
+    $validator->after(function ($validator) {
+        $fechaEntrega = $this->input('fecha_entrega');
+        if ($fechaEntrega) {
+            $fechaMinima = Carbon::now();
+            $diasHabiles = 0;
+            while ($diasHabiles < 5) {
+                $fechaMinima->addDay();
+                if (!in_array($fechaMinima->dayOfWeek, [Carbon::SATURDAY, Carbon::SUNDAY])) {
+                    $diasHabiles++;
+                }
+            }
+            if (Carbon::parse($fechaEntrega)->lt($fechaMinima)) {
+                $validator->errors()->add('fecha_entrega', 'La fecha de entrega debe ser al menos 5 días hábiles después de hoy (sin contar sábados ni domingos).');
+            }
+        }
+    });
+}
 
     public function messages(): array
     {
