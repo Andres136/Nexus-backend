@@ -84,31 +84,36 @@ class ErrorController extends Controller
             : 0;
     
         // Obtener errores agrupados por departamento en ambos períodos
-        $erroresPorProceso = Errores::select('departamento_id', DB::raw('count(*) as total'))
-            ->groupBy('departamento_id')
+        $erroresPorProceso = Errores::select('departamento_id', 'descripcion', DB::raw('count(*) as total'))
+            ->groupBy('departamento_id', 'descripcion')
             ->with('departamento')
             ->get()
             ->map(function ($error) {
                 return [
                     'departamento_id' => $error->departamento_id,
+                    'descripcion' => $error->descripcion,
                     'departamento_nombre' => $error->departamento ? $error->departamento->nombre : "Desconocido",
                     'total' => $error->total
                 ];
             });
     
         // Errores por proceso del mes actual
-        $erroresPorProcesoMesActual = Errores::select('departamento_id', DB::raw('count(*) as total'))
-            ->whereBetween('created_at', [$inicioMesActual, $finMesActual])
-            ->groupBy('departamento_id')
-            ->with('departamento')
-            ->get()
-            ->map(function ($error) {
-                return [
-                    'departamento_id' => $error->departamento_id,
-                    'departamento_nombre' => $error->departamento ? $error->departamento->nombre : "Desconocido",
-                    'total' => $error->total
-                ];
-            });
+       $erroresPorProcesoMesActual = Errores::whereBetween('created_at', [$inicioMesActual, $finMesActual])
+    ->with('departamento')
+    ->select('departamento_id', 'descripcion')
+    ->get()
+    ->groupBy('departamento_id')
+    ->map(function ($errores, $departamentoId) {
+        $departamento = $errores->first()->departamento;
+        return [
+            'departamento_id' => $departamentoId,
+            'departamento_nombre' => $departamento ? $departamento->nombre : "Desconocido",
+            'descripciones' => $errores->pluck('descripcion')->unique()->values(), // 👈 array de descripciones
+            'total' => $errores->count()
+        ];
+    })
+    ->values();
+
     
         // Errores por proceso del mes anterior
         $erroresPorProcesoMesAnterior = Errores::select('departamento_id', DB::raw('count(*) as total'))
