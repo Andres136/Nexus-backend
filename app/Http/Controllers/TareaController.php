@@ -138,35 +138,38 @@ class TareaController extends Controller
             ->orderByRaw('MONTH(created_at)')
             ->get();
     
-        // 3) Lista de usuarios únicos
-        $usuarios = (clone $query)
-            ->get()
-            ->pluck('usuario')     
-            ->filter()          // trae el modelo User
-            ->unique('id')
-            ->values()
-            ->map(fn($u) => [
-                'id'   => $u->id,
-                'name' => $u->name,
-            ]);
-    
-        // 4) Lista de departamentos únicos
-        $departamentos = (clone $query)
-            ->get()
-            ->pluck('departamentos')
-            ->filter()          // trae el modelo Departamento
-            ->unique('id')
-            ->values()
-            ->map(fn($d) => [
-                'id'     => $d->id,
-                'nombre' => $d->nombre,
-            ]);
-    
-        return response()->json([
-            'resumen'      => $resumen,
-            'usuarios'     => $usuarios,
-            'departamentos'=> $departamentos,
-        ]);
+// 2) Resumen mensual (clone para no “ensuciar” el builder principal)
+$resumenTareas = (clone $query)->get();
+
+// IDs únicos de usuarios y departamentos en las tareas del resumen
+$userIds = $resumenTareas->pluck('user_id')->unique()->filter()->values();
+$departamentoIds = $resumenTareas->pluck('departamento_id')->unique()->filter()->values();
+
+// 2) Resumen mensual agrupado por mes
+$resumen = $resumenTareas
+    ->groupBy(function ($t) { return \Carbon\Carbon::parse($t->created_at)->month; })
+    ->map(function ($group, $mes) {
+        return [
+            'mes'         => $mes,
+            'total'       => $group->count(),
+            'pendientes'  => $group->where('estado_id', 1)->count(),
+            'completadas' => $group->where('estado_id', 2)->count(),
+        ];
+    })->values();
+
+// 3) Solo usuarios con tareas en el resumen
+$usuarios = User::whereIn('id', $userIds)
+    ->get(['id', 'name']);
+
+// 4) Solo departamentos con tareas en el resumen
+$departamentos = \App\Models\Departamentos::whereIn('id', $departamentoIds)
+    ->get(['id', 'nombre']);
+
+return response()->json([
+    'resumen'      => $resumen,
+    'usuarios'     => $usuarios,
+    'departamentos'=> $departamentos,
+]);
     }
     
     

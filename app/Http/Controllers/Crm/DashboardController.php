@@ -231,9 +231,12 @@ public function descargarOrdenesCriticasHoy(Request $request)
     // 2) Exclusividad por prioridad: VENCIDAS > HOY > FALTANTES
     $vencidas     = $vencidas->unique('id')->values();
     $idsUsados    = $vencidas->pluck('id');
-
-    $hoy          = $hoy->reject(fn($o) => $idsUsados->contains($o->id))
-        ->unique('id')->values();
+$hoy = $ordenes->filter(function ($orden) use ($fecha) {
+    return $orden->fecha_entrega
+        && Carbon::parse($orden->fecha_entrega)->startOfDay()->eq($fecha)
+        && $orden->estado_id !== 2; // Excluye completadas
+});
+   
     $idsUsados    = $idsUsados->merge($hoy->pluck('id'));
 
     $conFaltantes = $conFaltantes->reject(fn($o) => $idsUsados->contains($o->id))
