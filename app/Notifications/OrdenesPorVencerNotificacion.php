@@ -30,10 +30,13 @@ class OrdenesPorVencerNotificacion extends Notification
         $hoy = Carbon::now();
         $fechaEntrega = Carbon::parse($this->ordenCompra->fecha_entrega);
 
+
         $cacheKey = 'orden_por_vencer_' . $this->ordenCompra->id;
 
         if (Cache::has($cacheKey)) {
-             return null; // Ya se envió la notificación, no hacer nada
+           return (new MailMessage)
+               ->subject('Notificación ya enviada')
+            ->line('Esta notificación ya fue enviada hoy.');
         } else {
             Cache::put($cacheKey, true, now()->addDay());
         }

@@ -13,14 +13,14 @@ class TareaVencidaService
 {
     public function notificarTareasVencidas()
     {
-        $hoy = Carbon::now()->toDateString(); // ej: '2025-05-05'
+        $hoyStr = Carbon::now()->toDateString(); // ej: '2025-05-05'
 
         // ✅ Verificar si ya se ejecutó hoy
-        if (Cache::has('notificacion_tareas_' . $hoy)) {
+        if (Cache::has('notificacion_tareas_' . $hoyStr)) {
             return; // Ya se ejecutó hoy
         }
 
-        $hoy = Carbon::now();
+      $hoy = Carbon::now();
     
         // Buscar tareas PENDIENTES (estado_id = 1) con fecha de vencimiento definida
         $tareas = Tareas::with('usuario')
@@ -44,7 +44,7 @@ class TareaVencidaService
         }
 
         // ✅ Marcar como ejecutado por 24 horas
-        Cache::put('notificacion_tareas_' . $hoy, true, now()->addDay());
+        Cache::put('notificacion_tareas_' . $hoyStr, true, now()->addDay());
     }
 }
 
