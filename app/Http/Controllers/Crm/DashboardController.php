@@ -72,6 +72,7 @@ class DashboardController extends Controller
             'total'              => $ordenes->count(),
             'registradas'        => $agrupadoPorEstado->get('Registrada', collect())->count(),
             'en_orden_trabajo'   => $agrupadoPorEstado->get('En orden trabajo', collect())->count(),
+            'registradas_detalle'=> $agrupadoPorEstado->get('Registrada', collect())->pluck('cliente')->values(),
             'listas'             => $listasRecientes->count(),
             'faltantes'          => $agrupadoPorEstado->get('Con faltantes', collect())->count(),
             'vencidas'           => $agrupadoPorEstado->get('Vencida', collect())->count(),

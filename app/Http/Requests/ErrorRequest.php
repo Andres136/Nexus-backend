@@ -22,7 +22,7 @@ class ErrorRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'descripcion' => 'required|string|max:100',
+            'descripcion' => 'required|string|max:500',
            'departamento_id' => 'required|integer',
         ];
     }
@@ -31,7 +31,7 @@ class ErrorRequest extends FormRequest
         return [
             'descripcion.required' => 'La descripción es requerida',
             'descripcion.string' => 'La descripción debe ser un texto',
-            'descripcion.max' => 'La descripción no debe exceder los 100 caracteres',
+            'descripcion.max' => 'La descripción no debe exceder los 500 caracteres',
             'departamento_id.required' => 'El proceso es requerido',
             'departamento_id.integer' => 'El proceso debe ser un número entero',
         ];

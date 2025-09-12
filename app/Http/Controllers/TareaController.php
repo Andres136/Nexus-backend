@@ -141,7 +141,8 @@ class TareaController extends Controller
         // 3) Lista de usuarios únicos
         $usuarios = (clone $query)
             ->get()
-            ->pluck('usuario')               // trae el modelo User
+            ->pluck('usuario')     
+            ->filter()          // trae el modelo User
             ->unique('id')
             ->values()
             ->map(fn($u) => [
@@ -152,7 +153,8 @@ class TareaController extends Controller
         // 4) Lista de departamentos únicos
         $departamentos = (clone $query)
             ->get()
-            ->pluck('departamentos')        // trae el modelo Departamento
+            ->pluck('departamentos')
+            ->filter()          // trae el modelo Departamento
             ->unique('id')
             ->values()
             ->map(fn($d) => [

@@ -193,7 +193,7 @@ public function index(Request $request)
     public function destroy(string $id)
     {
         $user = auth()->user();
-        if ($user->role_id !== 1) {
+        if (!in_array($user->role_id, [1, 2])) {
             return response()->json(['message' => 'No autorizado para eliminar registros.'], 403);
     }
 
