@@ -257,9 +257,10 @@ public function index(Request $request)
             'nombre' => $indicador->nombre,
             'meta' => $indicador->meta,
             'frecuencia' => $indicador->frecuencia,
+            'tipo_meta' => $indicador->tipo_meta,
             'departamento' => [
-                'id' => $indicador->departamento->id,
-                'nombre' => $indicador->departamento->nombre,
+            'id' => $indicador->departamento->id,
+            'nombre' => $indicador->departamento->nombre,
             ],
             'registro' => $indicador->registros->first() ? $this->procesarRegistro($indicador->registros->first()) : null
         ];

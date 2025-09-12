@@ -38,6 +38,7 @@ class StoreIndicadoresRequest extends FormRequest
             'nombre' => 'required|string|max:100',
             'descripcion' => 'nullable|string|max:255',
             'user_id' => 'required|exists:users,id',
+            'tipo_meta' => 'required|in:mayor,menor',
         ];
     }
 
@@ -59,6 +60,9 @@ class StoreIndicadoresRequest extends FormRequest
             'descripcion.string' => 'El campo descripción debe ser una cadena de texto.',
             'descripcion.max' => 'El campo descripción no debe exceder los 255 caracteres.',
             'user_id.required' => 'El campo usuario es obligatorio.',
+            'tipo_meta.required' => 'El campo tipo de meta es obligatorio.',
+            'tipo_meta.in' => 'El campo tipo de meta debe ser "mayor" o "menor".',
+          
         ];
     }
 }

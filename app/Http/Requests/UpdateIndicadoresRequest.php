@@ -28,6 +28,7 @@ class UpdateIndicadoresRequest extends FormRequest
             'frecuencia' => 'sometimes|required|string|max:50',
             'nombre' => 'sometimes|required|string|max:100',
             'descripcion' => 'nullable|string|max:255',
+            'tipo_meta' => 'sometimes|required|in:mayor,menor',
         ];
     }
 
@@ -50,6 +51,8 @@ class UpdateIndicadoresRequest extends FormRequest
             'nombre.max' => 'El campo nombre no debe exceder los 100 caracteres.',
             'descripcion.string' => 'El campo descripción debe ser una cadena de texto.',
             'descripcion.max' => 'El campo descripción no debe exceder los 255 caracteres.',
+            'tipo_meta.required' => 'El campo tipo de meta es obligatorio.',
+            'tipo_meta.in' => 'El campo tipo de meta debe ser "mayor" o "menor".',
         ];
     }
 }

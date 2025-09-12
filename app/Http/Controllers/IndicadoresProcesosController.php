@@ -52,6 +52,7 @@ public function store(StoreIndicadoresRequest $request)
             'nombre'          => $request->nombre,
             'descripcion'     => $request->descripcion,
             'user_id'         => $request->user_id,         // del auth
+            'tipo_meta'       => $request->tipo_meta,       // 'mayor' o 'menor'
         ])->load('departamento','user');
 
         return response()->json([

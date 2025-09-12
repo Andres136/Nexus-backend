@@ -15,6 +15,7 @@ class Indicadores extends Model
        'nombre',
        'descripcion',
        'user_id',
+       'tipo_meta' // 'mayor' o 'menor'
    ];
 
     //funcion para relacionar indicadores con departamentos
