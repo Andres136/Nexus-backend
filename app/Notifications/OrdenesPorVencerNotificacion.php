@@ -34,9 +34,7 @@ class OrdenesPorVencerNotificacion extends Notification
         $cacheKey = 'orden_por_vencer_' . $this->ordenCompra->id;
 
         if (Cache::has($cacheKey)) {
-           return (new MailMessage)
-               ->subject('Notificación ya enviada')
-            ->line('Esta notificación ya fue enviada hoy.');
+           return null; // Ya se envió la notificación, no hacer nada
         } else {
             Cache::put($cacheKey, true, now()->addDay());
         }
