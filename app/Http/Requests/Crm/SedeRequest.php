@@ -24,6 +24,7 @@ class SedeRequest extends FormRequest
         return [
             'nombre' => 'required|string|max:255',
             'direccion' => 'nullable|string|max:255',
+          
         ];
     }
 
@@ -35,6 +36,7 @@ class SedeRequest extends FormRequest
             'nombre.max' => 'El nombre no puede tener más de 255 caracteres',
             'direccion.string' => 'La dirección debe ser una cadena de texto',
             'direccion.max' => 'La dirección no puede tener más de 255 caracteres',
+       
         ];
     }
 }

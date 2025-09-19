@@ -24,6 +24,7 @@ class UpdateSedeRequest extends FormRequest
         return [
             'nombre' => 'required|string|max:255|unique:sedes,nombre,' . $this->route('sede')->id,
             'direccion' => 'nullable|string|max:255',
+        
         ];
     }
 
@@ -36,6 +37,7 @@ class UpdateSedeRequest extends FormRequest
             'nombre.unique' => 'El nombre ya está en uso',
             'direccion.string' => 'La dirección debe ser una cadena de texto',
             'direccion.max' => 'La dirección no puede tener más de 255 caracteres',
+
         ];
     }
 }

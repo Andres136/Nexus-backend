@@ -23,6 +23,7 @@ public function store(SedeRequest $request)
     $sede = Sede::create([
         'nombre' => $request->nombre,
         'direccion' => $request->direccion,
+     
     ]);
 
     return response()->json([
@@ -39,6 +40,7 @@ public function update(UpdateSedeRequest $request, Sede $sede)
     $sede->update([
         'nombre' => $request->nombre,
         'direccion' => $request->direccion,
+
     ]);
 
     return response()->json([
