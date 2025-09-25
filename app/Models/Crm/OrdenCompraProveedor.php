@@ -15,7 +15,15 @@ class OrdenCompraProveedor extends Model
         'numero_orden',
         'estado_id',
         'usuario_id',
-        'observaciones'
+        'observaciones',
+        'empresa_id',
+        'bodega_id',
+        'sede_id',
+    ];
+
+
+    protected $casts = [
+        'fecha' => 'date',
     ];
 //Relacion con el modelo Proveedor
     public function proveedor()
@@ -38,8 +46,22 @@ class OrdenCompraProveedor extends Model
         return $this->belongsTo(User::class, 'usuario_id');
     }
 
-    
-  
-    
+    //Relacion con el modelo Empresa
+    public function empresa()
+    {
+        return $this->belongsTo(empresa::class, 'empresa_id');
+    }
+
+    //Relacion con el modelo Bodega
+    public function bodega()
+    {
+        return $this->belongsTo(bodega::class, 'bodega_id');
+    }
+
+    //Relacion con el modelo Sede
+    public function sede()
+    {
+        return $this->belongsTo(Sede::class, 'sede_id');
+    }
 
 }

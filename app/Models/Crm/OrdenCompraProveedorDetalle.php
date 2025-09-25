@@ -9,12 +9,14 @@ class OrdenCompraProveedorDetalle extends Model
     protected $table = 'orden_compra_proveedor_detalles';
     protected $fillable = [
         'orden_id',
+        'code',
         'descripcion',
         'cantidad_solicitada',
         'cantidad_entregada',
         'item',
         'proceso_bolsas_id',
         'proveedor_id',
+        'producto_id',
     ];
     protected $casts = [
         'cantidad_solicitada' => 'float',

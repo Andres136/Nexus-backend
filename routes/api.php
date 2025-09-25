@@ -1,13 +1,16 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Crm\BodegaController;
 use App\Http\Controllers\Crm\CarpetaController;
+use App\Http\Controllers\Crm\CategoriaController;
 use App\Http\Controllers\Crm\ClienteController;
 use App\Http\Controllers\Crm\CotizacionController;
 use App\Http\Controllers\Crm\DashboardController;
 use App\Http\Controllers\Crm\DatoCondutorController;
 use App\Http\Controllers\Crm\DocumentosAdministrativosController;
 use App\Http\Controllers\Crm\DocumentoVehiculoController;
+use App\Http\Controllers\Crm\EmpresaController;
 use App\Http\Controllers\Crm\EntregaProveedorController;
 use App\Http\Controllers\Crm\InspeccionController;
 use App\Http\Controllers\Crm\MantenimientoController;
@@ -16,6 +19,7 @@ use App\Http\Controllers\Crm\OrdenCompraDetallesController;
 use App\Http\Controllers\Crm\OrdenCompraProveedorController;
 use App\Http\Controllers\Crm\ordenTrabajoController;
 use App\Http\Controllers\Crm\procesoBolsasController;
+use App\Http\Controllers\Crm\ProductController as CrmProductController;
 use App\Http\Controllers\Crm\ProveedorController;
 use App\Http\Controllers\Crm\RevisionComparendoController;
 use App\Http\Controllers\Crm\SedeController;
@@ -33,6 +37,7 @@ use App\Http\Controllers\MacroProcesoController;
 use App\Http\Controllers\NotificacionOrdenController;
 use App\Http\Controllers\PqrController;
 use App\Http\Controllers\ProcesoController;
+use App\Http\Controllers\ProductController;
 use App\Http\Controllers\RegistroIndicadoresController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\TareaController;
@@ -61,9 +66,11 @@ Route::middleware('auth:sanctum')->group(function () {
   Route::get('/clientes-registro-user', [ClienteController::class, 'clientesUsuario']);
   Route::apiResource('clientes', ClienteController::class);
   Route::get('clientes-todos', [ClienteController::class, 'clientesTodos']);
+
+  //ordenes de compra
   Route::apiResource('orden-compras', OrdenCompraController::class);
   Route::get('/notificaciones', [NotificacionOrdenController::class, 'listarNotificaciones']);
-
+ Route::get('ordenes-compra-facturar', [OrdenCompraController::class, 'ordenesFacturar']);
 
   Route::post('/orden-trabajo/{id}', [OrdenCompraController::class, 'generarOrdenTrabajo']);
   Route::get('tareas-vencidas', [NotificacionOrdenController::class, 'EnviarTaskVencida']);
@@ -75,12 +82,14 @@ Route::middleware('auth:sanctum')->group(function () {
   Route::apiResource('clientes/{cliente}/seguimientos', SeguimientoController::class);
 
   
-  Route::get('ordenes-compra-facturar', [OrdenCompraController::class, 'ordenesFacturar']);
+ 
   Route::apiResource('registrar-documentacion', DocumentosAdministrativosController::class);
   Route::get('/notificar-ordenes', [NotificacionOrdenController::class, 'notificarOrdenes']);
-
+//Consumir api siigo
+  Route::get('products-setas', [SiigoController::class, 'index']);
  Route::get('stock', [SiigoController::class, 'stock']);
-   
+   //Consumir api siigo global
+  Route::get('products-global', [SiigoGlobalController::class, 'index']);
   Route::get('stock-global', [SiigoGlobalController::class, 'stock']);
   Route::patch('tareas/estado/{id}/', [TareaController::class, 'update']);
   Route::apiResource('tareas', TareaController::class);
@@ -158,13 +167,21 @@ Route::get('/dashboard/ordenespdf', [DashboardController::class, 'descargarOrden
 //Descargar pendientes de ordenes de proveedor
 
 Route::get('/entregas/items-pendientes/pdf', [EntregaProveedorController::class, 'descargarPendientes']);
+//Descargar la orden de compra del proveedor en pdf
+Route::get('/orden-compras-proveedor/{id}/pdf', [OrdenCompraProveedorController::class, 'descargarOrdenPdfProveedor']);
+//Enviar email con la orden de compra al proveedor
+Route::post('/ordenes-compra-proveedor/{id}/enviar-email', [OrdenCompraProveedorController::class, 'enviarEmail']);
+
 //Proceso bolsas
 Route::apiResource('registrar-proceso-bolsa',procesoBolsasController::class);
 Route::get('entregas/{id}', [OrdenCompraController::class, 'obtenerEntregas']);
 
 //Sedes
 Route::apiResource('sedes', SedeController::class);
-//Departamentos
+
+
+//Consultar todos los productos sin paginar
+Route::get('products-all', [CrmProductController::class, 'getAllProducts']);
 
 });
 Route::middleware(['auth:sanctum', 'es_responsable_del_departamento'])->group(function () {
@@ -172,8 +189,20 @@ Route::middleware(['auth:sanctum', 'es_responsable_del_departamento'])->group(fu
     Route::apiResource('registro-indicadores',RegistroIndicadoresController::class);
     Route::get('/rendimiento-indicadores', [RegistroIndicadoresController::class, 'indexByCompany']);
    Route::get ('/indicadoresAdmin',[IndicadoresProcesosController::class,'indexAdmin']);
+   //Inventarios
+    Route::apiResource('bodegas', BodegaController::class);
+    //Categorias
+    Route::apiResource('categorias',CategoriaController::class);
+    //Productos
+    Route::apiResource('products',CrmProductController::class);
 });
 
+
+//Ruta para roles y permisos  usando middleware  roles
+Route::middleware(['auth:sanctum', 'role:1'])->group(function () {
+  Route::apiResource('empresas', EmpresaController::class);
+
+});
 //Ruta para descargar archivos de el registro de indicadores
 Route::get('/registro-indicadores/descargar/{id}', [RegistroIndicadoresController::class, 'descargarDocumento']);
 Route::apiResource('departamentos', DepartamentoController::class);
@@ -233,3 +262,4 @@ Route::match(['GET', 'POST'], '/webhook', [WhatsappWebhookController::class, 'ha
 Route::post('/meta-mensual', [OrdenCompraController::class, 'registrarMeta']);
 //Resumen de meta mensual
 Route::get('/meta-mensual/resumen', [OrdenCompraController::class, 'graficoMetaMensual']);
+Route::get('/dashboard/exportar-ordenes-criticas-mes', [DashboardController::class, 'exportarOrdenesCriticasMes']);

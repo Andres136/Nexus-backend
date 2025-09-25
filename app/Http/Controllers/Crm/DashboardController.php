@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Crm;
 
+use App\Exports\OrdenesCriticasExport;
 use App\Http\Controllers\Controller;
 use App\Models\Crm\Cliente;
 use App\Models\Crm\Orden_Compra;
@@ -11,6 +12,7 @@ use Carbon\Carbon;
 use GuzzleHttp\Client;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
 
 class DashboardController extends Controller
 {
@@ -38,6 +40,7 @@ class DashboardController extends Controller
             // ✅ Clasificación considerando "Entrega Parcial"
             if ($orden->estado_id === 5) {
                 $estado = 'Entrega Parcial';
+                
             } elseif ($fechaVencida) {
                 $estado = 'Vencida';
             } elseif ($tieneFaltantes && $tieneEnviados) {
@@ -99,7 +102,6 @@ class DashboardController extends Controller
 
     // en App\Http\Controllers\Crm\DashboardController.php
 
-
 public function getMonthlyStats(Request $request)
 {
     $year  = $request->input('year', now()->year);
@@ -108,47 +110,57 @@ public function getMonthlyStats(Request $request)
     $start = Carbon::create($year, $month, 1)->startOfDay();
     $end   = Carbon::create($year, $month, 1)->endOfMonth()->endOfDay();
 
-    // 1. Órdenes con entrega programada en el mes (para el total)
     $ordenes = Orden_Compra::with('detalles')
         ->whereBetween('fecha_entrega', [$start, $end])
-        ->where('estado_id', '!=', 5)
+        ->where('estado_id', '!=', 5) // excluir parciales
         ->get();
 
     $total = $ordenes->count();
 
-    // 2. Despachadas a tiempo: fecha_despacho (o updated_at) <= fecha_entrega
     $despachadas = $ordenes->filter(function ($o) {
+        $fechaEntrega  = Carbon::parse($o->fecha_entrega);
         $fechaDespacho = $o->fecha_despacho ?? $o->updated_at;
-        return $fechaDespacho &&
-            Carbon::parse($fechaDespacho)->lte(Carbon::parse($o->fecha_entrega)) &&
-            $o->detalles->sum('cantidad_enviada') > 0;
+        $enviados      = $o->detalles->sum('cantidad_enviada');
+
+        return $enviados > 0 && $fechaDespacho && Carbon::parse($fechaDespacho)->lte($fechaEntrega);
     })->count();
 
-    // 3. Vencidas: no despachadas o despachadas fuera de plazo
     $vencidas = $ordenes->filter(function ($o) {
+        $fechaEntrega  = Carbon::parse($o->fecha_entrega);
         $fechaDespacho = $o->fecha_despacho ?? $o->updated_at;
-        return (
-            !$fechaDespacho ||
-            Carbon::parse($fechaDespacho)->gt(Carbon::parse($o->fecha_entrega))
-        ) && Carbon::parse($o->fecha_entrega)->lt(now()->startOfDay());
+        $enviados      = $o->detalles->sum('cantidad_enviada');
+
+        // Caso 1: nunca enviada y ya pasó la fecha
+        if ($enviados == 0 && $fechaEntrega->lt(now()->startOfDay())) {
+            return true;
+        }
+
+        // Caso 2: enviada pero después de la fecha de entrega
+        if ($enviados > 0 && $fechaDespacho && Carbon::parse($fechaDespacho)->gt($fechaEntrega)) {
+            return true;
+        }
+
+        return false;
     })->count();
 
     $pendientes = $total - $despachadas - $vencidas;
 
-    return response()->json(compact(
-        'year',
-        'month',
-        'total',
-        'despachadas',
-        'vencidas',
-        'pendientes'
-    ));
+    return response()->json([
+        'year'        => $year,
+        'month'       => $month,
+        'total'       => $total,
+        'despachadas' => $despachadas,
+        'vencidas'    => $vencidas,
+        'pendientes'  => $pendientes,
+    ]);
 }
-    //Traer estadisticas de los clientes que mas compran
-    public function getTopClients(Request $request)
-    {
-        $year = $request->input('year', now()->year);
-        $month = $request->input('month', now()->month);
+
+
+//Traer estadisticas de los clientes que mas compran
+public function getTopClients(Request $request)
+{
+    $year = $request->input('year', now()->year);
+    $month = $request->input('month', now()->month);
         $sedeId = $request->input('sede_id');
         $tipoOrden = $request->input('tipo_orden');
         $vendedorId = $request->input('vendedor_id');
@@ -274,4 +286,48 @@ $hoy = $ordenes->filter(function ($orden) use ($fecha) {
         'Content-Disposition' => 'attachment; filename="' . $filename . '"',
     ]);
 }
+
+
+public function exportarOrdenesCriticasMes(Request $request)
+{
+    $year  = $request->input('year', now()->year);
+    $month = $request->input('month', now()->month);
+
+    $start = Carbon::create($year, $month, 1)->startOfDay();
+    $end   = Carbon::create($year, $month, 1)->endOfMonth()->endOfDay();
+
+    $ordenes = Orden_Compra::with(['detalles', 'cliente', 'sede', 'ordenTrabajo'])
+        ->whereBetween('fecha_entrega', [$start, $end])
+        ->get();
+
+    // Solo vencidas
+    $vencidas = $ordenes->filter(function ($orden) {
+        $fechaEntrega   = Carbon::parse($orden->fecha_entrega);
+        $fechaDespacho  = $orden->fecha_despacho ?? $orden->updated_at;
+
+        // Se considera vencida si la fecha de entrega ya pasó
+        // y (no se entregó nada o se entregó después de la fecha)
+        return $fechaEntrega->lt(now()->startOfDay()) &&
+            (
+                $orden->detalles->sum('cantidad_enviada') == 0 ||
+                ($fechaDespacho && Carbon::parse($fechaDespacho)->gt($fechaEntrega))
+            );
+    });
+
+    if ($vencidas->isEmpty()) {
+        return response()->json(['mensaje' => 'No hay órdenes vencidas en este periodo.'], 404);
+    }
+
+    $export = new OrdenesCriticasExport($vencidas, collect(), collect(), $start);
+
+    $filename = "ordenes_vencidas_{$year}_{$month}.xlsx";
+
+    return Excel::download($export, $filename);
+}
+
+
+
+
+
+
 }

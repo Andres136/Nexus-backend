@@ -1,14 +1,17 @@
 <?php
 
 namespace App\Http\Controllers\Crm;
-
+use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Crm\OrdenCompraProveedorRequest;
 use App\Http\Requests\Crm\UpdateOrdenCompraProveedorDetallesRequest;
+use App\Mail\OrdenCompraProveedorMail;
 use App\Models\Crm\OrdenCompraProveedor;
 use App\Models\Crm\OrdenCompraProveedorDetalle;
-use Illuminate\Support\Facades\DB;
+use Barryvdh\DomPDF\Facade\Pdf ;
+
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 
 class OrdenCompraProveedorController extends Controller
 {
@@ -72,16 +75,22 @@ class OrdenCompraProveedorController extends Controller
     public function store(OrdenCompraProveedorRequest $request)
     {
         DB::beginTransaction();
-
+        // Generar número de orden consecutivo
+        $ultimaOrden = OrdenCompraProveedor::orderBy('id', 'desc')->first();
+        $numeroConsecutivo = $ultimaOrden ? $ultimaOrden->id + 1 : 1;
+        $numeroOrden = 'OC-' . str_pad($numeroConsecutivo, 3, '0', STR_PAD_LEFT);
         try {
             $ordenCompra = OrdenCompraProveedor::create([
                 'proveedor_id' => $request->proveedor_id,
-                'fecha' => $request->fecha,
-                'numero_orden' => $request->numero_orden,
+                'fecha' =>now() ,
+                'numero_orden' => $numeroOrden,
                 'estado_id' => 1, // Estado inicial
                 'usuario_id' => auth()->id(),
                 // 'usuario_id' => $request->usuario_id, // Si se desea permitir la asignación de un usuario diferente
                 'observaciones' => $request->observaciones,
+                'empresa_id' => $request->empresa_id,
+                'bodega_id' => $request->bodega_id,
+                'sede_id' => $request->sede_id,
             ]);
 
             foreach ($request->detalles as $i => $detalle) {
@@ -92,12 +101,16 @@ class OrdenCompraProveedorController extends Controller
                     'cantidad_entregada' => $detalle['cantidad_entregada'] ?? 0,
                     'proveedor_id' => $detalle['proveedor_id'] ?? null, // Aseguramos que este campo sea nullable
                     'proceso_bolsas_id' => $detalle['proceso_bolsas_id'] ?? null, // Aseguramos que este campo sea nullable
+                    'code' => $detalle['code'] ?? null, // Nuevo campo código
+                    'producto_id' => $detalle['producto_id'] ?? null, // Nuevo campo producto_id
                 ]);
             }
 
             DB::commit();
 
-            return response()->json(['message' => 'Orden de compra creada con éxito.'], 201);
+            return response()->json(['message' => 'Orden de compra creada con éxito.',
+               'orden' => $ordenCompra
+            ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -114,7 +127,7 @@ class OrdenCompraProveedorController extends Controller
      */      //Consultar una orden y su estado actual (con detalles y análisis de cantidades entregadas vs solicitadas).
     public function show($id)
     {
-        $orden = OrdenCompraProveedor::with(['proveedor', 'usuario', 'estado', 'detalles.entregas', 'detalles.procesoBolsas', 'detalles.proveedor'])->findOrFail($id);
+        $orden = OrdenCompraProveedor::with(['proveedor', 'usuario', 'estado', 'detalles.entregas', 'detalles.procesoBolsas', 'detalles.proveedor','empresa'])->findOrFail($id);
 
         $detalles = $orden->detalles->map(function ($detalle) {
             $estado = 'Pendiente';
@@ -165,6 +178,7 @@ class OrdenCompraProveedorController extends Controller
             'id' => $orden->id,
             'numero_orden' => $orden->numero_orden,
             'fecha' => $orden->fecha,
+            'empresa' => $orden->empresa,
             'observaciones' => $orden->observaciones,
             'estado_registrado' => $orden->estado->nombre,
             'estado_calculado' => $estado_orden,
@@ -238,5 +252,59 @@ class OrdenCompraProveedorController extends Controller
         $detalle->save();
 
         return response()->json(['message' => 'Detalle actualizado correctamente.']);
+    }
+
+
+    //Eliminar un detalle de orden de compra
+    public function destroy($id)
+    {
+        $detalle = OrdenCompraProveedorDetalle::findOrFail($id);
+        $detalle->delete();
+
+        return response()->json(['message' => 'Detalle eliminado correctamente.']);
+    
+    }
+
+    //Descargar la orden de compra del proveedor en pdf
+    public function descargarOrdenPdfProveedor($id)
+    {
+        $orden = OrdenCompraProveedor::with(['proveedor', 
+        'empresa',
+         'usuario',
+         'estado',
+         'detalles.entregas',
+         'detalles.procesoBolsas',
+         'detalles.proveedor'])->findOrFail($id);
+
+
+  // Convertir logo a base64 si existe
+    if ($orden->empresa && $orden->empresa->logo) {
+        $logoPath = storage_path('app/public/' . $orden->empresa->logo);
+        
+        if (file_exists($logoPath)) {
+            $logoData = base64_encode(file_get_contents($logoPath));
+            $logoMimeType = mime_content_type($logoPath);
+            $orden->empresa->logo_base64 = "data:{$logoMimeType};base64,{$logoData}";
+        }
+    }
+
+
+        $pdf = Pdf::loadView('pdf.orden_compra_proveedor', compact('orden'));
+        return $pdf->download('orden_compra_proveedor_' . $orden->numero_orden . '.pdf');
+    }   
+    
+
+    //Enviar la orden de compra por correo electrónico al proveedor
+    public function enviarEmail($id)
+    {
+        $orden = OrdenCompraProveedor::with(['proveedor', 'empresa', 'usuario', 'estado', 'detalles.entregas', 'detalles.procesoBolsas', 'detalles.proveedor'])->findOrFail($id);
+
+        // Generar el PDF
+        $pdf = Pdf::loadView('pdf.orden_compra_proveedor', compact('orden'))->output();
+
+        // Enviar el correo
+        Mail::to($orden->proveedor->correo)->send(new OrdenCompraProveedorMail($orden, $pdf));
+
+        return response()->json(['message' => 'Correo enviado correctamente al proveedor.']);
     }
 }
