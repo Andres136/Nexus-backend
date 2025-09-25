@@ -20,28 +20,42 @@ public function index(Request $request)
     // 1. Verifica que el usuario sea responsable de algún departamento
     $user = auth()->user();
     $departamento = $user->departamento;
+// ✅ NUEVO: Determinar el mes y año
+        $mes = $request->input('mes', date('m'));
+        $anio = $request->input('anio', date('Y'));
+        $departamento_id = $request->input('departamento_id'); // ✅ NUEVO: Filtro por departamento
 
+        // ✅ MODIFICAR: Lógica de autorización expandida
+        if ($user->role_id == 1) {
+            // ROLE_ID = 1: Puede ver todos los departamentos
+            
+            if ($departamento_id) {
+                // ✅ Si especifica departamento, filtrar por ese
+                $indicadoresIds = Indicadores::where('departamento_id', $departamento_id)->pluck('id');
+            } else {
+                // ✅ Si no especifica, ver todos los indicadores
+                $indicadoresIds = Indicadores::pluck('id');
+            }
+            
+        } else {
+            // ✅ OTROS ROLES: Solo su departamento (lógica original)
+            if (!$departamento || $departamento->responsable_id != $user->id) {
+                return response()->json([
+                    'message' => 'No autorizado para ver registros en este departamento.'
+                ], 403);
+            }
+            
+            // Solo indicadores del departamento del usuario
+            $indicadoresIds = Indicadores::where('departamento_id', $departamento->id)->pluck('id');
+        }
 
+        // ✅ Buscar registros con filtros aplicados
+        $query = RegistroIndicador::with(['indicador.departamento', 'user'])
+            ->whereIn('indicador_id', $indicadoresIds)
+            ->whereMonth('fecha', $mes)
+            ->whereYear('fecha', $anio);
 
-    if (!$departamento || $departamento->responsable_id != $user->id) {
-        return response()->json([
-            'message' => 'No autorizado para ver registros en este departamento.'
-        ], 403);
-    }
-
-    // 2. Determina el mes y año (por defecto el actual)
-    $mes = $request->input('mes', date('m'));
-    $anio = $request->input('anio', date('Y'));
-
-    // 3. Busca los indicadores del departamento del usuario
-    $indicadoresIds = Indicadores::where('departamento_id', $departamento->id)->pluck('id');
-
-    // 4. Busca los registros de esos indicadores en el mes y año
-    $registros = RegistroIndicador::with('indicador')
-        ->whereIn('indicador_id', $indicadoresIds)
-        ->whereMonth('fecha', $mes)
-        ->whereYear('fecha', $anio)
-        ->get();
+        $registros = $query->get();
 
     // 5. Procesa cada registro para comparar valor vs meta
     $registros = $registros->map(function ($registro) {
