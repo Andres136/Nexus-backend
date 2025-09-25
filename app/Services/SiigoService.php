@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Crm\product;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -91,8 +92,135 @@ class SiigoService
 
         return $response->json();
     }
+public function getAllProducts($params = [])
+{
+    $allProducts = [];
+    $page = 1;
+    $pageSize = 50;
+    $totalResults = null;
 
-    
+    do {
+        $params['page'] = $page;
+        $params['page_size'] = $pageSize; // aseguras 50 por página
+        $response = $this->getProducts($params);
+
+        if (!$response || !isset($response['results'])) {
+            break;
+        }
+
+        $allProducts = array_merge($allProducts, $response['results']);
+
+        $totalResults = $response['pagination']['total_results'] ?? count($allProducts);
+        $page++;
+
+    } while (count($allProducts) < $totalResults);
+
+    return $allProducts;
 }
 
+    //Sincronizar productos desde Siigo
+    //Sincronizar productos desde Siigo
+    public function sincronizarProductosDesdeSiigo($params = [])
+    {
+        Log::info('Iniciando sincronización de productos desde Siigo');
 
+        // Traer todos los productos con paginación
+        $productos = $this->getAllProducts($params);
+
+        if (!$productos || count($productos) === 0) {
+            Log::error('No se pudieron obtener productos de Siigo o la respuesta es inválida');
+            return [
+                'productos_guardados'   => 0,
+                'productos_actualizados' => 0,
+                'total_procesados'      => 0,
+                'productos_omitidos'    => 0,
+                'detalle'               => [],
+            ];
+        }
+
+        $productosGuardados   = 0;
+        $productosActualizados = 0;
+        $productosOmitidos    = 0;
+        $detalleProcesados     = [];
+
+        foreach ($productos as $productoSiigo) {
+
+
+
+     
+            try {
+                $datosProducto = [
+                    'siigo_id'    => $productoSiigo['id'] ?? null,
+                    'name'        => $productoSiigo['name'] ?? null,
+                    'description' => $productoSiigo['description'] ?? null,
+                    'code'        => $productoSiigo['code'] ?? null,
+                    'categoria_id' => 1, // TODO: asignar lógica real de categorías
+                    'updated_at'  => now()
+                ];
+
+
+
+                      // ✅ NUEVO: Omitir productos con código que empiece con "T"
+                if ($datosProducto['code'] && strtoupper(substr($datosProducto['code'], 0, 1)) === 'T') {
+                    $productosOmitidos++;
+                    $detalleProcesados[] = [
+                        'accion' => 'omitido',
+                        'code'   => $datosProducto['code'],
+                        'id'     => $datosProducto['siigo_id'],
+                        'motivo' => 'Código empieza con T'
+                    ];
+                    Log::info('Producto omitido por código T: ' . $datosProducto['code'] . ' - ' . $datosProducto['name']);
+                    continue; // ✅ Saltar al siguiente producto
+                }
+
+                // Validar identificadores
+                if (!$datosProducto['code'] && !$datosProducto['siigo_id']) {
+                    Log::warning('Producto omitido por falta de identificador', $datosProducto);
+                    continue;
+                }
+
+                // Buscar si ya existe
+                $productoExistente = product::query()
+                    ->when($datosProducto['code'], fn($q) => $q->where('code', $datosProducto['code']))
+                    ->when($datosProducto['siigo_id'], fn($q) => $q->orWhere('siigo_id', $datosProducto['siigo_id']))
+                    ->first();
+
+                if ($productoExistente) {
+                    $productoExistente->update($datosProducto);
+                    $productosActualizados++;
+                    $detalleProcesados[] = [
+                        'accion' => 'actualizado',
+                        'code'   => $datosProducto['code'],
+                        'id'     => $datosProducto['siigo_id'],
+                    ];
+                    Log::info('Producto actualizado: ' . $productoExistente->name . ' (ID Siigo: ' . $productoExistente->siigo_id . ')');
+                } else {
+                    $datosProducto['created_at'] = now();
+                    product::create($datosProducto);
+                    $productosGuardados++;
+                    $detalleProcesados[] = [
+                        'accion' => 'creado',
+                        'code'   => $datosProducto['code'],
+                        'id'     => $datosProducto['siigo_id'],
+                    ];
+                    Log::info('Producto creado: ' . $datosProducto['name'] . ' (ID Siigo: ' . $datosProducto['siigo_id'] . ')');
+                }
+            } catch (\Exception $e) {
+                Log::error('Error al guardar producto', [
+                    'producto' => $productoSiigo['code'] ?? 'sin código',
+                    'error'    => $e->getMessage()
+                ]);
+            }
+        }
+
+        Log::info("Sincronización completada. Productos guardados: $productosGuardados, actualizados: $productosActualizados");
+
+        return [
+            'productos_guardados'   => $productosGuardados,
+            'productos_actualizados' => $productosActualizados,
+            'productos_omitidos'    => $productosOmitidos,
+            'total_procesados'      => $productosGuardados + $productosActualizados,
+            'detalle'               => $detalleProcesados
+        ];
+    }
+}

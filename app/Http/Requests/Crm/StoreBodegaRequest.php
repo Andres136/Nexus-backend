@@ -26,7 +26,7 @@ class StoreBodegaRequest extends FormRequest
             'nombre' => 'required|string|max:255',
             'direccion' => 'required|string|max:255',
             'sede_id' => 'required|exists:sedes,id',
-            'estado_id' => 'required|exists:estados,id',
+        
 
         ];
     }

@@ -14,7 +14,8 @@ class BodegaController extends Controller
      */
     public function index()
     {
-        //
+        $bodegas = bodega::all();
+        return response()->json($bodegas);
     }
 
     /**

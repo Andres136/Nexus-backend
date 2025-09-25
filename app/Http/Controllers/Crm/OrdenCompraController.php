@@ -101,7 +101,8 @@ class OrdenCompraController extends Controller
             return response()->json([
                 'message' => 'Orden de compra creada con éxito',
                 'orden_compra_id' => $ordenCompra->id,
-                'orden_compra' => $ordenCompra->load('detalles')
+                'orden_compra' => $ordenCompra->load('detalles'),
+ 
             ], 201);
         } catch (\Exception $e) {
             DB::rollback();
@@ -694,4 +695,7 @@ class OrdenCompraController extends Controller
             'data' => $data,
         ]);
     }
+
+
+  
 }

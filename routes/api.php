@@ -167,13 +167,21 @@ Route::get('/dashboard/ordenespdf', [DashboardController::class, 'descargarOrden
 //Descargar pendientes de ordenes de proveedor
 
 Route::get('/entregas/items-pendientes/pdf', [EntregaProveedorController::class, 'descargarPendientes']);
+//Descargar la orden de compra del proveedor en pdf
+Route::get('/orden-compras-proveedor/{id}/pdf', [OrdenCompraProveedorController::class, 'descargarOrdenPdfProveedor']);
+//Enviar email con la orden de compra al proveedor
+Route::post('/ordenes-compra-proveedor/{id}/enviar-email', [OrdenCompraProveedorController::class, 'enviarEmail']);
+
 //Proceso bolsas
 Route::apiResource('registrar-proceso-bolsa',procesoBolsasController::class);
 Route::get('entregas/{id}', [OrdenCompraController::class, 'obtenerEntregas']);
 
 //Sedes
 Route::apiResource('sedes', SedeController::class);
-//Departamentos
+
+
+//Consultar todos los productos sin paginar
+Route::get('products-all', [CrmProductController::class, 'getAllProducts']);
 
 });
 Route::middleware(['auth:sanctum', 'es_responsable_del_departamento'])->group(function () {
@@ -254,3 +262,4 @@ Route::match(['GET', 'POST'], '/webhook', [WhatsappWebhookController::class, 'ha
 Route::post('/meta-mensual', [OrdenCompraController::class, 'registrarMeta']);
 //Resumen de meta mensual
 Route::get('/meta-mensual/resumen', [OrdenCompraController::class, 'graficoMetaMensual']);
+Route::get('/dashboard/exportar-ordenes-criticas-mes', [DashboardController::class, 'exportarOrdenesCriticasMes']);

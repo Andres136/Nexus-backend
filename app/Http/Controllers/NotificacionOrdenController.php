@@ -57,18 +57,20 @@ class NotificacionOrdenController extends Controller
         
         return response()->json(['message' => 'Notificaciones enviadas'], 200);
     }
-    //Lista las notificaciones de un usuario
-    public function listarNotificaciones()
-    {
-        $notificaciones = auth()->user()->unreadNotifications;
 
-        //Limpiar notificaciones
-        auth()->user()->unreadNotifications;
-        return response()->json([
-            'notificaciones' => $notificaciones,
-            'total_no_leidas' => $notificaciones->count(),
-        ]);
-    }
+public function listarNotificaciones()
+{
+    $user = auth()->user();
+    $notificaciones = $user->unreadNotifications;
+
+    // Si quieres marcar como leídas automáticamente al listar:
+    $user->unreadNotifications->markAsRead();
+
+    return response()->json([
+        'notificaciones' => $notificaciones,
+        'total_no_leidas' => $notificaciones->count(),
+    ]);
+}
     
 //Marcar notificaciones como leídas
 public function marcarTodasComoLeidas()

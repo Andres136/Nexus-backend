@@ -38,6 +38,34 @@ class ProductController extends Controller
     }
 }
 
+public function getAllProducts(Request $request)
+{
+    try{
+
+         return product::query()
+        ->when($request->search, fn($q) =>
+            $q->where('name', 'like', "%{$request->search}%")
+            //TAmbien por descripcion y código
+            ->orWhere('description', 'like', "%{$request->search}%")
+              ->orWhere('code', 'like', "%{$request->search}%")
+        )
+        ->limit(50) // para no saturar la red
+        ->get();
+
+        return response()->json([
+            'message' => 'Listado de productos',
+            'data' => $products
+        ], 200);
+
+
+    }catch(\Exception $e){
+        return response()->json([
+            'message' => 'Error al obtener los productos',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
 
     /**
      * Store a newly created resource in storage.
