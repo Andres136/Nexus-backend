@@ -168,19 +168,20 @@ class SiigoGlobalService
                     'updated_at'  => now()
                 ];
 
-                      // ✅ NUEVO: Omitir productos con código que empiece con "T"
-                if ($datosProducto['code'] && strtoupper(substr($datosProducto['code'], 0, 1)) === 'T') {
-                    $productosOmitidos++;
-                    $detalleProcesados[] = [
-                        'accion' => 'omitido',
-                        'code'   => $datosProducto['code'],
-                        'id'     => $datosProducto['siigo_id'],
-                        'motivo' => 'Código empieza con T'
-                    ];
-                    Log::info('Producto omitido por código T: ' . $datosProducto['code'] . ' - ' . $datosProducto['name']);
-                    continue; // ✅ Saltar al siguiente producto
-                }
+     
+$codigo = strtoupper(trim(preg_replace('/\s+/', '', $datosProducto['code'] ?? '')));
 
+if ($codigo !== '' && str_starts_with($codigo, 'T')) {
+    $productosOmitidos++;
+    $detalleProcesados[] = [
+        'accion' => 'omitido',
+        'code'   => $codigo,
+        'id'     => $datosProducto['siigo_id'],
+        'motivo' => 'Código empieza con T'
+    ];
+    Log::info("Producto omitido por código T [{$codigo}] - ID: {$datosProducto['siigo_id']}");
+    continue;
+}
 
                 // Validar identificadores
                 if (!$datosProducto['code'] && !$datosProducto['siigo_id']) {
