@@ -160,7 +160,7 @@ Route::apiResource('ordenes-compra-proveedor', OrdenCompraProveedorController::c
 
 
 
-Route::get('referencias-excedidas', [EntregaProveedorController::class, 'referenciasFaltantes']);
+Route::get('referencias-faltantes', [EntregaProveedorController::class, 'referenciasFaltantes']);
 
 Route::get('/dashboard/ordenespdf', [DashboardController::class, 'descargarOrdenesCriticasHoy']);
 
