@@ -145,7 +145,7 @@ class SiigoGlobalService
                 'productos_guardados'   => 0,
                 'productos_actualizados' => 0,
                 'total_procesados'      => 0,
-                'productos_omitidos'    => 0,
+              
                 'detalle'               => [],
             ];
         }
@@ -153,7 +153,7 @@ class SiigoGlobalService
         $productosGuardados   = 0;
         $productosActualizados = 0;
         $detalleProcesados     = [];
-        $productosOmitidos    = 0;
+     
 
         foreach ($productos as $productoSiigo) {
             try {
@@ -169,19 +169,6 @@ class SiigoGlobalService
                 ];
 
      
-$codigo = strtoupper(trim(preg_replace('/\s+/', '', $datosProducto['code'] ?? '')));
-
-if ($codigo !== '' && str_starts_with($codigo, 'T')) {
-    $productosOmitidos++;
-    $detalleProcesados[] = [
-        'accion' => 'omitido',
-        'code'   => $codigo,
-        'id'     => $datosProducto['siigo_id'],
-        'motivo' => 'Código empieza con T'
-    ];
-    Log::info("Producto omitido por código T [{$codigo}] - ID: {$datosProducto['siigo_id']}");
-    continue;
-}
 
                 // Validar identificadores
                 if (!$datosProducto['code'] && !$datosProducto['siigo_id']) {
@@ -230,7 +217,7 @@ if ($codigo !== '' && str_starts_with($codigo, 'T')) {
             'productos_actualizados' => $productosActualizados,
             'total_procesados'      => $productosGuardados + $productosActualizados,
             'detalle'               => $detalleProcesados,
-            'productos_omitidos'    => $productosOmitidos,
+
         ];
     }
 }
