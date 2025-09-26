@@ -140,7 +140,7 @@ public function getAllProducts($params = [])
 
         $productosGuardados   = 0;
         $productosActualizados = 0;
-       
+        $productosOmitidos    = 0;
         $detalleProcesados     = [];
 
         foreach ($productos as $productoSiigo) {
@@ -159,6 +159,19 @@ public function getAllProducts($params = [])
                 ];
 
 
+$codigo = strtoupper(trim(preg_replace('/\s+/', '', $datosProducto['code'] ?? '')));
+
+if ($codigo !== '' && str_starts_with($codigo, 'T')) {
+    $productosOmitidos++;
+    $detalleProcesados[] = [
+        'accion' => 'omitido',
+        'code'   => $codigo,
+        'id'     => $datosProducto['siigo_id'],
+        'motivo' => 'Código empieza con T'
+    ];
+    Log::info("Producto omitido por código T [{$codigo}] - ID: {$datosProducto['siigo_id']}");
+    continue;
+}
 
 
                 // Validar identificadores
@@ -206,7 +219,7 @@ public function getAllProducts($params = [])
         return [
             'productos_guardados'   => $productosGuardados,
             'productos_actualizados' => $productosActualizados,
-   
+            'productos_omitidos'    => $productosOmitidos,
             'total_procesados'      => $productosGuardados + $productosActualizados,
             'detalle'               => $detalleProcesados
         ];

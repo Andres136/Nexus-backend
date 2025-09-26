@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
         $this->call(MacroProcesoSeeder::class);
         $this->call(DepartamentoSeeder::class);
         $this->call(UserSeeder::class);
+        $this->call(CategoriaSeeder::class);
  
     }
 }

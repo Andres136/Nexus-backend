@@ -49,11 +49,7 @@ public function getAllProducts(Request $request)
             ->orWhere('description', 'like', "%{$request->search}%")
               ->orWhere('code', 'like', "%{$request->search}%")
         )
-           ->where(function($q) {
-                $q->where('code', 'not like', 'T%')
-                  ->orWhereNull('code')
-                  ->orWhere('code', '');
-            })
+         
         ->limit(50) // para no saturar la red
         ->get();
 
