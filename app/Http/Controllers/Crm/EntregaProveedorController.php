@@ -140,6 +140,42 @@ if ($todosCompletos && $orden->estado_id !== 2) {
             'referencias_excedidas' => $excedidos->values(),
         ]);
     }
+
+
+    public function referenciasFaltantes()
+{
+    $ordenes = \App\Models\Crm\OrdenCompraProveedor::with(['detalles', 'proveedor'])->get();
+
+    $faltantes = collect();
+
+    foreach ($ordenes as $orden) {
+        $faltantesOrden = $orden->detalles->filter(function ($detalle) {
+            return $detalle->cantidad_entregada < $detalle->cantidad_solicitada;
+        })->map(function ($detalle) use ($orden) {
+            return [
+                'orden_id' => $orden->id,
+                'numero_orden' => $orden->numero_orden,
+                'fecha_orden' => $orden->fecha,
+                'proveedor' => $orden->proveedor->nombre ?? 'N/A',
+                'descripcion' => $detalle->descripcion,
+                'cantidad_solicitada' => $detalle->cantidad_solicitada,
+                'cantidad_entregada' => $detalle->cantidad_entregada,
+                'cantidad_faltante' => $detalle->cantidad_solicitada - $detalle->cantidad_entregada,
+                'item' => $detalle->item,
+                'porcentaje_entregado' => $detalle->cantidad_solicitada > 0 
+                    ? round(($detalle->cantidad_entregada / $detalle->cantidad_solicitada) * 100, 2)
+                    : 0,
+            ];
+        });
+
+        $faltantes = $faltantes->merge($faltantesOrden);
+    }
+
+    return response()->json([
+        'referencias_faltantes' => $faltantes->values(),
+     
+    ]);
+}
     
     public function updateDetalle(Request $request, $id)
 {
