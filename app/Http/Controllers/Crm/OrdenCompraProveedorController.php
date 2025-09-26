@@ -20,7 +20,7 @@ class OrdenCompraProveedorController extends Controller
      */
     public function index(Request $request)
     {
-        $query = OrdenCompraProveedor::with(['proveedor', 'usuario', 'estado', 'detalles.entregas', 'detalles.procesoBolsas', 'detalles.proveedor'])
+        $query = OrdenCompraProveedor::with(['proveedor', 'usuario', 'estado', 'detalles.entregas', 'detalles.procesoBolsas', 'detalles.proveedor', 'empresa'])
             ->orderBy('id', 'desc');
 
         if ($request->has('search')) {
