@@ -203,6 +203,8 @@ Route::middleware(['auth:sanctum', 'role:1'])->group(function () {
   Route::apiResource('empresas', EmpresaController::class);
 
 });
+Route::get('empresas-all', [EmpresaController::class, 'index']);
+Route::get('empresas-all', [EmpresaController::class, 'index']);
 //Ruta para descargar archivos de el registro de indicadores
 Route::get('/registro-indicadores/descargar/{id}', [RegistroIndicadoresController::class, 'descargarDocumento']);
 Route::apiResource('departamentos', DepartamentoController::class);
