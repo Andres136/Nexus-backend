@@ -368,11 +368,20 @@ public function getAuditData(Request $request)
 
     // Mapear los datos para auditoría
   // Mapear los datos para auditoría
-$auditoria = $ordenes->map(function ($orden) {
-    // regla de negocio para vencidas
-    $esVencida = $orden->fecha_entrega < now() &&
-                 optional($orden->estado)->nombre !== 'Completado' &&
-                 $orden->detalles->sum('cantidad_enviada') == 0;
+             // Mapear los datos para auditoría
+    $auditoria = $ordenes->map(function ($orden) {
+        $fechaEntrega = Carbon::parse($orden->fecha_entrega);
+        $fechaReferencia = $orden->fecha_despacho
+            ? Carbon::parse($orden->fecha_despacho)
+            : Carbon::parse($orden->updated_at);
+
+        // Regla de negocio para vencidas
+        $esVencida = $fechaEntrega->lt(now()->startOfDay()) && // Fecha de entrega ya pasó
+                     !in_array(optional($orden->estado)->nombre, ['Completado', 'Cerrado']) && // No está completada o cerrada
+                     (
+                         $orden->detalles->sum('cantidad_enviada') == 0 || // No se entregó nada
+                         $fechaReferencia->gt($fechaEntrega) // Entrega tardía
+                     );
 
     return [
         'id' => $orden->id,
