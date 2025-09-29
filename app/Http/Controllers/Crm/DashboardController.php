@@ -111,7 +111,7 @@ public function getMonthlyStats(Request $request)
     $start = Carbon::create($year, $month, 1)->startOfDay();
     $end   = Carbon::create($year, $month, 1)->endOfMonth()->endOfDay();
 
-    $ordenes = Orden_Compra::with('detalles')
+    $ordenes = Orden_Compra::with(['detalles', 'estado'])
         ->whereBetween('fecha_entrega', [$start, $end])
         ->where('estado_id', '!=', 5) // excluir parciales
         ->get();
@@ -120,14 +120,40 @@ public function getMonthlyStats(Request $request)
 
     $despachadas = $ordenes->filter(function ($o) {
         $fechaEntrega  = Carbon::parse($o->fecha_entrega);
-        $fechaDespacho = $o->fecha_despacho ?? $o->updated_at;
-        $enviados      = $o->detalles->sum('cantidad_enviada');
 
-        return $enviados > 0 && $fechaDespacho && Carbon::parse($fechaDespacho)->lte($fechaEntrega);
+        // ⚡ Si no tiene fecha_despacho, usamos updated_at (cuando pasó a completado)
+        $fechaDespacho = $o->fecha_despacho 
+            ? Carbon::parse($o->fecha_despacho) 
+            : ($o->estado_id == 2 ? Carbon::parse($o->updated_at) : null);
+
+        $enviados = $o->detalles->sum('cantidad_enviada');
+
+        return $enviados > 0 && $fechaDespacho && $fechaDespacho->lte($fechaEntrega);
     })->count();
 
-    $vencidas = $ordenes->filter(fn($o) => $this->esVencida($o))->count(); // Usar el método reutilizable
-//Traer pendientes del campo
+    $vencidas = $ordenes->filter(function ($o) {
+        $fechaEntrega  = Carbon::parse($o->fecha_entrega);
+
+        $fechaDespacho = $o->fecha_despacho 
+            ? Carbon::parse($o->fecha_despacho) 
+            : ($o->estado_id == 2 ? Carbon::parse($o->updated_at) : null);
+
+        $enviados = $o->detalles->sum('cantidad_enviada');
+
+        // Caso 1: nunca enviada y ya pasó fecha
+        if ($enviados == 0 && $fechaEntrega->lt(now()->startOfDay())) {
+            return true;
+        }
+
+        // Caso 2: enviada pero después de la fecha de entrega
+        if ($enviados > 0 && $fechaDespacho && $fechaDespacho->gt($fechaEntrega)) {
+            return true;
+        }
+
+        return false;
+    })->count();
+
+    // Pendientes = estado_id = 1
     $pendientes = $ordenes->where('estado_id', 1)->count();
 
     return response()->json([
@@ -364,7 +390,7 @@ public function getAuditData(Request $request)
         $fechaEntrega    = Carbon::parse($orden->fecha_entrega);
         $fechaReferencia = $orden->fecha_despacho
             ? Carbon::parse($orden->fecha_despacho)
-            : Carbon::parse($orden->updated_at);
+            : Carbon::parse($orden->estado_id == 2 ? $orden->updated_at : null);
 
         $esVencida = $this->esVencida($orden); // Usar el método reutilizable
         $noEntregadoATiempo = $fechaEntrega->lt($fechaReferencia);
