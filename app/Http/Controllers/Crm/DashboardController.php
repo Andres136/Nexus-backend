@@ -102,6 +102,7 @@ class DashboardController extends Controller
 
     // en App\Http\Controllers\Crm\DashboardController.php
 
+
 public function getMonthlyStats(Request $request)
 {
     $year  = $request->input('year', now()->year);
@@ -110,58 +111,24 @@ public function getMonthlyStats(Request $request)
     $start = Carbon::create($year, $month, 1)->startOfDay();
     $end   = Carbon::create($year, $month, 1)->endOfMonth()->endOfDay();
 
-    $ordenes = Orden_Compra::with(['detalles','cliente','creador','ordenTrabajo','sede','estado'])
+    $ordenes = Orden_Compra::with('detalles')
         ->whereBetween('fecha_entrega', [$start, $end])
         ->where('estado_id', '!=', 5) // excluir parciales
         ->get();
 
-    // 🔹 Mapear igual que getAuditData
-    $auditoria = $ordenes->map(function ($orden) {
-        $fechaEntrega    = Carbon::parse($orden->fecha_entrega);
-        $fechaReferencia = $orden->fecha_despacho
-            ? Carbon::parse($orden->fecha_despacho)
-            : Carbon::parse($orden->updated_at);
+    $total = $ordenes->count();
 
-        $esVencida = $fechaEntrega->lt(now()->startOfDay()) &&
-                     !in_array(optional($orden->estado)->nombre, ['Completado', 'Cerrado']) &&
-                     (
-                         $orden->detalles->sum('cantidad_enviada') == 0 ||
-                         $fechaReferencia->gt($fechaEntrega)
-                     );
+    $despachadas = $ordenes->filter(function ($o) {
+        $fechaEntrega  = Carbon::parse($o->fecha_entrega);
+        $fechaDespacho = $o->fecha_despacho ?? $o->updated_at;
+        $enviados      = $o->detalles->sum('cantidad_enviada');
 
-        $noEntregadoATiempo = $fechaEntrega->lt($fechaReferencia);
+        return $enviados > 0 && $fechaDespacho && Carbon::parse($fechaDespacho)->lte($fechaEntrega);
+    })->count();
 
-        return [
-            'id' => $orden->id,
-            'cliente' => optional($orden->cliente)->nombre,
-            'creador' => optional($orden->creador)->name,
-            'fecha_creacion' => $orden->created_at->format('d/m/Y'),
-            'fecha_actualizacion' => $orden->updated_at->format('d/m/Y'),
-            'fecha_entrega' => $orden->fecha_entrega ? Carbon::parse($orden->fecha_entrega)->format('d/m/Y') : null,
-            'fecha_despacho' => $orden->fecha_despacho ? Carbon::parse($orden->fecha_despacho)->format('d/m/Y') : null,
-            'estado' => optional($orden->estado)->nombre,
-            'detalles' => $orden->detalles->map(fn($detalle) => [
-                'producto' => $detalle->descripcion,
-                'cantidad_solicitada' => $detalle->cantidad_solicitada,
-                'cantidad_enviada' => $detalle->cantidad_enviada,
-                'faltantes' => $detalle->faltantes,
-            ]),
-            'orden_trabajo' => $orden->ordenTrabajo ? [
-                'id' => $orden->ordenTrabajo->id,
-                'fecha_creacion' => $orden->ordenTrabajo->created_at->format('d/m/Y'),
-                'fecha_actualizacion' => $orden->ordenTrabajo->updated_at->format('d/m/Y'),
-            ] : null,
-            'sede' => optional($orden->sede)->nombre,
-            'vencida' => $esVencida,
-            'no_entregado_a_tiempo' => $noEntregadoATiempo,
-        ];
-    });
+    $vencidas = $ordenes->filter(fn($o) => $this->esVencida($o))->count(); // Usar el método reutilizable
 
-    // 🔹 Totales (ahora calculados con base en $auditoria)
-    $total       = $auditoria->count();
-    $despachadas = $auditoria->where('no_entregado_a_tiempo', false)->count();
-    $vencidas    = $auditoria->where('vencida', true)->count();
-    $pendientes  = $total - $despachadas - $vencidas;
+    $pendientes = $total - $despachadas - $vencidas;
 
     return response()->json([
         'year'        => $year,
@@ -170,7 +137,6 @@ public function getMonthlyStats(Request $request)
         'despachadas' => $despachadas,
         'vencidas'    => $vencidas,
         'pendientes'  => $pendientes,
-        'auditoria'   => $auditoria, // 👈 listado igual a getAuditData
     ]);
 }
 
@@ -344,6 +310,19 @@ public function exportarOrdenesCriticasMes(Request $request)
     return Excel::download($export, $filename);
 }
 
+private function esVencida($orden)
+{
+    $fechaEntrega = Carbon::parse($orden->fecha_entrega);
+    $fechaReferencia = $orden->fecha_despacho
+        ? Carbon::parse($orden->fecha_despacho)
+        : Carbon::parse($orden->updated_at);
+
+    // Reglas para determinar si está vencida
+    return (
+        ($orden->detalles->sum('cantidad_enviada') == 0 && $fechaEntrega->lt(now()->startOfDay())) // No enviada y fecha de entrega pasada
+        || ($orden->detalles->sum('cantidad_enviada') > 0 && $fechaReferencia->gt($fechaEntrega)) // Enviada tarde
+    );
+}
 
 
 public function getAuditData(Request $request)
@@ -387,12 +366,7 @@ public function getAuditData(Request $request)
             ? Carbon::parse($orden->fecha_despacho)
             : Carbon::parse($orden->updated_at);
 
-        // Reglas de vencida
-        $esVencida = (
-            ($orden->detalles->sum('cantidad_enviada') == 0 && $fechaEntrega->lt(now()->startOfDay()))
-            || ($orden->detalles->sum('cantidad_enviada') > 0 && $fechaReferencia->gt($fechaEntrega))
-        );
-
+        $esVencida = $this->esVencida($orden); // Usar el método reutilizable
         $noEntregadoATiempo = $fechaEntrega->lt($fechaReferencia);
 
         return [
