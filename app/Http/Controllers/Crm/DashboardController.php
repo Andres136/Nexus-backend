@@ -127,8 +127,8 @@ public function getMonthlyStats(Request $request)
     })->count();
 
     $vencidas = $ordenes->filter(fn($o) => $this->esVencida($o))->count(); // Usar el método reutilizable
-
-    $pendientes = $total - $despachadas - $vencidas;
+//Traer pendientes del campo
+    $pendientes = $ordenes->where('estado_id', 1)->count();
 
     return response()->json([
         'year'        => $year,
