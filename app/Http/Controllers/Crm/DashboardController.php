@@ -327,6 +327,94 @@ public function exportarOrdenesCriticasMes(Request $request)
 
 
 
+public function getAuditData(Request $request)
+{
+    $year = $request->input('year', now()->year);
+    $month = $request->input('month', now()->month);
+
+    // Rango de fechas
+    $start = Carbon::create($year, $month, 1)->startOfDay();
+    $end = Carbon::create($year, $month, 1)->endOfMonth()->endOfDay();
+
+    // Construir la consulta
+    $query = Orden_Compra::with([
+        'detalles',
+        'cliente',
+        'creador',
+        'ordenTrabajo',
+        'sede',
+        'estado' // Relación para obtener el nombre del estado
+    ])->whereBetween('fecha_entrega', [$start, $end]);
+
+    // Filtros adicionales
+    if ($request->filled('estado')) {
+        $query->where('estado_id', $request->estado);
+    }
+
+    if ($request->filled('cliente_id')) {
+        $query->where('cliente_id', $request->cliente_id);
+    }
+
+    if ($request->filled('sede_id')) {
+        $query->where('sede_id', $request->sede_id);
+    }
+
+    if ($request->filled('creador_id')) {
+        $query->where('creador_id', $request->creador_id);
+    }
+
+    // Paginación
+    $ordenes = $query->paginate(50);
+
+    // Mapear los datos para auditoría
+  // Mapear los datos para auditoría
+$auditoria = $ordenes->map(function ($orden) {
+    // regla de negocio para vencidas
+    $esVencida = $orden->fecha_entrega < now() &&
+                 optional($orden->estado)->nombre !== 'Completado' &&
+                 $orden->detalles->sum('cantidad_enviada') == 0;
+
+    return [
+        'id' => $orden->id,
+        'cliente' => optional($orden->cliente)->nombre,
+        'creador' => optional($orden->creador)->name,
+        'fecha_creacion' => $orden->created_at->format('d/m/Y H:i'),
+        'fecha_actualizacion' => $orden->updated_at->format('d/m/Y H:i'),
+        'fecha_entrega' => $orden->fecha_entrega ? Carbon::parse($orden->fecha_entrega)->format('d/m/Y') : null,
+        'fecha_despacho' => $orden->fecha_despacho ? Carbon::parse($orden->fecha_despacho)->format('d/m/Y') : null,
+        'estado' => optional($orden->estado)->nombre,
+        'detalles' => $orden->detalles->map(fn($detalle) => [
+            'producto' => $detalle->descripcion,
+            'cantidad_solicitada' => $detalle->cantidad_solicitada,
+            'cantidad_enviada' => $detalle->cantidad_enviada,
+            'faltantes' => $detalle->faltantes,
+        ]),
+        'orden_trabajo' => $orden->ordenTrabajo ? [
+            'id' => $orden->ordenTrabajo->id,
+            'fecha_creacion' => $orden->ordenTrabajo->created_at->format('d/m/Y H:i'),
+            'fecha_actualizacion' => $orden->ordenTrabajo->updated_at->format('d/m/Y H:i'),
+        ] : null,
+        'sede' => optional($orden->sede)->nombre,
+        'vencida' => $esVencida, // 👈 aquí agregas el campo calculado
+    ];
+});
+
+
+    // Validar si no hay datos
+    if ($auditoria->isEmpty()) {
+        return response()->json([
+            'mensaje' => 'No se encontraron órdenes para los criterios especificados.',
+        ], 404);
+    }
+
+    // Respuesta JSON
+    return response()->json([
+        'year' => $year,
+        'month' => $month,
+        'total_ordenes' => $ordenes->total(),
+        'auditoria' => $auditoria,
+    ]);
+}
 
 
 

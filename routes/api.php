@@ -49,8 +49,7 @@ use App\Models\Registro_indicadores;
 use Illuminate\Container\Attributes\Auth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-
-
+use SebastianBergmann\CodeCoverage\Report\Html\Dashboard;
 
 Route::middleware('auth:sanctum')->group(function () {
   Route::get('/user', function (Request $request) {
@@ -182,6 +181,7 @@ Route::apiResource('sedes', SedeController::class);
 
 //Consultar todos los productos sin paginar
 Route::get('products-all', [CrmProductController::class, 'getAllProducts']);
+Route::get('audit-ordenes-compra',[DashboardController::class,'getAuditData']);
 
 });
 Route::middleware(['auth:sanctum', 'es_responsable_del_departamento'])->group(function () {

@@ -15,7 +15,7 @@ class IndicadoresProcesosController extends Controller
     public function index(Request $request)
     {
           $user = $request->user();
-    $perPage = $request->input('per_page', 10);
+    $perPage = $request->input('per_page', 30);
 
     // Solo mostrar indicadores si el usuario es responsable de su departamento
     $departamento = $user->departamento;
