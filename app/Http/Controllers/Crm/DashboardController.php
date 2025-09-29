@@ -383,12 +383,15 @@ public function getAuditData(Request $request)
                          $fechaReferencia->gt($fechaEntrega) // Entrega tardía
                      );
 
+    //Determinar si no se entrego a tiempo
+    $noEntregadoATiempo = $fechaEntrega->lt($fechaReferencia);
+
     return [
         'id' => $orden->id,
         'cliente' => optional($orden->cliente)->nombre,
         'creador' => optional($orden->creador)->name,
-        'fecha_creacion' => $orden->created_at->format('d/m/Y H:i'),
-        'fecha_actualizacion' => $orden->updated_at->format('d/m/Y H:i'),
+        'fecha_creacion' => $orden->created_at->format('d/m/Y'),
+        'fecha_actualizacion' => $orden->updated_at->format('d/m/Y'),
         'fecha_entrega' => $orden->fecha_entrega ? Carbon::parse($orden->fecha_entrega)->format('d/m/Y') : null,
         'fecha_despacho' => $orden->fecha_despacho ? Carbon::parse($orden->fecha_despacho)->format('d/m/Y') : null,
         'estado' => optional($orden->estado)->nombre,
@@ -400,11 +403,12 @@ public function getAuditData(Request $request)
         ]),
         'orden_trabajo' => $orden->ordenTrabajo ? [
             'id' => $orden->ordenTrabajo->id,
-            'fecha_creacion' => $orden->ordenTrabajo->created_at->format('d/m/Y H:i'),
-            'fecha_actualizacion' => $orden->ordenTrabajo->updated_at->format('d/m/Y H:i'),
+            'fecha_creacion' => $orden->ordenTrabajo->created_at->format('d/m/Y'),
+            'fecha_actualizacion' => $orden->ordenTrabajo->updated_at->format('d/m/Y'),
         ] : null,
         'sede' => optional($orden->sede)->nombre,
         'vencida' => $esVencida, // 👈 aquí agregas el campo calculado
+        'no_entregado_a_tiempo' => $noEntregadoATiempo, // 👈 aquí agregas el campo calculado
     ];
 });
 
