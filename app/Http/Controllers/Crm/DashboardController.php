@@ -111,12 +111,16 @@ public function getMonthlyStats(Request $request)
     $start = Carbon::create($year, $month, 1)->startOfDay();
     $end   = Carbon::create($year, $month, 1)->endOfMonth()->endOfDay();
 
-    // 🔹 Total órdenes generadas en el mes
-    $ordenesGeneradas = Orden_Compra::whereBetween('created_at', [$start, $end])->get();
+    // 🔹 Total órdenes generadas en el mes (excluyendo entregas parciales)
+    $ordenesGeneradas = Orden_Compra::whereBetween('created_at', [$start, $end])
+        ->where('estado_id', '!=', 5)
+        ->get();
     $totalGeneradas   = $ordenesGeneradas->count();
 
-    // 🔹 Total órdenes despachadas en el mes
-    $totalDespachadas = Orden_Compra::whereBetween('fecha_despacho', [$start, $end])->count();
+    // 🔹 Total órdenes despachadas en el mes (excluyendo entregas parciales)
+    $totalDespachadas = Orden_Compra::whereBetween('fecha_despacho', [$start, $end])
+        ->where('estado_id', '!=', 5)
+        ->count();
 
     // 🔹 Órdenes vencidas en el mes (usa tu método auxiliar existente)
     $vencidas = $ordenesGeneradas->filter(function ($orden) {
@@ -128,8 +132,9 @@ public function getMonthlyStats(Request $request)
         return !$orden->fecha_despacho && !$this->esVencida($orden);
     })->count();
 
-    // 🔹 Órdenes despachadas a tiempo
+    // 🔹 Órdenes despachadas a tiempo (excluyendo entregas parciales)
     $despachadasATiempo = Orden_Compra::whereBetween('fecha_despacho', [$start, $end])
+        ->where('estado_id', '!=', 5)
         ->get()
         ->filter(function ($orden) {
             if (!$orden->fecha_entrega || !$orden->fecha_despacho) {
@@ -349,110 +354,131 @@ private function esVencida($orden)
 
 public function getAuditData(Request $request)
 {
-    $year = $request->input('year', now()->year);
+    $year  = $request->input('year', now()->year);
     $month = $request->input('month', now()->month);
 
-    // Rango de fechas basado en la fecha de despacho
     $start = Carbon::create($year, $month, 1)->startOfDay();
     $end   = Carbon::create($year, $month, 1)->endOfMonth()->endOfDay();
 
-    // Consulta principal
+    $table = (new Orden_Compra)->getTable();
+
+    // 🔹 Incluimos generadas o despachadas en el rango
+    // 🔹 Excluimos entregas parciales de la consulta principal
     $query = Orden_Compra::with([
         'detalles',
         'cliente',
         'creador',
         'ordenTrabajo',
         'sede',
-        'estado'
-    ])->whereBetween('fecha_despacho', [$start, $end]);
+        'estado',
+    ])
+    ->where(function ($q) use ($start, $end) {
+        $q->whereBetween('created_at', [$start, $end])
+          ->orWhereBetween('fecha_despacho', [$start, $end]);
+    })
+    ->where('estado_id', '!=', 5) // 👈 excluimos entregas parciales
+    ->select($table . '.*')
+    ->distinct()
+    ->orderBy($table . '.created_at', 'desc');
 
-    // Mapeo de estados a sus IDs correspondientes
-    $estadoMap = [
-        'Pendiente' => 1,
-        'Completada' => 2,
-     
-        'Entrega Parcial' => 5,
-
-    ];
-
-    // Filtros adicionales
+    // Filtros opcionales
     if ($request->filled('estado')) {
-        $estadoId = $estadoMap[$request->estado] ?? null;
-        if ($estadoId !== null) {
-            $query->where('estado_id', $estadoId);
+        $estadoMap = [
+            'Pendiente'  => 1,
+            'Completada' => 2,
+            // 5 no lo incluimos aquí porque ya lo estamos excluyendo
+        ];
+        if (isset($estadoMap[$request->estado])) {
+            $query->where('estado_id', $estadoMap[$request->estado]);
         }
     }
-    if ($request->filled('cliente_id')) {
-        $query->where('cliente_id', $request->cliente_id);
-    }
-    if ($request->filled('sede_id')) {
-        $query->where('sede_id', $request->sede_id);
-    }
-    if ($request->filled('creador_id')) {
-        $query->where('creador_id', $request->creador_id);
-    }
+    if ($request->filled('cliente_id')) $query->where('cliente_id', $request->cliente_id);
+    if ($request->filled('sede_id'))    $query->where('sede_id', $request->sede_id);
+    if ($request->filled('creador_id')) $query->where('creador_id', $request->creador_id);
 
     $ordenes = $query->paginate(50);
 
-    $auditoria = $ordenes->map(function ($orden) {
-        $fechaEntrega  = $orden->fecha_entrega ? Carbon::parse($orden->fecha_entrega) : null;
+    $auditoria = $ordenes->getCollection()->map(function ($orden) {
+        $fechaEntrega  = $orden->fecha_entrega  ? Carbon::parse($orden->fecha_entrega)  : null;
         $fechaDespacho = $orden->fecha_despacho ? Carbon::parse($orden->fecha_despacho) : null;
 
         $esVencida = $this->esVencida($orden);
 
-        // Regla: no entregada a tiempo
         $noEntregadoATiempo = false;
-        if ($fechaDespacho && $fechaEntrega) {
-            $noEntregadoATiempo = $fechaDespacho->gt($fechaEntrega);
-        } elseif (!$fechaDespacho && $fechaEntrega) {
-            $noEntregadoATiempo = now()->gt($fechaEntrega);
+        $diasAtraso = 0;
+
+        if ($fechaEntrega) {
+            if ($fechaDespacho && $fechaDespacho->gt($fechaEntrega)) {
+                $noEntregadoATiempo = true;
+                $diasAtraso = $fechaEntrega->diffInDays($fechaDespacho);
+            } elseif (!$fechaDespacho && now()->gt($fechaEntrega)) {
+                $noEntregadoATiempo = true;
+                $diasAtraso = $fechaEntrega->diffInDays(now());
+            }
         }
 
-        // Estado final jerárquico
-        $estadoFinal = 'Pendiente';
-        if ($esVencida) {
-            $estadoFinal = 'Vencida';
-        } elseif ($orden->estado_id == 2) { // ejemplo: completado
-            $estadoFinal = 'Completada';
-        } elseif ($orden->estado_id == 5) {
-            $estadoFinal = 'Entrega Parcial';
-        } elseif ($orden->detalles->sum('cantidad_enviada') > 0) {
-            $estadoFinal = 'Despachada';
+        $enviadoTotal = (int) $orden->detalles->sum('cantidad_enviada');
+
+        // 🔹 Estado final jerárquico (sin parciales, porque ya no llegan aquí)
+        if ((int)$orden->estado_id === 2) {
+            $estadoFinal = $noEntregadoATiempo ? 'Completada fuera de tiempo' : 'Completada a tiempo';
+        } elseif ($enviadoTotal > 0 || $fechaDespacho) {
+            $estadoFinal = $noEntregadoATiempo ? 'Despachada fuera de tiempo' : 'Despachada a tiempo';
+        } elseif ($esVencida) {
+            $estadoFinal = 'Vencida sin despacho';
+        } else {
+            $estadoFinal = 'Pendiente';
         }
 
         return [
-            'id'                  => $orden->id,
-            'cliente'             => optional($orden->cliente)->nombre,
-            'creador'             => optional($orden->creador)->name,
-            'fecha_creacion'      => $orden->created_at->format('d/m/Y'),
-            'fecha_actualizacion' => $orden->updated_at->format('d/m/Y'),
-            'fecha_entrega'       => $fechaEntrega ? $fechaEntrega->format('d/m/Y') : null,
-            'fecha_despacho'      => $fechaDespacho ? $fechaDespacho->format('d/m/Y') : null,
-            'estado_final'        => $estadoFinal,
-            'detalles' => $orden->detalles->map(fn($detalle) => [
-                'producto'            => $detalle->descripcion,
-                'cantidad_solicitada' => $detalle->cantidad_solicitada,
-                'cantidad_enviada'    => $detalle->cantidad_enviada,
-                'faltantes'           => $detalle->faltantes,
-            ]),
+            'id'                     => $orden->id,
+            'cliente'                => optional($orden->cliente)->nombre,
+            'creador'                => optional($orden->creador)->name,
+            'fecha_creacion'         => optional($orden->created_at)->toDateString(),
+            'fecha_actualizacion'    => optional($orden->updated_at)->toDateString(),
+            'fecha_entrega'          => $fechaEntrega?->toDateString(),
+            'fecha_despacho'         => $fechaDespacho?->toDateString(),
+            'sede'                   => optional($orden->sede)->nombre,
+            'estado_sistema'         => optional($orden->estado)->nombre,
+            'estado_final'           => $estadoFinal,
+            'vencida'                => (bool) $esVencida,
+            'no_entregado_a_tiempo'  => (bool) $noEntregadoATiempo,
+            'dias_atraso'            => $diasAtraso,
+            'totales' => [
+                'cantidad_solicitada' => (int) $orden->detalles->sum('cantidad_solicitada'),
+                'cantidad_enviada'    => (int) $enviadoTotal,
+                'faltantes'           => (int) $orden->detalles->sum('faltantes'),
+            ],
             'orden_trabajo' => $orden->ordenTrabajo ? [
                 'id'                  => $orden->ordenTrabajo->id,
-                'fecha_creacion'      => $orden->ordenTrabajo->created_at->format('d/m/Y'),
-                'fecha_actualizacion' => $orden->ordenTrabajo->updated_at->format('d/m/Y'),
+                'fecha_creacion'      => optional($orden->ordenTrabajo->created_at)->toDateString(),
+                'fecha_actualizacion' => optional($orden->ordenTrabajo->updated_at)->toDateString(),
             ] : null,
-            'sede'                 => optional($orden->sede)->nombre,
-            'vencida'              => $esVencida,
-            'no_entregado_a_tiempo'=> $noEntregadoATiempo,
+            'detalles' => $orden->detalles->map(fn ($d) => [
+                'producto'            => $d->descripcion,
+                'cantidad_solicitada' => (int) $d->cantidad_solicitada,
+                'cantidad_enviada'    => (int) $d->cantidad_enviada,
+                'faltantes'           => (int) $d->faltantes,
+            ]),
         ];
     });
+
+    $ordenes->setCollection($auditoria);
 
     return response()->json([
         'year'          => $year,
         'month'         => $month,
         'total_ordenes' => $ordenes->total(),
-        'auditoria'     => $auditoria,
+        'auditoria'     => $ordenes->items(),
+        'pagination'    => [
+            'current_page' => $ordenes->currentPage(),
+            'per_page'     => $ordenes->perPage(),
+            'last_page'    => $ordenes->lastPage(),
+            'total'        => $ordenes->total(),
+        ],
     ]);
 }
+
 
 
 
