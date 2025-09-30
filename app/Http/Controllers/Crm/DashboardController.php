@@ -102,7 +102,6 @@ class DashboardController extends Controller
 
     // en App\Http\Controllers\Crm\DashboardController.php
 
-
 public function getMonthlyStats(Request $request)
 {
     $year  = $request->input('year', now()->year);
@@ -111,50 +110,28 @@ public function getMonthlyStats(Request $request)
     $start = Carbon::create($year, $month, 1)->startOfDay();
     $end   = Carbon::create($year, $month, 1)->endOfMonth()->endOfDay();
 
-    $ordenes = Orden_Compra::with(['detalles', 'estado'])
-        ->whereBetween('fecha_entrega', [$start, $end])
+    // 🔹 Filtrar órdenes por fecha_despacho
+    $ordenes = Orden_Compra::with('detalles')
+        ->whereBetween('fecha_despacho', [$start, $end])
         ->where('estado_id', '!=', 5) // excluir parciales
         ->get();
 
     $total = $ordenes->count();
 
+    // Despachadas a tiempo: tienen fecha_despacho y fue <= fecha_entrega
     $despachadas = $ordenes->filter(function ($o) {
-        $fechaEntrega  = Carbon::parse($o->fecha_entrega);
+        $fechaEntrega  = $o->fecha_entrega ? Carbon::parse($o->fecha_entrega) : null;
+        $fechaDespacho = $o->fecha_despacho ? Carbon::parse($o->fecha_despacho) : null;
+        $enviados      = $o->detalles->sum('cantidad_enviada');
 
-        // ⚡ Si no tiene fecha_despacho, usamos updated_at (cuando pasó a completado)
-        $fechaDespacho = $o->fecha_despacho 
-            ? Carbon::parse($o->fecha_despacho) 
-            : ($o->estado_id == 2 ? Carbon::parse($o->updated_at) : null);
-
-        $enviados = $o->detalles->sum('cantidad_enviada');
-
-        return $enviados > 0 && $fechaDespacho && $fechaDespacho->lte($fechaEntrega);
+        return $enviados > 0 && $fechaDespacho && $fechaEntrega && $fechaDespacho->lte($fechaEntrega);
     })->count();
 
-    $vencidas = $ordenes->filter(function ($o) {
-        $fechaEntrega  = Carbon::parse($o->fecha_entrega);
+    // Vencidas (usando tu método reutilizable)
+    $vencidas = $ordenes->filter(fn($o) => $this->esVencida($o))->count();
 
-        $fechaDespacho = $o->fecha_despacho 
-            ? Carbon::parse($o->fecha_despacho) 
-            : ($o->estado_id == 2 ? Carbon::parse($o->updated_at) : null);
-
-        $enviados = $o->detalles->sum('cantidad_enviada');
-
-        // Caso 1: nunca enviada y ya pasó fecha
-        if ($enviados == 0 && $fechaEntrega->lt(now()->startOfDay())) {
-            return true;
-        }
-
-        // Caso 2: enviada pero después de la fecha de entrega
-        if ($enviados > 0 && $fechaDespacho && $fechaDespacho->gt($fechaEntrega)) {
-            return true;
-        }
-
-        return false;
-    })->count();
-
-    // Pendientes = estado_id = 1
-    $pendientes = $ordenes->where('estado_id', 1)->count();
+    // Pendientes (estado_id = 1)
+    $pendientes = $ordenes->filter(fn($o) => (int)$o->estado_id === 1)->count();
 
     return response()->json([
         'year'        => $year,
@@ -165,6 +142,7 @@ public function getMonthlyStats(Request $request)
         'pendientes'  => $pendientes,
     ]);
 }
+
 
 
 //Traer estadisticas de los clientes que mas compran
@@ -338,29 +316,38 @@ public function exportarOrdenesCriticasMes(Request $request)
 
 private function esVencida($orden)
 {
-    $fechaEntrega = Carbon::parse($orden->fecha_entrega);
-    $fechaReferencia = $orden->fecha_despacho
-        ? Carbon::parse($orden->fecha_despacho)
-        : Carbon::parse($orden->updated_at);
+    $fechaEntrega   = $orden->fecha_entrega ? Carbon::parse($orden->fecha_entrega) : null;
+    $fechaDespacho  = $orden->fecha_despacho ? Carbon::parse($orden->fecha_despacho) : null;
+    $enviados       = $orden->detalles->sum('cantidad_enviada');
 
-    // Reglas para determinar si está vencida
-    return (
-        ($orden->detalles->sum('cantidad_enviada') == 0 && $fechaEntrega->lt(now()->startOfDay())) // No enviada y fecha de entrega pasada
-        || ($orden->detalles->sum('cantidad_enviada') > 0 && $fechaReferencia->gt($fechaEntrega)) // Enviada tarde
-    );
+    // 1. Si no tiene fecha de entrega, no evaluamos como vencida
+    if (!$fechaEntrega) {
+        return false;
+    }
+
+    // 2. Si no tiene despacho y la fecha de entrega ya pasó → vencida
+    if (!$fechaDespacho && $fechaEntrega->lt(now()->startOfDay())) {
+        return true;
+    }
+
+    // 3. Si tiene despacho pero fue después de la fecha de entrega → vencida
+    if ($enviados > 0 && $fechaDespacho && $fechaDespacho->gt($fechaEntrega)) {
+        return true;
+    }
+
+    return false;
 }
-
 
 public function getAuditData(Request $request)
 {
     $year = $request->input('year', now()->year);
     $month = $request->input('month', now()->month);
 
-    // Rango de fechas basado en la fecha de entrega
+    // 🔹 Rango de fechas basado en la fecha de despacho (igual que getMonthlyStats)
     $start = Carbon::create($year, $month, 1)->startOfDay();
     $end   = Carbon::create($year, $month, 1)->endOfMonth()->endOfDay();
 
-    // Consulta SOLO por fecha_entrega
+    // Consulta SOLO por fecha_despacho
     $query = Orden_Compra::with([
         'detalles',
         'cliente',
@@ -368,7 +355,7 @@ public function getAuditData(Request $request)
         'ordenTrabajo',
         'sede',
         'estado'
-    ])->whereBetween('fecha_entrega', [$start, $end]);
+    ])->whereBetween('fecha_despacho', [$start, $end]);
 
     // Filtros adicionales
     if ($request->filled('estado')) {
@@ -387,39 +374,57 @@ public function getAuditData(Request $request)
     $ordenes = $query->paginate(50);
 
     $auditoria = $ordenes->map(function ($orden) {
-        $fechaEntrega    = Carbon::parse($orden->fecha_entrega);
-        $fechaReferencia = $orden->fecha_despacho
-            ? Carbon::parse($orden->fecha_despacho)
-            : Carbon::parse($orden->estado_id == 2 ? $orden->updated_at : null);
+    $fechaEntrega  = $orden->fecha_entrega ? Carbon::parse($orden->fecha_entrega) : null;
+    $fechaDespacho = $orden->fecha_despacho ? Carbon::parse($orden->fecha_despacho) : null;
 
-        $esVencida = $this->esVencida($orden); // Usar el método reutilizable
-        $noEntregadoATiempo = $fechaEntrega->lt($fechaReferencia);
+    $esVencida = $this->esVencida($orden);
 
-        return [
-            'id'                  => $orden->id,
-            'cliente'             => optional($orden->cliente)->nombre,
-            'creador'             => optional($orden->creador)->name,
-            'fecha_creacion'      => $orden->created_at->format('d/m/Y'),
-            'fecha_actualizacion' => $orden->updated_at->format('d/m/Y'),
-            'fecha_entrega'       => $orden->fecha_entrega ? $fechaEntrega->format('d/m/Y') : null,
-            'fecha_despacho'      => $orden->fecha_despacho ? Carbon::parse($orden->fecha_despacho)->format('d/m/Y') : null,
-            'estado'              => optional($orden->estado)->nombre,
-            'detalles' => $orden->detalles->map(fn($detalle) => [
-                'producto'            => $detalle->descripcion,
-                'cantidad_solicitada' => $detalle->cantidad_solicitada,
-                'cantidad_enviada'    => $detalle->cantidad_enviada,
-                'faltantes'           => $detalle->faltantes,
-            ]),
-            'orden_trabajo' => $orden->ordenTrabajo ? [
-                'id'                  => $orden->ordenTrabajo->id,
-                'fecha_creacion'      => $orden->ordenTrabajo->created_at->format('d/m/Y'),
-                'fecha_actualizacion' => $orden->ordenTrabajo->updated_at->format('d/m/Y'),
-            ] : null,
-            'sede'                 => optional($orden->sede)->nombre,
-            'vencida'              => $esVencida,
-            'no_entregado_a_tiempo'=> $noEntregadoATiempo,
-        ];
-    });
+    // Regla: no entregada a tiempo
+    $noEntregadoATiempo = false;
+    if ($fechaDespacho && $fechaEntrega) {
+        $noEntregadoATiempo = $fechaDespacho->gt($fechaEntrega);
+    } elseif (!$fechaDespacho && $fechaEntrega) {
+        $noEntregadoATiempo = now()->gt($fechaEntrega);
+    }
+
+    // 🔹 Estado final jerárquico
+    $estadoFinal = 'Pendiente';
+    if ($esVencida) {
+        $estadoFinal = 'Vencida';
+    } elseif ($orden->estado_id == 2) { // ejemplo: completado
+        $estadoFinal = 'Completada';
+    } elseif ($orden->estado_id == 5) {
+        $estadoFinal = 'Entrega Parcial';
+    } elseif ($orden->detalles->sum('cantidad_enviada') > 0) {
+        $estadoFinal = 'Despachada';
+    }
+
+    return [
+        'id'                  => $orden->id,
+        'cliente'             => optional($orden->cliente)->nombre,
+        'creador'             => optional($orden->creador)->name,
+        'fecha_creacion'      => $orden->created_at->format('d/m/Y'),
+        'fecha_actualizacion' => $orden->updated_at->format('d/m/Y'),
+        'fecha_entrega'       => $fechaEntrega ? $fechaEntrega->format('d/m/Y') : null,
+        'fecha_despacho'      => $fechaDespacho ? $fechaDespacho->format('d/m/Y') : null,
+        'estado_final'        => $estadoFinal,   // 👈 ya procesado
+        'detalles' => $orden->detalles->map(fn($detalle) => [
+            'producto'            => $detalle->descripcion,
+            'cantidad_solicitada' => $detalle->cantidad_solicitada,
+            'cantidad_enviada'    => $detalle->cantidad_enviada,
+            'faltantes'           => $detalle->faltantes,
+        ]),
+        'orden_trabajo' => $orden->ordenTrabajo ? [
+            'id'                  => $orden->ordenTrabajo->id,
+            'fecha_creacion'      => $orden->ordenTrabajo->created_at->format('d/m/Y'),
+            'fecha_actualizacion' => $orden->ordenTrabajo->updated_at->format('d/m/Y'),
+        ] : null,
+        'sede'                 => optional($orden->sede)->nombre,
+        'vencida'              => $esVencida,
+        'no_entregado_a_tiempo'=> $noEntregadoATiempo,
+    ];
+});
+
 
     return response()->json([
         'year'          => $year,
@@ -428,6 +433,7 @@ public function getAuditData(Request $request)
         'auditoria'     => $auditoria,
     ]);
 }
+
 
 
 
