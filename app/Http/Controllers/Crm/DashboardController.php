@@ -338,16 +338,17 @@ private function esVencida($orden)
     return false;
 }
 
+
 public function getAuditData(Request $request)
 {
     $year = $request->input('year', now()->year);
     $month = $request->input('month', now()->month);
 
-    // 🔹 Rango de fechas basado en la fecha de despacho (igual que getMonthlyStats)
+    // Rango de fechas basado en la fecha de despacho
     $start = Carbon::create($year, $month, 1)->startOfDay();
     $end   = Carbon::create($year, $month, 1)->endOfMonth()->endOfDay();
 
-    // Consulta SOLO por fecha_despacho
+    // Consulta principal
     $query = Orden_Compra::with([
         'detalles',
         'cliente',
@@ -357,9 +358,21 @@ public function getAuditData(Request $request)
         'estado'
     ])->whereBetween('fecha_despacho', [$start, $end]);
 
+    // Mapeo de estados a sus IDs correspondientes
+    $estadoMap = [
+        'Pendiente' => 1,
+        'Completada' => 2,
+     
+        'Entrega Parcial' => 5,
+
+    ];
+
     // Filtros adicionales
     if ($request->filled('estado')) {
-        $query->where('estado_id', $request->estado);
+        $estadoId = $estadoMap[$request->estado] ?? null;
+        if ($estadoId !== null) {
+            $query->where('estado_id', $estadoId);
+        }
     }
     if ($request->filled('cliente_id')) {
         $query->where('cliente_id', $request->cliente_id);
@@ -374,57 +387,56 @@ public function getAuditData(Request $request)
     $ordenes = $query->paginate(50);
 
     $auditoria = $ordenes->map(function ($orden) {
-    $fechaEntrega  = $orden->fecha_entrega ? Carbon::parse($orden->fecha_entrega) : null;
-    $fechaDespacho = $orden->fecha_despacho ? Carbon::parse($orden->fecha_despacho) : null;
+        $fechaEntrega  = $orden->fecha_entrega ? Carbon::parse($orden->fecha_entrega) : null;
+        $fechaDespacho = $orden->fecha_despacho ? Carbon::parse($orden->fecha_despacho) : null;
 
-    $esVencida = $this->esVencida($orden);
+        $esVencida = $this->esVencida($orden);
 
-    // Regla: no entregada a tiempo
-    $noEntregadoATiempo = false;
-    if ($fechaDespacho && $fechaEntrega) {
-        $noEntregadoATiempo = $fechaDespacho->gt($fechaEntrega);
-    } elseif (!$fechaDespacho && $fechaEntrega) {
-        $noEntregadoATiempo = now()->gt($fechaEntrega);
-    }
+        // Regla: no entregada a tiempo
+        $noEntregadoATiempo = false;
+        if ($fechaDespacho && $fechaEntrega) {
+            $noEntregadoATiempo = $fechaDespacho->gt($fechaEntrega);
+        } elseif (!$fechaDespacho && $fechaEntrega) {
+            $noEntregadoATiempo = now()->gt($fechaEntrega);
+        }
 
-    // 🔹 Estado final jerárquico
-    $estadoFinal = 'Pendiente';
-    if ($esVencida) {
-        $estadoFinal = 'Vencida';
-    } elseif ($orden->estado_id == 2) { // ejemplo: completado
-        $estadoFinal = 'Completada';
-    } elseif ($orden->estado_id == 5) {
-        $estadoFinal = 'Entrega Parcial';
-    } elseif ($orden->detalles->sum('cantidad_enviada') > 0) {
-        $estadoFinal = 'Despachada';
-    }
+        // Estado final jerárquico
+        $estadoFinal = 'Pendiente';
+        if ($esVencida) {
+            $estadoFinal = 'Vencida';
+        } elseif ($orden->estado_id == 2) { // ejemplo: completado
+            $estadoFinal = 'Completada';
+        } elseif ($orden->estado_id == 5) {
+            $estadoFinal = 'Entrega Parcial';
+        } elseif ($orden->detalles->sum('cantidad_enviada') > 0) {
+            $estadoFinal = 'Despachada';
+        }
 
-    return [
-        'id'                  => $orden->id,
-        'cliente'             => optional($orden->cliente)->nombre,
-        'creador'             => optional($orden->creador)->name,
-        'fecha_creacion'      => $orden->created_at->format('d/m/Y'),
-        'fecha_actualizacion' => $orden->updated_at->format('d/m/Y'),
-        'fecha_entrega'       => $fechaEntrega ? $fechaEntrega->format('d/m/Y') : null,
-        'fecha_despacho'      => $fechaDespacho ? $fechaDespacho->format('d/m/Y') : null,
-        'estado_final'        => $estadoFinal,   // 👈 ya procesado
-        'detalles' => $orden->detalles->map(fn($detalle) => [
-            'producto'            => $detalle->descripcion,
-            'cantidad_solicitada' => $detalle->cantidad_solicitada,
-            'cantidad_enviada'    => $detalle->cantidad_enviada,
-            'faltantes'           => $detalle->faltantes,
-        ]),
-        'orden_trabajo' => $orden->ordenTrabajo ? [
-            'id'                  => $orden->ordenTrabajo->id,
-            'fecha_creacion'      => $orden->ordenTrabajo->created_at->format('d/m/Y'),
-            'fecha_actualizacion' => $orden->ordenTrabajo->updated_at->format('d/m/Y'),
-        ] : null,
-        'sede'                 => optional($orden->sede)->nombre,
-        'vencida'              => $esVencida,
-        'no_entregado_a_tiempo'=> $noEntregadoATiempo,
-    ];
-});
-
+        return [
+            'id'                  => $orden->id,
+            'cliente'             => optional($orden->cliente)->nombre,
+            'creador'             => optional($orden->creador)->name,
+            'fecha_creacion'      => $orden->created_at->format('d/m/Y'),
+            'fecha_actualizacion' => $orden->updated_at->format('d/m/Y'),
+            'fecha_entrega'       => $fechaEntrega ? $fechaEntrega->format('d/m/Y') : null,
+            'fecha_despacho'      => $fechaDespacho ? $fechaDespacho->format('d/m/Y') : null,
+            'estado_final'        => $estadoFinal,
+            'detalles' => $orden->detalles->map(fn($detalle) => [
+                'producto'            => $detalle->descripcion,
+                'cantidad_solicitada' => $detalle->cantidad_solicitada,
+                'cantidad_enviada'    => $detalle->cantidad_enviada,
+                'faltantes'           => $detalle->faltantes,
+            ]),
+            'orden_trabajo' => $orden->ordenTrabajo ? [
+                'id'                  => $orden->ordenTrabajo->id,
+                'fecha_creacion'      => $orden->ordenTrabajo->created_at->format('d/m/Y'),
+                'fecha_actualizacion' => $orden->ordenTrabajo->updated_at->format('d/m/Y'),
+            ] : null,
+            'sede'                 => optional($orden->sede)->nombre,
+            'vencida'              => $esVencida,
+            'no_entregado_a_tiempo'=> $noEntregadoATiempo,
+        ];
+    });
 
     return response()->json([
         'year'          => $year,
