@@ -102,6 +102,7 @@ class DashboardController extends Controller
 
     // en App\Http\Controllers\Crm\DashboardController.php
 
+
 public function getMonthlyStats(Request $request)
 {
     $year  = $request->input('year', now()->year);
@@ -110,38 +111,45 @@ public function getMonthlyStats(Request $request)
     $start = Carbon::create($year, $month, 1)->startOfDay();
     $end   = Carbon::create($year, $month, 1)->endOfMonth()->endOfDay();
 
-    // 🔹 Filtrar órdenes por fecha_despacho
-    $ordenes = Orden_Compra::with('detalles')
-        ->whereBetween('fecha_despacho', [$start, $end])
-        ->where('estado_id', '!=', 5) // excluir parciales
-        ->get();
+    // 🔹 Total órdenes generadas en el mes
+    $ordenesGeneradas = Orden_Compra::whereBetween('created_at', [$start, $end])->get();
+    $totalGeneradas   = $ordenesGeneradas->count();
 
-    $total = $ordenes->count();
+    // 🔹 Total órdenes despachadas en el mes
+    $totalDespachadas = Orden_Compra::whereBetween('fecha_despacho', [$start, $end])->count();
 
-    // Despachadas a tiempo: tienen fecha_despacho y fue <= fecha_entrega
-    $despachadas = $ordenes->filter(function ($o) {
-        $fechaEntrega  = $o->fecha_entrega ? Carbon::parse($o->fecha_entrega) : null;
-        $fechaDespacho = $o->fecha_despacho ? Carbon::parse($o->fecha_despacho) : null;
-        $enviados      = $o->detalles->sum('cantidad_enviada');
-
-        return $enviados > 0 && $fechaDespacho && $fechaEntrega && $fechaDespacho->lte($fechaEntrega);
+    // 🔹 Órdenes vencidas en el mes (usa tu método auxiliar existente)
+    $vencidas = $ordenesGeneradas->filter(function ($orden) {
+        return $this->esVencida($orden);
     })->count();
 
-    // Vencidas (usando tu método reutilizable)
-    $vencidas = $ordenes->filter(fn($o) => $this->esVencida($o))->count();
+    // 🔹 Órdenes pendientes = generadas sin despacho y no vencidas
+    $pendientes = $ordenesGeneradas->filter(function ($orden) {
+        return !$orden->fecha_despacho && !$this->esVencida($orden);
+    })->count();
 
-    // Pendientes (estado_id = 1)
-    $pendientes = $ordenes->filter(fn($o) => (int)$o->estado_id === 1)->count();
+    // 🔹 Órdenes despachadas a tiempo
+    $despachadasATiempo = Orden_Compra::whereBetween('fecha_despacho', [$start, $end])
+        ->get()
+        ->filter(function ($orden) {
+            if (!$orden->fecha_entrega || !$orden->fecha_despacho) {
+                return false;
+            }
+            return Carbon::parse($orden->fecha_despacho)->lte(Carbon::parse($orden->fecha_entrega));
+        })
+        ->count();
 
     return response()->json([
-        'year'        => $year,
-        'month'       => $month,
-        'total'       => $total,
-        'despachadas' => $despachadas,
-        'vencidas'    => $vencidas,
-        'pendientes'  => $pendientes,
+        'year'                 => $year,
+        'month'                => $month,
+        'total_generadas'      => $totalGeneradas,
+        'total_despachadas'    => $totalDespachadas,
+        'vencidas'             => $vencidas,
+        'pendientes'           => $pendientes,
+        'despachadas_a_tiempo' => $despachadasATiempo,
     ]);
 }
+
 
 
 
