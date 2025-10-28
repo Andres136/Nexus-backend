@@ -58,46 +58,52 @@ $registros = $registros->map(function ($registro) {
     $resultado = '';
     $estado = 'sin datos';
 
-    if ($esDias) {
-        // 🔹 Indicador medido en días
-        $fechaRegistro = Carbon::parse($registro->fecha);
-        $fechaInicioMes = Carbon::createFromDate(Carbon::now()->year, Carbon::now()->month, 1);
-    $dias = floor($fechaInicioMes->diffInDays($fechaRegistro, false));
-$resultado = "{$dias} días";
+$tipoMeta = strtolower(trim($registro->indicador->tipo_meta ?? 'mayor'));
+$formula = strtolower($registro->indicador->formula ?? '');
+$nombre  = strtolower($registro->indicador->nombre ?? '');
+$esDias = str_contains($formula, 'dia') || str_contains($nombre, 'dia');
 
-     
+if ($esDias) {
+    // 🔹 Indicadores de tiempo (MENOS es mejor)
+    $resultado = round($valor) . ' días';
 
-        if ($meta > 0) {
-            if ($dias <= $meta) $estado = 'ok';
-            elseif ($dias <= $meta + 3) $estado = 'medio';
-            else $estado = 'critico';
-        }
+    if ($valor <= $meta) {
+        $estado = 'ok';
+    } elseif ($valor <= $meta + 3) {
+        $estado = 'medio';
     } else {
-        // 🔹 Indicadores numéricos o porcentuales
-        $porcentaje = ($meta && $meta != 0) ? round(($valor / $meta) * 100, 2) : null;
-
-        switch ($tipoMeta) {
-            case 'mayor':
-                $estado = ($valor >= $meta) ? 'ok'
-                    : (($valor >= ($meta * 0.8)) ? 'medio' : 'critico');
-                break;
-
-            case 'menor':
-                $estado = ($valor <= $meta) ? 'ok'
-                    : (($valor <= ($meta * 1.2)) ? 'medio' : 'critico');
-                break;
-
-            default:
-                $estado = ($valor >= $meta) ? 'ok' : 'critico';
-                break;
-        }
-
-        if ($porcentaje !== null && $meta >= 10) {
-            $resultado = "{$porcentaje}%";
-        } else {
-            $resultado = rtrim(rtrim(number_format($valor, 2, '.', ''), '0'), '.');
-        }
+        $estado = 'critico';
     }
+
+} elseif ($tipoMeta === 'mayor') {
+    // 🔹 Indicadores donde MAYOR es mejor
+    $resultado = round($valor) . '%';
+
+    if ($valor >= $meta) {
+        $estado = 'ok';
+    } elseif ($valor >= ($meta * 0.9)) {
+        $estado = 'medio';
+    } else {
+        $estado = 'critico';
+    }
+
+} elseif ($tipoMeta === 'menor') {
+    // 🔹 Indicadores donde MENOR es mejor
+    $resultado = round($valor) . '%';
+
+    if ($valor <= $meta) {
+        $estado = 'ok';
+    } elseif ($valor <= ($meta * 1.1)) {
+        $estado = 'medio';
+    } else {
+        $estado = 'critico';
+    }
+
+} else {
+    // 🔹 Sin tipo definido
+    $resultado = round($valor);
+    $estado = 'critico';
+}
 
     // ✅ Asegurar resultado y valor numérico visibles
     if (empty($resultado) || $resultado === '0') {
