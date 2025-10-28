@@ -3,110 +3,159 @@
 namespace App\Http\Controllers\Crm;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Crm\EntregasResquest;
+use App\Http\Requests\Crm\EntregasRequest;
+
 use App\Models\Crm\EntregaProveedor;
+use App\Models\Crm\Inventario;
+use App\Models\Crm\Orden_Compra_Detalle;
 use App\Models\Crm\OrdenCompraProveedor;
 use App\Models\Crm\OrdenCompraProveedorDetalle;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use PgSql\Lob;
 
 class EntregaProveedorController extends Controller
 {
-    public function store(EntregasResquest $request)
-    {
-        // 1. Crear la entrega
-        $entrega = EntregaProveedor::create([
-            'detalle_id' => $request->detalle_id,
-            'cantidad_entregada' => $request->cantidad_entregada,
-            'fecha_entrega' => $request->fecha_entrega, 
-            'observaciones' => $request->observaciones,
-         
-        ]);
-    
-        // 2. Sumar la cantidad entregada al detalle principal
-        $detalle = OrdenCompraProveedorDetalle::find($request->detalle_id);
-        $detalle->cantidad_entregada += $request->cantidad_entregada;
-           
- 
-        $detalle->save();
-    
-        // 3. Verificar si todos los detalles están completamente entregados
-        $orden = $detalle->orden; // 👈 esta es tu relación definida
-        $todosCompletos = $orden->detalles->every(function ($d) {
-            return $d->cantidad_entregada >= $d->cantidad_solicitada;
-        });
-    
 
-        // 4. Si todos están completos, actualizar estado de la orden
-        if ($todosCompletos) {
-            $orden->estado_id = 2; // Estado COMPLETO
-            $orden->save();
-        }
+  public function store(EntregasRequest $request)
+{
+
     
+ 
+        $entrega = DB::transaction(function () use ($request) {
+            // 1. Crear la entrega
+            $entrega = EntregaProveedor::create([
+                'detalle_id'        => $request->detalle_id,
+                'cantidad_entregada'=> $request->cantidad_entregada,
+                'fecha_entrega'     => $request->fecha_entrega, 
+                'observaciones'     => $request->observaciones,
+                'bodega_id'         => $request->bodega_id,
+                'producto_id'       => $request->producto_id,
+            ]);
+        
+            // 2. Sumar la cantidad entregada al detalle principal
+            $detalle = OrdenCompraProveedorDetalle::findOrFail($request->detalle_id);
+            $detalle->cantidad_entregada += $request->cantidad_entregada;
+            $detalle->save();
+        
+            // 3. Verificar si todos los detalles están completamente entregados
+            $orden = $detalle->orden; 
+            $todosCompletos = $orden->detalles->every(function ($d) {
+                return $d->cantidad_entregada >= $d->cantidad_solicitada;
+            });
+        
+            // 4. Si todos están completos, actualizar estado de la orden
+            if ($todosCompletos) {
+                $orden->estado_id = 2; // Estado COMPLETO
+                $orden->save();
+            }
+
+            // 5. ACTUALIZAR INVENTARIO (desempaquetando del request)
+            $inventarioData = $request->input('inventario', []); // viene del frontend
+
+            if (!empty($inventarioData)) {
+                $productoId = $inventarioData['producto_id'] ?? null;
+                $empresaId  = $inventarioData['empresa_id'] ?? null;
+                $sedeId     = $inventarioData['sede_id'] ?? null;
+                $bodegaId   = $inventarioData['bodega_id'] ?? null;
+                $stock      = $inventarioData['stock'] ?? 0;
+
+                if ($productoId && $empresaId && $sedeId && $bodegaId) {
+                    $inventario = Inventario::firstOrCreate(
+                        [
+                            'producto_id' => $productoId,
+                            'empresa_id'  => $empresaId,
+                            'sede_id'     => $sedeId,
+                            'bodega_id'   => $bodegaId,
+                        ],
+                        ['stock' => 0]
+                    );
+ 
+
+                    $inventario->stock += (float) $stock;
+                    $inventario->save();
+                }
+            }
+
+            return [
+                'entrega' => $entrega,
+                'detalle' => $detalle
+            ];
+        });
+
         return response()->json([
             'message' => 'Entrega registrada correctamente',
-            'entrega' => $entrega,
-            'detalle_actualizado' => $detalle,
-        ]);
-    }
-    
-    public function update(EntregasResquest $request, $id)
-    {
-        // 1. Buscar la entrega por ID
-        $entrega = EntregaProveedor::findOrFail($id);
-    
-        // 2. Actualizar los campos de la entrega
-        $entrega->update([
-            'detalle_id' => $request->detalle_id,
-            'cantidad_entregada' => $request->cantidad_entregada,
-            'fecha_entrega' => $request->fecha_entrega,
-            'observaciones' => $request->observaciones,
-     
-           
-        ]);
-    
-        // 3. Buscar el detalle actualizado y recalcular total entregado
-        $detalle = OrdenCompraProveedorDetalle::find($request->detalle_id);
-    
-        // Aquí NO se suma directamente: se recalcula con todas las entregas
-        $totalEntregado = $detalle->entregas()->sum('cantidad_entregada');
-        $detalle->cantidad_entregada = $totalEntregado;
-        // ✅ GUARDAR proveedor_id y proceso_bolsas_id en el DETALLE
-        if ($request->has('proveedor_id')) {
-            $detalle->proveedor_id = $request->proveedor_id;
-        }
+            'entrega' => $entrega['entrega'],
+            'detalle_actualizado' => $entrega['detalle'],
+        ], 201);
 
-        if ($request->has('proceso_bolsas_id')) {
-            $detalle->proceso_bolsas_id = $request->proceso_bolsas_id;
-        }
-        $detalle->save();
-    
-        // 4. Cargar la orden relacionada con sus detalles
-  // 4. Cargar la orden relacionada con sus detalles
-$orden = $detalle->orden;
-$orden->load('detalles');
 
-// 5. Evaluar si todos los ítems están completamente entregados
-$todosCompletos = $orden->detalles->every(function ($d) {
-    return $d->cantidad_entregada >= $d->cantidad_solicitada;
-});
-
-// 6. Actualizar el estado de la orden solo si aplica
-if ($todosCompletos && $orden->estado_id !== 2) {
-    $orden->estado_id = 2; // COMPLETO
-    $orden->save();
-} elseif (!$todosCompletos && $orden->estado_id === 2) {
-    $orden->estado_id = 1; // Volver a PENDIENTE si alguien bajó entregas
-    $orden->save();
 }
 
-    
-        return response()->json([
-            'message' => 'Entrega actualizada correctamente',
-            'entrega' => $entrega,
-            'detalle_actualizado' => $detalle,
+
+
+public function update(EntregasRequest $request, $id)
+{
+    try {
+        $entrega = EntregaProveedor::findOrFail($id);
+
+        $cantidadAnterior = $entrega->cantidad_entregada;
+
+        $entrega->update([
+            'cantidad_entregada' => $request->cantidad_entregada,
+            'fecha_entrega'      => $request->fecha_entrega,
+            'observaciones'      => $request->observaciones,
+            'bodega_id'          => $request->bodega_id,
         ]);
+
+        // ✅ aseguramos producto_id aunque no venga del front
+        $productoId = $request->producto_id;
+        if (!$productoId && $request->detalle_id) {
+            $detalle = OrdenCompraProveedorDetalle::find($request->detalle_id);
+            if ($detalle) {
+                $productoId = $detalle->producto_id;
+            }
+        }
+
+        $empresaId  = $request->empresa_id;
+        $sedeId     = $request->sede_id;
+        $bodegaId   = $request->bodega_id;
+
+        if ($productoId && $empresaId && $sedeId && $bodegaId) {
+            $inventario = Inventario::firstOrCreate(
+                [
+                    'producto_id' => $productoId,
+                    'empresa_id'  => $empresaId,
+                    'sede_id'     => $sedeId,
+                    'bodega_id'   => $bodegaId,
+                ],
+                ['stock' => 0]
+            );
+
+            $inventario->stock = ($inventario->stock - $cantidadAnterior) + $request->cantidad_entregada;
+            if ($inventario->stock < 0) {
+                $inventario->stock = 0;
+            }
+            $inventario->save();
+        }
+
+        return response()->json([
+            'message' => 'Entrega e inventario actualizados correctamente',
+            'entrega' => $entrega,
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => 'Error al actualizar entrega e inventario',
+            'detalle' => $e->getMessage(),
+        ], 500);
     }
+}
+
+
+
+
 
 
     

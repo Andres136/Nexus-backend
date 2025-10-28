@@ -20,19 +20,46 @@ class OrdenCompraProveedorController extends Controller
      */
     public function index(Request $request)
     {
-        $query = OrdenCompraProveedor::with(['proveedor', 'usuario', 'estado', 'detalles.entregas', 'detalles.procesoBolsas', 'detalles.proveedor', 'empresa'])
-            ->orderBy('id', 'desc');
 
-        if ($request->has('search')) {
-            $search = $request->search;
 
-            $query->where(function ($q) use ($search) {
-                $q->where('numero_orden', 'LIKE', "%$search%")
-                    ->orWhereHas('proveedor', function ($q) use ($search) {
-                        $q->where('nombre', 'LIKE', "%$search%");
-                    });
+        $user= auth()->user();
+ $query = OrdenCompraProveedor::with([
+    'proveedor',
+    'usuario',
+    'estado',
+    'detalles.entregas',
+    'detalles.procesoBolsas',
+    'detalles.proveedor',
+    'empresa',
+    'sede'
+])
+->when(!in_array($user->role_id, [1, 2]), function ($q) use ($user) {
+    // Si no es admin, solo ve su sede
+    $q->where('sede_id', $user->sede_id);
+})
+// ✅ Ordena primero las órdenes de la sede del usuario autenticado
+->orderByRaw("CASE WHEN sede_id = {$user->sede_id} THEN 0 ELSE 1 END")
+->orderBy('id', 'desc');
+
+            // Filtrar por sede del usuario autenticado
+            if (!in_array($user->role_id, [1, 4])) { // Si no es admin o superadmin
+                $query->where('sede_id', $user->sede_id);
+            }   
+
+   if ($request->has('search')) {
+    $search = $request->search;
+
+    $query->where(function ($q) use ($search) {
+        $q->where('numero_orden', 'LIKE', "%$search%")
+            ->orWhereHas('proveedor', function ($q) use ($search) {
+                $q->where('nombre', 'LIKE', "%$search%");
+            })
+            ->orWhereHas('sede', function ($q) use ($search) {
+                $q->where('nombre', 'LIKE', "%$search%");
             });
-        }
+    });
+}
+
 
         $ordenes = $query->paginate(10);
 
@@ -59,6 +86,8 @@ class OrdenCompraProveedorController extends Controller
                 default => 'Completada',
             };
 
+            $orden->sede_nombre = $orden->sede->nombre ?? 'Sin sede';
+
             return $orden;
         });
 
@@ -74,6 +103,19 @@ class OrdenCompraProveedorController extends Controller
      */
     public function store(OrdenCompraProveedorRequest $request)
     {
+
+        $user = auth()->user();
+
+         // Validar que la sede y bodega (si se proporciona) pertenezcan a la empresa seleccionada
+         if ($request->sede_id) {
+            $sedeValida = DB::table('sedes')
+                ->where('id', $request->sede_id)
+                ->where('empresa_id', $request->empresa_id)
+                ->exists();
+            if (!$sedeValida) {
+                return response()->json(['error' => 'La sede seleccionada no pertenece a la empresa indicada.'], 422);
+            }
+        }
         DB::beginTransaction();
         // Generar número de orden consecutivo
         $ultimaOrden = OrdenCompraProveedor::orderBy('id', 'desc')->first();
@@ -90,7 +132,7 @@ class OrdenCompraProveedorController extends Controller
                 'observaciones' => $request->observaciones,
                 'empresa_id' => $request->empresa_id,
                 'bodega_id' => $request->bodega_id,
-                'sede_id' => $request->sede_id,
+                'sede_id' => $user->sede_id ?? $request->sede_id, // Asignar la sede del usuario autenticado si no es admin
             ]);
 
             foreach ($request->detalles as $i => $detalle) {
@@ -122,12 +164,15 @@ class OrdenCompraProveedorController extends Controller
         }
     }
 
+
+
+
     /**
      * Display the specified resource.
      */      //Consultar una orden y su estado actual (con detalles y análisis de cantidades entregadas vs solicitadas).
     public function show($id)
     {
-        $orden = OrdenCompraProveedor::with(['proveedor', 'usuario', 'estado', 'detalles.entregas', 'detalles.procesoBolsas', 'detalles.proveedor','empresa'])->findOrFail($id);
+        $orden = OrdenCompraProveedor::with(['proveedor', 'usuario', 'estado', 'detalles.entregas', 'detalles.procesoBolsas', 'detalles.proveedor','empresa','detalles.producto'])->findOrFail($id);
 
         $detalles = $orden->detalles->map(function ($detalle) {
             $estado = 'Pendiente';
@@ -149,7 +194,10 @@ class OrdenCompraProveedorController extends Controller
                 'proveedor_id'          => $detalle->proveedor_id,
                 'proveedor_nombre'      => $detalle->proveedor?->nombre,           // ✅
                 'proceso_bolsas_id'     => $detalle->proceso_bolsas_id,
-                'proceso_bolsas_nombre' => $detalle->procesoBolsas?->nombre,       // ✅
+                'proceso_bolsas_nombre' => $detalle->procesoBolsas?->nombre,      // ✅
+                'producto_id'           => $detalle->producto_id,
+                'producto_nombre'       => $detalle->producto?->nombre,
+                'code'                  => $detalle->code,                        // ✅
 
                 'entregas' => $detalle->entregas->map(function ($entrega) {
                     return [
@@ -158,6 +206,10 @@ class OrdenCompraProveedorController extends Controller
                         'fecha_entrega' => $entrega->fecha_entrega?->format('Y-m-d H:i:s'),
                         'observaciones' => $entrega->observaciones,
                         'proveedor_id'       => $entrega->proveedor_id,
+                        'bodega_id'          => $entrega->bodega_id,
+                        'bodega_nombre'      => $entrega->bodega?->nombre,
+                        'product_id'        => $entrega->product_id,
+                        'product_nombre'    => $entrega->product?->nombre,
        
                     ];
                 }),
@@ -177,12 +229,15 @@ class OrdenCompraProveedorController extends Controller
         return response()->json([
             'id' => $orden->id,
             'numero_orden' => $orden->numero_orden,
+            'sede_id' => $orden->sede_id,
+            'sede_nombre' => $orden->sede?->nombre,
             'fecha' => $orden->fecha,
             'empresa' => $orden->empresa,
             'observaciones' => $orden->observaciones,
             'estado_registrado' => $orden->estado->nombre,
             'estado_calculado' => $estado_orden,
             'proveedor_id' => $orden->proveedor_id,
+            'proveedor_nombre' => $orden->proveedor->nombre ?? null,
             'usuario' => $orden->usuario->name ?? null,
             'productos' => $detalles,
         ]);
@@ -238,20 +293,44 @@ class OrdenCompraProveedorController extends Controller
         return response()->json(['message' => 'Detalle creado correctamente.']);
     }
 
-    public function update(UpdateOrdenCompraProveedorDetallesRequest $request, $id)
+    public function update(Request $request, $id)
     {
-        $detalle = OrdenCompraProveedorDetalle::findOrFail($id);
+        $user = auth()->user();
+        $orden = OrdenCompraProveedor::findOrFail($id);
+        DB::beginTransaction();
+        try {
+            $orden->update([
+                'observaciones' => $request->observaciones,
+                'sede_id' => $orden->sede_id ?? $user->sede_id, // Asignar la sede del usuario autenticado si no es admin
+                'empresa_id' => $request->empresa_id,
+                'proveedor_id' => $request->proveedor_id,
+            ]);
+               // 🔹 Actualizar detalles (sobrescribir)
+        $orden->detalles()->delete(); // opcional: limpiar y recrear
+        foreach ($request->detalles as $i => $detalle) {
+            $orden->detalles()->create([
+                'item'               => $i + 1,
+                'descripcion'        => $detalle['descripcion'] ?? null,
+                'cantidad_solicitada'=> $detalle['cantidad_solicitada'],
+                'cantidad_entregada' => $detalle['cantidad_entregada'] ?? 0,
+                'code'               => $detalle['code'] ?? null,
+                'producto_id'        => $detalle['producto_id'],
+                'proveedor_id'       => $detalle['proveedor_id'] ?? null,
+                'proceso_bolsas_id'  => $detalle['proceso_bolsas_id'] ?? null,
+            ]);
+        }
+
+        DB::commit();
 
 
-        $detalle->descripcion = $request->descripcion;
-        $detalle->cantidad_solicitada = $request->cantidad_solicitada;
-        $detalle->item = $request->item;
-        $detalle->proveedor_id = $request->proveedor_id ?? null; // Aseguramos que este campo sea nullable
-        $detalle->proceso_bolsas_id = $request->proceso_bolsas_id ?? null; // Aseguramos que este campo sea nullable
 
-        $detalle->save();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => 'Error al actualizar la orden'], 500);
+        }
 
-        return response()->json(['message' => 'Detalle actualizado correctamente.']);
+        DB::commit();
+        return response()->json(['message' => 'Orden actualizada correctamente.']);
     }
 
 

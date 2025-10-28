@@ -13,6 +13,8 @@ class EntregaProveedor extends Model
         'cantidad_entregada',
         'fecha_entrega',
         'observaciones',
+        'bodega_id',
+        'producto_id',
    
     ];
     // Casts
@@ -36,6 +38,14 @@ class EntregaProveedor extends Model
         return $this->belongsTo(proceso_bolsas::class, 'proceso_bolsas_id', 'id');
     }
 
-
-
+    //relacion con bodega
+    public function bodega()
+    {
+        return $this->belongsTo(bodega::class, 'bodega_id', 'id');
+    }
+    //relacion con producto
+    public function product()
+    {
+        return $this->belongsTo(product::class, 'product_id', 'id');
+    }
 }

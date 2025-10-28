@@ -30,12 +30,12 @@
         <div style="margin: 25px 0; text-align: center;">
             <a href="{{ url('/') }}" 
                style="display: inline-block; background: #208040; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-weight: 500;">
-                🔍 Revisar actividad del sistema
+                Revisar actividad del sistema
             </a>
         </div>
 
         <div style="margin: 25px 0; padding: 15px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 6px;">
-            <h3 style="color: #721c24; margin: 0 0 10px 0; font-size: 16px;">🔒 Seguridad:</h3>
+            <h3 style="color: #721c24; margin: 0 0 10px 0; font-size: 16px;">Seguridad:</h3>
             <p style="margin: 0; color: #721c24;">
                 Si no reconoces esta actividad o crees que puede ser un acceso no autorizado, 
                 por favor revisa inmediatamente la seguridad de las cuentas del sistema.
@@ -44,7 +44,7 @@
 
         <div style="margin: 25px 0; padding: 15px; background: #e8f4fd; border: 1px solid #bee5eb; border-radius: 6px;">
             <p style="margin: 0; color: #0c5460; font-size: 14px;">
-                <strong>💡 Nota:</strong> Esta es una notificación automática de seguridad del sistema.
+                <strong> Nota:</strong> Esta es una notificación automática de seguridad del sistema.
             </p>
         </div>
     </div>

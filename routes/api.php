@@ -13,6 +13,7 @@ use App\Http\Controllers\Crm\DocumentoVehiculoController;
 use App\Http\Controllers\Crm\EmpresaController;
 use App\Http\Controllers\Crm\EntregaProveedorController;
 use App\Http\Controllers\Crm\InspeccionController;
+use App\Http\Controllers\Crm\InventorieController;
 use App\Http\Controllers\Crm\MantenimientoController;
 use App\Http\Controllers\Crm\OrdenCompraController;
 use App\Http\Controllers\Crm\OrdenCompraDetallesController;
@@ -41,6 +42,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\RegistroIndicadoresController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\TareaController;
+use App\Http\Controllers\Traslados\EnvioInternoController;
 use App\Http\Controllers\UpdateDepartamentoController;
 use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\whatsapp\WhatsappWebhookController;
@@ -83,6 +85,8 @@ Route::middleware('auth:sanctum')->group(function () {
   
  
   Route::apiResource('registrar-documentacion', DocumentosAdministrativosController::class);
+  Route::post('/documentos/mover-obseletos/{id}', [DocumentoController::class, 'moverAObseletos']);
+
   Route::get('/notificar-ordenes', [NotificacionOrdenController::class, 'notificarOrdenes']);
 //Consumir api siigo
   Route::get('products-setas', [SiigoController::class, 'index']);
@@ -120,6 +124,8 @@ Route::get('orden-compras/{id}/edit', [OrdenCompraController::class, 'edit']);
 
 Route::get('/orden-trabajo/{id}', [ordenTrabajoController::class, 'show']);
 Route::get('ordenes-trabajo', [OrdenCompraController::class, 'obtenerOrdenesTrabajo']);
+//Generar pdf de la orden de trabajo
+Route::get('/orden-trabajo/{id}/pdf', [ordenTrabajoController::class, 'generarPDF']);
 
 Route::get('pqrs', [PqrController::class, 'index']);
 Route::delete('/pqrs/{id}', [PqrController::class, 'destroy']);
@@ -129,14 +135,10 @@ Route::put('/pqrs/{id}/responder', [PqrController::class, 'responder']);
 //Conductores
 Route::apiResource('datos-conductores', DatoCondutorController::class);
 
-
-
 Route::apiResource('/vehiculos/{vehiculo}/fotos',VehiculoFotoController::class);
 Route::get('/usuarios/all', [AuthController::class, 'indexUsuarios']);
 Route::get('/vehiculos-options', [VehiculoController::class, 'options']);
-
-Route::post('clientes/importar-excel', [ClienteController::class, 'importExcel']);
-   
+Route::post('clientes/importar-excel', [ClienteController::class, 'importExcel']);   
 Route::apiResource('revision-comparendos',RevisionComparendoController::class);
 Route::get('/revision-comparendos/conductor/{id}', [RevisionComparendoController::class, 'porConductor']);
 
@@ -146,21 +148,13 @@ Route::post('/detalles-orden', [OrdenCompraProveedorController::class, 'storeDet
 Route::put('/detalles-orden/{id}', [EntregaProveedorController::class, 'updateDetalle']);
 Route::put('/ordenes-compra-proveedor/{id}/update-proveedor', [OrdenCompraProveedorController::class, 'updateProveedor']);
 Route::delete('/detalles-orden/{id}', [EntregaProveedorController::class, 'eliminarItem']);
-
+//Entregas proveedor
 
 Route::post('entregas-proveedor', [EntregaProveedorController::class, 'store']);
 Route::put('entregas-proveedor/{id}', [EntregaProveedorController::class, 'update']);
-//Todos los
 Route::get('/proveedores-all', [ProveedorController::class, 'proveedoresAll']);
-
-
 Route::apiResource('ordenes-compra-proveedor', OrdenCompraProveedorController::class);
-
-
-
-
 Route::get('referencias-faltantes', [EntregaProveedorController::class, 'referenciasFaltantes']);
-
 Route::get('/dashboard/ordenespdf', [DashboardController::class, 'descargarOrdenesCriticasHoy']);
 
 //Descargar pendientes de ordenes de proveedor
@@ -182,7 +176,32 @@ Route::apiResource('sedes', SedeController::class);
 //Consultar todos los productos sin paginar
 Route::get('products-all', [CrmProductController::class, 'getAllProducts']);
 Route::get('audit-ordenes-compra',[DashboardController::class,'getAuditData']);
+//Stock con sugerencias de productos
+Route::get('stock-products-sugerencias/{id}', [CrmProductController::class, 'stockProductoConSugerencias']);
+Route::apiResource('products',CrmProductController::class);
+Route::get('stock-products/{id}', [CrmProductController::class, 'stock']);
+Route::get('stock-products-for-user/{id}', [CrmProductController::class, 'stockForUserAndOrder']);
+//Registrar entrada de stock Manualmente
+Route::post('products/register-stock', [CrmProductController::class, 'registrarEntradaStock']);
+Route::post('products/descontar/stock', [InventorieController::class, 'descontarStock']);
+Route::post('/products/descontar-stock-masivo', [InventorieController::class, 'descontarStockMasivo']);
 
+//Importar productos via exel
+Route::post('products/importar-excel', [CrmProductController::class, 'importarInventarioExcel']);
+//Treaer Movimientos de  stock en   pdf
+Route::get('movimientos-stock/{id}/pdf', [CrmProductController::class, 'getMovimientoPDF']);
+//TRASLADOS INTERNOS
+Route::apiResource('traslados-internos', EnvioInternoController::class);
+Route::get('traslados-internos-sedes', [EnvioInternoController::class, 'traerSedes']);
+Route::get('traslados-internos-ordenes-compra', [EnvioInternoController::class, 'traerOrdenesCompra']);
+Route::post('/productos/sincronizar-siigo', [CrmProductController::class, 'sincronizarProductosSiigoGlobal']);
+Route::post('/productos/sincronizar-siigo-setas', [CrmProductController::class, 'sincronizarProductosSiigoSetas']);
+
+
+
+//**LOGICA DE INVENTARIOS */
+
+Route::apiResource('inventarios',InventorieController::class);
 });
 Route::middleware(['auth:sanctum', 'es_responsable_del_departamento'])->group(function () {
     Route::apiResource('/indicadores', IndicadoresProcesosController::class);
@@ -194,7 +213,7 @@ Route::middleware(['auth:sanctum', 'es_responsable_del_departamento'])->group(fu
     //Categorias
     Route::apiResource('categorias',CategoriaController::class);
     //Productos
-    Route::apiResource('products',CrmProductController::class);
+    
 });
 
 

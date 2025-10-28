@@ -29,7 +29,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 
 use Illuminate\Support\Facades\Notification;
-
+use Illuminate\Support\Facades\Storage;
 
 class OrdenCompraController extends Controller
 {
@@ -114,14 +114,29 @@ class OrdenCompraController extends Controller
 
     public function generarOrdenTrabajo(OrdenTrabajoRequest $request, $id)
     {
+
+       $user = auth()->user(); 
         try {
             $ordenCompra = Orden_Compra::findOrFail($id);
+        // Verificar de dónde sacar el sede_id
+        if ($request->filled('sede_id')) {
+            // 1. Si viene en el request
+            $sedeId = $request->input('sede_id');
+        } elseif ($ordenCompra->sede_id) {
+            // 2. Si ya está en la orden de compra
+            $sedeId = $ordenCompra->sede_id;
+        } elseif ($user->sede_id) {
+            // 3. Si no hay en request ni en orden, usar la del usuario
+            $sedeId = $user->sede_id;
+        } else {
+            // 4. Si no hay ninguna → error
+            return response()->json(['error' => 'La sede es obligatoria y no se encontró en el request, en la orden o en el usuario'], 422);
+        }
 
-            // ✅ Asignar sede si no está definida
-            if (!$ordenCompra->sede_id && $request->filled('sede_id')) {
-                $ordenCompra->sede_id = $request->input('sede_id');
-                $ordenCompra->save();
-            }
+        // Asignar sede a la orden
+        $ordenCompra->sede_id = $sedeId;
+$ordenCompra->save();
+
 
 
 
@@ -166,6 +181,7 @@ class OrdenCompraController extends Controller
                         // PREPARAR CAMPOS A ACTUALIZAR
                         // Se incluyen todos los campos que pueden cambiar en un detalle existente
                         $updatedFields = [
+                            'product_id'    => $detalleData['product_id']    ?? $detalle->product_id,
                             'largo_cm'       => $detalleData['largo_cm']       ?? $detalle->largo_cm,
                             'ancho_cm'       => $detalleData['ancho_cm']       ?? $detalle->ancho_cm,
                             'calibre'        => $detalleData['calibre']        ?? $detalle->calibre,
@@ -219,6 +235,7 @@ class OrdenCompraController extends Controller
                     } else {
                         // CREAR UN NUEVO DETALLE
                         $detalle = $ordenCompra->detalles()->create([
+                            'product_id'    => $detalleData['product_id']    ?? null,
                             'largo_cm'       => $detalleData['largo_cm']       ?? 0,
                             'ancho_cm'       => $detalleData['ancho_cm']       ?? 0,
                             'calibre'        => $detalleData['calibre']        ?? 0,
@@ -345,7 +362,25 @@ class OrdenCompraController extends Controller
     $user->notify(new OrdenTrabajoListaParcial($ordenTrabajo, $faltantes));
 }
 
+ // 🔹 GENERAR Y GUARDAR PDF AUTOMÁTICAMENTE
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.orden_trabajo', [
+                'orden'        => $ordenTrabajo->load([
+                    'ordenCompra.detalles.product',
+                    'ordenCompra.estado',
+                    'cliente',
+                    'user',
+                    'entregas.usuario'
+                ]),
+                'detalles'     => $ordenCompra->detalles,
+                'totalKg'      => $ordenCompra->detalles->sum('cantidad_requerida_kg'),
+                'valorTotal'   => $ordenCompra->valor_total,
+                'observaciones'=> $ordenTrabajo->observaciones ?? 'Sin observaciones',
+            ]);
 
+            $fileName = "ordenes_trabajo/orden_trabajo_{$ordenTrabajo->id}.pdf";
+            Storage::disk('public')->put($fileName, $pdf->output());
+
+            $ordenTrabajo->update(['pdf_path' => $fileName]);
 
 
            
@@ -353,6 +388,7 @@ class OrdenCompraController extends Controller
             return response()->json([
                 'message'      => 'Orden de Trabajo generada/actualizada con éxito',
                 'ordenTrabajo' => $ordenTrabajo,
+                'pdf_url'      => asset("storage/{$fileName}"),
             ], 201);
         } catch (Exception $e) {
             return response()->json([
@@ -380,8 +416,9 @@ class OrdenCompraController extends Controller
             'estado',
             'user',
             'entregas.usuario:id,name',
+            'movimientosStock:id,orden_trabajo_id,created_at,usuario_id',
         ])
-            ->when(!in_array($user->role_id, [1, 4, 6, 2]), function ($query) use ($user) {
+            ->when(!in_array($user->role_id, [1]), function ($query) use ($user) {
                 $query->whereHas('ordenCompra', function ($q) use ($user) {
                     $q->where('sede_id', $user->sede_id);
                 });
@@ -492,12 +529,12 @@ class OrdenCompraController extends Controller
             /** @var Orden_Compra $oc */
             $oc = Orden_Compra::with('ordenTrabajo')->findOrFail($id);
 
-            // ⛔️ Bloqueamos la edición si ya existe OT
+            /*⛔️ Bloqueamos la edición si ya existe OT
             if ($oc->ordenTrabajo) {
                 return response()->json([
                     'error' => 'La Orden de Trabajo ya fue generada; esta OC no puede modificarse.'
                 ], 422);
-            }
+            }*/
 
             // 1. Actualizar cabecera
             $oc->update([

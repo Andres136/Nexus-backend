@@ -9,6 +9,7 @@ use App\Models\Indicadores;
 use App\Models\RegistroIndicador;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon as SupportCarbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
@@ -17,53 +18,61 @@ class RegistroIndicadoresController extends Controller
    
 public function index(Request $request)
 {
-    // 1. Verifica que el usuario sea responsable de algún departamento
     $user = auth()->user();
     $departamento = $user->departamento;
-// ✅ NUEVO: Determinar el mes y año
-        $mes = $request->input('mes', date('m'));
-        $anio = $request->input('anio', date('Y'));
-        $departamento_id = $request->input('departamento_id'); // ✅ NUEVO: Filtro por departamento
 
-        // ✅ MODIFICAR: Lógica de autorización expandida
-        if ($user->role_id == 1) {
-            // ROLE_ID = 1: Puede ver todos los departamentos
-            
-            if ($departamento_id) {
-                // ✅ Si especifica departamento, filtrar por ese
-                $indicadoresIds = Indicadores::where('departamento_id', $departamento_id)->pluck('id');
-            } else {
-                // ✅ Si no especifica, ver todos los indicadores
-                $indicadoresIds = Indicadores::pluck('id');
-            }
-            
-        } else {
-            // ✅ OTROS ROLES: Solo su departamento (lógica original)
-            if (!$departamento || $departamento->responsable_id != $user->id) {
-                return response()->json([
-                    'message' => 'No autorizado para ver registros en este departamento.'
-                ], 403);
-            }
-            
-            // Solo indicadores del departamento del usuario
-            $indicadoresIds = Indicadores::where('departamento_id', $departamento->id)->pluck('id');
+    $mes = $request->input('mes', date('m'));
+    $anio = $request->input('anio', date('Y'));
+    $departamento_id = $request->input('departamento_id');
+
+    // 🔹 Filtro por rol y departamento
+    if ($user->role_id == 1) {
+        $indicadoresIds = $departamento_id
+            ? Indicadores::where('departamento_id', $departamento_id)->pluck('id')
+            : Indicadores::pluck('id');
+    } else {
+        if (!$departamento || $departamento->responsable_id != $user->id) {
+            return response()->json([
+                'message' => 'No autorizado para ver registros en este departamento.'
+            ], 403);
         }
+        $indicadoresIds = Indicadores::where('departamento_id', $departamento->id)->pluck('id');
+    }
 
-        // ✅ Buscar registros con filtros aplicados
-        $query = RegistroIndicador::with(['indicador.departamento', 'user'])
-            ->whereIn('indicador_id', $indicadoresIds)
-            ->whereMonth('fecha', $mes)
-            ->whereYear('fecha', $anio);
+    // 🔹 Consulta de registros
+    $registros = RegistroIndicador::with(['indicador.departamento', 'user'])
+        ->whereIn('indicador_id', $indicadoresIds)
+        ->whereMonth('fecha', $mes)
+        ->whereYear('fecha', $anio)
+        ->get();
 
-        $registros = $query->get();
-
-    // 5. Procesa cada registro para comparar valor vs meta
+    // 🔹 Procesamiento
     $registros = $registros->map(function ($registro) {
+
         $meta  = $registro->indicador->meta ?? null;
         $valor = $registro->valor;
-        $porcentaje = ($meta && $meta != 0) ? ($valor / $meta) * 100 : null;
+        $formula = strtolower($registro->indicador->formula ?? '');
+        $nombre  = strtolower($registro->indicador->nombre ?? '');
 
-             if ($meta === null) {
+        // 🔹 Detectar si el indicador se mide en días (por nombre o fórmula)
+        $esDias = str_contains($formula, 'dia') || str_contains($nombre, 'dia');
+
+        if ($esDias) {
+            // ✅ Indicadores de tiempo (en días)
+            $fechaRegistro = Carbon::parse($registro->fecha);
+            $fechaInicioMes = Carbon::createFromDate(Carbon::now()->year, Carbon::now()->month, 1);
+            $dias = $fechaInicioMes->diffInDays($fechaRegistro, false);
+
+            $estado = ($dias <= $meta)
+                ? 'ok'
+                : (($dias <= $meta + 5) ? 'medio' : 'critico');
+
+            $registro->resultado = $dias . ' días';
+        } else {
+            // ✅ Indicadores por porcentaje o valor numérico
+            $porcentaje = ($meta && $meta != 0) ? ($valor / $meta) * 100 : null;
+
+            if ($meta === null) {
                 $estado = null;
             } elseif ($valor >= $meta) {
                 $estado = 'ok';
@@ -73,13 +82,16 @@ public function index(Request $request)
                 $estado = 'critico';
             }
 
+            $registro->resultado = round($porcentaje, 2) . '%';
+        }
+
         $registro->estado = $estado;
-        $registro->porcentaje_meta = $porcentaje;
         return $registro;
     });
 
     return response()->json(['data' => $registros], 200);
 }
+
 
      
 
@@ -244,7 +256,7 @@ public function index(Request $request)
 
 
 
- public function indexByCompany(Request $request)
+public function indexByCompany(Request $request)
 {
     $user = auth()->user();
 
@@ -255,7 +267,6 @@ public function index(Request $request)
     $mes = $request->input('mes', date('m'));
     $anio = $request->input('anio', date('Y'));
 
-    // Traer todos los indicadores con su registro (si existe en ese mes y año)
     $indicadores = Indicadores::with([
         'departamento',
         'registros' => function ($query) use ($mes, $anio) {
@@ -264,7 +275,6 @@ public function index(Request $request)
         }
     ])->get();
 
-    // Transformar resultado: incluir solo el primer registro si existe
     $result = $indicadores->map(function ($indicador) {
         return [
             'id' => $indicador->id,
@@ -273,37 +283,61 @@ public function index(Request $request)
             'frecuencia' => $indicador->frecuencia,
             'tipo_meta' => $indicador->tipo_meta,
             'departamento' => [
-            'id' => $indicador->departamento->id,
-            'nombre' => $indicador->departamento->nombre,
+                'id' => $indicador->departamento->id,
+                'nombre' => $indicador->departamento->nombre,
             ],
-            'registro' => $indicador->registros->first() ? $this->procesarRegistro($indicador->registros->first()) : null
+            'registro' => $indicador->registros->first()
+                ? $this->procesarRegistro($indicador->registros->first())
+                : null
         ];
     });
 
     return response()->json(['data' => $result], 200);
 }
 
-
 public function procesarRegistro($registro)
 {
-    $meta  = $registro->indicador->meta ?? null;
-    $valor = $registro->valor;
-    $porcentaje = ($meta && $meta != 0) ? ($valor / $meta) * 100 : null;
+    $meta       = $registro->indicador->meta ?? null;
+    $valor      = $registro->valor;
+    $formula    = strtolower($registro->indicador->formula ?? '');
+    $nombre     = strtolower($registro->indicador->nombre ?? '');
+    $esDias     = str_contains($formula, 'dia') || str_contains($nombre, 'dia');
 
-    if ($meta === null) {
-        $estado = null;
-    } elseif ($valor >= $meta) {
-        $estado = 'ok';
-    } elseif ($porcentaje >= 80) {
-        $estado = 'medio';
+    // 🔹 Calcular resultado según tipo
+    if ($esDias) {
+        // Indicador medido en días
+        $fechaRegistro = Carbon::parse($registro->fecha);
+        $fechaInicioMes = Carbon::createFromDate(
+            Carbon::now()->year,
+            Carbon::now()->month,
+            1
+        );
+        $dias = $fechaInicioMes->diffInDays($fechaRegistro, false);
+        $registro->resultado = floor($dias) . ' días';
+
+        $estado = ($dias <= $meta)
+            ? 'ok'
+            : (($dias <= $meta + 5) ? 'medio' : 'critico');
     } else {
-        $estado = 'critico';
+        // Indicador por porcentaje o valor
+        $porcentaje = ($meta && $meta != 0) ? ($valor / $meta) * 100 : null;
+        $porcentajeFloor = $porcentaje ? floor($porcentaje) : null;
+        $registro->resultado = $porcentajeFloor !== null ? $porcentajeFloor . '%' : null;
+
+        if ($meta === null) {
+            $estado = null;
+        } elseif ($valor >= $meta) {
+            $estado = 'ok';
+        } elseif ($porcentaje >= 80) {
+            $estado = 'medio';
+        } else {
+            $estado = 'critico';
+        }
     }
 
     $registro->estado = $estado;
-    $registro->porcentaje_meta = $porcentaje;
+    $registro->porcentaje_meta = isset($porcentaje) ? $porcentaje : null;
     return $registro;
-
 }
 
 }

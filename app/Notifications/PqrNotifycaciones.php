@@ -7,18 +7,16 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\View;
-use Illuminate\Support\Facades\Log;
 
-class PqrNotifycaciones extends Notification // Nombre PSR-4
+class PqrNotifycaciones extends Notification
 {
     use Queueable;
 
     private Pqr $pqr;
     private string $tipo;
-    private ?string $emailSolicitante;
+    private string $emailSolicitante;
 
-    public function __construct(Pqr $pqr, string $tipo, ?string $emailSolicitante)
+    public function __construct(Pqr $pqr, string $tipo, string $emailSolicitante)
     {
         $this->pqr = $pqr;
         $this->tipo = $tipo;
@@ -37,30 +35,14 @@ class PqrNotifycaciones extends Notification // Nombre PSR-4
             ? Storage::disk('public')->url($this->pqr->archivo)
             : null;
 
-        // Nombre EXACTO de las vistas que SÍ existan en /resources/views/notifications/
-        $vista = $this->tipo === 'admin'
-            ? 'notifications.pqr-admin'      // <-- verifica que exista
-            : 'notifications.pqr-usuario';    // <-- verifica que exista
-
-        // Validación de vista y fallback opcional
-        if (!View::exists($vista)) {
-            Log::error("Vista de correo no encontrada: {$vista}");
-            // Si tienes versiones “limpias”, intenta fallback:
-            $fallback = $vista.'-limpia';
-            if (View::exists($fallback)) {
-                $vista = $fallback;
-                Log::warning("Usando vista fallback: {$vista}");
-            }
-        }
-
-        // Pasar array para Blade (coincide con tu uso $pqr['campo'])
-        $pqr = $this->pqr->toArray();
+        // Aquí llamamos DIRECTAMENTE la vista corregida
+        $vista = 'emails.pqr-asignada';  // resources/views/emails/pqr-asignada.blade.php
 
         return (new MailMessage)
-            ->subject(($this->tipo === 'admin' ? 'Nueva PQR - ' : 'Confirmación PQR - ') . $codigo)
+            ->subject("Nueva PQR asignada - {$codigo}")
             ->view($vista, [
-                'usuario'          => $notifiable,
-                'pqr'              => $pqr,
+                'usuario'          => $notifiable,             // Usuario asignado
+                'pqr'              => $this->pqr,              // Objeto PQR completo
                 'codigo'           => $codigo,
                 'emailSolicitante' => $this->emailSolicitante,
                 'archivoUrl'       => $archivoUrl,

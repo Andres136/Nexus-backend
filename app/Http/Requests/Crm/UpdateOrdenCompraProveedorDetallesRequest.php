@@ -24,7 +24,7 @@ class UpdateOrdenCompraProveedorDetallesRequest extends FormRequest
         return [
             'detalles' => 'required|array|min:1',
             'detalles.*.id' => 'required|exists:orden_compra_proveedor_detalles,id',
-         'detalles.*.cantidad_entregada' => 'nullable|numeric|gte:0',
+            'detalles.*.cantidad_entregada' => 'nullable|numeric|gte:0',
 
     
         ];

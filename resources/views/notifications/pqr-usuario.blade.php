@@ -5,11 +5,11 @@
 @section('content')
     <div style="margin: 30px 0;">
         <h2 style="color: #208040; margin-bottom: 25px; font-size: 22px; font-weight: 600;">
-            ✅ Hemos recibido su PQR
+             Hemos recibido su PQR
         </h2>
         
         <p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
-            Estimado/a <strong>{{ $pqr['nombre'] }}</strong>,
+            Estimado/a <strong>{{ $pqr->nombre }}</strong>,
         </p>
 
         <p style="font-size: 16px; line-height: 1.6; margin-bottom: 25px;">
@@ -21,7 +21,7 @@
                 <strong style="color: #208040;">🆔 Su código de radicado:</strong>
             </p>
             <div style="background: #208040; color: white; padding: 15px; border-radius: 6px; text-align: center; font-size: 20px; font-weight: 600; letter-spacing: 1px;">
-                {{ $codigo }}
+                {{ $pqr->codigo_radicado }}
             </div>
             <p style="margin: 15px 0 0 0; font-size: 14px; color: #666;">
                 Guarde este código para consultar el estado de su solicitud
@@ -33,7 +33,7 @@
             <div style="background: #ffffff; padding: 15px; border: 1px solid #ddd; border-radius: 6px;">
                 <p style="margin: 0 0 10px 0;"><strong>Mensaje:</strong></p>
                 <div style="font-style: italic; padding: 10px; background: #f9f9f9; border-radius: 4px;">
-                    "{{ $pqr['mensaje'] }}"
+                    "{{ $pqr->mensaje }}"
                 </div>
             </div>
         </div>
@@ -52,17 +52,17 @@
             </p>
         </div>
 
-        @if($archivoUrl)
+        @isset($archivoUrl)
         <div style="margin: 25px 0; text-align: center;">
             <a href="{{ $archivoUrl }}" 
                style="display: inline-block; background: #208040; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-weight: 500;">
                 📎 Ver su archivo adjunto
             </a>
         </div>
-        @endif
+        @endisset
     </div>
 @endsection
 
 @section('footer-text')
-    Atentamente, equipo de soporte SETASPLAST SAS BIC
+    Atentamente, equipo de soporte SETASPLAST S.A.S. BIC
 @endsection

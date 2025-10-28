@@ -43,4 +43,9 @@ class OrdenCompraProveedorDetalle extends Model
     {
         return $this->belongsTo(Proveedor::class, 'proveedor_id', 'id');
     }
+    //Relacion con el modelo Producto
+    public function producto()
+    {
+        return $this->belongsTo(product::class, 'producto_id', 'id');
+    }
 }

@@ -64,4 +64,6 @@ class OrdenCompraProveedor extends Model
         return $this->belongsTo(Sede::class, 'sede_id');
     }
 
+    //Relacion con el modelo producto
+
 }

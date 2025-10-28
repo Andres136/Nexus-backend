@@ -26,32 +26,15 @@ class RegistroIndicadoresRequest extends FormRequest
             'valor' => 'required|numeric',
             'fecha' => 'required|date',
             'observaciones' => 'nullable|string',
-            'documento' => 'nullable|file|max:5048|mimes:doc,docx,xls,xlsx',
-      
+            'documento' => 'required|file|max:5048|mimes:doc,docx,xls,xlsx',
+
 
             
         ];
 
     }
 
-    public function withValidator($validator)
-{
-    $validator->after(function ($validator) {
-        $observaciones = $this->input('observaciones');
-        $documento = $this->file('documento');
 
-        // Si no hay observaciones ni documento, error
-        if (empty($observaciones) && !$documento) {
-            $validator->errors()->add('observaciones', 'Debes ingresar observaciones o subir un documento.');
-            $validator->errors()->add('documento', 'Debes ingresar observaciones o subir un documento.');
-        }
-
-        // Si las observaciones son muy largas (>500 caracteres), documento es obligatorio
-        if (!empty($observaciones) && strlen($observaciones) > 500 && !$documento) {
-            $validator->errors()->add('documento', 'Si las observaciones son muy extensas, debes adjuntar un documento.');
-        }
-    });
-}
 
     public function messages(): array
     {

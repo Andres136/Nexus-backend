@@ -34,6 +34,12 @@ class product extends Model
         return $this->hasMany(Inventario::class, 'producto_id');
     }
 
+    // Relación con detalles de órdenes de compra
+    public function ordenCompraDetalles()
+    {
+        return $this->hasMany(Orden_Compra_Detalle::class, 'product_id');
+    }
+
 
 
 }

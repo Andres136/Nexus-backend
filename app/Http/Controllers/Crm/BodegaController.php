@@ -14,13 +14,28 @@ class BodegaController extends Controller
      */
     public function index()
     {
-        $bodegas = bodega::all();
-        return response()->json($bodegas);
+     try {
+           $user = auth()->user();
+           //Usuario con role admin puede ver todas las bodegas
+           $rolesPermitidos= [1]; // Agrega aquí los role_id permitidos
+           if (in_array($user->role_id, $rolesPermitidos)) {
+            $bodegas = bodega::with('sede', 'estado')->get();
+           } else {
+            //Usuarios no admin solo pueden ver bodegas de su sede
+            $bodegas = bodega::with('sede', 'estado')->where('sede_id', $user->sede_id)->get();
+           }
+
+            return response()->json($bodegas);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Error al obtener las bodegas', 'error' => $e->getMessage()], 500);
+        }
     }
 
     /**
      * Store a newly created resource in storage.
      */
+
+
     public function store(StoreBodegaRequest $request)
     {
       try {

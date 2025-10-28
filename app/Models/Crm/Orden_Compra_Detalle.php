@@ -10,6 +10,7 @@ class Orden_Compra_Detalle extends Model
     protected $table = 'orden__compra__detalles';
     protected $fillable = [
         'orden_compra_id',
+        'product_id',
         'largo_cm',
         'ancho_cm',
         'calibre',
@@ -41,6 +42,12 @@ public function entregas()
     return $this->hasMany(\App\Models\Crm\OrdenTrabajoEntrega::class, 'detalle_id', 'id')
         ->with('usuario:id,name')
         ->orderBy('created_at','asc');
+}
+
+//Relacion con la tabla productos
+public function product()
+{
+    return $this->belongsTo(product::class, 'product_id');
 }
 
 

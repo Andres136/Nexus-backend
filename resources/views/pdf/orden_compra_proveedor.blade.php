@@ -283,7 +283,7 @@
     </table>
    @if($orden->observaciones)
     <div class="observaciones">
-        <h4>📝 Observaciones</h4>
+        <h4>Observaciones</h4>
         <p style="margin: 0; line-height: 1.5;">{{ $orden->observaciones }}</p>
     </div>
     @endif
@@ -291,10 +291,10 @@
     <div class="summary-box">
         <div style="display: table; width: 100%;">
             <div style="display: table-cell; width: 50%;">
-                <strong>📦 Total de Items:</strong> {{ $orden->detalles->count() }}
+                <strong> Total de Items:</strong> {{ $orden->detalles->count() }}
             </div>
             <div style="display: table-cell; width: 50%; text-align: right;">
-                <strong>📊 Total Solicitado:</strong> {{ $orden->detalles->sum('cantidad_solicitada') }} 
+                <strong>Total Solicitado:</strong> {{ $orden->detalles->sum('cantidad_solicitada') }} 
             </div>
         </div>
     </div>
@@ -319,7 +319,7 @@
     <div class="footer">
         <div style="display: table; width: 100%;">
             <div style="display: table-cell;">
-                Documento generado el {{ now()->format('d/m/Y H:i:s') }}
+                Documento generado el {{ now()->format('d/m/Y') }}
             </div>
             <div style="display: table-cell; text-align: right;">
                 Software-Nexus - Setasplast

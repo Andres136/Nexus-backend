@@ -23,8 +23,9 @@ class OrdenComprasRequest extends FormRequest
 
         // Validaciones condicionales para detalles
         $rules['detalles'] = 'nullable|array|min:1';
-        $rules['detalles.*.largo_cm'] = 'required_with:detalles';
-        $rules['detalles.*.ancho_cm'] = 'required_with:detalles';
+        $rules['detalles.*.product_id'] = 'nullable|exists:products,id';
+        $rules['detalles.*.largo_cm'] = 'nullable:detalles|numeric';
+        $rules['detalles.*.ancho_cm'] = 'nullable:detalles|numeric';
         $rules['detalles.*.calibre'] = 'required_with:detalles';
         $rules['detalles.*.cantidad'] = 'required_with:detalles';
         $rules['detalles.*.cantidad_enviada'] = 'nullable_with:detalles';
@@ -74,10 +75,11 @@ class OrdenComprasRequest extends FormRequest
             
 
             // Mensajes de error para detalles
+    
             'detalles.min' => 'Debes ingresar mínimo un elemento',
-            'detalles.*.largo_cm.required_with' => 'El largo es obligatorio',
-            
-            'detalles.*.ancho_cm.required_with' => 'El ancho es obligatorio',
+            'detalles.*.product_id.exists' => 'El producto seleccionado no es válido',
+            'detalles.*.largo_cm.numeric' => 'El largo debe ser un número válido',
+            'detalles.*.ancho_cm.numeric' => 'El ancho debe ser un número válido',
             'detalles.*.calibre.required_with' => 'El calibre es obligatorio',
             'detalles.*.cantidad.required_with' => 'La cantidad es obligatoria',
             'detalles.*.valor_unitario.required_with' => 'El valor unitario es obligatorio',

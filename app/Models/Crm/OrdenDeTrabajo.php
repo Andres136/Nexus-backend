@@ -49,6 +49,7 @@ class OrdenDeTrabajo extends Model
 
 
 
+
     //Relacion con la tabla orden_trabajo_entregas
 
     public function entregas()
@@ -61,6 +62,11 @@ class OrdenDeTrabajo extends Model
     return $this->hasMany(Orden_Compra_Detalle::class, 'orden_compra_id', 'orden_compra_id')
         ->with(['entregas' => fn($q) => $q->with('usuario:id,name')->orderBy('created_at','asc')]);
 }
+//Relacion con movimientos stock
+    public function movimientosStock()
+    {
+        return $this->hasMany(MovimientoStock::class, 'orden_trabajo_id', 'id');
+    }   
 
 
 }

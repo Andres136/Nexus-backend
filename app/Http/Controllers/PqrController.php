@@ -10,12 +10,14 @@ use App\Models\Pqr;
 use App\Models\Procesos;
 use App\Models\User;
 use App\Notifications\ContactoNotificacion;
+use App\Notifications\Crm\AdminNotifications;
 use App\Notifications\Crm\PqrAsignadanotificacion;
 use App\Notifications\PqrNotificaciones;
 use App\Notifications\PqrNotifycaciones;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
+use PhpParser\Node\Stmt\TryCatch;
 
 class PqrController extends Controller
 {
@@ -80,10 +82,10 @@ class PqrController extends Controller
             $emailSolicitante = $request->email;
             $admins = User::where('role_id', 1)->get();
         
-            Notification::send($admins, new PqrNotifycaciones($data, 'admin', $emailSolicitante));
+            Notification::send($admins, new AdminNotifications($data, 'admin', $emailSolicitante));
         
             Notification::route('mail', $emailSolicitante)
-                ->notify(new PqrNotifycaciones($data, 'usuario', $admins->first()->email));
+                ->notify(new AdminNotifications($data, 'usuario', $admins->first()->email));
 
             return response()->json([
                 'message' => 'PQR enviada correctamente',
@@ -161,29 +163,40 @@ class PqrController extends Controller
      */
     public function asignarArea(Request $request, $id)
     {
-        $request->validate([
-            'asignado_a' => 'required|exists:users,id'
-        ]);
-    
+       try {
+        
         $pqr = Pqr::findOrFail($id);
         $pqr->asignado_a = $request->asignado_a;
         $pqr->save();
     
         $userAsignado = \App\Models\User::find($request->asignado_a);
     
-        // Buscamos el procedimiento vigente (dinámico)
         $departamento = Departamentos::where('nombre', 'Marketing y Comunicaciones')->first();
-        $proceso = Procesos::where('departamento_id', $departamento->id)->where('nombre', 'PQR')->first();
-        $documento = Documentos::where('proceso_id', $proceso->id)->orderByDesc('created_at')->first();
-    
-        $rutaCompleta = $documento ? storage_path('app/public/' . $documento->documento) : null;
+if (!$departamento) {
+    throw new \Exception('No se encontró el departamento Marketing y Comunicaciones');
+}
+
+$proceso = Procesos::where('departamento_id', $departamento->id)
+    ->where('nombre', 'Procedimiento')
+    ->first();
+if (!$proceso) {
+    throw new \Exception('No se encontró el proceso PROCEDIMIENTO COMUNICACIONES PQR');
+}
+
+$documento = Documentos::where('proceso_id', $proceso->id)
+    ->orderByDesc('created_at')
+    ->first();
+
+$rutaCompleta = $documento ? storage_path('app/public/' . $documento->documento) : null;
+
     
         // Enviamos notificación profesional
-        $userAsignado->notify(new PqrAsignadanotificacion($pqr, $documento, $rutaCompleta));
-    
-        return response()->json(['message' => 'PQR asignada correctamente al usuario con procedimiento adjunto']);
+        $userAsignado->notify(new PqrNotifycaciones($pqr, $documento, $rutaCompleta));
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Error al asignar la PQR', 'error' => $e->getMessage()], 500);
+        }
     }
-
+ 
 
     /**
      * Responde a una PQR.

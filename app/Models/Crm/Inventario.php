@@ -11,6 +11,7 @@ class Inventario extends Model
     protected $fillable = [
         'producto_id',
         'empresa_id',
+        'user_id',
         'sede_id',
         'bodega_id',
         'stock',
@@ -23,7 +24,7 @@ class Inventario extends Model
     // Relaciones con otros modelos (si es necesario)
     public function producto()
     {
-        return $this->belongsTo(Product::class, 'producto_id');
+        return $this->belongsTo(product::class, 'producto_id');
     }
     public function empresa()
     {
