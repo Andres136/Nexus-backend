@@ -47,47 +47,70 @@ public function index(Request $request)
         ->get();
 
     // 🔹 Procesamiento
-    $registros = $registros->map(function ($registro) {
+$registros = $registros->map(function ($registro) {
+    $meta  = (float) ($registro->indicador->meta ?? 0);
+    $valor = (float) $registro->valor;
+    $formula = strtolower($registro->indicador->formula ?? '');
+    $nombre  = strtolower($registro->indicador->nombre ?? '');
+    $tipoMeta = strtolower(trim($registro->indicador->tipo_meta ?? 'mayor'));
 
-        $meta  = $registro->indicador->meta ?? null;
-        $valor = $registro->valor;
-        $formula = strtolower($registro->indicador->formula ?? '');
-        $nombre  = strtolower($registro->indicador->nombre ?? '');
+    $esDias = str_contains($formula, 'dia') || str_contains($nombre, 'dia');
+    $resultado = '';
+    $estado = 'sin datos';
 
-        // 🔹 Detectar si el indicador se mide en días (por nombre o fórmula)
-        $esDias = str_contains($formula, 'dia') || str_contains($nombre, 'dia');
+    if ($esDias) {
+        // 🔹 Indicador medido en días
+        $fechaRegistro = Carbon::parse($registro->fecha);
+        $fechaInicioMes = Carbon::createFromDate(Carbon::now()->year, Carbon::now()->month, 1);
+    $dias = floor($fechaInicioMes->diffInDays($fechaRegistro, false));
+$resultado = "{$dias} días";
 
-        if ($esDias) {
-            // ✅ Indicadores de tiempo (en días)
-            $fechaRegistro = Carbon::parse($registro->fecha);
-            $fechaInicioMes = Carbon::createFromDate(Carbon::now()->year, Carbon::now()->month, 1);
-            $dias = $fechaInicioMes->diffInDays($fechaRegistro, false);
+     
 
-            $estado = ($dias <= $meta)
-                ? 'ok'
-                : (($dias <= $meta + 5) ? 'medio' : 'critico');
+        if ($meta > 0) {
+            if ($dias <= $meta) $estado = 'ok';
+            elseif ($dias <= $meta + 3) $estado = 'medio';
+            else $estado = 'critico';
+        }
+    } else {
+        // 🔹 Indicadores numéricos o porcentuales
+        $porcentaje = ($meta && $meta != 0) ? round(($valor / $meta) * 100, 2) : null;
 
-            $registro->resultado = $dias . ' días';
-        } else {
-            // ✅ Indicadores por porcentaje o valor numérico
-            $porcentaje = ($meta && $meta != 0) ? ($valor / $meta) * 100 : null;
+        switch ($tipoMeta) {
+            case 'mayor':
+                $estado = ($valor >= $meta) ? 'ok'
+                    : (($valor >= ($meta * 0.8)) ? 'medio' : 'critico');
+                break;
 
-            if ($meta === null) {
-                $estado = null;
-            } elseif ($valor >= $meta) {
-                $estado = 'ok';
-            } elseif ($porcentaje >= 80) {
-                $estado = 'medio';
-            } else {
-                $estado = 'critico';
-            }
+            case 'menor':
+                $estado = ($valor <= $meta) ? 'ok'
+                    : (($valor <= ($meta * 1.2)) ? 'medio' : 'critico');
+                break;
 
-            $registro->resultado = round($porcentaje, 2) . '%';
+            default:
+                $estado = ($valor >= $meta) ? 'ok' : 'critico';
+                break;
         }
 
-        $registro->estado = $estado;
-        return $registro;
-    });
+        if ($porcentaje !== null && $meta >= 10) {
+            $resultado = "{$porcentaje}%";
+        } else {
+            $resultado = rtrim(rtrim(number_format($valor, 2, '.', ''), '0'), '.');
+        }
+    }
+
+    // ✅ Asegurar resultado y valor numérico visibles
+    if (empty($resultado) || $resultado === '0') {
+        $resultado = rtrim(rtrim(number_format($valor, 2, '.', ''), '0'), '.');
+    }
+
+    $registro->valor_real = $valor;
+    $registro->resultado = $resultado;
+    $registro->estado = $estado;
+    return $registro;
+});
+
+
 
     return response()->json(['data' => $registros], 200);
 }
@@ -294,50 +317,96 @@ public function indexByCompany(Request $request)
 
     return response()->json(['data' => $result], 200);
 }
-
 public function procesarRegistro($registro)
 {
-    $meta       = $registro->indicador->meta ?? null;
-    $valor      = $registro->valor;
-    $formula    = strtolower($registro->indicador->formula ?? '');
-    $nombre     = strtolower($registro->indicador->nombre ?? '');
-    $esDias     = str_contains($formula, 'dia') || str_contains($nombre, 'dia');
+    $indicador = $registro->indicador;
+    $meta      = (float) ($indicador->meta ?? 0);
+    $valor     = (float) $registro->valor;
+    $tipoMeta  = strtolower(trim($indicador->tipo_meta ?? 'mayor')); // puede ser ≥, ≤, etc.
+    $formula   = strtolower($indicador->formula ?? '');
+    $nombre    = strtolower($indicador->nombre ?? '');
 
-    // 🔹 Calcular resultado según tipo
+    $esDias = str_contains($formula, 'dia') || str_contains($nombre, 'dia');
+    $resultado = null;
+    $estado = 'Sin datos';
+    $porcentaje = null;
+
+    // 🔹 Indicadores tipo “en días”
     if ($esDias) {
-        // Indicador medido en días
-        $fechaRegistro = Carbon::parse($registro->fecha);
-        $fechaInicioMes = Carbon::createFromDate(
-            Carbon::now()->year,
-            Carbon::now()->month,
+        $fechaRegistro = \Carbon\Carbon::parse($registro->fecha);
+        $fechaInicioMes = \Carbon\Carbon::createFromDate(
+            \Carbon\Carbon::now()->year,
+            \Carbon\Carbon::now()->month,
             1
         );
         $dias = $fechaInicioMes->diffInDays($fechaRegistro, false);
-        $registro->resultado = floor($dias) . ' días';
+        $resultado = $dias . ' días';
 
-        $estado = ($dias <= $meta)
-            ? 'ok'
-            : (($dias <= $meta + 5) ? 'medio' : 'critico');
+        if ($meta > 0) {
+            if ($dias <= $meta) {
+                $estado = 'OK';
+            } elseif ($dias <= $meta + 3) {
+                $estado = 'Medio';
+            } else {
+                $estado = 'Crítico';
+            }
+        }
     } else {
-        // Indicador por porcentaje o valor
-        $porcentaje = ($meta && $meta != 0) ? ($valor / $meta) * 100 : null;
-        $porcentajeFloor = $porcentaje ? floor($porcentaje) : null;
-        $registro->resultado = $porcentajeFloor !== null ? $porcentajeFloor . '%' : null;
-
-        if ($meta === null) {
-            $estado = null;
-        } elseif ($valor >= $meta) {
-            $estado = 'ok';
-        } elseif ($porcentaje >= 80) {
-            $estado = 'medio';
+        // 🔹 Indicadores por porcentaje o valor absoluto
+        if ($meta > 0) {
+            $porcentaje = round(($valor / $meta) * 100, 2);
+            $resultado = "{$porcentaje}%";
         } else {
-            $estado = 'critico';
+            $resultado = "{$valor}";
+        }
+
+        switch (true) {
+            // ✅ Si la meta es "≥"
+            case str_contains($tipoMeta, '≥') || str_contains($tipoMeta, 'mayor'):
+                if ($valor >= $meta) {
+                    $estado = 'OK';
+                } elseif ($valor >= ($meta * 0.8)) {
+                    $estado = 'Medio';
+                } else {
+                    $estado = 'Crítico';
+                }
+                break;
+
+            // ✅ Si la meta es "≤"
+            case str_contains($tipoMeta, '≤') || str_contains($tipoMeta, 'menor'):
+                if ($valor <= $meta) {
+                    $estado = 'OK';
+                } elseif ($valor <= ($meta * 1.2)) {
+                    $estado = 'Medio';
+                } else {
+                    $estado = 'Crítico';
+                }
+                break;
+
+            // ✅ Si la meta es "=", igualdad exacta
+            case str_contains($tipoMeta, '=') || str_contains($tipoMeta, 'igual'):
+                $estado = ($valor == $meta) ? 'OK' : 'Crítico';
+                break;
+
+            default:
+                $estado = 'Desconocido';
+                break;
         }
     }
 
-    $registro->estado = $estado;
-    $registro->porcentaje_meta = isset($porcentaje) ? $porcentaje : null;
-    return $registro;
+    // 🔹 Respuesta limpia (no altera el modelo original)
+    return [
+        'id' => $registro->id,
+        'fecha' => $registro->fecha,
+        'valor' => $valor,
+        'meta' => $meta,
+        'tipo_meta' => $tipoMeta,
+        'resultado' => $resultado,
+        'estado' => $estado,
+        'porcentaje_meta' => $porcentaje,
+    ];
 }
+
+
 
 }
