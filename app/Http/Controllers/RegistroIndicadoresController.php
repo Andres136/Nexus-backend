@@ -328,46 +328,25 @@ public function procesarRegistro($registro)
     $indicador = $registro->indicador;
     $meta      = (float) ($indicador->meta ?? 0);
     $valor     = (float) $registro->valor;
-    $tipoMeta  = strtolower(trim($indicador->tipo_meta ?? 'mayor')); // puede ser ≥, ≤, etc.
+    $tipoMeta  = strtolower(trim($indicador->tipo_meta ?? 'mayor'));
     $formula   = strtolower($indicador->formula ?? '');
     $nombre    = strtolower($indicador->nombre ?? '');
 
     $esDias = str_contains($formula, 'dia') || str_contains($nombre, 'dia');
     $resultado = null;
     $estado = 'Sin datos';
-    $porcentaje = null;
 
-    // 🔹 Indicadores tipo “en días”
+    // 🔹 Mostrar el valor real (días o porcentaje)
     if ($esDias) {
-        $fechaRegistro = \Carbon\Carbon::parse($registro->fecha);
-        $fechaInicioMes = \Carbon\Carbon::createFromDate(
-            \Carbon\Carbon::now()->year,
-            \Carbon\Carbon::now()->month,
-            1
-        );
-        $dias = $fechaInicioMes->diffInDays($fechaRegistro, false);
-        $resultado = $dias . ' días';
-
-        if ($meta > 0) {
-            if ($dias <= $meta) {
-                $estado = 'OK';
-            } elseif ($dias <= $meta + 3) {
-                $estado = 'Medio';
-            } else {
-                $estado = 'Crítico';
-            }
-        }
+        $resultado = round($valor) . ' días';
     } else {
-        // 🔹 Indicadores por porcentaje o valor absoluto
-        if ($meta > 0) {
-            $porcentaje = round(($valor / $meta) * 100, 2);
-            $resultado = "{$porcentaje}%";
-        } else {
-            $resultado = "{$valor}";
-        }
+        $resultado = round($valor) . '%';
+    }
 
+    // 🔹 Comparar el valor con la meta sin recalcular porcentajes
+    if ($meta > 0) {
         switch (true) {
-            // ✅ Si la meta es "≥"
+            // ✅ Si la meta es "mayor o igual"
             case str_contains($tipoMeta, '≥') || str_contains($tipoMeta, 'mayor'):
                 if ($valor >= $meta) {
                     $estado = 'OK';
@@ -378,7 +357,7 @@ public function procesarRegistro($registro)
                 }
                 break;
 
-            // ✅ Si la meta es "≤"
+            // ✅ Si la meta es "menor o igual"
             case str_contains($tipoMeta, '≤') || str_contains($tipoMeta, 'menor'):
                 if ($valor <= $meta) {
                     $estado = 'OK';
@@ -389,7 +368,7 @@ public function procesarRegistro($registro)
                 }
                 break;
 
-            // ✅ Si la meta es "=", igualdad exacta
+            // ✅ Si la meta es "igual"
             case str_contains($tipoMeta, '=') || str_contains($tipoMeta, 'igual'):
                 $estado = ($valor == $meta) ? 'OK' : 'Crítico';
                 break;
@@ -400,7 +379,7 @@ public function procesarRegistro($registro)
         }
     }
 
-    // 🔹 Respuesta limpia (no altera el modelo original)
+    // 🔹 Retornar sin alterar los valores registrados
     return [
         'id' => $registro->id,
         'fecha' => $registro->fecha,
@@ -409,7 +388,6 @@ public function procesarRegistro($registro)
         'tipo_meta' => $tipoMeta,
         'resultado' => $resultado,
         'estado' => $estado,
-        'porcentaje_meta' => $porcentaje,
     ];
 }
 
