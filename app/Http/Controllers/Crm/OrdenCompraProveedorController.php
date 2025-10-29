@@ -37,8 +37,8 @@ class OrdenCompraProveedorController extends Controller
     // Si no es admin, solo ve su sede
     $q->where('sede_id', $user->sede_id);
 })
-// ✅ Ordena primero las órdenes de la sede del usuario autenticado
-->orderByRaw("CASE WHEN sede_id = {$user->sede_id} THEN 0 ELSE 1 END")
+// ✅ Ordena primero las órdenes de la sede del usuario autenticado validar si sede  es nulo
+->orderByRaw("CASE WHEN sede_id = ? THEN 0 ELSE 1 END", [$user->sede_id ?? 0])
 ->orderBy('id', 'desc');
 
             // Filtrar por sede del usuario autenticado
