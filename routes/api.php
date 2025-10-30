@@ -173,12 +173,11 @@ Route::get('entregas/{id}', [OrdenCompraController::class, 'obtenerEntregas']);
 Route::apiResource('sedes', SedeController::class);
 
 
-//Consultar todos los productos sin paginar
-Route::get('products-all', [CrmProductController::class, 'getAllProducts']);
+
 Route::get('audit-ordenes-compra',[DashboardController::class,'getAuditData']);
 //Stock con sugerencias de productos
 Route::get('stock-products-sugerencias/{id}', [CrmProductController::class, 'stockProductoConSugerencias']);
-Route::apiResource('products',CrmProductController::class);
+
 Route::get('stock-products/{id}', [CrmProductController::class, 'stock']);
 Route::get('stock-products-for-user/{id}', [CrmProductController::class, 'stockForUserAndOrder']);
 //Registrar entrada de stock Manualmente
@@ -277,8 +276,9 @@ Route::match(['GET', 'POST'], '/webhook', [WhatsappWebhookController::class, 'ha
 
 //Descargar órdenes críticas de hoy en PDF
 
-
-
+//Consultar todos los productos sin paginar
+Route::get('products-all', [CrmProductController::class, 'getAllProducts']);
+Route::apiResource('products',CrmProductController::class);
 //Registrar meta mensual
 Route::post('/meta-mensual', [OrdenCompraController::class, 'registrarMeta']);
 //Resumen de meta mensual

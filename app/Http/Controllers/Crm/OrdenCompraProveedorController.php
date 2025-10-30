@@ -33,19 +33,20 @@ class OrdenCompraProveedorController extends Controller
     'empresa',
     'sede'
 ])
-->when(!in_array($user->role_id, [1, 2]), function ($q) use ($user) {
-    // Si no es admin, solo ve su sede
-    $q->where('sede_id', $user->sede_id);
+->when(!in_array($user->role_id, [1, 2, 4]), function ($q) use ($user) {
+    if (!is_null($user->sede_id)) {
+        $q->where(function ($sub) use ($user) {
+            $sub->where('sede_id', $user->sede_id)
+                ->orWhereNull('sede_id'); // ✅ Incluye órdenes sin sede asignada
+        });
+    }
 })
+
 // ✅ Ordena primero las órdenes de la sede del usuario autenticado validar si sede  es nulo
 ->orderByRaw("CASE WHEN sede_id = ? THEN 0 ELSE 1 END", [$user->sede_id ?? 0])
 ->orderBy('id', 'desc');
 
-            // Filtrar por sede del usuario autenticado
-            if (!in_array($user->role_id, [1, 4])) { // Si no es admin o superadmin
-                $query->where('sede_id', $user->sede_id);
-            }   
-
+    
    if ($request->has('search')) {
     $search = $request->search;
 
