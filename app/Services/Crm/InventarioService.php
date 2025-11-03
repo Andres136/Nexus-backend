@@ -744,4 +744,6 @@ public function descontarStockMasivo(array $items, $user)
     }
 }
 
+
+
 }

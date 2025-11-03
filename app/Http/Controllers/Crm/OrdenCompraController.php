@@ -19,7 +19,7 @@ use App\Notifications\OrdenCompraNotificacion;
 use App\Notifications\OrdenTrabajoCreada;
 use App\Notifications\OrdenTrabajoGeneradaParaCreador;
 use App\Notifications\OrdenTrabajoListaParcial;
-
+use App\Services\ProductService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Exception;
@@ -36,8 +36,19 @@ class OrdenCompraController extends Controller
     /**
      * Display a listing of the resource.
      */
+     protected $productService;
+
+    public function __construct()
+    {
+        $this->productService = app(ProductService::class);
+    }
 
 
+    public function verificarFaltantesPendientes()
+    {
+          $resultado = $this->productService->getFaltantesOrdenesPendientes();
+    return response()->json($resultado);
+    }
 
     public function index(Request $request)
     {

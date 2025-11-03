@@ -12,6 +12,7 @@ use App\Http\Controllers\Crm\DocumentosAdministrativosController;
 use App\Http\Controllers\Crm\DocumentoVehiculoController;
 use App\Http\Controllers\Crm\EmpresaController;
 use App\Http\Controllers\Crm\EntregaProveedorController;
+use App\Http\Controllers\Crm\EventoController;
 use App\Http\Controllers\Crm\InspeccionController;
 use App\Http\Controllers\Crm\InventorieController;
 use App\Http\Controllers\Crm\MantenimientoController;
@@ -120,6 +121,8 @@ Route::get('mis-ordenes', [OrdenCompraController::class, 'misOrdenes']);
 Route::get("/mis-cotizaciones", [CotizacionController::class, 'misCotizaciones']);
 Route::get('ordenes-compra/{id}', [OrdenCompraController::class, 'show']);
 Route::get('orden-compras/{id}/edit', [OrdenCompraController::class, 'edit']);
+Route::get('/ordenes-compra/faltantes/pendientes', [OrdenCompraController::class, 'verificarFaltantesPendientes']);
+
 
 
 Route::get('/orden-trabajo/{id}', [ordenTrabajoController::class, 'show']);
@@ -284,3 +287,6 @@ Route::post('/meta-mensual', [OrdenCompraController::class, 'registrarMeta']);
 //Resumen de meta mensual
 Route::get('/meta-mensual/resumen', [OrdenCompraController::class, 'graficoMetaMensual']);
 Route::get('/dashboard/exportar-ordenes-criticas-mes', [DashboardController::class, 'exportarOrdenesCriticasMes']);
+//Rutas para el módulo de eventos
+Route::apiResource('/eventos', EventoController::class);
+Route::post('/eventos/crear-qr', [EventoController::class, 'crearQr']);

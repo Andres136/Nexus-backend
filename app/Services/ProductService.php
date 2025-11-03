@@ -3,11 +3,13 @@
 namespace App\Services;
 
 use App\Models\Crm\Inventario;
+use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\product as CrmProduct;
 use App\Models\Crm\Sede;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 
 class ProductService
@@ -303,117 +305,183 @@ public function importInventarioFromExcel($filePath, $user, $empresaId, $bodegaI
 }
 
 public function getStockConSugerencias(int $productoId, $user): array
-    {
-        $sedeId = $user->sede_id;
+{
+    $sedeId = $user->sede_id;
 
-        // 🔹 1. Producto base
-        $producto = CrmProduct::findOrFail($productoId);
+    // 1️⃣ Producto base
+    $producto = CrmProduct::findOrFail($productoId);
 
-        // 🔹 2. Inventarios del producto base
-        $inventariosBase = Inventario::with('bodega')
-            ->where('producto_id', $productoId)
+    // 2️⃣ Inventarios del producto base
+    $inventariosBase = Inventario::with('bodega')
+        ->where('producto_id', $productoId)
+        ->where('sede_id', $sedeId)
+        ->get();
+
+    $stockBase = (float) $inventariosBase->sum('stock');
+
+    $resumenBase = $inventariosBase
+        ->groupBy('bodega_id')
+        ->map(fn($items) => [
+            'bodega_id'     => $items->first()->bodega_id,
+            'bodega_nombre' => $items->first()->bodega->nombre ?? 'Sin bodega',
+            'stock_total'   => (float) $items->sum('stock'),
+        ])
+        ->sortByDesc('stock_total')
+        ->values();
+
+    // 3️⃣ Extraer tokens significativos del nombre y descripción
+    $textoBase = strtoupper($producto->name . ' ' . $producto->description);
+    $tokens = collect(explode(' ', preg_replace('/[^A-Za-z0-9\.]/', ' ', $textoBase)))
+        ->filter(fn($t) => strlen($t) > 2)
+        ->values();
+
+    // 4️⃣ Generar patrón de similitud
+    $patron = $tokens->map(fn($t) => "%$t%");
+
+    // 5️⃣ Buscar productos similares con coincidencia fuerte
+    $similares = CrmProduct::where('id', '!=', $productoId)
+        ->where(function ($q) use ($producto, $tokens, $patron) {
+            // coincidencia exacta parcial entre nombre o descripción
+            foreach ($patron as $p) {
+                $q->orWhere('name', 'like', $p)
+                  ->orWhere('description', 'like', $p);
+            }
+            // coincidencia por prefijo de código
+            if (!empty($producto->code)) {
+                $q->orWhere('code', 'like', substr($producto->code, 0, 5) . '%');
+            }
+        })
+        ->take(30)
+        ->get();
+
+    // 6️⃣ Calcular nivel de similitud (ratio)
+    $similaresFiltrados = $similares->map(function ($p) use ($textoBase, $sedeId) {
+        $textoSim = strtoupper($p->name . ' ' . $p->description);
+        similar_text($textoBase, $textoSim, $porcentaje);
+
+        $inv = Inventario::with('bodega')
+            ->where('producto_id', $p->id)
             ->where('sede_id', $sedeId)
             ->get();
 
-        $stockBase = (float) $inventariosBase->sum('stock');
+        $stockTotal = (float) $inv->sum('stock');
+        if ($stockTotal <= 0) return null;
 
-        // 🔹 3. Agrupar y ordenar bodegas del producto base
-        $resumenBase = $inventariosBase
-            ->groupBy('bodega_id')
-            ->map(fn($items) => [
+        return [
+            'id' => $p->id,
+            'nombre' => $p->name,
+            'codigo' => $p->code,
+            'stock_total' => $stockTotal,
+            'similitud' => round($porcentaje, 2),
+            'disponible' => true,
+            'es_base' => false,
+            'resumen_por_bodega' => $inv->groupBy('bodega_id')->map(fn($items) => [
                 'bodega_id'     => $items->first()->bodega_id,
                 'bodega_nombre' => $items->first()->bodega->nombre ?? 'Sin bodega',
                 'stock_total'   => (float) $items->sum('stock'),
-            ])
-            ->sortByDesc('stock_total')
-            ->values();
+            ])->sortByDesc('stock_total')->values(),
+        ];
+    })
+    ->filter(fn($item) => $item && $item['similitud'] >= 55) // ⚙️ solo productos con ≥55% de similitud
+    ->sortByDesc('similitud')
+    ->values();
 
-        // 🔹 4. Detectar números relevantes (dimensiones, calibres, etc.)
-        preg_match_all('/\d+(\.\d+)?/', $producto->name . ' ' . $producto->description, $matches);
-        $numeros = collect($matches[0])->unique();
+    // 7️⃣ Producto base
+    $productoBase = [
+        'id' => $producto->id,
+        'nombre' => $producto->name,
+        'codigo' => $producto->code,
+        'stock_total' => $stockBase,
+        'disponible' => $stockBase > 0,
+        'es_base' => true,
+        'resumen_por_bodega' => $resumenBase,
+    ];
 
-        // 🔹 5. Buscar productos similares
-        $similares = CrmProduct::where('id', '!=', $productoId)
-            ->where(function ($q) use ($producto, $numeros) {
-                $q->where('name', 'like', '%' . $producto->name . '%')
-                  ->orWhere('description', 'like', '%' . $producto->description . '%')
-                  ->orWhere('code', 'like', substr($producto->code, 0, 5) . '%');
+    // 8️⃣ Combinar
+    $todosOrdenados = collect([$productoBase])
+        ->merge($similaresFiltrados)
+        ->sortByDesc(fn($p) => $p['stock_total'])
+        ->values();
 
-                foreach ($numeros as $num) {
-                    $q->orWhere('name', 'like', "%{$num}%")
-                      ->orWhere('description', 'like', "%{$num}%");
-                }
-            })
-            ->take(25)
-            ->get();
+    return [
+        'producto_base' => $productoBase,
+        'sugerencias'   => $similaresFiltrados,
+        'todos_ordenados' => $todosOrdenados,
+    ];
+}
 
-        // 🔹 6. Procesar sugerencias
-        $sugerencias = $similares->map(function ($p) use ($sedeId) {
-            $inv = Inventario::with('bodega')
-                ->where('producto_id', $p->id)
-                ->where('sede_id', $sedeId)
-                ->get();
 
-            $stockTotal = (float) $inv->sum('stock');
-            if ($stockTotal <= 0) return null; // ❌ sin stock no interesa
 
-            return [
-                'id' => $p->id,
-                'nombre' => $p->name,
-                'codigo' => $p->code,
-                'stock_total' => $stockTotal,
-                'disponible' => true,
-                'es_base' => false,
-                'resumen_por_bodega' => $inv->groupBy('bodega_id')->map(fn($items) => [
-                    'bodega_id'     => $items->first()->bodega_id,
-                    'bodega_nombre' => $items->first()->bodega->nombre ?? 'Sin bodega',
-                    'stock_total'   => (float) $items->sum('stock'),
-                ])->sortByDesc('stock_total')->values(),
-            ];
-        })->filter()->sortByDesc('stock_total')->values();
 
-        // 🔹 7. Si el producto base NO tiene stock → solo sugerencias
-        if ($stockBase <= 0) {
-            return [
-                'producto_base' => [
-                    'id' => $producto->id,
-                    'nombre' => $producto->name,
-                    'codigo' => $producto->code,
-                    'stock_total' => 0,
-                    'disponible' => false,
-                    'es_base' => true,
-                    'resumen_por_bodega' => [],
-                ],
-                'sugerencias' => $sugerencias,
-            ];
+public function getFaltantesOrdenesPendientes()
+{
+    $user = auth()->user();
+
+    $ordenes = Orden_Compra::with(['detalles.product', 'estado', 'cliente'])
+        ->whereIn('estado_id', [1, 5]) // Pendiente y Parcial
+        ->when(!in_array($user->role_id, [1, 2, 4]), function ($query) use ($user) {
+            // 🔒 Si no es admin, superadmin o gerente, filtra por la sede del usuario
+            $query->where('sede_id', $user->sede_id);
+        })
+        ->get();
+
+    $resultado = [];
+
+    foreach ($ordenes as $orden) {
+        $faltantes = [];
+
+        foreach ($orden->detalles as $detalle) {
+            if (!$detalle->product) continue;
+
+            $productoId = $detalle->product_id;
+            $cantidadRequerida = $detalle->cantidad_requerida_kg ?? 0;
+
+            $stockInfo = $this->getStockByProduct($productoId, $user);
+            $stockTotal = $stockInfo['stock_total'];
+            $faltante = max(0, $cantidadRequerida - $stockTotal);
+
+            if ($faltante > 0) {
+                $faltantes[] = [
+                    'producto_id'        => $productoId,
+                    'codigo'             => $detalle->product->code ?? '-',
+                    'nombre'             => $detalle->product->name ?? 'Sin nombre',
+                    'cantidad_requerida' => floatval($cantidadRequerida),
+                    'stock_disponible'   => floatval($stockTotal),
+                    'faltante'           => floatval($faltante),
+                    'resumen_bodegas'    => $stockInfo['resumen_por_bodega'],
+                ];
+            }
         }
 
-        // 🔹 8. Si el producto base tiene stock → incluirlo junto con sugerencias
-        $productoBase = [
-            'id' => $producto->id,
-            'nombre' => $producto->name,
-            'codigo' => $producto->code,
-            'stock_total' => $stockBase,
-            'disponible' => $stockBase > 0,
-            'es_base' => true,
-            'resumen_por_bodega' => $resumenBase,
-        ];
-
-        // 🔹 9. Combinar todo (producto base + sugerencias con stock)
-        $todosOrdenados = collect([$productoBase])
-            ->merge($sugerencias)
-            ->sortByDesc(fn($p) => $p['stock_total'])
-            ->values();
-
-        return [
-            'producto_base' => $productoBase,
-            'sugerencias'   => $sugerencias,
-            'todos_ordenados' => $todosOrdenados,
-        ];
+        if (!empty($faltantes)) {
+            $resultado[] = [
+                'orden_id'        => $orden->id,
+                'codigo'          => "OC-" . str_pad($orden->id, 4, '0', STR_PAD_LEFT),
+                'estado'          => $orden->estado->nombre ?? 'Desconocido',
+                'cliente'         => [
+                    'id'      => $orden->cliente->id ?? null,
+                    'nombre'  => $orden->cliente->nombre ?? 'Sin cliente',
+                    'nit'     => $orden->cliente->nit ?? null,
+                ],
+                'sede'            => [
+                    'id'      => $orden->sede->id ?? null,
+                    'nombre'  => $orden->sede->nombre ?? 'Sin sede',
+                ],
+                'faltantes_total' => count($faltantes),
+                'faltantes'       => $faltantes,
+            ];
+        }
     }
 
+    return [
+        'total_ordenes' => count($resultado),
+        'ordenes'       => $resultado,
+    ];
+}
 
-    
+
+
+
     
 
     
