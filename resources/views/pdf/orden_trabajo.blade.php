@@ -103,6 +103,7 @@
                 <th>Ancho</th>
                 <th>Largo</th>
                 <th>Calibre</th>
+                <th>Calibre Cl</th>
                 <th>Descripción</th>
                 <th>Kg Req.</th>
                 <th>Cantidad</th>
@@ -119,6 +120,7 @@
                     <td>{{ $d->ancho_cm }}</td>
                     <td>{{ $d->largo_cm }}</td>
                     <td>{{ $d->calibre }}</td>
+                    <td>{{ $d->cliente_clb }}</td>
                     <td class="descripcion">{{ $d->descripcion }}</td>
                     <td>{{ number_format($d->cantidad_requerida_kg, 2) }}</td>
                     <td>{{ $d->cantidad }}</td>

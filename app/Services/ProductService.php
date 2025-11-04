@@ -417,7 +417,7 @@ public function getFaltantesOrdenesPendientes()
 {
     $user = auth()->user();
 
-    $ordenes = Orden_Compra::with(['detalles.product', 'estado', 'cliente'])
+    $ordenes = Orden_Compra::with(['detalles.product', 'estado', 'cliente','OrdenesTrabajo'])
         ->whereIn('estado_id', [1, 5]) // Pendiente y Parcial
         ->when(!in_array($user->role_id, [1, 2, 4]), function ($query) use ($user) {
             // 🔒 Si no es admin, superadmin o gerente, filtra por la sede del usuario
@@ -467,9 +467,16 @@ public function getFaltantesOrdenesPendientes()
                     'id'      => $orden->sede->id ?? null,
                     'nombre'  => $orden->sede->nombre ?? 'Sin sede',
                 ],
+                'ordenes_trabajo' => $orden->OrdenesTrabajo->map(function ($ot) {
+                    return [
+                        'id'      => $ot->id,
+                        'codigo'  => "OT-" . str_pad($ot->id, 4, '0', STR_PAD_LEFT),
+                        'estado'  => $ot->estado->nombre ?? 'Desconocido',
+                    ];
+                }),
                 'faltantes_total' => count($faltantes),
                 'faltantes'       => $faltantes,
-            ];
+            ];  
         }
     }
 
