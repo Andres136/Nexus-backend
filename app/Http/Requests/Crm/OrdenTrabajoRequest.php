@@ -24,11 +24,7 @@ class OrdenTrabajoRequest extends FormRequest
     {
         return [
             'observaciones' => ['required', 'string'],
-                'sede_id' => [
-                'required', // Puede venir vacío si ya se resolverá en el controlador
-                'integer',
-                Rule::exists('sedes', 'id'), // Debe existir en la tabla sedes
-            ],
+   
             
         ];
     }
