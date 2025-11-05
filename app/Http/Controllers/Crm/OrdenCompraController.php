@@ -55,7 +55,7 @@ class OrdenCompraController extends Controller
         $search = $request->input('search');
 
         // Obtener órdenes de compra con paginación y ordenarlas por fecha de creación (las más recientes primero)
-        $ordenesCompra = Orden_Compra::with('detalles', 'cliente', 'user', 'estado')
+        $ordenesCompra = Orden_Compra::with('detalles', 'cliente', 'user', 'estado','detalles.product')
             ->when($search, function ($query, $search) {
                 return $query->whereHas('cliente', function ($query) use ($search) {
                     $query->where('nombre', 'LIKE', "%$search%");
