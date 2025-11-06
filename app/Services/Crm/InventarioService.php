@@ -734,6 +734,15 @@ public function descontarStockMasivo(array $items, $user)
         }
 
         DB::commit();
+        $pathPdf = $this->generarPDFMovimientoGlobal($resultados, $user);
+
+// 🔹 Devolver respuesta con un solo PDF
+return [
+    'success'   => empty($erroresGlobales),
+    'resultados'=> $resultados,
+    'errores'   => $erroresGlobales,
+    'pdf'       => asset("storage/{$pathPdf}"),
+];
         return [
             'success' => empty($erroresGlobales),
             'resultados' => $resultados,
@@ -748,6 +757,50 @@ public function descontarStockMasivo(array $items, $user)
             'errores' => $erroresGlobales,
         ];
     }
+}
+  public function generarPDFMovimiento($movimiento)
+    {
+        // Datos para la vista
+        $data = [
+            'movimiento' => $movimiento,
+            'usuario'    => $movimiento->usuario,
+            'detalle'    => $movimiento->detalle ?? [],
+            'fecha'      => now()->format('d/m/Y H:i'),
+        ];
+
+        // Cargar la vista Blade
+        $pdf = Pdf::loadView('pdf.movimiento', $data)
+            ->setPaper('A4', 'portrait');
+
+        // Nombre y ruta
+        $filename = 'movimiento_' . $movimiento->id . '.pdf';
+        $path = 'movimientos/' . $filename;
+
+        // Guardar en storage público
+        Storage::disk('public')->put($path, $pdf->output());
+
+        return $path; // Ej: "movimientos/movimiento_45.pdf"
+    }
+
+    public function generarPDFMovimientoGlobal(array $resultados, $usuario)
+{
+    $data = [
+        'usuario'   => $usuario,
+        'resultados'=> $resultados,
+        'fecha'     => now()->format('d/m/Y '),
+    ];
+
+    // Cargar la vista Blade del consolidado
+    $pdf = Pdf::loadView('pdf.movimiento', $data)
+        ->setPaper('A4', 'portrait');
+
+    // Guardar el PDF con nombre único
+    $filename = 'movimiento_global_' . now()->format('Ymd_His') . '.pdf';
+    $path = 'movimientos/' . $filename;
+
+    Storage::disk('public')->put($path, $pdf->output());
+
+    return $path;
 }
 
 

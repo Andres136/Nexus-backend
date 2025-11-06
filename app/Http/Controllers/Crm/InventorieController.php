@@ -25,10 +25,12 @@ class InventorieController extends Controller
  * Listar inventarios con filtros, estadísticas y totales globales
  */
 protected $inventarioService;
+protected $movimientoPDFService;
 
-    public function __construct(InventarioService $inventarioService, )
+    public function __construct(InventarioService $inventarioService, InventarioService $movimientoPDFService)
     {
         $this->inventarioService = $inventarioService;
+        $this->movimientoPDFService = $movimientoPDFService;
 
     }
 
@@ -455,7 +457,10 @@ public function descontarStockMasivo(StockMasivoRequest $request)
 
     $result = $this->inventarioService->descontarStockMasivo($items, $user);
 
+
+
     return response()->json($result, $result['success'] ? 200 : 400);
 }
+
 
 }
