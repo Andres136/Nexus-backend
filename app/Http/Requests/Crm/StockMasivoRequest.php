@@ -19,48 +19,68 @@ class StockMasivoRequest extends FormRequest
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
-    public function rules(): array
-    {
-        return [
-            'items' => ['required', 'array', 'min:1'],
+public function rules(): array
+{
+    return [
+        'items' => ['required', 'array', 'min:1'],
+
         'items.*.producto_id' => ['required', 'integer', 'exists:products,id'],
         'items.*.cantidad' => ['required', 'numeric', 'min:1'],
         'items.*.orden_trabajo_id' => ['nullable', 'integer'],
         'items.*.orden_compra_id' => ['nullable', 'integer'],
-        'items.*.bodegas' => ['required', 'array', 'min:1'],
-        'items.*.bodegas.*.bodega_id' => ['required', 'integer', 'exists:bodegas,id'],
-        'items.*.bodegas.*.cantidad' => ['required', 'numeric', 'min:0'],
+
+        // 🔹 Ya no es obligatoria si existen equivalentes
+        'items.*.bodegas' => ['required_without:items.*.producto_equivalentes', 'array'],
+        'items.*.bodegas.*.bodega_id' => ['required_with:items.*.bodegas', 'integer', 'exists:bodegas,id'],
+        'items.*.bodegas.*.cantidad' => ['required_with:items.*.bodegas', 'numeric', 'min:0'],
+
         'items.*.producto_equivalentes' => ['nullable', 'array'],
         'items.*.producto_equivalentes.*.id' => ['required_with:items.*.producto_equivalentes', 'integer', 'exists:products,id'],
         'items.*.producto_equivalentes.*.razon' => ['nullable', 'string'],
         'items.*.producto_equivalentes.*.bodegas' => ['required_with:items.*.producto_equivalentes', 'array'],
         'items.*.producto_equivalentes.*.bodegas.*.bodega_id' => ['required_with:items.*.producto_equivalentes.*.bodegas', 'integer', 'exists:bodegas,id'],
         'items.*.producto_equivalentes.*.bodegas.*.cantidad' => ['required_with:items.*.producto_equivalentes.*.bodegas', 'numeric', 'min:0'],
-        ];
-    }
+
+        // 🔸 Validación final: asegurar que haya alguna cantidad > 0
+        'validacion_global' => [
+            function ($attribute, $value, $fail) {
+                foreach ($this->input('items', []) as $item) {
+                    $totalBodegas = collect($item['bodegas'] ?? [])->sum('cantidad');
+                    $totalEquivalentes = collect($item['producto_equivalentes'] ?? [])
+                        ->flatMap(fn($eq) => $eq['bodegas'] ?? [])
+                        ->sum('cantidad');
+
+                    if (($totalBodegas + $totalEquivalentes) <= 0) {
+                        $fail("El producto #{$item['producto_id']} no tiene cantidades válidas para descontar.");
+                    }
+                }
+            },
+        ],
+    ];
+}
 
 
     public function messages(): array
     {
         return [
-            'items.required' => 'Se requiere al menos un producto para descontar stock.',
-            'items.array' => 'El campo de productos debe ser un arreglo.',
-            'items.min' => 'Se requiere al menos un producto para descontar stock.',
-            'items.*.producto_id.required' => 'El ID del producto es obligatorio.',
-            'items.*.producto_id.integer' => 'El ID del producto debe ser un número entero.',
-            'items.*.producto_id.exists' => 'El producto seleccionado no existe.',
-            'items.*.cantidad.required' => 'La cantidad a descontar es obligatoria.',
-            'items.*.cantidad.numeric' => 'La cantidad a descontar debe ser un número.',
-            'items.*.cantidad.min' => 'La cantidad a descontar debe ser al menos 1.',
-            'items.*.bodegas.required' => 'Se requiere al menos una bodega para cada producto.',
-            'items.*.bodegas.array' => 'El campo de bodegas debe ser un arreglo.',
-            'items.*.bodegas.min' => 'Se requiere al menos una bodega para cada producto.',
-            'items.*.bodegas.*.bodega_id.required' => 'El ID de la bodega es obligatorio.',
-            'items.*.bodegas.*.bodega_id.integer' => 'El ID de la bodega debe ser un número entero.',
-            'items.*.bodegas.*.bodega_id.exists' => 'La bodega seleccionada no existe.',
-            'items.*.bodegas.*.cantidad.required' => 'La cantidad en la bodega es obligatoria.',
-            'items.*.bodegas.*.cantidad.numeric' => 'La cantidad en la bodega debe ser un número.',
-            'items.*.bodegas.*.cantidad.min' => 'La cantidad en la bodega no puede ser negativa.',
+            'items.required' => 'Debe proporcionar al menos un ítem para procesar el stock masivo.',
+            'items.array' => 'El campo de ítems debe ser un arreglo válido.',
+            'items.min' => 'Debe haber al menos un ítem en la solicitud.',
+            'items.*.producto_id.required' => 'El ID del producto es obligatorio para cada ítem.',
+            'items.*.producto_id.integer' => 'El ID del producto debe ser un número entero válido.',
+            'items.*.producto_id.exists' => 'El producto seleccionado no existe en el sistema.',
+            'items.*.cantidad.required' => 'La cantidad es obligatoria para cada ítem.',
+            'items.*.cantidad.numeric' => 'La cantidad debe ser un valor numérico válido.',
+            'items.*.cantidad.min' => 'La cantidad debe ser al menos 1.',
+            'items.*.bodegas.required_without' => 'Debe especificar bodegas o equivalentes para cada ítem.',
+            'items.*.bodegas.array' => 'El campo de bodegas debe ser un arreglo válido.',
+            'items.*.bodegas.*.bodega_id.required_with' => 'El ID de la bodega es obligatorio cuando se proporcionan bodegas.',
+            'items.*.bodegas.*.bodega_id.integer' => 'El ID de la bodega debe ser un número entero válido.',
+            'items.*.bodegas.*.bodega_id.exists' => 'La bodega seleccionada no existe en el sistema.',
+            'items.*.bodegas.*.cantidad.required_with' => 'La cantidad en bodega es obligatoria cuando se proporcionan bodegas.',
+            'items.*.bodegas.*.cantidad.numeric' => 'La cantidad en bodega debe ser un valor numérico válido.',
+            'items.*.bodegas.*.cantidad.min' => 'La cantidad en bodega no puede ser negativa.',
+
         ];
     }
 }

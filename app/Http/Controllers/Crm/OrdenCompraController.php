@@ -62,7 +62,7 @@ class OrdenCompraController extends Controller
                 })->orWhere('fecha_entrega', 'LIKE', "%$search%");
             })
             ->orderBy('created_at', 'desc') // 🔹 Ordenar por fecha de creación más reciente
-            ->paginate(5) // Mantiene la paginación
+            ->paginate(10) // Mantiene la paginación
             ->appends(request()->query()); // Mantiene los parámetros de búsqueda en la URL
 
 
@@ -461,7 +461,7 @@ $ordenCompra->save();
             })
             ->orderByRaw("CASE WHEN estado_id = 1 THEN 0 ELSE 1 END")
             ->orderBy('created_at', 'desc')
-            ->paginate(5)
+            ->paginate(10)
             ->appends(request()->query());
 
 
