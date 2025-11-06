@@ -32,12 +32,11 @@ protected $inventarioService;
 
     }
 
-   public function index(Request $request)
+ public function index(Request $request)
 {
     try {
         $user = auth()->user();
 
-        // Validar parámetros de entrada (opcional)
         $request->validate([
             'page' => 'integer|min:1',
             'per_page' => 'integer|min:1|max:100',
@@ -55,6 +54,12 @@ protected $inventarioService;
         ]);
 
         $resultado = $this->inventarioService->listarInventarios($request, $user);
+
+        // ✅ Manejo seguro en caso de error interno
+        if (isset($resultado['error']) && $resultado['error'] === true) {
+            throw new \Exception($resultado['detalle'] ?? 'Error interno al listar inventarios');
+        }
+
         $inventarios = $resultado['inventarios'];
 
         return response()->json([
@@ -72,10 +77,8 @@ protected $inventarioService;
             'estadisticas' => $resultado['estadisticas'],
             'estadisticas_por_filtro' => $resultado['estadisticas_por_filtro'],
             'ultimos_movimientos' => $resultado['ultimos_movimientos'],
-            // ✅ NOMBRES CORRECTOS QUE BUSCA EL FRONTEND:
             'sedes_disponibles' => $resultado['sedes'],
             'bodegas_disponibles' => $resultado['bodegas'],
-            
         ]);
 
     } catch (\Illuminate\Validation\ValidationException $e) {
@@ -95,10 +98,11 @@ protected $inventarioService;
         return response()->json([
             'success' => false,
             'message' => 'Error al obtener inventarios',
-            'error' => config('app.debug') ? $e->getMessage() : 'Error interno del servidor'
+            'error' => $e->getMessage()
         ], 500);
     }
 }
+
     /**
      * ✅ NUEVO: Obtener opciones para filtros
      */
