@@ -33,13 +33,14 @@ class OrdenCompraProveedorController extends Controller
     'empresa',
     'sede'
 ])
+
 ->when(!in_array($user->role_id, [1, 2, 4]), function ($q) use ($user) {
     if (!is_null($user->sede_id)) {
-        $q->where(function ($sub) use ($user) {
-            $sub->where('sede_id', $user->sede_id)
-                ->orWhereNull('sede_id'); // ✅ Incluye órdenes sin sede asignada
-        });
+        $q->where('sede_id', $user->sede_id); // Solo su sede para no-admins
     }
+})
+->when(in_array($user->role_id, [1, 2, 4]), function ($q) {
+    // Los admins ven todo (incluyendo NULL)
 })
 
 // ✅ Ordena primero las órdenes de la sede del usuario autenticado validar si sede  es nulo
