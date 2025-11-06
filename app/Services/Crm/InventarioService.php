@@ -141,29 +141,35 @@ public function listarInventarios(Request $request, $user)
         // ===============================
         // 🔹 ESTADÍSTICAS POR FILTRO
         // ===============================
-        $estadisticasPorFiltro = [];
+// ===============================
+// 🔹 ESTADÍSTICAS POR FILTRO
+// ===============================
+$estadisticasPorFiltro = [];
 
-        if ($isAdmin) {
-            $estadisticasPorFiltro['por_sede'] = Inventario::select('sede_id')
-                ->selectRaw('COUNT(*) as total_productos, SUM(stock) as total_stock, SUM(stock * precio) as valor_total')
-                ->with('sede:id,nombre')
-                ->groupBy('sede_id')
-                ->get();
-        }
+if ($isAdmin) {
+    $estadisticasPorFiltro['por_sede'] = Inventario::select('sede_id')
+        ->selectRaw('COUNT(*) as total_productos, SUM(stock) as total_stock, SUM(stock * precio) as valor_total')
+        ->with('sede:id,nombre')
+        ->groupBy('sede_id')
+        ->orderBy('sede_id') // ✅ orden seguro permitido
+        ->get();
+}
 
-        $estadisticasPorFiltro['por_bodega'] = (clone $query)
-            ->select('bodega_id')
-            ->selectRaw('COUNT(*) as total_productos, SUM(stock) as total_stock, SUM(stock * precio) as valor_total')
-            ->with('bodega:id,nombre')
-            ->groupBy('bodega_id')
-            ->get();
+// ✅ CORREGIDO: quitar orderBy heredado del clone $query
+$estadisticasPorFiltro['por_bodega'] = Inventario::select('bodega_id')
+    ->selectRaw('COUNT(*) as total_productos, SUM(stock) as total_stock, SUM(stock * precio) as valor_total')
+    ->with('bodega:id,nombre')
+    ->groupBy('bodega_id')
+    ->orderBy('bodega_id') // ✅ agrega un orden válido opcional
+    ->get();
 
-        $estadisticasPorFiltro['por_empresa'] = (clone $query)
-            ->select('empresa_id')
-            ->selectRaw('COUNT(*) as total_productos, SUM(stock) as total_stock, SUM(stock * precio) as valor_total')
-            ->with('empresa:id,nombre')
-            ->groupBy('empresa_id')
-            ->get();
+$estadisticasPorFiltro['por_empresa'] = Inventario::select('empresa_id')
+    ->selectRaw('COUNT(*) as total_productos, SUM(stock) as total_stock, SUM(stock * precio) as valor_total')
+    ->with('empresa:id,nombre')
+    ->groupBy('empresa_id')
+    ->orderBy('empresa_id') // ✅ seguro
+    ->get();
+
 
         // ===============================
         // 🔹 ÚLTIMOS MOVIMIENTOS
