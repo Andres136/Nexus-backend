@@ -199,7 +199,7 @@ Route::get('traslados-internos-ordenes-compra', [EnvioInternoController::class, 
 Route::post('/productos/sincronizar-siigo', [CrmProductController::class, 'sincronizarProductosSiigoGlobal']);
 Route::post('/productos/sincronizar-siigo-setas', [CrmProductController::class, 'sincronizarProductosSiigoSetas']);
 
-
+ Route::apiResource('bodegas', BodegaController::class);
 
 //**LOGICA DE INVENTARIOS */
 
@@ -211,7 +211,7 @@ Route::middleware(['auth:sanctum', 'es_responsable_del_departamento'])->group(fu
     Route::get('/rendimiento-indicadores', [RegistroIndicadoresController::class, 'indexByCompany']);
    Route::get ('/indicadoresAdmin',[IndicadoresProcesosController::class,'indexAdmin']);
    //Inventarios
-    Route::apiResource('bodegas', BodegaController::class);
+   
     //Categorias
     Route::apiResource('categorias',CategoriaController::class);
     //Productos
