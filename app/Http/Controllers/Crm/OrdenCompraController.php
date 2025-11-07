@@ -429,11 +429,15 @@ $ordenCompra->save();
             'entregas.usuario:id,name',
             'movimientosStock:id,orden_trabajo_id,created_at,usuario_id',
         ])
-            ->when(!in_array($user->role_id, [1,4]), function ($query) use ($user) {
-                $query->whereHas('ordenCompra', function ($q) use ($user) {
-                    $q->where('sede_id', $user->sede_id);
-                });
-            })
+            ->when(!in_array($user->role_id, [1]), function ($query) use ($user) {
+    $query->whereHas('ordenCompra', function ($q) use ($user) {
+        $q->where(function ($sub) use ($user) {
+            $sub->where('sede_id', $user->sede_id)
+                ->orWhereNull('sede_id'); // ✅ incluir órdenes sin sede
+        });
+    });
+})
+
             ->when($sedeId, function ($query, $sedeId) {
                 $query->whereHas('ordenCompra', function ($q) use ($sedeId) {
                     $q->where('sede_id', $sedeId);
@@ -459,6 +463,7 @@ $ordenCompra->save();
                     $q->whereDate('fecha_entrega', $fecha);
                 });
             })
+            
             ->orderByRaw("CASE WHEN estado_id = 1 THEN 0 ELSE 1 END")
             ->orderBy('created_at', 'desc')
             ->paginate(10)
