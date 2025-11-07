@@ -5,6 +5,7 @@ namespace App\Services\Crm;
 use App\Models\Crm\bodega;
 use App\Models\Crm\Inventario;
 use App\Models\Crm\MovimientoStock;
+use App\Models\Crm\OrdenDeTrabajo;
 use App\Models\Crm\Sede;
 use App\Models\Traslados\Detalles_envio_internos;
 use App\Models\Traslados\Envio_internos;
@@ -23,7 +24,7 @@ class InventarioService
 public function listarInventarios(Request $request, $user)
 {
     try {
-        $rolesPermitidos = [1, 2]; // SuperAdmin y Admin
+        $rolesPermitidos = [1, 4]; // SuperAdmin y Admin
         $isAdmin = in_array($user->role_id, $rolesPermitidos);
 
         // ===============================
@@ -141,9 +142,7 @@ public function listarInventarios(Request $request, $user)
         // ===============================
         // 🔹 ESTADÍSTICAS POR FILTRO
         // ===============================
-// ===============================
-// 🔹 ESTADÍSTICAS POR FILTRO
-// ===============================
+
 $estadisticasPorFiltro = [];
 
 if ($isAdmin) {
@@ -613,7 +612,8 @@ public function descontarStockMasivo(array $items, $user)
                         'producto_id'      => $eqId,
                         'producto_nombre'  => $productoEq?->name ?? "Producto #{$eqId}",
                         'razon'            => $razon,
-                        'bodegas'          => []
+                        'bodegas'          => [],
+                        'producto_origen_id'=> $productoId,
                     ];
 
                     foreach ($equivalente['bodegas'] as $bodegaEq) {
@@ -719,6 +719,7 @@ public function descontarStockMasivo(array $items, $user)
                 'equivalentes'       => $equivalentesResp,
                 'errores'            => $errores,
                 'faltante'           => $faltante,
+                'orden_trabajo_id'   => $ordenTrabajoId,
                 'movimiento_global'  => [
                     'id'   => $movimiento->id,
                     'pdf'  => isset($movimiento->pdf_path) ? asset("storage/{$movimiento->pdf_path}") : null,
@@ -734,20 +735,27 @@ public function descontarStockMasivo(array $items, $user)
         }
 
         DB::commit();
-        $pathPdf = $this->generarPDFMovimientoGlobal($resultados, $user);
+// Agrupar los resultados por orden de trabajo
+$agrupadoPorOrden = collect($resultados)
+    ->groupBy('orden_trabajo_id')
+    ->toArray();
 
-// 🔹 Devolver respuesta con un solo PDF
+$pdfsGenerados = [];
+
+foreach ($agrupadoPorOrden as $ordenId => $resultadosOrden) {
+    $pathPdf = $this->generarPDFMovimientoPorOrden($ordenId, $resultadosOrden, $user);
+    $pdfsGenerados[] = [
+        'orden_trabajo_id' => $ordenId,
+        'pdf' => asset("storage/{$pathPdf}")
+    ];
+}
+
 return [
     'success'   => empty($erroresGlobales),
     'resultados'=> $resultados,
     'errores'   => $erroresGlobales,
-    'pdf'       => asset("storage/{$pathPdf}"),
+    'pdfs'      => $pdfsGenerados
 ];
-        return [
-            'success' => empty($erroresGlobales),
-            'resultados' => $resultados,
-            'errores' => $erroresGlobales,
-        ];
     } catch (\Throwable $e) {
         DB::rollBack();
         return [
@@ -758,51 +766,29 @@ return [
         ];
     }
 }
-  public function generarPDFMovimiento($movimiento)
-    {
-        // Datos para la vista
-        $data = [
-            'movimiento' => $movimiento,
-            'usuario'    => $movimiento->usuario,
-            'detalle'    => $movimiento->detalle ?? [],
-            'fecha'      => now()->format('d/m/Y H:i'),
-        ];
 
-        // Cargar la vista Blade
-        $pdf = Pdf::loadView('pdf.movimiento', $data)
-            ->setPaper('A4', 'portrait');
 
-        // Nombre y ruta
-        $filename = 'movimiento_' . $movimiento->id . '.pdf';
-        $path = 'movimientos/' . $filename;
-
-        // Guardar en storage público
-        Storage::disk('public')->put($path, $pdf->output());
-
-        return $path; // Ej: "movimientos/movimiento_45.pdf"
-    }
-
-    public function generarPDFMovimientoGlobal(array $resultados, $usuario)
+public function generarPDFMovimientoPorOrden($ordenId, array $resultados, $usuario)
 {
+    $orden = OrdenDeTrabajo::find($ordenId);
+
     $data = [
         'usuario'   => $usuario,
         'resultados'=> $resultados,
-        'fecha'     => now()->format('d/m/Y '),
+        'orden'     => $orden,
+        'fecha'     => now()->format('d/m/Y H:i'),
     ];
 
-    // Cargar la vista Blade del consolidado
-    $pdf = Pdf::loadView('pdf.movimiento', $data)
+    $pdf = Pdf::loadView('pdf.movimiento_por_orden', $data)
         ->setPaper('A4', 'portrait');
 
-    // Guardar el PDF con nombre único
-    $filename = 'movimiento_global_' . now()->format('Ymd_His') . '.pdf';
+    $filename = 'OT_' . str_pad($ordenId, 4, '0', STR_PAD_LEFT) . '_' . now()->format('Ymd_His') . '.pdf';
     $path = 'movimientos/' . $filename;
 
     Storage::disk('public')->put($path, $pdf->output());
 
     return $path;
 }
-
 
 
 }
