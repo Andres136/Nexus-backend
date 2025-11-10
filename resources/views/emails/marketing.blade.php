@@ -60,6 +60,33 @@
                 from { opacity: 0; transform: translateY(10px); }
                 to { opacity: 1; transform: translateY(0); }
             }
+
+            @media only screen and (max-width: 600px) {
+  .mobile-full { width: 100% !important; max-width: 100% !important; }
+  .mobile-center { text-align: center !important; margin: auto !important; }
+  .mobile-padding { padding: 15px !important; }
+  .mobile-stack { display: block !important; width: 100% !important; }
+  img { max-width: 100% !important; height: auto !important; }
+}
+@media only screen and (max-width: 600px) {
+  .footer-block {
+    padding: 25px 15px !important;  /* Reduce el espacio */
+  }
+  .footer-block h4 {
+    font-size: 20px !important;     /* Ajusta el título */
+  }
+  .footer-block p {
+    font-size: 13px !important;     /* Reduce texto secundario */
+    line-height: 1.4 !important;
+  }
+  .footer-block a {
+    font-size: 14px !important;     /* Links más pequeños */
+    display: block !important;      /* Apilados verticalmente */
+    margin: 8px 0 !important;
+  }
+}
+
+
         </style>
     </head>
     <body>
@@ -476,25 +503,19 @@
         </h3>
         
         <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; max-width: 600px; margin: 0 auto;">
-            @foreach($files as $file)
-                <a href="{{ $file['link'] ?? '#' }}" target="_blank" class="hover-lift" style="
-                    display: inline-flex;
-                    align-items: center;
-                    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-                    color: #ffffff;
-                    padding: 18px 28px;
-                    border-radius: 25px;
-                    font-weight: 700;
-                    text-decoration: none;
-                    font-size: 15px;
-                    box-shadow: 0 8px 20px rgba(6, 95, 70, 0.4);
-                    transition: all 0.3s ease;
-                    border: 2px solid rgba(255,255,255,0.1);
-                ">
-                    <span style="margin-right: 8px; font-size: 18px;">📄</span>
-                    {{ ucfirst($file['nombre'] ?? 'Archivo') }}
-                </a>
-            @endforeach
+<table role="presentation" align="center" style="max-width:90%;margin:auto;">
+  @foreach($files as $file)
+    <tr>
+      <td align="center" style="padding:8px;">
+        <a href="{{ $file['link'] }}" style="
+          display:inline-block;background:#047857;color:#fff;
+          font-weight:700;border-radius:30px;padding:12px 20px;
+          text-decoration:none;font-size:14px;">📄 {{ $file['nombre'] }}</a>
+      </td>
+    </tr>
+  @endforeach
+</table>
+
         </div>
     </td>
 </tr>
@@ -512,24 +533,19 @@
         </h3>
         
         <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; max-width: 600px; margin: 0 auto;">
-            @foreach($redes as $red)
-                <a href="{{ $red['url'] ?? '#' }}" target="_blank" class="hover-lift" style="
-                    display: inline-flex;
-                    align-items: center;
-                    padding: 16px 24px;
-                    background: linear-gradient(135deg, #10b981 0%, #047857 100%);
-                    color: #ffffff;
-                    border-radius: 20px;
-                    font-weight: 600;
-                    border: 2px solid rgba(255,255,255,0.1);
-                    text-decoration: none;
-                    transition: all 0.3s ease;
-                    box-shadow: 0 6px 15px rgba(16, 185, 129, 0.25);
-                ">
-                    <span style="margin-right: 8px;">🔗</span>
-                    {{ ucfirst($red['nombre'] ?? 'Red Social') }}
-                </a>
-            @endforeach
+      <table role="presentation" align="center">
+  <tr>
+    @foreach($redes as $red)
+      <td align="center" style="padding:6px;">
+        <a href="{{ $red['url'] }}" style="
+          display:inline-block;background:#059669;color:#fff;
+          font-weight:600;border-radius:20px;padding:10px 16px;font-size:14px;
+          text-decoration:none;">{{ $red['nombre'] }}</a>
+      </td>
+    @endforeach
+  </tr>
+</table>
+
         </div>
     </td>
 </tr>
@@ -538,7 +554,14 @@
                         
                         <!-- ✅ FOOTER PREMIUM -->
                         <tr>
-                            <td class="gradient-dark" style="color: #f3f4f6; text-align: center; padding: 50px 40px; position: relative; overflow: hidden;" class="mobile-padding">
+                            <td class="gradient-dark footer-block" style="
+  color: #f3f4f6;
+  text-align: center;
+  padding: 40px 30px;
+  position: relative;
+  overflow: hidden;
+">
+
                                 <!-- Elementos decorativos de fondo -->
                                 <div style="position: absolute; top: -30px; left: -30px; width: 120px; height: 120px; background: radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, transparent 70%); border-radius: 50%;"></div>
                                 <div style="position: absolute; bottom: -50px; right: -50px; width: 150px; height: 150px; background: radial-gradient(circle, rgba(52, 211, 153, 0.08) 0%, transparent 70%); border-radius: 50%;"></div>
@@ -553,7 +576,7 @@
                                     
                                     <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 25px; margin-bottom: 25px;">
                                         <div style="background: rgba(255,255,255,0.1); padding: 15px 20px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.1);">
-                                            <p style="margin: 0; font-size: 14px; font-weight: 600;">🏢 Empresa B Certificada</p>
+                                            <p style="margin: 0; font-size: 14px; font-weight: 600;">🏢 Empresa BIC Certificada</p>
                                         </div>
                                         <div style="background: rgba(255,255,255,0.1); padding: 15px 20px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.1);">
                                             <p style="margin: 0; font-size: 14px; font-weight: 600;">📋 ISO 9001 - 14001 - 45001</p>
