@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\comunicaciones\PlantillaController;
 use App\Http\Controllers\Crm\BodegaController;
 use App\Http\Controllers\Crm\CarpetaController;
 use App\Http\Controllers\Crm\CategoriaController;
@@ -144,7 +145,8 @@ Route::get('/vehiculos-options', [VehiculoController::class, 'options']);
 Route::post('clientes/importar-excel', [ClienteController::class, 'importExcel']);   
 Route::apiResource('revision-comparendos',RevisionComparendoController::class);
 Route::get('/revision-comparendos/conductor/{id}', [RevisionComparendoController::class, 'porConductor']);
-
+//Crear plantilla de correo
+Route::apiResource('plantillas-correo', PlantillaController::class);
 
 //Rutas Proveedores detalles item
 Route::post('/detalles-orden', [OrdenCompraProveedorController::class, 'storeDetalle']);

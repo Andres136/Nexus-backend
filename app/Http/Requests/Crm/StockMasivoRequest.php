@@ -25,7 +25,7 @@ public function rules(): array
         'items' => ['required', 'array', 'min:1'],
 
         'items.*.producto_id' => ['required', 'integer', 'exists:products,id'],
-        'items.*.cantidad' => ['required', 'numeric', 'min:1'],
+        'items.*.cantidad' => ['required', 'numeric', 'min:0'],
         'items.*.orden_trabajo_id' => ['nullable', 'integer'],
         'items.*.orden_compra_id' => ['nullable', 'integer'],
 

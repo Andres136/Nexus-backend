@@ -28,21 +28,19 @@
 
         /* Header con logo y branding */
         .email-header {
-            background: linear-gradient(135deg, #fff0db 0%, #208040 100%);
-            padding: 30px;
-            text-align: center;
-            position: relative;
+            background: linear-gradient(160deg, #004d26 0%, #007a3d 50%, #1aa44f 100%);
+    padding: 40px 30px;
+    text-align: center;
+    position: relative;
+    box-shadow: inset 0 -2px 8px rgba(0, 0, 0, 0.1);
         }
 
         .email-header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 100" fill="%23ffffff" opacity="0.05"><path d="M0 0v99c134 0 153-99 296-99s162 99 296 99 162-99 296-99 162 99 296 99V0H0z"/></svg>') no-repeat center;
-            background-size: cover;
+       background: linear-gradient(160deg, #004d26 0%, #007a3d 50%, #1aa44f 100%);
+    padding: 40px 30px;
+    text-align: center;
+    position: relative;
+    box-shadow: inset 0 -2px 8px rgba(0, 0, 0, 0.1);
         }
 
         .logo-container {

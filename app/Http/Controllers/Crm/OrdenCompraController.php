@@ -157,7 +157,7 @@ $ordenCompra->save();
                 [
                     'cliente_id'    => $ordenCompra->cliente_id,
                     'user_id'       => $ordenCompra->user_id,  // Usuario actual
-                    'fecha_entrega' => $ordenCompra->fecha_entrega,
+                    'fecha_entrega' => Carbon::parse($ordenCompra->fecha_entrega, 'America/Bogota'),
                     // Observaciones a nivel de Orden de Trabajo
                     'observaciones' => $request->input('observaciones', ''),
                     'valor_total'   => $ordenCompra->valor_total,

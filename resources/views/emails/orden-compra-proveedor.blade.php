@@ -28,13 +28,7 @@
                     </td>
                 </tr>
 
-                <tr>
-                    <td style="padding-top: 20px; text-align: center;">
-                        <a href="#" style="background-color: #2563eb; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold;">
-                            📥 Descargar Orden
-                        </a>
-                    </td>
-                </tr>
+              
 
                 <tr>
                     <td style="padding-top: 30px; font-size: 13px; color: #6b7280; border-top: 1px solid #e5e7eb;">

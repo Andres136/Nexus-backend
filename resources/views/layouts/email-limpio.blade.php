@@ -25,12 +25,13 @@
         }
 
         /* Header simplificado */
-        .email-header {
-            background: linear-gradient(135deg, #fff0db 0%, #208040 100%);
-            padding: 40px 30px;
-            text-align: center;
-            position: relative;
-        }
+  .email-header {
+    background: linear-gradient(160deg, #004d26 0%, #007a3d 50%, #1aa44f 100%);
+    padding: 40px 30px;
+    text-align: center;
+    position: relative;
+    box-shadow: inset 0 -2px 8px rgba(0, 0, 0, 0.1);
+}
 
         .company-logo {
             max-height: 50px;
