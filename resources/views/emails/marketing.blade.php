@@ -39,7 +39,31 @@
     </style>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f5f7fa; font-family: Arial, Helvetica, sans-serif; color: #2c3e50;">
-    
+@if(!empty($saludo))
+<tr>
+  <td style="padding: 35px 40px 15px 40px; background-color: #ffffff; text-align: center;" class="mobile-padding">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+      <tr>
+        <td align="center" style="padding: 15px 20px; background: rgba(25,135,84,0.07); border-radius: 15px; max-width: 600px; margin: 0 auto;">
+          <p style="
+            font-size: 18px;
+            color: #004225;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: 0.3px;
+            line-height: 1.5;
+            text-align: center;
+          ">
+            {{ $saludo }}
+          </p>
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>
+@endif
+
+
     <!-- ✅ CONTENEDOR PRINCIPAL -->
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f5f7fa;">
         <tr>
@@ -54,117 +78,58 @@
                     </tr>
                     
                     <!-- ✅ HEADER CON LOGOS MEJORADO -->
-             <!-- ✅ HEADER CON LOGOS RESPONSIVE MEJORADO -->
-@if(!empty($logos_empresas))
-@php $logos = is_array($logos_empresas) ? $logos_empresas : json_decode($logos_empresas, true); @endphp
-<tr>
-  <td style="background: linear-gradient(135deg, #004225 0%, #198754 50%, #28a745 100%); color: #ffffff; text-align: center; padding: 45px 30px 30px 30px; position: relative;" class="mobile-padding">
-      
-    <!-- LOGOS EMPRESARIALES CENTRADOS CON FONDO BLANCO -->
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-      <tr>
-        <td align="center" style="padding-bottom: 30px;">
-          <!-- Contenedor con fondo blanco y sombra -->
-          <div style="
-            background: #ffffff; 
-            border-radius: 20px; 
-            padding: 25px; 
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15); 
-            display: inline-block; 
-            max-width: 90%;
-          ">
-            <!-- FLEXIBLE GRID DE LOGOS -->
-            <div style="
-              display: flex; 
-              flex-wrap: wrap; 
-              justify-content: center; 
-              align-items: center; 
-              gap: 25px; 
-              text-align: center;
-            ">
-              @foreach($logos as $index => $logo)
-                @php
-                    $url = $logo['url'] ?? null;
-                    if ($url && !Str::startsWith($url, ['http', 'https'])) {
-                        $url = asset('storage/' . ltrim(str_replace('storage/', '', $url), '/'));
-                    }
-                @endphp
-                @if($url)
-                  <div style="
-                    flex: 1 1 120px; 
-                    max-width: 150px; 
-                    min-width: 80px;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                  ">
-                    <img 
-                      src="{{ $url }}" 
-                      alt="{{ $logo['nombre'] ?? 'Logo' }}" 
-                      style="
-                        height: 65px; 
-                        width: auto; 
-                        display: block; 
-                        margin: 0 auto; 
-                        object-fit: contain;
-                      ">
-                  </div>
-                @endif
-              @endforeach
-            </div>
-          </div>
-        </td>
-      </tr>
-    </table>
-
-    <!-- TÍTULO PRINCIPAL -->
-    <h1 style="margin: 0 0 12px 0; font-size: 30px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #ffffff; text-shadow: 0 4px 8px rgba(0,0,0,0.3); line-height: 1.1;" class="mobile-font-title">
-      {{ $titulo ?? 'Comunicado Institucional' }}
-    </h1>
-
-    <!-- SUBTÍTULO -->
-    <p style="margin: 0; font-size: 15px; color: rgba(255,255,255,0.9); font-weight: 400; letter-spacing: 0.5px;" class="mobile-font-small">
-      SetasPlast S.A.S BIC · Grupo Empresarial Global Business JS Group · Innovación y Sostenibilidad
-    </p>
-
-    <!-- LÍNEA DECORATIVA -->
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-      <tr>
-        <td align="center" style="padding-top: 25px;">
-          <div style="width: 100px; height: 4px; background: linear-gradient(90deg, #20c997, #17a2b8); border-radius: 2px; margin: 0 auto;"></div>
-        </td>
-      </tr>
-    </table>
-
-    <!-- ESTILOS RESPONSIVE INLINE -->
-    <style>
-      @media only screen and (max-width: 680px) {
-        td.mobile-padding div[style*="flex-wrap"] {
-          gap: 18px !important;
-        }
-        td.mobile-padding div[style*="flex: 1 1"] {
-          flex: 1 1 40% !important;
-          max-width: 45% !important;
-        }
-        td.mobile-padding img {
-          height: 55px !important;
-        }
-      }
-
-      @media only screen and (max-width: 480px) {
-        td.mobile-padding div[style*="flex: 1 1"] {
-          flex: 1 1 100% !important;
-          max-width: 100% !important;
-        }
-        td.mobile-padding img {
-          height: 50px !important;
-        }
-      }
-    </style>
-  </td>
-</tr>
-@endif
-
+                    @if(!empty($logos_empresas))
+                    @php $logos = is_array($logos_empresas) ? $logos_empresas : json_decode($logos_empresas, true); @endphp
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #004225 0%, #198754 50%, #28a745 100%); color: #ffffff; text-align: center; padding: 45px 30px 30px 30px; position: relative;" class="mobile-padding">
+                            
+                            <!-- LOGOS EMPRESARIALES CENTRADOS CON FONDO BLANCO -->
+                            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                                <tr>
+                                    <td align="center" style="padding-bottom: 30px;">
+                                        <!-- Contenedor con fondo blanco redondeado -->
+                                        <div style="background: #ffffff; border-radius: 20px; padding: 25px; box-shadow: 0 8px 25px rgba(0,0,0,0.15); display: inline-block; max-width: 90%;">
+                                            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                                                <tr>
+                                                    @foreach($logos as $index => $logo)
+                                                        @php
+                                                            $url = $logo['url'] ?? null;
+                                                            if ($url && !Str::startsWith($url, ['http', 'https'])) {
+                                                                $url = asset('storage/' . ltrim(str_replace('storage/', '', $url), '/'));
+                                                            }
+                                                        @endphp
+                                                        @if($url)
+                                                            <td align="center" style="padding: 0 15px;" class="mobile-stack">
+                                                                <img src="{{ $url }}" alt="{{ $logo['nombre'] ?? 'Logo' }}" style="height: 70px; width: auto; display: block; margin: 0 auto;">
+                                                            </td>
+                                                        @endif
+                                                    @endforeach
+                                                </tr>
+                                            </table>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- TÍTULO PRINCIPAL -->
+                     
+                            
+                            <!-- SUBTÍTULO -->
+                            <p style="margin: 0; font-size: 15px; color: rgba(255,255,255,0.9); font-weight: 400; letter-spacing: 0.5px;" class="mobile-font-small">
+                                SetasPlast S.A.S BIC · Grupo Empresarial Global Business JS Group · Innovación y Sostenibilidad
+                            </p>
+                            
+                            <!-- LÍNEA DECORATIVA -->
+                            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                                <tr>
+                                    <td align="center" style="padding-top: 25px;">
+                                        <div style="width: 100px; height: 4px; background: linear-gradient(90deg, #20c997, #17a2b8); border-radius: 2px; margin: 0 auto;"></div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    @endif
                     
                     <!-- ✅ CONTENIDO PRINCIPAL -->
                     @if(!empty($contenido_html))
@@ -181,16 +146,19 @@
 @if(!empty($imagenes))
 <tr>
   <td style="padding: 40px 30px;" class="mobile-padding">
-    <h3 style="color: #34495e; font-weight: 700; text-align: center; margin-bottom: 25px; font-size: 22px;" class="mobile-font-title">
-      Imágenes Destacadas
-    </h3>
+ 
 
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-      @php
-        $totalImages = count($imagenes);
-      @endphp
-
-      @foreach($imagenes as $index => $imagen)
+    <!-- ✅ Contenedor flexible y adaptable -->
+    <div style="
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 25px;
+      width: 100%;
+      margin: 0 auto;
+    ">
+      @foreach($imagenes as $imagen)
         @php
           $url = $imagen['url'] ?? null;
           if ($url && !Str::startsWith($url, ['http', 'https'])) {
@@ -198,63 +166,123 @@
           }
         @endphp
 
-        @if($index % 2 == 0)
-          <tr>
-        @endif
-
         @if($url)
-          <td align="center" style="padding: 12px; vertical-align: top;" width="{{ $totalImages == 1 ? '100%' : '50%' }}" class="mobile-stack">
-            <div style="border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.15); background: #ffffff;">
-              <img 
-                src="{{ $url }}" 
-                alt="{{ $imagen['nombre'] ?? 'Imagen Destacada' }}" 
-                style="width: 100%; height: 250px; object-fit: cover; object-position: center center; display: block;"
-              >
-            </div>
-
-            @if(!empty($imagen['nombre']))
-              <p style="margin-top: 10px; font-size: 14px; font-weight: 600; color: #34495e; text-align: center;">
-                {{ $imagen['nombre'] }}
-              </p>
-            @endif
-          </td>
-        @endif
-
-        @if($index % 2 == 1 || $index == $totalImages - 1)
-          </tr>
+        <div style="
+          flex: 1 1 calc(45% - 25px);
+          max-width: calc(45% - 25px);
+          background: #ffffff;
+          border-radius: 15px;
+          overflow: hidden;
+          text-align: center;
+          border: 2px solid transparent;
+          box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+          transition: all 0.35s ease;
+        "
+        onmouseover="this.style.transform='scale(1.03)'; this.style.border='2px solid #198754'; this.style.boxShadow='0 10px 30px rgba(25,135,84,0.3)';"
+        onmouseout="this.style.transform='scale(1)'; this.style.border='2px solid transparent'; this.style.boxShadow='0 6px 20px rgba(0,0,0,0.08)';"
+        >
+          <img 
+            src="{{ $url }}" 
+            alt="{{ $imagen['nombre'] ?? 'Imagen Destacada' }}" 
+            style="
+              width: 100%;
+              height: auto;
+              display: block;
+              border-bottom: 2px solid #198754;
+            "
+          >
+          @if(!empty($imagen['nombre']))
+            <p style="margin: 12px 0 15px; font-size: 14px; font-weight: 600; color: #34495e;">
+              {{ $imagen['nombre'] }}
+            </p>
+          @endif
+        </div>
         @endif
       @endforeach
-    </table>
+    </div>
+
+    <!-- ✅ Ajuste responsive -->
+    <style>
+      @media only screen and (max-width: 680px) {
+        .mobile-padding div[style*="flex-wrap"] > div {
+          flex: 1 1 100% !important;
+          max-width: 100% !important;
+        }
+      }
+    </style>
   </td>
 </tr>
 @endif
 
+
                     
-                    <!-- ✅ VIDEO/MULTIMEDIA -->
-                    @if(!empty($video_url))
-                    <tr>
-                        <td style="padding: 40px 30px; text-align: center;" class="mobile-padding">
-                            <h3 style="color: #34495e; font-weight: 700; text-align: center; margin-bottom: 25px; font-size: 22px;" class="mobile-font-title">Contenido Multimedia</h3>
-                            
-                            @if(Str::contains($video_url, ['youtube.com', 'youtu.be']))
-                                @php
-                                    $embed = str_replace(['watch?v=', 'youtu.be/'], ['embed/', 'youtube.com/embed/'], $video_url);
-                                @endphp
-                                <div style="border-radius: 20px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.2); max-width: 600px; margin: 0 auto;">
-                                    <iframe src="{{ $embed }}" width="600" height="350" style="width: 100%; max-width: 600px; height: 350px; border: none;" allowfullscreen></iframe>
-                                </div>
-                            @elseif(Str::endsWith($video_url, '.mp4'))
-                                <video controls preload="metadata" style="width: 100%; max-width: 600px; height: 350px; border-radius: 20px;">
-                                    <source src="{{ $video_url }}" type="video/mp4">
-                                </video>
-                            @else
-                                <a href="{{ $video_url }}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); color: #ffffff; padding: 16px 32px; border-radius: 50px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; text-decoration: none; font-size: 14px;">
-                                    🔗 Ver Contenido
-                                </a>
-                            @endif
-                        </td>
-                    </tr>
-                    @endif
+@if(!empty($video_url))
+@php
+    $videoThumbnail = null;
+
+    // Detectar si es un enlace de YouTube y generar thumbnail
+    if (Str::contains($video_url, ['youtube.com', 'youtu.be'])) {
+        // Extraer el ID del video (para ambas variantes)
+        if (preg_match('/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]+)/', $video_url, $matches)) {
+            $videoId = $matches[1];
+            $videoThumbnail = "https://img.youtube.com/vi/{$videoId}/hqdefault.jpg";
+        }
+    } 
+    // Detectar Vimeo
+    elseif (Str::contains($video_url, 'vimeo.com')) {
+        $videoThumbnail = 'https://i.vimeocdn.com/video/default.jpg';
+    }
+
+    // Si no es YouTube ni Vimeo, usar imagen genérica local
+    if (!$videoThumbnail) {
+        $videoThumbnail = asset('storage/plantillas/videos/thumbnail_play.png');
+    }
+@endphp
+
+<tr>
+  <td style="padding: 40px 30px; text-align: center;" class="mobile-padding">
+
+
+    <!-- Imagen de portada dinámica con enlace al video -->
+    <a href="{{ $video_url }}" target="_blank" style="text-decoration: none; display: inline-block; position: relative;">
+      <img 
+        src="{{ $videoThumbnail }}" 
+        alt="Ver Video" 
+        style="border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); max-width: 100%; height: auto;"
+      >
+
+      <!-- Overlay tipo botón play -->
+      <div style="
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0,0,0,0.5);
+        border-radius: 50%;
+        width: 70px;
+        height: 70px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      ">
+        <div style="
+          width: 0;
+          height: 0;
+          border-left: 20px solid white;
+          border-top: 12px solid transparent;
+          border-bottom: 12px solid transparent;
+        "></div>
+      </div>
+    </a>
+
+    <p style="font-size: 14px; color: #2c3e50; margin-top: 10px;">
+      🎥 Haz clic en la imagen para ver el video completo
+    </p>
+  </td>
+</tr>
+@endif
+
+
                     
                 <!-- ✅ CERTIFICACIONES RESPONSIVE MEJORADAS -->
 <!-- ✅ CERTIFICACIONES RESPONSIVE CENTRADAS Y CON ESPACIO -->

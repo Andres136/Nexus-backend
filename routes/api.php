@@ -147,7 +147,8 @@ Route::apiResource('revision-comparendos',RevisionComparendoController::class);
 Route::get('/revision-comparendos/conductor/{id}', [RevisionComparendoController::class, 'porConductor']);
 //Crear plantilla de correo
 Route::apiResource('plantillas-correo', PlantillaController::class);
-
+Route::post('/plantillas/{id}/enviar', [PlantillaController::class, 'enviar']);
+Route::get('/plantillas/{id}/edit', [PlantillaController::class, 'edit']); 
 //Rutas Proveedores detalles item
 Route::post('/detalles-orden', [OrdenCompraProveedorController::class, 'storeDetalle']);
 Route::put('/detalles-orden/{id}', [EntregaProveedorController::class, 'updateDetalle']);

@@ -388,6 +388,9 @@ public function procesarRegistro($registro)
         'tipo_meta' => $tipoMeta,
         'resultado' => $resultado,
         'estado' => $estado,
+        'observaciones' => $registro->observaciones,
+        'documento_url' => $registro->documento ? Storage::url($registro->documento) : null,
+        
     ];
 }
 

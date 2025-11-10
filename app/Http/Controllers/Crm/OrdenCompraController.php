@@ -429,7 +429,7 @@ $ordenCompra->save();
             'entregas.usuario:id,name',
             'movimientosStock:id,orden_trabajo_id,created_at,usuario_id',
         ])
-            ->when(!in_array($user->role_id, [1]), function ($query) use ($user) {
+            ->when(!in_array($user->role_id, [1,4]), function ($query) use ($user) {
     $query->whereHas('ordenCompra', function ($q) use ($user) {
         $q->where(function ($sub) use ($user) {
             $sub->where('sede_id', $user->sede_id)

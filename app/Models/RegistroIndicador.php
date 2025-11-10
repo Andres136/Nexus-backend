@@ -3,10 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class RegistroIndicador extends Model
 {
     protected $table = 'registro_indicadores';
+
+protected $appends = ['documento_url'];
     protected $fillable = [
          'indicador_id',
          'fecha',
@@ -26,4 +29,9 @@ class RegistroIndicador extends Model
      {
           return $this->belongsTo(User::class, 'user_id');   
      }
+
+     public function getDocumentoUrlAttribute()
+{
+    return $this->documento ? Storage::url($this->documento) : null;
+}
 }

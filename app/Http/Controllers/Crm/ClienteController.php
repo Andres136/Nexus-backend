@@ -24,6 +24,7 @@ class ClienteController extends Controller
                 return $query->where('nombre', 'LIKE', "%$search%");
             })
             ->orderBy('created_at', 'desc') // 🔽 Clientes más recientes primero
+            ->limit(50)
             ->get();
     
         return response()->json(['data' => $clientes]);

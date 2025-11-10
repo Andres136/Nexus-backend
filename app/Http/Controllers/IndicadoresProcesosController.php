@@ -143,7 +143,7 @@ public function indexAdmin(Request $request)
         return response()->json(['message' => 'No autorizado.'], 403);
     }
 
-    $indicadores = Indicadores::with('departamento', 'user')
+    $indicadores = Indicadores::with('departamento', 'user', 'registros')
         ->where('departamento_id', $departamento->id)
         ->paginate($perPage);
 
