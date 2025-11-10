@@ -152,100 +152,62 @@
                         </tr>
                         @endif
                         
-                        <!-- ✅ HEADER CON LOGOS ULTRA MEJORADO -->
-                        @if(!empty($logos_empresas))
-                        @php $logos = is_array($logos_empresas) ? $logos_empresas : json_decode($logos_empresas, true); @endphp
-                        <tr>
-                            <td class="gradient-green" style="color: #ffffff; text-align: center; padding: 50px 30px 40px 30px; position: relative; overflow: hidden;" class="mobile-padding">
-                                
-                                <!-- Elementos decorativos de fondo -->
-                                <div style="position: absolute; top: -50px; left: -50px; width: 150px; height: 150px; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%); border-radius: 50%;"></div>
-                                <div style="position: absolute; bottom: -30px; right: -30px; width: 100px; height: 100px; background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%); border-radius: 50%;"></div>
+            <!-- ✅ HEADER CON LOGOS RESPONSIVE CORPORATIVO -->
+@if(!empty($logos_empresas))
+@php $logos = is_array($logos_empresas) ? $logos_empresas : json_decode($logos_empresas, true); @endphp
+<tr>
+  <td class="gradient-green" style="
+      color:#ffffff;
+      text-align:center;
+      padding:35px 20px 30px 20px;
+      position:relative;
+      overflow:hidden;
+  ">
+    <!-- Efecto decorativo de fondo -->
+    <div style="position:absolute;top:-50px;left:-50px;width:120px;height:120px;
+      background:radial-gradient(circle,rgba(255,255,255,0.1) 0%,transparent 70%);
+      border-radius:50%;"></div>
 
-                                <!-- LOGOS EMPRESARIALES CON DISEÑO PREMIUM -->
-                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-                                    <tr>
-                                        <td align="center" style="padding-bottom: 35px; position: relative; z-index: 2;">
-                                            <div style="
-                                                background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-                                                border-radius: 24px;
-                                                padding: 30px 35px;
-                                                box-shadow: 0 20px 40px rgba(0,0,0,0.15), 0 8px 16px rgba(0,0,0,0.1);
-                                                display: inline-block;
-                                                max-width: 90%;
-                                                border: 1px solid rgba(255,255,255,0.2);
-                                            ">
-                                             <div style="
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-wrap: nowrap;
-    gap: 40px;
-    overflow-x: auto;
-    padding: 10px 0;
-">
-    @foreach($logos as $logo)
-        @php
+    <!-- Logos centrados -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" align="center" style="max-width:480px;margin:0 auto;">
+      <tr>
+        @foreach($logos as $logo)
+          @php
             $url = $logo['url'] ?? null;
             if ($url && !Str::startsWith($url, ['http', 'https'])) {
-                $url = asset('storage/' . ltrim(str_replace('storage/', '', $url), '/'));
+              $url = asset('storage/' . ltrim(str_replace('storage/', '', $url), '/'));
             }
-        @endphp
-        @if($url)
-            <div class="hover-lift" style="transition: all 0.3s ease;">
-                <img src="{{ $url }}" alt="{{ $logo['nombre'] ?? 'Logo' }}" style="
-                    height: 80px;
-                    width: auto;
-                    display: block;
-                    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
-                ">
-            </div>
-        @endif
-    @endforeach
-</div>
+          @endphp
+          @if($url)
+          <td align="center" width="50%" class="mobile-stack" style="padding:10px;">
+            <img src="{{ $url }}" alt="{{ $logo['nombre'] ?? 'Logo' }}" 
+              style="max-width:120px;width:80%;height:auto;display:block;margin:auto;
+              filter:drop-shadow(0 2px 4px rgba(0,0,0,0.1));">
+          </td>
+          @endif
+        @endforeach
+      </tr>
+    </table>
 
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </table>
-                                
-                           
-                                
-                                <!-- SUBTÍTULO CON MEJOR TIPOGRAFÍA -->
-                                <p style="
-                                    margin: 0; 
-                                    font-size: 16px; 
-                                    color: rgba(255,255,255,0.95); 
-                                    font-weight: 400; 
-                                    letter-spacing: 0.3px; 
-                                    max-width: 500px; 
-                                    margin: 0 auto;
-                                    position: relative; 
-                                    z-index: 2;
-                                " class="mobile-font-small">
-                                    SetasPlast S.A.S BIC · Grupo Empresarial Global Business JS Group<br>
-                                    <span style="color: rgba(255,255,255,0.8); font-size: 14px;">Innovación y Sostenibilidad</span>
-                                </p>
-                                
-                                <!-- LÍNEA DECORATIVA MEJORADA -->
-                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-                                    <tr>
-                                        <td align="center" style="padding-top: 30px; position: relative; z-index: 2;">
-                                            <div style="
-                                                width: 120px; 
-                                                height: 5px; 
-                                                background: linear-gradient(90deg, rgba(255,255,255,0.8), rgba(255,255,255,0.3), rgba(255,255,255,0.8)); 
-                                                border-radius: 3px; 
-                                                margin: 0 auto;
-                                                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                                            "></div>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
-                        @endif
-                        
+    <!-- Descripción -->
+    <p style="
+      margin:20px auto 0 auto;
+      font-size:14px;
+      line-height:1.4;
+      color:rgba(255,255,255,0.9);
+      max-width:380px;
+    ">
+      SetasPlast S.A.S BIC · Grupo Empresarial Global Business JS Group<br>
+      <span style="color:rgba(255,255,255,0.8);font-size:13px;">Innovación y Sostenibilidad</span>
+    </p>
+
+    <!-- Línea decorativa -->
+    <div style="width:100px;height:4px;background:rgba(255,255,255,0.6);
+      margin:20px auto;border-radius:3px;"></div>
+  </td>
+</tr>
+@endif
+
                         <!-- ✅ CONTENIDO PRINCIPAL CON MEJOR TIPOGRAFÍA -->
                         @if(!empty($contenido_html))
                         <tr>
@@ -268,16 +230,7 @@
                         @if(!empty($imagenes))
                         <tr>
                             <td style="padding: 50px 40px; background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);" class="mobile-padding">
-                                <h3 style="
-                                    color: #1f2937; 
-                                    font-weight: 800; 
-                                    text-align: center; 
-                                    margin-bottom: 40px; 
-                                    font-size: 28px;
-                                    letter-spacing: -0.3px;
-                                " class="mobile-font-title">
-                                    🖼️ Galería Destacada
-                                </h3>
+                           
 
                                 <div style="
                                     display: grid;
