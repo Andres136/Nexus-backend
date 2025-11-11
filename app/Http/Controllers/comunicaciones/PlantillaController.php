@@ -109,6 +109,7 @@ public function store(PlantillaRequest $request)
 public function show($id)
 {
     $plantilla = Plantilla::findOrFail($id);
+  
     $data = $this->preparePlantillaData($plantilla);
 
     return view('emails.marketing', $data);
@@ -170,11 +171,12 @@ public function edit($id)
 /**
  * ✅ MÉTODO UPDATE MEJORADO
  */
+
 public function update(Request $request, $id)
 {
     try {
         $plantilla = Plantilla::findOrFail($id);
-        
+
         // ✅ Validaciones básicas
         $request->validate([
             'nombre' => 'required|string|max:255',
@@ -185,13 +187,13 @@ public function update(Request $request, $id)
             'logos_empresas.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
         ]);
 
-        // ✅ Procesar imágenes principales (solo si se suben nuevas)
-      $imagenesPaths = is_string($plantilla->imagenes)
-    ? json_decode($plantilla->imagenes, true)
-    : (is_array($plantilla->imagenes) ? $plantilla->imagenes : []);
+        //  Helper para decodificar JSON o arrays
+        $jsonDecode = fn($field) =>
+            is_string($field) ? json_decode($field, true) : (is_array($field) ? $field : []);
 
+        // ✅ Mantener imágenes existentes
+        $imagenesPaths = $jsonDecode($plantilla->imagenes);
         if ($request->hasFile('imagenes')) {
-            $imagenesPaths = []; // Reemplazar las existentes
             foreach ($request->file('imagenes') as $img) {
                 $imagenesPaths[] = [
                     'url' => 'storage/' . $img->store('plantillas/imagenes', 'public'),
@@ -200,17 +202,9 @@ public function update(Request $request, $id)
             }
         }
 
-        // ✅ Procesar logos empresariales (solo si se suben nuevos)
-       $logosPaths = is_string($plantilla->logos_empresas)
-    ? json_decode($plantilla->logos_empresas, true)
-    : (is_array($plantilla->logos_empresas) ? $plantilla->logos_empresas : []);
-
-$certsPaths = is_string($plantilla->certificaciones)
-    ? json_decode($plantilla->certificaciones, true)
-    : (is_array($plantilla->certificaciones) ? $plantilla->certificaciones : []);
-
+        // ✅ Mantener logos existentes
+        $logosPaths = $jsonDecode($plantilla->logos_empresas);
         if ($request->hasFile('logos_empresas')) {
-            $logosPaths = []; // Reemplazar los existentes
             foreach ($request->file('logos_empresas') as $logo) {
                 $logosPaths[] = [
                     'url' => 'storage/' . $logo->store('plantillas/logos', 'public'),
@@ -219,25 +213,21 @@ $certsPaths = is_string($plantilla->certificaciones)
             }
         }
 
-        // ✅ Procesar certificaciones
-        $certsPaths = [];
+        // ✅ Mantener certificaciones existentes
+        $certsPaths = $jsonDecode($plantilla->certificaciones);
         if ($request->has('certificaciones')) {
             foreach ($request->certificaciones as $i => $cert) {
                 $nombre = $cert['nombre'] ?? null;
                 $urlCert = $cert['url_cert'] ?? null;
-                $logoPath = null;
+                $logoPath = $cert['logo'] ?? null;
 
-                // Si se sube un nuevo logo
+                // Si sube un nuevo logo, reemplaza el anterior
                 if ($request->hasFile("certificaciones.$i.logo")) {
                     $file = $request->file("certificaciones.$i.logo");
                     $logoPath = 'storage/' . $file->store('plantillas/certificaciones', 'public');
-                } 
-                // Si se mantiene el logo existente
-                elseif (!empty($cert['logo']) && is_string($cert['logo'])) {
-                    $logoPath = $cert['logo'];
                 }
 
-                $certsPaths[] = [
+                $certsPaths[$i] = [
                     'nombre' => $nombre,
                     'logo' => $logoPath,
                     'url_cert' => $urlCert,
@@ -245,10 +235,10 @@ $certsPaths = is_string($plantilla->certificaciones)
             }
         }
 
-        // ✅ Video URL
-        $videoUrl = $request->filled('video_url') ? $request->input('video_url') : null;
+        // ✅ Actualizar video
+        $videoUrl = $request->filled('video_url') ? $request->input('video_url') : $plantilla->video_url;
 
-        // ✅ Actualizar plantilla
+        // ✅ Actualizar datos generales
         $plantilla->update([
             'nombre' => $request->input('nombre'),
             'tipo' => $request->input('tipo'),
@@ -257,9 +247,9 @@ $certsPaths = is_string($plantilla->certificaciones)
             'imagenes' => $imagenesPaths,
             'logos_empresas' => $logosPaths,
             'certificaciones' => $certsPaths,
-            'redes_sociales' => $request->input('redes_sociales', []),
-            'descargas' => $request->input('descargas', []),
-            'publicada' => (bool) ($request->input('publicada', false)),
+            'redes_sociales' => $request->input('redes_sociales', $plantilla->redes_sociales),
+            'descargas' => $request->input('descargas', $plantilla->descargas),
+            'publicada' => (bool) $request->input('publicada', $plantilla->publicada),
         ]);
 
         return response()->json([
@@ -276,7 +266,8 @@ $certsPaths = is_string($plantilla->certificaciones)
         ], 500);
     }
 }
-    /**
+
+ /**
      * Remove the specified resource from storage.
      */
     public function destroy(string $id)
@@ -313,8 +304,11 @@ public function enviar(Request $request, $id)
         'asunto' => 'required|string|max:255',
     ]);
 
+
     try {
+       
         $plantilla = Plantilla::findOrFail($id);
+        
         $dataBase = $this->preparePlantillaData($plantilla);
 
         $destinatarios = $request->input('destinatarios');

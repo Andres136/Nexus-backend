@@ -22,3 +22,19 @@ Route::get('/test-email', function () {
 
     return '✅ Correo de prueba enviado a tu bandeja de entrada';
 });
+Route::get('/test-plantilla', function () {
+    $plantilla = App\Models\comunicaciones\Plantilla::find(15); // ID de ejemplo
+
+    $data = [
+        'saludo' => 'Hola equipo 👋',
+        'contenido_html' => '<p>Estamos felices de compartir nuestros nuevos avances sostenibles 🌱</p>',
+        'logos_empresas' => $plantilla->logos_empresas,
+        'imagenes' => $plantilla->imagenes,
+        'video_url' => $plantilla->video_url,
+        'certificaciones' => $plantilla->certificaciones,
+        'descargas' => $plantilla->descargas,
+        'redes_sociales' => $plantilla->redes_sociales,
+    ];
+
+    return view('emails.marketing', $data);
+});

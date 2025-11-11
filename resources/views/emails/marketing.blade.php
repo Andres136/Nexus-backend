@@ -278,6 +278,7 @@
             margin: 0 8px;
             min-width:75px;
           ">
+          
             <img src="{{ $url }}" 
                  alt="{{ $logo['nombre'] ?? 'Logo' }}" 
                  style="
@@ -522,6 +523,225 @@
                         </tr>
                         @endif
 
+
+<!-- ✅ CERTIFICACIONES Y RECONOCIMIENTOS CORREGIDO -->
+@if(!empty($certificaciones))
+@php 
+    $certs = is_array($certificaciones) ? $certificaciones : json_decode($certificaciones, true); 
+@endphp
+<tr>
+    <td style="padding: 50px 40px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);" class="mobile-padding">
+        <h3 style="
+            color: #1e293b; 
+            font-weight: 800; 
+            text-align: center; 
+            margin-bottom: 40px; 
+            font-size: 28px;
+            letter-spacing: -0.3px;
+        " class="mobile-font-title text-shadow">
+             Certificaciones
+        </h3>
+        
+        <!-- ✅ CONTENEDOR DE CERTIFICACIONES CON GRID -->
+        <div style="
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 25px;
+            max-width: 800px;
+            margin: 0 auto;
+        " class="mobile-stack">
+            @foreach($certs as $cert)
+                @php
+                    // ✅ CORRECCIÓN: Usar 'logo' en lugar de 'url'
+                    $imageUrl = null;
+                    
+                    // Verificar el campo 'logo' que es el que aparece en los datos
+                    if (isset($cert['logo']) && !empty($cert['logo'])) {
+                        $imageUrl = $cert['logo'];
+                        
+                        // Si es una ruta relativa, convertir a URL completa
+                        if (!filter_var($imageUrl, FILTER_VALIDATE_URL)) {
+                            // Limpiar la ruta y asegurar que sea correcta
+                            $cleanPath = ltrim(str_replace(['storage/storage/', '//'], ['storage/', '/'], $imageUrl), '/');
+                            $imageUrl = asset($cleanPath);
+                        }
+                    }
+                @endphp
+                
+                @if($imageUrl)
+                <div class="hover-lift" style="
+                    background: #ffffff;
+                    border-radius: 16px;
+                    padding: 20px;
+                    text-align: center;
+                    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+                    border: 2px solid #e2e8f0;
+                    transition: all 0.3s ease;
+                    position: relative;
+                    overflow: hidden;
+                ">
+                    <!-- Borde decorativo superior -->
+                    <div style="
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        height: 4px;
+                        background: linear-gradient(90deg, #059669, #10b981, #34d399);
+                    "></div>
+                    
+                    <!-- ✅ Imagen de certificación corregida -->
+                    <div style="margin-bottom: 15px; padding-top: 10px;">
+                        <img 
+                            src="{{ $imageUrl }}" 
+                            alt="{{ $cert['nombre'] ?? 'Certificación' }}" 
+                            style="
+                                max-width: 120px;
+                                max-height: 120px;
+                                width: auto;
+                                height: auto;
+                                object-fit: contain;
+                                margin: 0 auto;
+                                display: block;
+                                border-radius: 8px;
+                                background-color: #f9fafb;
+                                border: 1px solid #e5e7eb;
+                            "
+                            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                        >
+                        <!-- Fallback si la imagen no carga -->
+                        <div style="
+                            display: none;
+                            width: 120px;
+                            height: 120px;
+                            background: #f3f4f6;
+                            border-radius: 8px;
+                            margin: 0 auto;
+                            align-items: center;
+                            justify-content: center;
+                            color: #6b7280;
+                            font-size: 12px;
+                            text-align: center;
+                            flex-direction: column;
+                        ">
+                            <div style="font-size: 24px; margin-bottom: 5px;">🏆</div>
+                            <div>Certificación</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Nombre de la certificación -->
+                    @if(!empty($cert['nombre']))
+                    <h4 style="
+                        font-size: 16px;
+                        font-weight: 700;
+                        color: #065f46;
+                        margin: 10px 0 5px 0;
+                        line-height: 1.3;
+                    ">
+                        {{ $cert['nombre'] }}
+                    </h4>
+                    @endif
+                    
+                    <!-- Descripción si existe -->
+                    @if(!empty($cert['descripcion']))
+                    <p style="
+                        font-size: 13px;
+                        color: #6b7280;
+                        margin: 5px 0 0 0;
+                        line-height: 1.4;
+                    ">
+                        {{ Str::limit($cert['descripcion'], 80) }}
+                    </p>
+                    @endif
+                    
+                    <!-- Badge decorativo -->
+                    <div style="
+                        display: inline-block;
+                        background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+                        color: #065f46;
+                        font-size: 11px;
+                        font-weight: 600;
+                        padding: 4px 12px;
+                        border-radius: 20px;
+                        margin-top: 10px;
+                        text-transform: uppercase;
+                        letter-spacing: 0.5px;
+                    ">
+                        ✓ Certificado
+                    </div>
+                </div>
+                @else
+                <!-- ✅ Card de respaldo si no hay imagen -->
+                @if(!empty($cert['nombre']))
+                <div style="
+                    background: #f9fafb;
+                    border-radius: 16px;
+                    padding: 20px;
+                    text-align: center;
+                    border: 2px dashed #d1d5db;
+                ">
+                    <div style="
+                        width: 120px;
+                        height: 120px;
+                        background: #e5e7eb;
+                        border-radius: 8px;
+                        margin: 0 auto 15px auto;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: #6b7280;
+                        font-size: 24px;
+                    ">
+                        🏆
+                    </div>
+                    <h4 style="
+                        font-size: 16px;
+                        font-weight: 700;
+                        color: #6b7280;
+                        margin: 0;
+                    ">
+                        {{ $cert['nombre'] }}
+                    </h4>
+                    <p style="
+                        font-size: 12px;
+                        color: #9ca3af;
+                        margin: 5px 0 0 0;
+                    ">
+                        Imagen no disponible
+                    </p>
+                </div>
+                @endif
+                @endif
+            @endforeach
+        </div>
+        
+        <!-- ✅ FALLBACK PARA OUTLOOK -->
+        <!--[if mso]>
+        <table role="presentation" align="center" cellpadding="15" cellspacing="0" style="margin: 0 auto;">
+            <tr>
+                @foreach($certs as $cert)
+                    @php
+                        $imageUrl = isset($cert['logo']) ? $cert['logo'] : null;
+                        if ($imageUrl && !filter_var($imageUrl, FILTER_VALIDATE_URL)) {
+                            $cleanPath = ltrim(str_replace(['storage/storage/', '//'], ['storage/', '/'], $imageUrl), '/');
+                            $imageUrl = asset($cleanPath);
+                        }
+                    @endphp
+                    @if($imageUrl)
+                    <td align="center" style="padding: 15px; background: #ffffff; border-radius: 12px; margin: 0 10px;">
+                        <img src="{{ $imageUrl }}" alt="{{ $cert['nombre'] ?? 'Certificación' }}" style="max-width: 120px; max-height: 120px; display: block; margin: 0 auto 10px auto;">
+                        @if(!empty($cert['nombre']))
+                        <p style="font-size: 14px; font-weight: 700; color: #065f46; margin: 0;">{{ $cert['nombre'] }}</p>
+                        @endif
+                    </td>
+                    @endif
+                @endforeach
+            </tr>
+        </table>
+        <![endif]-->
+    </td>
+</tr>
+@endif
       <!-- ✅ DESCARGAS CORPORATIVAS MEJORADAS -->
 @if(!empty($descargas))
 @php $files = is_array($descargas) ? $descargas : json_decode($descargas, true); @endphp
