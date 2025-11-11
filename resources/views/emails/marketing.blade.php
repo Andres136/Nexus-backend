@@ -68,23 +68,67 @@
   .mobile-stack { display: block !important; width: 100% !important; }
   img { max-width: 100% !important; height: auto !important; }
 }
+
+/* ✅ Estilos responsivos para redes y descargas */
 @media only screen and (max-width: 600px) {
-  .footer-block {
-    padding: 25px 15px !important;  /* Reduce el espacio */
-  }
-  .footer-block h4 {
-    font-size: 20px !important;     /* Ajusta el título */
-  }
-  .footer-block p {
-    font-size: 13px !important;     /* Reduce texto secundario */
-    line-height: 1.4 !important;
-  }
-  .footer-block a {
-    font-size: 14px !important;     /* Links más pequeños */
-    display: block !important;      /* Apilados verticalmente */
-    margin: 8px 0 !important;
+  .recursos-container a,
+  .redes-container a {
+    display: block !important;
+    margin: 10px auto !important;
+    max-width: 280px !important;
+    text-align: center !important;
   }
 }
+
+@media only screen and (max-width: 480px) {
+  .recursos-container a,
+  .redes-container a {
+    padding: 12px 16px !important;
+    font-size: 13px !important;
+    max-width: 260px !important;
+  }
+}
+
+/* ✅ Mejora para botones hover */
+.hover-lift:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.2) !important;
+}
+/* ✅ Estilos responsivos del footer corregidos */
+@media only screen and (max-width: 600px) {
+  .footer-block {
+    padding: 25px 15px !important;
+  }
+  .footer-block h4 {
+    font-size: 20px !important;
+    margin-bottom: 12px !important;
+  }
+  .footer-block p {
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+    margin: 10px 0 !important;
+  }
+  .footer-block a {
+    font-size: 12px !important;
+    display: block !important;
+    margin: 8px auto !important;
+    max-width: 200px !important;
+  }
+  .footer-block div {
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+}
+
+@media only screen and (max-width: 480px) {
+  .footer-block {
+    padding: 20px 10px !important;
+  }
+  .footer-block h4 {
+    font-size: 18px !important;
+  }
+}
+
 /* ✅ Estilos de respaldo responsivo */
 @media only screen and (max-width: 680px) {
   .logos-container {
@@ -95,14 +139,14 @@
   }
   .logo-item {
     min-width: 60px !important;
-    max-width: 100px !important;
+    max-width: 120px     !important;
     text-align: center !important;
   }
   .logo-img {
     display: inline-block !important;
     margin: 0 auto !important;
-    max-width: 100px !important;
-    max-height: 50px !important;
+    max-width: 120px !important;
+    max-height: 80px !important;
   }
 }
 /* ✅ Asegura logos legibles y centrados en móviles */
@@ -187,8 +231,7 @@
                             </td>
                         </tr>
                         @endif
-                        
-            <!-- ✅ HEADER CON LOGOS RESPONSIVE CORPORATIVO -->
+    
 <!-- ✅ HEADER CON LOGOS CENTRADOS Y COMPATIBLES CON TODOS LOS CLIENTES -->
 @if(!empty($logos_empresas))
 @php $logos = is_array($logos_empresas) ? $logos_empresas : json_decode($logos_empresas, true); @endphp
@@ -209,17 +252,18 @@
 <!-- ✅ CONTENEDOR UNIVERSAL DE LOGOS -->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:auto;">
   <tr>
-    <td align="center" style="text-align:center;padding:25px 10px;">
-      <div class="logos-scroll" style="
-        display: block;
-        white-space: nowrap;
-        overflow-x: auto;
-        overflow-y: hidden;
-        -webkit-overflow-scrolling: touch;
-        margin: 0 auto;
-        max-width: 100%;
-        text-align: center;
-      ">
+  <td align="center" style="text-align:center;">
+          <div class="logos-scroll" style="
+            display: block;
+            white-space: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            margin: 0 auto;
+            max-width: 100%;
+            text-align: center;
+            padding: 5px 0;
+          ">
         @foreach($logos as $logo)
           @php
             $url = $logo['url'] ?? null;
@@ -277,16 +321,43 @@
     <![endif]-->
 
     <!-- Texto descriptivo -->
-    <p style="
-      margin:20px auto 0 auto;
-      font-size:25px;
-      line-height:1.4;
-      color:rgba(255,255,255,0.9);
-      max-width:380px;
-    ">
-      SetasPlast S.A.S BIC · Grupo Empresarial Global Business JS Group<br>
-      <span style="color:rgba(255,255,255,0.8);font-size:13px;">Innovación y Sostenibilidad</span>
-    </p>
+<p style="
+  margin: 25px auto 0 auto;
+  text-align: center;
+  line-height: 1.5;
+  color: rgba(255,255,255,0.92);
+  max-width: 480px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+">
+  <span style="
+    display: block;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+  ">
+    SetasPlast S.A.S BIC
+  </span>
+  <span style="
+    display: block;
+    font-size: 15px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.85);
+    margin-top: 4px;
+  ">
+    Grupo Empresarial Global Business JS Group
+  </span>
+  <span style="
+    display: block;
+    font-size: 13px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.75);
+    margin-top: 10px;
+    font-style: italic;
+  ">
+    Innovación y Sostenibilidad
+  </span>
+</p>
+
 
     <div style="width:100px;height:4px;background:rgba(255,255,255,0.6);
       margin:20px auto;border-radius:3px;"></div>
@@ -451,199 +522,235 @@
                         </tr>
                         @endif
 
-                        <!-- ✅ CERTIFICACIONES CON DISEÑO PREMIUM -->
-                        @if(!empty($certificaciones))
-                        @php $certs = is_array($certificaciones) ? $certificaciones : json_decode($certificaciones, true); @endphp
-                        <tr>
-                            <td style="padding: 50px 40px; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);" class="mobile-padding">
-                                <h3 style="
-                                    color: #0c4a6e; 
-                                    font-weight: 800; 
-                                    text-align: center; 
-                                    margin-bottom: 40px; 
-                                    font-size: 28px;
-                                    letter-spacing: -0.3px;
-                                " class="mobile-font-title">
-                                    🏆 Certificaciones y Reconocimientos
-                                </h3>
-
-                                <div style="
-                                    display: grid;
-                                    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-                                    gap: 25px;
-                                    max-width: 900px;
-                                    margin: 0 auto;
-                                ">
-                                    @foreach($certs as $cert)
-                                        @php
-                                            $logo = $cert['logo'] ?? null;
-                                            if ($logo && !Str::startsWith($logo, ['http', 'https'])) {
-                                                $logo = asset('storage/' . ltrim(str_replace('storage/', '', $logo), '/'));
-                                            }
-                                        @endphp
-
-                                        <div class="hover-lift" style="
-                                            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-                                            border-radius: 20px;
-                                            padding: 30px 20px;
-                                            text-align: center;
-                                            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
-                                            border: 2px solid #e0f2fe;
-                                            transition: all 0.3s ease;
-                                            position: relative;
-                                            overflow: hidden;
-                                        ">
-                                            <!-- Decoración de fondo -->
-                                            <div style="
-                                                position: absolute;
-                                                top: -20px;
-                                                right: -20px;
-                                                width: 60px;
-                                                height: 60px;
-                                                background: radial-gradient(circle, rgba(14, 165, 233, 0.1) 0%, transparent 70%);
-                                                border-radius: 50%;
-                                            "></div>
-
-                                            @if(!empty($logo))
-                                                <img src="{{ $logo }}" alt="{{ $cert['nombre'] ?? 'Certificación' }}" style="
-                                                    height: 80px;
-                                                    width: auto;
-                                                    margin: 0 auto 15px;
-                                                    display: block;
-                                                    object-fit: contain;
-                                                    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
-                                                ">
-                                            @endif
-                                            @if(!empty($cert['nombre']))
-                                                <p style="
-                                                    font-size: 14px; 
-                                                    font-weight: 700; 
-                                                    color: #0c4a6e; 
-                                                    margin: 0;
-                                                    line-height: 1.4;
-                                                ">
-                                                    {{ $cert['nombre'] }}
-                                                </p>
-                                            @endif
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </td>
-                        </tr>
-                        @endif
-                        
-                        <!-- ✅ DESCARGAS CON MEJOR DISEÑO -->
-                   <!-- ✅ DESCARGAS CORPORATIVAS -->
+      <!-- ✅ DESCARGAS CORPORATIVAS MEJORADAS -->
 @if(!empty($descargas))
 @php $files = is_array($descargas) ? $descargas : json_decode($descargas, true); @endphp
 <tr>
     <td style="padding: 50px 40px; text-align: center; background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);" class="mobile-padding">
         <h3 style="color: #ecfdf5; font-weight: 800; text-align: center; margin-bottom: 30px; font-size: 28px;" class="mobile-font-title">
-            📚 Recursos Descargables
+            Recursos Descargables
         </h3>
         
-        <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; max-width: 600px; margin: 0 auto;">
-<table role="presentation" align="center" style="max-width:90%;margin:auto;">
-  @foreach($files as $file)
-    <tr>
-      <td align="center" style="padding:8px;">
-        <a href="{{ $file['link'] }}" style="
-          display:inline-block;background:#047857;color:#fff;
-          font-weight:700;border-radius:30px;padding:12px 20px;
-          text-decoration:none;font-size:14px;">📄 {{ $file['nombre'] }}</a>
-      </td>
-    </tr>
-  @endforeach
-</table>
-
+        <!-- ✅ CONTENEDOR HORIZONTAL PARA ESCRITORIO -->
+        <div style="max-width: 700px; margin: 0 auto;">
+            <!-- Versión para escritorio (inline-block) -->
+            <div style="display: block; text-align: center;">
+                @foreach($files as $index => $file)
+                    <a href="{{ $file['link'] }}" style="
+                        display: inline-block;
+                        background: linear-gradient(135deg, #047857 0%, #059669 100%);
+                        color: #ffffff;
+                        font-weight: 700;
+                        border-radius: 12px;
+                        padding: 14px 24px;
+                        text-decoration: none;
+                        font-size: 14px;
+                        margin: 8px;
+                        box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+                        border: 2px solid rgba(255,255,255,0.1);
+                        transition: all 0.3s ease;
+                        min-width: 180px;
+                        white-space: nowrap;
+                    " class="hover-lift">
+                     {{ $file['nombre'] }}
+                    </a>
+                @endforeach
+            </div>
+            
+            <!-- ✅ FALLBACK PARA OUTLOOK -->
+            <!--[if mso]>
+            <table role="presentation" align="center" cellpadding="8" cellspacing="0" style="margin: 0 auto;">
+                <tr>
+                    @foreach($files as $file)
+                    <td align="center">
+                        <a href="{{ $file['link'] }}" style="
+                            display: block;
+                            background: #047857;
+                            color: #ffffff;
+                            font-weight: 700;
+                            border-radius: 12px;
+                            padding: 14px 24px;
+                            text-decoration: none;
+                            font-size: 14px;
+                        ">{{ $file['nombre'] }}</a>
+                    </td>
+                    @endforeach
+                </tr>
+            </table>
+            <![endif]-->
         </div>
     </td>
 </tr>
 @endif
 
-                        
-                        <!-- ✅ REDES SOCIALES MEJORADAS -->
-                   <!-- ✅ REDES SOCIALES CORPORATIVAS -->
+<!-- ✅ REDES SOCIALES CORPORATIVAS MEJORADAS -->
 @if(!empty($redes_sociales))
 @php $redes = is_array($redes_sociales) ? $redes_sociales : json_decode($redes_sociales, true); @endphp
 <tr>
     <td style="padding: 50px 40px; text-align: center; background: linear-gradient(135deg, #1f2937 0%, #111827 100%);" class="mobile-padding">
         <h3 style="color: #d1fae5; font-weight: 800; text-align: center; margin-bottom: 30px; font-size: 28px;" class="mobile-font-title">
-            🌐 Conéctate con Nosotros
+             Conéctate con Nosotros
         </h3>
         
-        <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; max-width: 600px; margin: 0 auto;">
-      <table role="presentation" align="center">
-  <tr>
-    @foreach($redes as $red)
-      <td align="center" style="padding:6px;">
-        <a href="{{ $red['url'] }}" style="
-          display:inline-block;background:#059669;color:#fff;
-          font-weight:600;border-radius:20px;padding:10px 16px;font-size:14px;
-          text-decoration:none;">{{ $red['nombre'] }}</a>
-      </td>
-    @endforeach
-  </tr>
-</table>
-
+        <!-- ✅ CONTENEDOR HORIZONTAL PARA ESCRITORIO -->
+        <div style="max-width: 600px; margin: 0 auto;">
+            <!-- Versión para escritorio (inline-block) -->
+            <div style="display: block; text-align: center;">
+                @foreach($redes as $red)
+                    <a href="{{ $red['url'] }}" target="_blank" style="
+                        display: inline-block;
+                        background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+                        color: #ffffff;
+                        font-weight: 600;
+                        border-radius: 25px;
+                        padding: 12px 20px;
+                        font-size: 14px;
+                        text-decoration: none;
+                        margin: 8px;
+                        box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+                        border: 2px solid rgba(255,255,255,0.1);
+                        transition: all 0.3s ease;
+                        min-width: 120px;
+                        white-space: nowrap;
+                    " class="hover-lift">
+                        {{ $red['nombre'] }}
+                    </a>
+                @endforeach
+            </div>
+            
+            <!-- ✅ FALLBACK PARA OUTLOOK -->
+            <!--[if mso]>
+            <table role="presentation" align="center" cellpadding="8" cellspacing="0" style="margin: 0 auto;">
+                <tr>
+                    @foreach($redes as $red)
+                    <td align="center">
+                        <a href="{{ $red['url'] }}" target="_blank" style="
+                            display: block;
+                            background: #059669;
+                            color: #ffffff;
+                            font-weight: 600;
+                            border-radius: 25px;
+                            padding: 12px 20px;
+                            font-size: 14px;
+                            text-decoration: none;
+                        ">{{ $red['nombre'] }}</a>
+                    </td>
+                    @endforeach
+                </tr>
+            </table>
+            <![endif]-->
         </div>
     </td>
 </tr>
 @endif
 
-                        
-                        <!-- ✅ FOOTER PREMIUM -->
-                        <tr>
-                            <td class="gradient-dark footer-block" style="
-  color: #f3f4f6;
-  text-align: center;
-  padding: 40px 30px;
-  position: relative;
-  overflow: hidden;
-">
+                  <div style="display:none; line-height:0; mso-hide:all;">&nbsp;</div>
 
-                                <!-- Elementos decorativos de fondo -->
-                                <div style="position: absolute; top: -30px; left: -30px; width: 120px; height: 120px; background: radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, transparent 70%); border-radius: 50%;"></div>
-                                <div style="position: absolute; bottom: -50px; right: -50px; width: 150px; height: 150px; background: radial-gradient(circle, rgba(52, 211, 153, 0.08) 0%, transparent 70%); border-radius: 50%;"></div>
-                                
-                                <!-- Barra decorativa superior -->
-                                <div style="position: absolute; top: 0; left: 0; right: 0; height: 6px; background: linear-gradient(90deg, #059669, #10b981, #34d399, #6ee7b7);"></div>
-                                
-                                <div style="position: relative; z-index: 2;">
-                                    <h4 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 800; color: #ffffff;" class="mobile-font-title text-shadow">
-                                        SetasPlast S.A.S BIC
-                                    </h4>
-                                    
-                                    <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 25px; margin-bottom: 25px;">
-                                        <div style="background: rgba(255,255,255,0.1); padding: 15px 20px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.1);">
-                                            <p style="margin: 0; font-size: 14px; font-weight: 600;">🏢 Empresa BIC Certificada</p>
-                                        </div>
-                                        <div style="background: rgba(255,255,255,0.1); padding: 15px 20px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.1);">
-                                            <p style="margin: 0; font-size: 14px; font-weight: 600;">📋 ISO 9001 - 14001 - 45001</p>
-                                        </div>
-                                    </div>
-                                    
-                                    <p style="margin: 15px 0; font-size: 16px; color: #d1d5db; font-weight: 500;" class="mobile-font-small">
-                                        Comprometidos con la Innovación y Sostenibilidad
-                                    </p>
-                                    
-                                    <div style="margin: 25px 0;">
-                                        <a href="https://setasplast.com.co" target="_blank" style="color: #6ee7b7; font-weight: 700; text-decoration: none; margin: 0 15px; font-size: 16px;">🌐 setasplast.com.co</a>
-                                        <a href="mailto:comercialsetasplast@gmail.com" style="color: #6ee7b7; font-weight: 700; text-decoration: none; margin: 0 15px; font-size: 16px;">📧 comercialsetasplast@gmail.com</a>
-                                    </div>
-                                    
-                                    <p style="margin: 20px 0 0 0; font-size: 14px; color: #9ca3af; font-weight: 400;" class="mobile-font-small">
-                                        © {{ date('Y') }} SetasPlast S.A.S BIC - Todos los derechos reservados
-                                    </p>
-                                </div>
-                            </td>
-                        </tr>
                         
-                    </table>
-                    
-                </td>
-            </tr>
-        </table>
+        <!-- ✅ FOOTER PREMIUM CORREGIDO -->
+<tr>
+    <td class="gradient-dark footer-block" style="
+        color: #f3f4f6;
+        text-align: center;
+        padding: 35px 25px;
+        position: relative;
+        overflow: hidden;
+        line-height: 1.4;
+    ">
+        <!-- Elementos decorativos de fondo -->
+
         
+        <!-- Barra decorativa superior -->
+        <div style="position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, #059669, #10b981, #34d399, #6ee7b7);"></div>
+        
+        <div style="position: relative; z-index: 2; max-width: 600px; margin: 0 auto;">
+            <!-- Título principal -->
+            <h4 style="
+                margin: 0 0 15px 0; 
+                font-size: 24px; 
+                font-weight: 800; 
+                color: #ffffff;
+                letter-spacing: -0.3px;
+            " class="mobile-font-title text-shadow">
+                SetasPlast S.A.S BIC
+            </h4>
+   
+            
+            <!-- Descripción -->
+            <p style="
+                margin: 15px 0; 
+                font-size: 15px; 
+                color: #d1d5db; 
+                font-weight: 500;
+                line-height: 1.5;
+            " class="mobile-font-small">
+                Comprometidos con la Innovación y Sostenibilidad
+            </p>
+            
+            <!-- Enlaces de contacto -->
+            <div style="margin: 20px 0;">
+                <table role="presentation" align="center" cellpadding="0" cellspacing="0" style="margin: 0 auto;">
+                    <tr>
+                        <td align="center" style="padding: 5px 10px;">
+                            <a href="https://setasplast.com.co" target="_blank" style="
+                                color: #6ee7b7; 
+                                font-weight: 700; 
+                                text-decoration: none; 
+                                font-size: 14px;
+                                display: inline-block;
+                                background: rgba(110, 231, 183, 0.1);
+                                padding: 8px 12px;
+                                border-radius: 8px;
+                                border: 1px solid rgba(110, 231, 183, 0.2);
+                                transition: all 0.3s ease;
+                            ">
+                                setasplast.com.co
+                            </a>
+                        </td>
+                        <td align="center" style="padding: 5px 10px;">
+                            <a href="mailto:comercialsetasplast@gmail.com" style="
+                                color: #6ee7b7; 
+                                font-weight: 700; 
+                                text-decoration: none; 
+                                font-size: 14px;
+                                display: inline-block;
+                                background: rgba(110, 231, 183, 0.1);
+                                padding: 8px 12px;
+                                border-radius: 8px;
+                                border: 1px solid rgba(110, 231, 183, 0.2);
+                                transition: all 0.3s ease;
+                            ">
+                                 Contacto
+                            </a>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            
+            <!-- Separador decorativo -->
+            <div style="
+                width: 10px; 
+                height: 2px; 
+                background: linear-gradient(90deg, transparent, #6ee7b7, transparent); 
+                margin: 10px auto;
+                opacity: 0.6;
+            "></div>
+            
+            <!-- Copyright -->
+            <p style="
+                margin: 15px 0 0 0; 
+                font-size: 12px; 
+                color: #9ca3af; 
+                font-weight: 400;
+                opacity: 0.8;
+            " class="mobile-font-small">
+                © {{ date('Y') }} SetasPlast S.A.S BIC - Todos los derechos reservados
+            </p>
+        </div>
+    </td>
+</tr>
+        </table>
+        <div style="display:none; line-height:0; mso-hide:all;">&nbsp;</div>
+
     </body>
     </html>
