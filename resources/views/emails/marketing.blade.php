@@ -185,52 +185,71 @@
                         </tr>
 
                         <!-- ✅ SALUDO PERSONALIZADO MEJORADO -->
+                      @if(!empty($saludo) || !empty($imagen_principal))
+<tr>
+    <td style="padding: 40px 40px 20px 40px; background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);" class="mobile-padding">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td align="center">
+                    <div style="
+                        background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+                        border: 2px solid #d1fae5;
+                        border-radius: 20px;
+                        padding: 25px 30px;
+                        box-shadow: 0 10px 30px rgba(16, 185, 129, 0.1);
+                        position: relative;
+                        overflow: hidden;
+                        text-align: center;
+                    ">
+                        <!-- Decoración de fondo -->
+                        <div style="
+                            position: absolute;
+                            top: -50%;
+                            right: -20px;
+                            width: 100px;
+                            height: 100px;
+                            background: radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, transparent 70%);
+                            border-radius: 50%;
+                        "></div>
+
+                            {{-- Texto del saludo --}}
                         @if(!empty($saludo))
-                        <tr>
-                            <td style="padding: 40px 40px 20px 40px; background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);" class="mobile-padding">
-                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-                                    <tr>
-                                        <td align="center">
-                                            <div style="
-                                                background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
-                                                border: 2px solid #d1fae5;
-                                                border-radius: 20px;
-                                                padding: 25px 30px;
-                                                box-shadow: 0 10px 30px rgba(16, 185, 129, 0.1);
-                                                position: relative;
-                                                overflow: hidden;
-                                            ">
-                                                <!-- Decoración de fondo -->
-                                                <div style="
-                                                    position: absolute;
-                                                    top: -50%;
-                                                    right: -20px;
-                                                    width: 100px;
-                                                    height: 100px;
-                                                    background: radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, transparent 70%);
-                                                    border-radius: 50%;
-                                                "></div>
-                                                
-                                                <p style="
-                                                    font-size: 20px;
-                                                    color: #065f46;
-                                                    font-weight: 700;
-                                                    margin: 0;
-                                                    letter-spacing: 0.3px;
-                                                    line-height: 1.4;
-                                                    text-align: center;
-                                                    position: relative;
-                                                    z-index: 2;
-                                                " class="mobile-font-title text-shadow">
-                                                    ✨ {{ $saludo }}
-                                                </p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
+                            <p style="
+                                font-size: 20px;
+                                color: #065f46;
+                                font-weight: 700;
+                                margin: 0;
+                                letter-spacing: 0.3px;
+                                line-height: 1.4;
+                                text-align: center;
+                                position: relative;
+                                z-index: 2;
+                            " class="mobile-font-title text-shadow">
+                                ✨ {{ $saludo }}
+                            </p>
                         @endif
+
+                        {{-- Imagen principal (si existe) --}}
+                        @if(!empty($imagen_principal))
+                            <img src="{{ asset($imagen_principal) }}" alt="Imagen principal"
+                                style="
+                                    max-width: 100%;
+                                    width: 300px;
+                                    border-radius: 16px;
+                                    margin-bottom: 20px;
+                         
+                                ">
+                        @endif
+
+                    
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </td>
+</tr>
+@endif
+
     
 <!-- ✅ HEADER CON LOGOS CENTRADOS Y COMPATIBLES CON TODOS LOS CLIENTES -->
 @if(!empty($logos_empresas))

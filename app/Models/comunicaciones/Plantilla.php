@@ -19,6 +19,7 @@ class Plantilla extends Model
         'redes_sociales',
         'descargas',
         'publicada',
+        'imagen_principal',
     ];
 
     protected $casts = [

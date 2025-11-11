@@ -23,6 +23,7 @@ class PlantillaRequest extends FormRequest
 {
     return [
         'nombre' => 'required|string|max:255',
+        'imagen_principal' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif|max:2048',
         'tipo' => 'nullable|string|max:255',
         'contenido_html' => 'nullable|string',
         'video_url' => 'nullable|string|max:255',

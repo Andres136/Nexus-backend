@@ -81,6 +81,12 @@ public function store(PlantillaRequest $request)
         $videoUrl = $request->input('video_url');
     }
 
+    if ($request->hasFile('imagen_principal')) {
+    $imagenPath = 'storage/' . $request->file('imagen_principal')->store('plantillas/portadas', 'public');
+    $data['imagen_principal'] = $imagenPath;
+}
+
+
     // 5️⃣ Crear plantilla
     $plantilla = Plantilla::create([
         'nombre'           => $validated['nombre'],
@@ -93,6 +99,7 @@ public function store(PlantillaRequest $request)
         'redes_sociales'   => $request->input('redes_sociales', []),
         'descargas'        => $request->input('descargas', []),
         'publicada'        => (bool) ($validated['publicada'] ?? false),
+        'imagen_principal' => $imagenPath ?? null,
     ]);
 
     return response()->json([
@@ -109,7 +116,7 @@ public function store(PlantillaRequest $request)
 public function show($id)
 {
     $plantilla = Plantilla::findOrFail($id);
-  
+   
     $data = $this->preparePlantillaData($plantilla);
 
     return view('emails.marketing', $data);
@@ -181,10 +188,12 @@ public function update(Request $request, $id)
         $request->validate([
             'nombre' => 'required|string|max:255',
             'tipo' => 'nullable|string|max:100',
+
             'contenido_html' => 'nullable|string',
             'video_url' => 'nullable|url',
             'imagenes.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'logos_empresas.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'imagen_principal' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
         ]);
 
         //  Helper para decodificar JSON o arrays
@@ -235,6 +244,11 @@ public function update(Request $request, $id)
             }
         }
 
+        // ✅ Actualizar imagen principal
+        if ($request->hasFile('imagen_principal')) {
+            $imagenPath = 'storage/' . $request->file('imagen_principal')->store('plantillas/portadas', 'public');
+        }
+
         // ✅ Actualizar video
         $videoUrl = $request->filled('video_url') ? $request->input('video_url') : $plantilla->video_url;
 
@@ -250,6 +264,7 @@ public function update(Request $request, $id)
             'redes_sociales' => $request->input('redes_sociales', $plantilla->redes_sociales),
             'descargas' => $request->input('descargas', $plantilla->descargas),
             'publicada' => (bool) $request->input('publicada', $plantilla->publicada),
+            'imagen_principal' => $imagenPath ?? $plantilla->imagen_principal,
         ]);
 
         return response()->json([
@@ -330,8 +345,8 @@ public function enviar(Request $request, $id)
             // Personaliza saludo según corresponda
             $data = $dataBase;
             $data['saludo'] = $nombre
-                ? "Hola {$nombre}, esperamos que te encuentres muy bien."
-                : "Hola, esperamos que te encuentres muy bien.";
+                ? "Hola {$nombre},  soy GAIA esperamos que te encuentres muy bien."
+                : "Hola, soy GAIA esperamos que te encuentres muy bien.";
 
             try {
                 Mail::send('emails.marketing', $data, function ($message) use ($email, $asunto) {
@@ -380,6 +395,7 @@ public function enviar(Request $request, $id)
             is_string($field) ? json_decode($field, true) : (is_array($field) ? $field : []);
 
         return [
+            'imagen_principal' => $plantilla->imagen_principal,
             'titulo' => $plantilla->nombre,
             'contenido_html' => $plantilla->contenido_html,
             'video_url' => $plantilla->video_url,
