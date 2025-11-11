@@ -85,6 +85,42 @@
     margin: 8px 0 !important;
   }
 }
+/* ✅ Estilos de respaldo responsivo */
+@media only screen and (max-width: 680px) {
+  .logos-container {
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 0 10px !important;
+  }
+  .logo-item {
+    min-width: 60px !important;
+    max-width: 100px !important;
+    text-align: center !important;
+  }
+  .logo-img {
+    display: inline-block !important;
+    margin: 0 auto !important;
+    max-width: 100px !important;
+    max-height: 50px !important;
+  }
+}
+@media only screen and (max-width: 480px) {
+  .logos-container {
+    justify-content: center !important;
+    overflow-x: auto !important;
+    padding: 0 5px !important;
+  }
+  .logo-item {
+    min-width: 50px !important;
+    max-width: 80px !important;
+  }
+  .logo-img {
+    max-width: 80px !important;
+    max-height: 40px !important;
+  }
+}
+
 
 
         </style>
@@ -153,23 +189,76 @@
                         @endif
                         
             <!-- ✅ HEADER CON LOGOS RESPONSIVE CORPORATIVO -->
+<!-- ✅ HEADER CON LOGOS CENTRADOS Y COMPATIBLES CON TODOS LOS CLIENTES -->
 @if(!empty($logos_empresas))
 @php $logos = is_array($logos_empresas) ? $logos_empresas : json_decode($logos_empresas, true); @endphp
 <tr>
-  <td class="gradient-green" style="
+  <td align="center" class="gradient-green" style="
       color:#ffffff;
       text-align:center;
       padding:35px 20px 30px 20px;
       position:relative;
       overflow:hidden;
   ">
-    <!-- Efecto decorativo de fondo -->
+
+    <!-- Efecto decorativo -->
     <div style="position:absolute;top:-50px;left:-50px;width:120px;height:120px;
       background:radial-gradient(circle,rgba(255,255,255,0.1) 0%,transparent 70%);
       border-radius:50%;"></div>
 
-    <!-- Logos centrados -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" align="center" style="max-width:480px;margin:0 auto;">
+    <!-- ✅ CONTENEDOR COMPATIBLE (tabla para centrado universal) -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td align="center">
+          <div class="logos-container" style="
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              flex-wrap: nowrap;
+              gap: 20px;
+              max-width: 520px;
+              margin: 0 auto;
+              overflow-x: auto;
+              overflow-y: hidden;
+              text-align: center;
+          ">
+            @foreach($logos as $logo)
+              @php
+                $url = $logo['url'] ?? null;
+                if ($url && !Str::startsWith($url, ['http', 'https'])) {
+                  $url = asset('storage/' . ltrim(str_replace('storage/', '', $url), '/'));
+                }
+              @endphp
+              @if($url)
+              <div class="logo-item" style="
+                  flex: 0 0 auto;
+                  min-width: 80px;
+                  max-width: 120px;
+                  text-align: center;
+              ">
+                <img src="{{ $url }}" alt="{{ $logo['nombre'] ?? 'Logo' }}" class="logo-img"
+                  style="
+                    width: 100%;
+                    max-width: 120px;
+                    height: auto;
+                    max-height: 60px;
+                    object-fit: contain;
+                    display: inline-block;
+                    margin: 0 auto;
+                    vertical-align: middle;
+                    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+                  ">
+              </div>
+              @endif
+            @endforeach
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- ✅ FALLBACK PARA OUTLOOK -->
+    <!--[if mso]>
+    <table role="presentation" align="center" cellpadding="0" cellspacing="0" style="margin:0 auto;">
       <tr>
         @foreach($logos as $logo)
           @php
@@ -179,17 +268,16 @@
             }
           @endphp
           @if($url)
-          <td align="center" width="50%" class="mobile-stack" style="padding:10px;">
-            <img src="{{ $url }}" alt="{{ $logo['nombre'] ?? 'Logo' }}" 
-              style="max-width:120px;width:80%;height:auto;display:block;margin:auto;
-              filter:drop-shadow(0 2px 4px rgba(0,0,0,0.1));">
+          <td align="center" style="padding:0 10px;">
+            <img src="{{ $url }}" alt="{{ $logo['nombre'] ?? 'Logo' }}" style="max-width:120px;height:auto;display:block;margin:auto;">
           </td>
           @endif
         @endforeach
       </tr>
     </table>
+    <![endif]-->
 
-    <!-- Descripción -->
+    <!-- Texto descriptivo -->
     <p style="
       margin:20px auto 0 auto;
       font-size:14px;
@@ -201,12 +289,12 @@
       <span style="color:rgba(255,255,255,0.8);font-size:13px;">Innovación y Sostenibilidad</span>
     </p>
 
-    <!-- Línea decorativa -->
     <div style="width:100px;height:4px;background:rgba(255,255,255,0.6);
       margin:20px auto;border-radius:3px;"></div>
   </td>
 </tr>
 @endif
+
 
                         <!-- ✅ CONTENIDO PRINCIPAL CON MEJOR TIPOGRAFÍA -->
                         @if(!empty($contenido_html))
