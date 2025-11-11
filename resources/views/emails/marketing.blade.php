@@ -563,12 +563,16 @@
         
         <!-- ✅ CONTENEDOR DE CERTIFICACIONES CON GRID -->
         <div style="
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 25px;
-            max-width: 800px;
-            margin: 0 auto;
-        " class="mobile-stack">
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 25px;
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+    box-sizing: border-box;
+    overflow-x: hidden;
+" class="mobile-stack">
+
             @foreach($certs as $cert)
                 @php
                     // ✅ CORRECCIÓN: Usar 'logo' en lugar de 'url'
