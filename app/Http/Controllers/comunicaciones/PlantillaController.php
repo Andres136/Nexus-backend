@@ -186,7 +186,10 @@ public function update(Request $request, $id)
         ]);
 
         // ✅ Procesar imágenes principales (solo si se suben nuevas)
-        $imagenesPaths = json_decode($plantilla->imagenes, true) ?? [];
+      $imagenesPaths = is_string($plantilla->imagenes)
+    ? json_decode($plantilla->imagenes, true)
+    : (is_array($plantilla->imagenes) ? $plantilla->imagenes : []);
+
         if ($request->hasFile('imagenes')) {
             $imagenesPaths = []; // Reemplazar las existentes
             foreach ($request->file('imagenes') as $img) {
@@ -198,7 +201,14 @@ public function update(Request $request, $id)
         }
 
         // ✅ Procesar logos empresariales (solo si se suben nuevos)
-        $logosPaths = json_decode($plantilla->logos_empresas, true) ?? [];
+       $logosPaths = is_string($plantilla->logos_empresas)
+    ? json_decode($plantilla->logos_empresas, true)
+    : (is_array($plantilla->logos_empresas) ? $plantilla->logos_empresas : []);
+
+$certsPaths = is_string($plantilla->certificaciones)
+    ? json_decode($plantilla->certificaciones, true)
+    : (is_array($plantilla->certificaciones) ? $plantilla->certificaciones : []);
+
         if ($request->hasFile('logos_empresas')) {
             $logosPaths = []; // Reemplazar los existentes
             foreach ($request->file('logos_empresas') as $logo) {

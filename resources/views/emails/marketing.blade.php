@@ -238,12 +238,13 @@
                  alt="{{ $logo['nombre'] ?? 'Logo' }}" 
                  style="
                    display:block;
-                   height:auto;
-                   max-height:100px;
-                   width:150;
+                   height:120px;
+                   max-height:250px;
+                   width:300;
                    max-width:110px;
                    margin:0 auto;
                    object-fit:contain;
+                  
                  ">
           </span>
           @endif
@@ -278,7 +279,7 @@
     <!-- Texto descriptivo -->
     <p style="
       margin:20px auto 0 auto;
-      font-size:14px;
+      font-size:25px;
       line-height:1.4;
       color:rgba(255,255,255,0.9);
       max-width:380px;
@@ -628,7 +629,7 @@
                                     
                                     <div style="margin: 25px 0;">
                                         <a href="https://setasplast.com.co" target="_blank" style="color: #6ee7b7; font-weight: 700; text-decoration: none; margin: 0 15px; font-size: 16px;">🌐 setasplast.com.co</a>
-                                        <a href="mailto:info@setasplast.com.co" style="color: #6ee7b7; font-weight: 700; text-decoration: none; margin: 0 15px; font-size: 16px;">📧 info@setasplast.com.co</a>
+                                        <a href="mailto:comercialsetasplast@gmail.com" style="color: #6ee7b7; font-weight: 700; text-decoration: none; margin: 0 15px; font-size: 16px;">📧 comercialsetasplast@gmail.com</a>
                                     </div>
                                     
                                     <p style="margin: 20px 0 0 0; font-size: 14px; color: #9ca3af; font-weight: 400;" class="mobile-font-small">
