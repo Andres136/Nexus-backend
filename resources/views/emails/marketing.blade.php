@@ -105,19 +105,19 @@
     max-height: 50px !important;
   }
 }
-@media only screen and (max-width: 480px) {
-  .logos-container {
-    justify-content: center !important;
+/* ✅ Asegura logos legibles y centrados en móviles */
+@media only screen and (max-width: 600px) {
+  .logos-scroll {
+    text-align: center !important;
     overflow-x: auto !important;
-    padding: 0 5px !important;
+    padding: 10px 0 !important;
   }
-  .logo-item {
-    min-width: 50px !important;
-    max-width: 80px !important;
+  .logos-scroll img {
+    max-width: 150px !important;
+    max-height: 100px !important;
   }
-  .logo-img {
-    max-width: 80px !important;
-    max-height: 40px !important;
+  .logos-scroll span {
+    margin: 0 6px !important;
   }
 }
 
@@ -206,55 +206,53 @@
       background:radial-gradient(circle,rgba(255,255,255,0.1) 0%,transparent 70%);
       border-radius:50%;"></div>
 
-    <!-- ✅ CONTENEDOR COMPATIBLE (tabla para centrado universal) -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-      <tr>
-        <td align="center">
-          <div class="logos-container" style="
-              display: flex;
-              justify-content: center;
-              align-items: center;
-              flex-wrap: nowrap;
-              gap: 20px;
-              max-width: 520px;
-              margin: 0 auto;
-              overflow-x: auto;
-              overflow-y: hidden;
-              text-align: center;
+<!-- ✅ CONTENEDOR UNIVERSAL DE LOGOS -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:auto;">
+  <tr>
+    <td align="center" style="text-align:center;padding:25px 10px;">
+      <div class="logos-scroll" style="
+        display: block;
+        white-space: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        margin: 0 auto;
+        max-width: 100%;
+        text-align: center;
+      ">
+        @foreach($logos as $logo)
+          @php
+            $url = $logo['url'] ?? null;
+            if ($url && !Str::startsWith($url, ['http', 'https'])) {
+              $url = asset('storage/' . ltrim(str_replace('storage/', '', $url), '/'));
+            }
+          @endphp
+          @if($url)
+          <span style="
+            display:inline-block;
+            vertical-align:middle;
+            margin: 0 8px;
+            min-width:75px;
           ">
-            @foreach($logos as $logo)
-              @php
-                $url = $logo['url'] ?? null;
-                if ($url && !Str::startsWith($url, ['http', 'https'])) {
-                  $url = asset('storage/' . ltrim(str_replace('storage/', '', $url), '/'));
-                }
-              @endphp
-              @if($url)
-              <div class="logo-item" style="
-                  flex: 0 0 auto;
-                  min-width: 80px;
-                  max-width: 120px;
-                  text-align: center;
-              ">
-                <img src="{{ $url }}" alt="{{ $logo['nombre'] ?? 'Logo' }}" class="logo-img"
-                  style="
-                    width: 100%;
-                    max-width: 120px;
-                    height: auto;
-                    max-height: 60px;
-                    object-fit: contain;
-                    display: inline-block;
-                    margin: 0 auto;
-                    vertical-align: middle;
-                    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
-                  ">
-              </div>
-              @endif
-            @endforeach
-          </div>
-        </td>
-      </tr>
-    </table>
+            <img src="{{ $url }}" 
+                 alt="{{ $logo['nombre'] ?? 'Logo' }}" 
+                 style="
+                   display:block;
+                   height:auto;
+                   max-height:100px;
+                   width:150;
+                   max-width:110px;
+                   margin:0 auto;
+                   object-fit:contain;
+                 ">
+          </span>
+          @endif
+        @endforeach
+      </div>
+    </td>
+  </tr>
+</table>
+
 
     <!-- ✅ FALLBACK PARA OUTLOOK -->
     <!--[if mso]>
