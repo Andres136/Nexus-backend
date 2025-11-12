@@ -223,26 +223,34 @@ public function update(Request $request, $id)
         }
 
         // ✅ Mantener certificaciones existentes
-        $certsPaths = $jsonDecode($plantilla->certificaciones);
-        if ($request->has('certificaciones')) {
-            foreach ($request->certificaciones as $i => $cert) {
-                $nombre = $cert['nombre'] ?? null;
-                $urlCert = $cert['url_cert'] ?? null;
-                $logoPath = $cert['logo'] ?? null;
+// Mantener certificaciones existentes
+$certsPaths = $jsonDecode($plantilla->certificaciones);
 
-                // Si sube un nuevo logo, reemplaza el anterior
-                if ($request->hasFile("certificaciones.$i.logo")) {
-                    $file = $request->file("certificaciones.$i.logo");
-                    $logoPath = 'storage/' . $file->store('plantillas/certificaciones', 'public');
-                }
+if ($request->has('certificaciones')) {
 
-                $certsPaths[$i] = [
-                    'nombre' => $nombre,
-                    'logo' => $logoPath,
-                    'url_cert' => $urlCert,
-                ];
-            }
+    foreach ($request->certificaciones as $i => $cert) {
+
+        // Obtener valores enviados
+        $nombre = $cert['nombre'] ?? ($certsPaths[$i]['nombre'] ?? null);
+        $urlCert = $cert['url_cert'] ?? ($certsPaths[$i]['url_cert'] ?? null);
+
+        // Mantener logo existente si no llega uno nuevo
+        $logoPath = $certsPaths[$i]['logo'] ?? null;
+
+        // Reemplazar si hay un archivo nuevo
+        if ($request->hasFile("certificaciones.$i.logo")) {
+            $file = $request->file("certificaciones.$i.logo");
+            $logoPath = 'storage/' . $file->store('plantillas/ccertificaciones', 'public');
         }
+
+        $certsPaths[$i] = [
+            'nombre' => $nombre,
+            'logo' => $logoPath,
+            'url_cert' => $urlCert,
+        ];
+    }
+}
+
 
         // ✅ Actualizar imagen principal
         if ($request->hasFile('imagen_principal')) {
