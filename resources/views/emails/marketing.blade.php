@@ -390,16 +390,21 @@
                         @if(!empty($contenido_html))
                         <tr>
                             <td style="padding: 50px 40px;" class="mobile-padding">
-                                <div style="
-                                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-                                    line-height: 1.7; 
-                                    color: #374151; 
-                                    font-size: 16px;
-                                    max-width: 600px;
-                                    margin: 0 auto;
-                                ">
-                                    {!! $contenido_html !!}
-                                </div>
+                            <div style="
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+    line-height: 1.7;
+    color: #374151; 
+    font-size: 16px;
+    width: 100% !important;
+    max-width: 700px !important;
+    margin: 0 auto;
+    display: block !important;
+    overflow: visible !important;
+    white-space: normal !important;
+">
+    {!! $contenido_html !!}
+</div>
+
                             </td>
                         </tr>
                         @endif
