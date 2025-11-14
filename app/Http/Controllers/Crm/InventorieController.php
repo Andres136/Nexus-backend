@@ -26,12 +26,14 @@ class InventorieController extends Controller
  */
 protected $inventarioService;
 protected $movimientoPDFService;
+protected $anularMovimientoService;
 
-    public function __construct(InventarioService $inventarioService, InventarioService $movimientoPDFService)
+
+    public function __construct(InventarioService $inventarioService, InventarioService $movimientoPDFService, InventarioService $anularMovimientoService)
     {
         $this->inventarioService = $inventarioService;
         $this->movimientoPDFService = $movimientoPDFService;
-
+        $this->anularMovimientoService = $anularMovimientoService;
     }
 
  public function index(Request $request)
@@ -462,5 +464,15 @@ public function descontarStockMasivo(StockMasivoRequest $request)
     return response()->json($result, $result['success'] ? 200 : 400);
 }
 
+
+public function anularMovimiento(int $movimientoId)
+{
+    $user = auth()->user();
+
+    $resultado = $this->anularMovimientoService->anularMovimiento($movimientoId, $user);
+
+    return response()->json($resultado, $resultado['success'] ? 200 : 400); 
+
+}
 
 }

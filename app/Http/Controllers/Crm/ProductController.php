@@ -676,6 +676,68 @@ $bodega  = bodega::find($request->bodega_id);
 }
 
 
+public function importarExcelDescuento(StoreExcelProductRequest $request)
+{
+    try {
+        $file = $request->file('file');
+        $user = auth()->user();
+
+        $resultado = $this->productService->descontarInventarioFromExcel(
+            $file,
+            $user,
+            $request->empresa_id,
+            $request->bodega_id
+        );
+
+        $empresa = empresa::find($request->empresa_id);
+        $bodega  = bodega::find($request->bodega_id);
+
+        // Crear movimiento de stock (EGRESO MASIVO)
+        $mov = MovimientoStock::create([
+            'tipo' => 'descuento_masivo_excel',
+            'usuario_id' => $user->id,
+            'producto_id' => null,
+            'cantidad' => $resultado['resumen']['total_descontado'],
+            'detalle' => [
+                'empresa' => $empresa->nombre,
+                'bodega' => $bodega->nombre,
+                'total_lineas' => $resultado['resumen']['total_lineas'],
+                'errores' => count($resultado['errores']),
+                'archivo_origen' => $file->getClientOriginalName(),
+            ],
+            'razon' => 'Descuento masivo por carga de Excel',
+        ]);
+
+        // Generar PDF
+        $pdf = PDF::loadView('pdf.movimiento_descuento_importacion', [
+            'movimiento' => $mov,
+            'usuario'    => $user,
+            'procesados' => $resultado['procesados'],
+            'errores'    => $resultado['errores'],
+            'fecha'      => now()->format('d/m/Y H:i'),
+            'empresa'    => $empresa,
+            'bodega'     => $bodega,
+        ]);
+
+        $pdfPath = "movimientos/descuento_excel_{$mov->id}.pdf";
+        Storage::disk('public')->put($pdfPath, $pdf->output());
+        $mov->update(['pdf_path' => $pdfPath]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Descuento masivo completado',
+            'pdf_url' => asset("storage/{$pdfPath}"),
+            'resumen' => $resultado['resumen'],
+            'errores' => $resultado['errores'],
+        ]);
+
+    } catch (\Throwable $e) {
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage(),
+        ], 422);
+    }
+}
 
 public function stockProductoConSugerencias($productoId, Request $request)
 {

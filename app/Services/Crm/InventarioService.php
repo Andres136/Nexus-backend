@@ -678,22 +678,30 @@ public function descontarStockMasivo(array $items, $user)
             }
 
             // 3. Consolidar movimiento global (puedes adaptar esto según tu lógica)
-            $movimiento = \App\Models\Crm\MovimientoStock::firstOrCreate(
-                [
-                    'orden_trabajo_id' => $ordenTrabajoId,
-                    'tipo'             => 'descuento_masivo',
-                ],
-                [
-                    'orden_compra_id'  => $ordenCompraId,
-                    'usuario_id'       => $user->id,
-                    'cantidad'         => 0,
-                    'detalle'          => [
-                        'bodegas'      => [],
-                        'equivalentes' => [],
-                        'errores'      => [],
-                    ],
-                ]
-            );
+  $movimiento = MovimientoStock::where('orden_trabajo_id', $ordenTrabajoId)
+    ->where('tipo', 'descuento_masivo')
+    ->first();
+
+if (!$movimiento) {
+    $movimiento = MovimientoStock::create([
+        'orden_trabajo_id' => $ordenTrabajoId,
+        'orden_compra_id'  => $ordenCompraId,
+        'usuario_id'       => $user->id,
+        'producto_id'      => $productoId, // ← importante
+        'tipo'             => 'descuento_masivo',
+        'cantidad'         => 0,
+        'detalle'          => [
+            'bodegas'      => [],
+            'equivalentes' => [],
+            'errores'      => [],
+        ],
+        'sede_origen_id'   => $user->sede_id ?? null,
+        'sede_destino_id'  => $user->sede_id ?? null,
+        'envio_interno_id' => null,
+        'razon'            => 'Descuento masivo',
+    ]);
+}
+
 
             $detalleActual = $movimiento->detalle ?? [
                 'bodegas'      => [],
@@ -744,10 +752,20 @@ $pdfsGenerados = [];
 
 foreach ($agrupadoPorOrden as $ordenId => $resultadosOrden) {
     $pathPdf = $this->generarPDFMovimientoPorOrden($ordenId, $resultadosOrden, $user);
-    $pdfsGenerados[] = [
-        'orden_trabajo_id' => $ordenId,
-        'pdf' => asset("storage/{$pathPdf}")
-    ];
+$mov = \App\Models\Crm\MovimientoStock::where('orden_trabajo_id', $ordenId)
+    ->where('tipo', 'descuento_masivo')
+    ->first();
+
+if ($mov) {
+    $mov->update([
+        'pdf_path' => $pathPdf
+    ]);
+}
+
+$pdfsGenerados[] = [
+    'orden_trabajo_id' => $ordenId,
+    'pdf' => asset("storage/{$pathPdf}")
+];
 }
 
 return [
@@ -788,6 +806,111 @@ public function generarPDFMovimientoPorOrden($ordenId, array $resultados, $usuar
     Storage::disk('public')->put($path, $pdf->output());
 
     return $path;
+}
+
+
+//Anular Movimiento de Stock
+public function anularMovimiento($movimientoId, $usuario)
+{
+    $mov = MovimientoStock::findOrFail($movimientoId);
+
+    if ($mov->anulado) {
+        return [
+            'success' => false,
+            'message' => 'Este movimiento ya fue anulado.'
+        ];
+    }
+
+    DB::beginTransaction();
+    try {
+
+        $detalle = $mov->detalle ?? [];
+        $errores = [];
+
+        foreach ($detalle['bodegas'] ?? [] as $d) {
+
+            if (!isset($d['inventario_id'])) {
+                $errores[] = [
+                    'detalle' => $d,
+                    'error' => 'No existe inventario_id en este movimiento.'
+                ];
+                continue;
+            }
+
+            $inv = Inventario::lockForUpdate()->find($d['inventario_id']);
+            if (!$inv) continue;
+
+            $cantidad = (float) $d['cantidad_descontada'];
+
+           $tiposQueSumaron = [
+    'ingreso',
+    'entrada',
+    'entrada_masiva',
+    'import_excel',
+    'ajuste_positivo',
+    'entrada_manual'
+];
+
+// Si el movimiento SUMÓ stock → restarlo
+if (in_array($mov->tipo, $tiposQueSumaron)) {
+    $inv->decrement('stock', $cantidad);
+}
+// Si el movimiento RESTÓ stock → devolverlo
+else {
+    $inv->increment('stock', $cantidad);
+}
+
+        }
+
+        // Crear movimiento reverso
+        $movReverso = MovimientoStock::create([
+            'orden_trabajo_id' => $mov->orden_trabajo_id,
+            'orden_compra_id'  => $mov->orden_compra_id,
+            'usuario_id'       => $usuario->id,
+            'tipo'             => 'anulacion',
+            'cantidad'         => $mov->cantidad,
+            'detalle'          => $mov->detalle,
+            'razon'            => "Anulación del movimiento #{$mov->id}",
+        ]);
+
+        // Generar PDF para el reverso
+        $pathPdf = $this->generarPDFMovimientoPorOrden(
+            $mov->orden_trabajo_id,
+            [$movReverso],
+            $usuario
+        );
+
+        $movReverso->update([
+            'pdf_path' => $pathPdf
+        ]);
+
+        // Marcar movimiento original como anulado
+        $mov->update([
+            'anulado' => true,
+            'razon'   => "Anulado por {$usuario->name}"
+        ]);
+
+        DB::commit();
+
+        return [
+            'success' => true,
+            'message' => 'Movimiento anulado correctamente.',
+            'movimiento_original' => $mov,
+            'movimiento_reverso'  => $movReverso,
+            'pdf' => asset("storage/{$pathPdf}"),
+            'errores' => $errores
+        ];
+
+    } catch (\Throwable $e) {
+
+        DB::rollBack();
+
+        return [
+            'success' => false,
+            'message' => 'Error al anular el movimiento.',
+            'error'   => $e->getMessage(),
+        ];
+    }
 }
 
 

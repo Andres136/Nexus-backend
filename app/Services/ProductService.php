@@ -304,6 +304,141 @@ public function importInventarioFromExcel($filePath, $user, $empresaId, $bodegaI
     ];
 }
 
+
+/**
+ * Descontar stock de inventario via exel
+ * 
+
+ */
+
+public function descontarInventarioFromExcel($filePath, $user, $empresaId, $bodegaId)
+{
+    $rows = \Maatwebsite\Excel\Facades\Excel::toArray([], $filePath)[0];
+    $header = array_map('strtolower', array_shift($rows));
+
+    // Columnas requeridas
+    $requiredColumns = ['code', 'stock'];
+
+    foreach ($requiredColumns as $col) {
+        if (!in_array($col, $header)) {
+            throw new \Exception("Columna requerida faltante: {$col}");
+        }
+    }
+
+    $procesados = [];
+    $errores = [];
+    $totalDescontado = 0;
+
+    DB::beginTransaction();
+
+    try {
+
+        foreach ($rows as $index => $row) {
+            try {
+                $data = array_combine($header, $row);
+
+                // Validar campos obligatorios
+                foreach ($requiredColumns as $col) {
+                    if (!isset($data[$col]) || trim($data[$col]) === '') {
+                        throw new \Exception("Dato requerido faltante en columna '{$col}'");
+                    }
+                }
+
+                if (!$user->sede_id) throw new \Exception("El usuario no tiene una sede asignada");
+                if (!$empresaId) throw new \Exception("Debe seleccionar una empresa");
+                if (!$bodegaId) throw new \Exception("Debe seleccionar una bodega");
+
+                // Buscar producto por código
+                $producto = CrmProduct::where('code', $data['code'])->first();
+                if (!$producto) {
+                    throw new \Exception("Producto con código '{$data['code']}' no encontrado");
+                }
+
+                $data['producto_id'] = $producto->id;
+
+                // Normalizar stock
+                $rawStock = $data['stock'];
+                $data['stock'] = (float) str_replace(',', '.', trim($rawStock));
+
+                if (!is_numeric($data['stock'])) {
+                    throw new \Exception("El valor '{$rawStock}' no es numérico o tiene formato inválido");
+                }
+
+                $cantidadADescontar = $data['stock'];
+
+                // Buscar inventario
+                $inventario = Inventario::where([
+                    'producto_id' => $data['producto_id'],
+                    'empresa_id'  => $empresaId,
+                    'sede_id'     => $user->sede_id,
+                    'bodega_id'   => $bodegaId,
+                ])
+                ->lockForUpdate()
+                ->first();
+
+                if (!$inventario) {
+                    throw new \Exception("No existe inventario para este producto en esta bodega");
+                }
+
+                // Validar stock suficiente
+                if ($inventario->stock < $cantidadADescontar) {
+                    throw new \Exception(
+                        "Stock insuficiente. Disponible {$inventario->stock}, requerido {$cantidadADescontar}"
+                    );
+                }
+
+                // Guardar detalle antes
+                $stockAntes = $inventario->stock;
+
+                // Descontar
+                $inventario->decrement('stock', $cantidadADescontar);
+
+                // Acumular resultados
+                $procesados[] = [
+                    'producto_id'       => $producto->id,
+                    'producto_nombre'   => $producto->name,
+                    'codigo'            => $producto->code,
+                    'cantidad_descontada' => $cantidadADescontar,
+                    'stock_antes'       => $stockAntes,
+                    'stock_despues'     => $inventario->stock,
+                    'bodega_id'         => $bodegaId,
+                    'empresa_id'        => $empresaId,
+                ];
+
+                $totalDescontado += $cantidadADescontar;
+
+            } catch (\Exception $e) {
+                $errores[] = [
+                    'fila' => $index + 2,
+                    'error' => $e->getMessage(),
+                    'code' => $row[array_search('code', $header)] ?? null,
+                    'valor_stock' => $row[array_search('stock', $header)] ?? null,
+                ];
+            }
+        }
+
+        DB::commit();
+
+        return [
+            'procesados' => $procesados,
+            'resumen' => [
+                'total_lineas' => count($rows),
+                'total_descontado' => $totalDescontado,
+                'errores' => count($errores),
+                'empresa_id' => $empresaId,
+                'bodega_id'  => $bodegaId,
+                'sede_id'    => $user->sede_id,
+            ],
+            'errores' => $errores,
+        ];
+
+    } catch (\Throwable $e) {
+        DB::rollBack();
+        throw $e;
+    }
+}
+
+
 public function getStockConSugerencias(int $productoId, $user): array
 {
     $sedeId = $user->sede_id;

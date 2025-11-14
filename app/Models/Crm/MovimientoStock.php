@@ -19,10 +19,13 @@ class MovimientoStock extends Model
      'detalle',
      'razon',
      'pdf_path',
+     'anulado '
     ];
 
     protected $casts = [
         'detalle' => 'array',
+        'anulado' => 'boolean',
+        'producto_id' => 'array',
     ];
     public function producto()
     {

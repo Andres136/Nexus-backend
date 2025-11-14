@@ -337,14 +337,29 @@ class OrdenCompraProveedorController extends Controller
 
 
     //Eliminar un detalle de orden de compra
-    public function destroy($id)
-    {
-        $detalle = OrdenCompraProveedorDetalle::findOrFail($id);
-        $detalle->delete();
+public function destroy($id)
+{
+    $user = auth()->user();
 
-        return response()->json(['message' => 'Detalle eliminado correctamente.']);
-    
+    // Roles permitidos
+    $rolesPermitidos = [1, 4];
+
+    if (!in_array($user->role_id, $rolesPermitidos)) {
+        return response()->json([
+            'success' => false,
+            'message' => 'No tiene permisos para eliminar este detalle.'
+        ], 403);
     }
+
+    $detalle = OrdenCompraProveedor::findOrFail($id);
+    $detalle->delete();
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Detalle eliminado correctamente.'
+    ]);
+}
+
 
     //Descargar la orden de compra del proveedor en pdf
     public function descargarOrdenPdfProveedor($id)
@@ -388,4 +403,94 @@ class OrdenCompraProveedorController extends Controller
 
         return response()->json(['message' => 'Correo enviado correctamente al proveedor.']);
     }
+
+public function dividirOrden(Request $request, $id)
+{
+    $request->validate([
+        'items' => 'required|array|min:1',
+        'items.*.detalle_id' => 'required|exists:orden_compra_proveedor_detalles,id',
+        'items.*.proveedor_id' => 'required|exists:proveedores,id'
+    ]);
+
+    DB::beginTransaction();
+
+    try {
+        $ordenOriginal = OrdenCompraProveedor::with("detalles")->findOrFail($id);
+
+        // Agrupar por proveedor destino
+        $grupos = collect($request->items)
+            ->groupBy("proveedor_id"); // 🟢 Grupo = proveedor_id → lista de detalles
+
+        $nuevasOrdenes = [];
+
+        foreach ($grupos as $proveedorId => $itemsProveedor) {
+
+            // Crear nueva orden para este proveedor
+            $newOrden = OrdenCompraProveedor::create([
+                'proveedor_id' => $proveedorId,
+                'fecha' => now(),
+                'numero_orden' => $this->generarConsecutivo(),
+                'estado_id' => 1,
+                'usuario_id' => auth()->id(),
+                'observaciones' => "Generada automáticamente desde división de la orden {$ordenOriginal->numero_orden}",
+                'empresa_id' => $ordenOriginal->empresa_id,
+                'bodega_id' => $ordenOriginal->bodega_id,
+                'sede_id' => auth()->user()->sede_id,
+            ]);
+
+            // Asociar los detalles correspondientes
+            foreach ($itemsProveedor as $item) {
+                $detalle = OrdenCompraProveedorDetalle::find($item['detalle_id']);
+
+                $newOrden->detalles()->create([
+                    'item' => $detalle->item,
+                    'descripcion' => $detalle->descripcion,
+                    'cantidad_solicitada' => $detalle->cantidad_solicitada,
+                    'cantidad_entregada' => 0,
+                    'code' => $detalle->code,
+                    'producto_id' => $detalle->producto_id,
+                    'proveedor_id' => $proveedorId,
+                    'proceso_bolsas_id' => $detalle->proceso_bolsas_id,
+                ]);
+            }// Cargar relaciones necesarias para PDF y frontend
+$newOrden->load([
+    'empresa',
+    'proveedor',
+    'usuario',
+    'detalles'
+]);
+
+$nuevasOrdenes[] = $newOrden;
+
+        }
+
+     
+
+        DB::commit();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Órdenes generadas correctamente',
+            'ordenes_generadas' => $nuevasOrdenes
+
+        ]);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json([
+            'success' => false,
+            'message' => 'Error al dividir la orden',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
+private function generarConsecutivo()
+{
+    $ultima = OrdenCompraProveedor::orderBy('id', 'desc')->first();
+    $num = $ultima ? $ultima->id + 1 : 1;
+    return 'OC-' . str_pad($num, 3, '0', STR_PAD_LEFT);
+}
+
+
 }

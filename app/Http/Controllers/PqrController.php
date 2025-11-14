@@ -80,12 +80,22 @@ class PqrController extends Controller
         
             // Notificaciones
             $emailSolicitante = $request->email;
-            $admins = User::where('role_id', 1)->get();
-        
-            Notification::send($admins, new AdminNotifications($data, 'admin', $emailSolicitante));
-        
-            Notification::route('mail', $emailSolicitante)
-                ->notify(new AdminNotifications($data, 'usuario', $admins->first()->email));
+       $admins = User::where('role_id', 1)->get();
+
+// Notificar a admins
+if ($admins->count() > 0) {
+    Notification::send($admins, new AdminNotifications($data, 'admin', $emailSolicitante));
+
+    // Notificar a usuario pero solo si existe email de admin
+    $adminEmail = $admins->first()->email;
+    Notification::route('mail', $emailSolicitante)
+        ->notify(new AdminNotifications($data, 'usuario', $adminEmail));
+} else {
+    // En caso extremo: no hay admins
+    Notification::route('mail', $emailSolicitante)
+        ->notify(new AdminNotifications($data, 'usuario', 'soporte@nexus.com'));
+}
+
 
             return response()->json([
                 'message' => 'PQR enviada correctamente',
@@ -195,6 +205,8 @@ $rutaCompleta = $documento ? storage_path('app/public/' . $documento->documento)
         } catch (\Exception $e) {
             return response()->json(['message' => 'Error al asignar la PQR', 'error' => $e->getMessage()], 500);
         }
+
+        return response()->json(['message' => 'PQR asignada correctamente']);
     }
  
 
@@ -209,10 +221,7 @@ $rutaCompleta = $documento ? storage_path('app/public/' . $documento->documento)
 
     $pqr = Pqr::findOrFail($id);
 
-    if ($pqr->asignado_a !== auth()->id()) {
-        return response()->json(['message' => 'No autorizado'], 403);
-    }
-
+   
     $pqr->respuesta = $request->respuesta;
     $pqr->save();
 

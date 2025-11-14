@@ -124,7 +124,7 @@ Route::get('ordenes-compra/{id}', [OrdenCompraController::class, 'show']);
 Route::get('orden-compras/{id}/edit', [OrdenCompraController::class, 'edit']);
 Route::get('/ordenes-compra/faltantes/pendientes', [OrdenCompraController::class, 'verificarFaltantesPendientes']);
 
-
+Route::post('/ordenes-compra-proveedor/{id}/dividir', [OrdenCompraProveedorController::class, 'dividirOrden']);
 
 Route::get('/orden-trabajo/{id}', [ordenTrabajoController::class, 'show']);
 Route::get('ordenes-trabajo', [OrdenCompraController::class, 'obtenerOrdenesTrabajo']);
@@ -207,6 +207,12 @@ Route::post('/productos/sincronizar-siigo-setas', [CrmProductController::class, 
 //**LOGICA DE INVENTARIOS */
 
 Route::apiResource('inventarios',InventorieController::class);
+//Anular movimiento de stock
+Route::post('anular-movimiento-stock/{movimientoId}', [InventorieController::class, 'importar']);
+
+/*DESCONTAR STOCK VIA EXCEL*/
+
+Route::post('descontar-stock-excel', [CrmProductController::class, 'importarExcelDescuento']);
 });
 Route::middleware(['auth:sanctum', 'es_responsable_del_departamento'])->group(function () {
     Route::apiResource('/indicadores', IndicadoresProcesosController::class);
