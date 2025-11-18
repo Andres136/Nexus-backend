@@ -126,8 +126,8 @@
                     <td>{{ $d->cantidad }}</td>
                     <td>{{ $d->cantidad_enviada }}</td>
                     <td>{{ $d->faltantes }}</td>
-                    <td>${{ number_format($d->valor_unitario, 0, ',', '.') }}</td>
-                    <td>${{ number_format($d->valor_total, 0, ',', '.') }}</td>
+                    <td>${{ number_format($d->valor_unitario, 2, ',', '.') }}</td>
+                    <td>${{ number_format($d->valor_total, 2, ',', '.') }}</td>
                 </tr>
                 @if($d->entregas->count())
                     <tr>
@@ -149,7 +149,7 @@
     <!-- Totales -->
     <div class="totales">
         <p><strong>Total Kg:</strong> {{ number_format($totalKg, 2) }} Kg</p>
-        <p><strong>Valor Total:</strong> ${{ number_format($valorTotal, 0, ',', '.') }}</p>
+        <p><strong>Valor Total:</strong> ${{ number_format($valorTotal, 2, ',', '.') }}</p>
     </div>
 
     <h3>Observaciones</h3>
