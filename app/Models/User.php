@@ -7,6 +7,8 @@ namespace App\Models;
 use App\Models\Crm\DatoConductor;
 use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\Sede;
+use App\Models\Rutas\DeliveryEvent;
+use App\Models\Rutas\DeliveryRecord;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -95,6 +97,17 @@ public function datosConductor()
     return $this->hasOne(DatoConductor::class);
 }
 
+// Relación con los eventos de entrega
+public function deliveryEvents()
+{
+    return $this->hasMany(DeliveryEvent::class, 'usuario_id');
+}
+
+//Relacion con evetos de entrega como quien registra
+public function deliveryRecords()
+{
+    return $this->hasMany(DeliveryRecord::class, 'usuario_id');
+}
 
     /**
      * The attributes that should be hidden for serialization.

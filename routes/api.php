@@ -43,6 +43,7 @@ use App\Http\Controllers\ProcesoController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\RegistroIndicadoresController;
 use App\Http\Controllers\RolController;
+use App\Http\Controllers\Rutas\DeliveryEventController;
 use App\Http\Controllers\TareaController;
 use App\Http\Controllers\Traslados\EnvioInternoController;
 use App\Http\Controllers\UpdateDepartamentoController;
@@ -170,7 +171,8 @@ Route::get('/entregas/items-pendientes/pdf', [EntregaProveedorController::class,
 Route::get('/orden-compras-proveedor/{id}/pdf', [OrdenCompraProveedorController::class, 'descargarOrdenPdfProveedor']);
 //Enviar email con la orden de compra al proveedor
 Route::post('/ordenes-compra-proveedor/{id}/enviar-email', [OrdenCompraProveedorController::class, 'enviarEmail']);
-
+//Ordenes de trabajo para entregas
+Route::get('ordenes-trabajo-entregas', [OrdenCompraController::class, 'ordenesTrabajoEntregas']);
 //Proceso bolsas
 Route::apiResource('registrar-proceso-bolsa',procesoBolsasController::class);
 Route::get('entregas/{id}', [OrdenCompraController::class, 'obtenerEntregas']);
@@ -213,6 +215,15 @@ Route::post('anular-movimiento-stock/{movimientoId}', [InventorieController::cla
 /*DESCONTAR STOCK VIA EXCEL*/
 
 Route::post('descontar-stock-excel', [CrmProductController::class, 'importarExcelDescuento']);
+
+//Registrar Evento de entrega
+Route::apiResource('/eventos-entrega', DeliveryEventController::class);
+Route::get('/eventos-entrega-por-usuario', [DeliveryEventController::class, 'listarEntregasPorUsuario']);
+//Cambio de estado de la entrega
+Route::post('/eventos-entrega/{deliveryEvent}/change-status', [DeliveryEventController::class, 'changeStatus']);
+
+
+
 });
 Route::middleware(['auth:sanctum', 'es_responsable_del_departamento'])->group(function () {
     Route::apiResource('/indicadores', IndicadoresProcesosController::class);

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\Crm\OrdenDeTrabajo; // Importar el modelo OrdenDeTrabajo
 use App\Models\Crm\Cliente;
 use App\Models\Departamentos;
+use App\Models\Rutas\DeliveryEvent;
 
 class Orden_Compra extends Model
 {
@@ -76,6 +77,9 @@ class Orden_Compra extends Model
         return $this->belongsTo(Sede::class, 'sede_id');
     }
 
-
- 
+    // Relación con eventos de entrega
+    public function deliveryEvents()
+    {
+        return $this->hasMany(DeliveryEvent::class, 'orden_id');
+}
 }

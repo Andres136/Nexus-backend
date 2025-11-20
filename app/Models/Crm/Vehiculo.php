@@ -3,6 +3,7 @@
 namespace App\Models\Crm;
 
 use App\Models\Estados;
+use App\Models\Rutas\DeliveryEvent;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
@@ -57,5 +58,12 @@ public function conductor()
 {
     return $this->belongsTo(User::class, 'conductor'); // Suponiendo que el conductor es un usuario
 }
+
+
+// Relación con los eventos de entrega
+    public function deliveryEvents()
+    {
+        return $this->hasMany(DeliveryEvent::class, 'vehiculo_id');
+    }
 
 }

@@ -749,6 +749,39 @@ $ordenCompra->save();
         ]);
     }
 
+public function ordenesTrabajoEntregas(Request $request)
+{
+    $search = $request->input('search');
+
+    // IDs de estados necesarios
+    $estadoCompletado = Estados::where('nombre', 'Completado')->value('id');
+    $estadoParcial    = Estados::where('nombre', 'Entrega Parcial')->value('id');
+
+    $ordenes = OrdenDeTrabajo::with([
+        'ordenCompra.cliente',
+        'ordenCompra',
+        'estado',
+        'entregas'
+    ])
+    ->where(function ($q) use ($estadoCompletado, $estadoParcial) {
+        $q->where('estado_id', $estadoCompletado)         // completadas
+          ->orWhere('estado_id', $estadoParcial)          // parciales
+          ->orWhereHas('ordenCompra.detalles', function ($d) {
+              $d->where('cantidad_enviada', '>', 0);      // cantidad enviada > 0
+          });
+    })
+    ->when($search, function ($q) use ($search) {
+        $q->whereHas('ordenCompra.cliente', function ($c) use ($search) {
+            $c->where('nombre', 'LIKE', "%$search%");
+        });
+    })
+    ->orderBy('updated_at', 'desc')
+    ->limit(50)
+    ->get();
+
+    return response()->json($ordenes, 200);
+}
+
 
   
 }
