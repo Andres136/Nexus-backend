@@ -52,6 +52,10 @@ class MovimientoStock extends Model
     {
         return $this->belongsTo(OrdenDeTrabajo::class, 'orden_trabajo_id');
     }
+    //relacion con sede
+    public function sede()
+    {
+        return $this->belongsTo(Sede::class, 'sede_id');
+    }
 
- 
 }

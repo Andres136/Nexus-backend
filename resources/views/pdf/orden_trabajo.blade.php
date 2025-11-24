@@ -94,7 +94,14 @@
     <p><strong>Cliente:</strong> {{ $orden->cliente->nombre ?? 'N/A' }}</p>
     <p><strong>Fecha de entrega:</strong> {{ $orden->fecha_entrega }}</p>
     <p><strong>Generado por:</strong> {{ $orden->user->name ?? 'N/A' }}</p>
-
+   @if($orden->ordenCompra && $orden->ordenCompra->observaciones)
+    <div class="observaciones-section" style="border-color: #e67e22; background: #f4ecf7;">
+        <h3 style="margin-top: 0; color: #e67e22;"> Observaciones de la Orden de Compra</h3>
+        <div class="observaciones-content" style="color: #8b4513;">
+            {{ $orden->ordenCompra->observaciones }}
+        </div>
+    </div>
+@endif
     <h3>Detalles</h3>
     <table>
         <thead>

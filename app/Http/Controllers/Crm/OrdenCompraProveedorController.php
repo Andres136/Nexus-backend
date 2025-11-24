@@ -441,7 +441,7 @@ public function dividirOrden(Request $request, $id)
             // Asociar los detalles correspondientes
             foreach ($itemsProveedor as $item) {
                 $detalle = OrdenCompraProveedorDetalle::find($item['detalle_id']);
-
+       
                 $newOrden->detalles()->create([
                     'item' => $detalle->item,
                     'descripcion' => $detalle->descripcion,
@@ -464,7 +464,6 @@ $nuevasOrdenes[] = $newOrden;
 
         }
 
-     
 
         DB::commit();
 

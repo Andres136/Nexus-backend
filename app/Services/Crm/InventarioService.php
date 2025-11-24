@@ -914,4 +914,137 @@ else {
 }
 
 
+// En InventarioService.php - método listarMovimientos
+
+public function listarMovimientos(Request $request, $user)
+{
+    $rolesPermitidos = [1, 4];
+    $isAdmin = in_array($user->role_id, $rolesPermitidos);
+
+    $query = MovimientoStock::with([
+        'producto:id,name,code',
+        'usuario:id,name',
+    ]);
+
+    // ======================
+    // 🔹 Filtros por fechas
+    // ======================
+    if ($request->filled('desde')) {
+        $query->whereDate('created_at', '>=', $request->desde);
+    }
+
+    if ($request->filled('hasta')) {
+        $query->whereDate('created_at', '<=', $request->hasta);
+    }
+
+    // ======================
+    // 🔹 Filtro por producto
+    // ======================
+    if ($request->filled('producto')) {
+        $p = $request->producto;
+        $query->whereHas('producto', function ($q) use ($p) {
+            $q->where('name', 'LIKE', "%$p%")
+              ->orWhere('code', 'LIKE', "%$p%");
+        });
+    }
+
+    // ======================
+    // 🔹 Tipo de movimiento
+    // ======================
+    if ($request->filled('tipo')) {
+        $query->where('tipo', $request->tipo);
+    }
+
+    // ======================
+    // 🔹 Usuario que ejecutó
+    // ======================
+    if ($request->filled('usuario_id')) {
+        $query->where('usuario_id', $request->usuario_id);
+    }
+
+    // ======================
+    // 🔹 Sede origen / destino
+    // ======================
+    if ($request->filled('sede_origen_id')) {
+        $query->where('sede_origen_id', $request->sede_origen_id);
+    }
+
+    if ($request->filled('sede_destino_id')) {
+        $query->where('sede_destino_id', $request->sede_destino_id);
+    }
+
+    // ======================
+    // 🔹 Bodega origen
+    // ======================
+    if ($request->filled('bodega_origen_id')) {
+        $query->where('bodega_origen_id', $request->bodega_origen_id);
+    }
+
+    // ======================
+    // 🔹 Orden de trabajo o compra
+    // ======================
+    if ($request->filled('orden_trabajo_id')) {
+        $query->where('orden_trabajo_id', $request->orden_trabajo_id);
+    }
+
+    if ($request->filled('orden_compra_id')) {
+        $query->where('orden_compra_id', $request->orden_compra_id);
+    }
+
+    // ======================
+    // 🔹 Estado (anulado / activo)
+    // ======================
+    if ($request->filled('estado')) {
+        if ($request->estado == 'anulado') {
+            $query->where('anulado', 1);
+        } else {
+            $query->where('anulado', 0);
+        }
+    }
+
+    // ======================
+    // 🔹 Control de acceso por rol
+    // ======================
+    if (!$isAdmin) {
+        // Usuarios solo ven movimientos de su sede
+        $query->where(function ($q) use ($user) {
+            $q->where('sede_origen_id', $user->sede_id)
+              ->orWhere('sede_destino_id', $user->sede_id);
+        });
+    }
+
+    // ======================
+    // 🔹 Orden y paginado
+    // ======================
+    $query->orderBy('created_at', 'DESC');
+
+    $movimientos = $query->paginate($request->get('per_page', 20));
+
+    // 🔥 AGREGAR URL COMPLETA DEL PDF A CADA MOVIMIENTO
+    $movimientos->getCollection()->transform(function ($mov) {
+        $mov->pdf_url = $mov->pdf_path
+            ? asset('storage/' . $mov->pdf_path)
+            : null;
+
+        return $mov;
+    });
+
+    // ✅ RETORNAR ESTRUCTURA CORRECTA PARA EL FRONTEND
+    return [
+        'success' => true,
+        'data' => $movimientos->items(), // Los datos actuales de la página
+        'meta' => [
+            'current_page' => $movimientos->currentPage(),
+            'from' => $movimientos->firstItem(),
+            'last_page' => $movimientos->lastPage(),
+            'per_page' => $movimientos->perPage(),
+            'to' => $movimientos->lastItem(),
+            'total' => $movimientos->total(),
+            'total_registros' => $movimientos->total(),
+            'prev_page_url' => $movimientos->previousPageUrl(),
+            'next_page_url' => $movimientos->nextPageUrl(),
+        ]
+    ];
+}
+
 }

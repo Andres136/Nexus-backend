@@ -211,6 +211,8 @@ Route::post('/productos/sincronizar-siigo-setas', [CrmProductController::class, 
 Route::apiResource('inventarios',InventorieController::class);
 //Anular movimiento de stock
 Route::post('anular-movimiento-stock/{movimientoId}', [InventorieController::class, 'importar']);
+//Consultar movimientos de stock
+Route::get('movimientos-stock', [InventorieController::class, 'listarMovimientosStock']);
 
 /*DESCONTAR STOCK VIA EXCEL*/
 

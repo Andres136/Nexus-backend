@@ -386,6 +386,7 @@ $ordenCompra->save();
                 'totalKg'      => $ordenCompra->detalles->sum('cantidad_requerida_kg'),
                 'valorTotal'   => $ordenCompra->valor_total,
                 'observaciones'=> $ordenTrabajo->observaciones ?? 'Sin observaciones',
+                'observaciones_oc'=> $ordenCompra->observaciones ?? 'Sin observaciones',
             ]);
 
             $fileName = "ordenes_trabajo/orden_trabajo_{$ordenTrabajo->id}.pdf";

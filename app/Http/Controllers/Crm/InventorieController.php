@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use PhpParser\Builder\Function_;
 
 class InventorieController extends Controller
 {
@@ -27,13 +28,16 @@ class InventorieController extends Controller
 protected $inventarioService;
 protected $movimientoPDFService;
 protected $anularMovimientoService;
+protected $movimientoStockService;
 
 
-    public function __construct(InventarioService $inventarioService, InventarioService $movimientoPDFService, InventarioService $anularMovimientoService)
+    public function __construct(InventarioService $inventarioService,
+     InventarioService $movimientoPDFService, InventarioService $anularMovimientoService, InventarioService $movimientoStockService)
     {
         $this->inventarioService = $inventarioService;
         $this->movimientoPDFService = $movimientoPDFService;
         $this->anularMovimientoService = $anularMovimientoService;
+        $this->movimientoStockService = $movimientoStockService;
     }
 
  public function index(Request $request)
@@ -473,6 +477,23 @@ public function anularMovimiento(int $movimientoId)
 
     return response()->json($resultado, $resultado['success'] ? 200 : 400); 
 
+}
+//Consultar movimientos de stock
+public function movimientosStock(Request $request){
+    $user = auth()->user();
+
+    $resultado = movimientoStock::all();
+
+   return response()->json($resultado, 200);
+}
+
+public  function listarMovimientosStock(Request $request)
+{
+    $user = auth()->user();
+
+    $resultado = $this->movimientoStockService->listarMovimientos($request, $user);
+
+    return response()->json($resultado, 200);
 }
 
 }
