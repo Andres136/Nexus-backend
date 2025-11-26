@@ -99,6 +99,7 @@ Route::middleware('auth:sanctum')->group(function () {
   Route::get('stock-global', [SiigoGlobalController::class, 'stock']);
   Route::patch('tareas/estado/{id}/', [TareaController::class, 'update']);
   Route::apiResource('tareas', TareaController::class);
+  Route::put('/tareas/update/{id}', [TareaController::class, 'actualizarTarea']);
   Route::put('/pqrs/{id}/estado', [PqrController::class, 'cambiarEstado']);
   Route::get('notifications-pqrs/pqr', [NotificacionOrdenController::class, 'notificacionesPqrs']);
   //vehiculos
@@ -159,6 +160,7 @@ Route::delete('/detalles-orden/{id}', [EntregaProveedorController::class, 'elimi
 
 Route::post('entregas-proveedor', [EntregaProveedorController::class, 'store']);
 Route::put('entregas-proveedor/{id}', [EntregaProveedorController::class, 'update']);
+Route::get('entregas/proveedores/{id}', [OrdenCompraProveedorController::class, 'entregasShow']);
 Route::get('/proveedores-all', [ProveedorController::class, 'proveedoresAll']);
 Route::apiResource('ordenes-compra-proveedor', OrdenCompraProveedorController::class);
 Route::get('referencias-faltantes', [EntregaProveedorController::class, 'referenciasFaltantes']);
@@ -171,6 +173,7 @@ Route::get('/entregas/items-pendientes/pdf', [EntregaProveedorController::class,
 Route::get('/orden-compras-proveedor/{id}/pdf', [OrdenCompraProveedorController::class, 'descargarOrdenPdfProveedor']);
 //Enviar email con la orden de compra al proveedor
 Route::post('/ordenes-compra-proveedor/{id}/enviar-email', [OrdenCompraProveedorController::class, 'enviarEmail']);
+
 //Ordenes de trabajo para entregas
 Route::get('ordenes-trabajo-entregas', [OrdenCompraController::class, 'ordenesTrabajoEntregas']);
 //Proceso bolsas

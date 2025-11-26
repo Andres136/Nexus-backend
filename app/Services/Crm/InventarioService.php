@@ -452,7 +452,8 @@ public function registrarEnvioConDescuento($data, $user)
                 }
             }
         }
-
+     // 🟢 5) Generar PDF y guardar ruta
+        $pdfPath = $this->generarPdfEnvio($envio, $detallesRegistrados);
         // 🟢 3) Registrar movimiento consolidado (resumen)
         MovimientoStock::create([
             'tipo'            => 'traslado_multiple',
@@ -466,6 +467,7 @@ public function registrarEnvioConDescuento($data, $user)
                 'fecha'    => now()->toDateTimeString(),
                 'observacion' => $data['notas'] ?? 'Traslado interno entre sedes',
             ]),
+            'pdf_path'      => $pdfPath ?? null,
         ]);
 
         // 🟢 4) Asociar órdenes (se eliminó el bloque duplicado)
@@ -478,8 +480,7 @@ public function registrarEnvioConDescuento($data, $user)
             }
         }
 
-        // 🟢 5) Generar PDF y guardar ruta
-        $pdfPath = $this->generarPdfEnvio($envio, $detallesRegistrados);
+   
 
         DB::commit();
 
@@ -508,7 +509,7 @@ private function generarPdfEnvio($envio, $detalles)
     ])->setPaper('A4', 'portrait');
 
     $fileName = 'envio_interno_' . $envio->id . '.pdf';
-    $filePath = 'envios/' . $fileName;
+    $filePath = 'movimientos/' . $fileName;
 
     Storage::disk('public')->put($filePath, $pdf->output());
 

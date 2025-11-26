@@ -23,9 +23,10 @@ class EntregaProveedorController extends Controller
 {
 
     
- 
+
         $entrega = DB::transaction(function () use ($request) {
             // 1. Crear la entrega
+            $user = auth()->user();
             $entrega = EntregaProveedor::create([
                 'detalle_id'        => $request->detalle_id,
                 'cantidad_entregada'=> $request->cantidad_entregada,
@@ -33,6 +34,8 @@ class EntregaProveedorController extends Controller
                 'observaciones'     => $request->observaciones,
                 'bodega_id'         => $request->bodega_id,
                 'producto_id'       => $request->producto_id,
+                'user_id'           => $user->id,
+                'sede_id'          => $user->sede_id,
             ]);
         
             // 2. Sumar la cantidad entregada al detalle principal
@@ -98,6 +101,7 @@ class EntregaProveedorController extends Controller
 
 public function update(EntregasRequest $request, $id)
 {
+    $user = auth()->user();
     try {
         $entrega = EntregaProveedor::findOrFail($id);
 
@@ -108,6 +112,9 @@ public function update(EntregasRequest $request, $id)
             'fecha_entrega'      => $request->fecha_entrega,
             'observaciones'      => $request->observaciones,
             'bodega_id'          => $request->bodega_id,
+            'producto_id'        => $request->producto_id,
+            'user_id'            => $user->id,
+            'sede_id'            => $user->sede_id,
         ]);
 
         // ✅ aseguramos producto_id aunque no venga del front

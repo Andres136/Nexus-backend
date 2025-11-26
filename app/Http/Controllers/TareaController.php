@@ -83,6 +83,28 @@ class TareaController extends Controller
         ]);
     }
 
+
+    //Actualizar tarea
+    public function actualizarTarea(Request $request, string $id)
+    {
+        $tarea = Tareas::find($id);
+
+        if (!$tarea) {
+            return response()->json(['message' => 'Tarea no encontrada'], 404);
+        }
+    
+        $tarea->nombre = $request->nombre ?? $tarea->nombre;
+        $tarea->descripcion = $request->descripcion ?? $tarea->descripcion;
+        $tarea->fecha_fin = $request->fecha_fin ?? $tarea->fecha_fin;
+        $tarea->departamento_id = $request->departamento_id ?? $tarea->departamento_id;
+        $tarea->user_id = $request->user_id ?? $tarea->user_id;
+        $tarea->save();
+    
+        return response()->json([
+            'message' => 'Tarea actualizada correctamente'
+        ]);
+    }
+
     /**
      * Remove the specified resource from storage.
      */

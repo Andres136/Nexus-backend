@@ -2,6 +2,7 @@
 
 namespace App\Models\Crm;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
 class EntregaProveedor extends Model
@@ -15,6 +16,8 @@ class EntregaProveedor extends Model
         'observaciones',
         'bodega_id',
         'producto_id',
+        'user_id',
+        'sede_id',
    
     ];
     // Casts
@@ -47,5 +50,10 @@ class EntregaProveedor extends Model
     public function product()
     {
         return $this->belongsTo(product::class, 'product_id', 'id');
+    }
+    //relacion con usuario
+    public function usuario()
+    {
+        return $this->belongsTo(User::class, 'user_id', 'id');
     }
 }
