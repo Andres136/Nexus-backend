@@ -50,24 +50,32 @@ class OrdenCompraController extends Controller
     return response()->json($resultado);
     }
 
-    public function index(Request $request)
-    {
-        $search = $request->input('search');
+  public function index(Request $request)
+{
+    $search = $request->input('search');
 
-        // Obtener órdenes de compra con paginación y ordenarlas por fecha de creación (las más recientes primero)
-        $ordenesCompra = Orden_Compra::with('detalles', 'cliente', 'user', 'estado','detalles.product','ordenTrabajo')
-            ->when($search, function ($query, $search) {
-                return $query->whereHas('cliente', function ($query) use ($search) {
-                    $query->where('nombre', 'LIKE', "%$search%");
-                })->orWhere('fecha_entrega', 'LIKE', "%$search%");
-            })
-            ->orderBy('created_at', 'desc') // 🔹 Ordenar por fecha de creación más reciente
-            ->paginate(10) // Mantiene la paginación
-            ->appends(request()->query()); // Mantiene los parámetros de búsqueda en la URL
+    $ordenesCompra = Orden_Compra::with(
+            'detalles',
+            'cliente',
+            'user',
+            'estado',
+            'detalles.product',
+            'ordenTrabajo'
+        )
+        ->withExists('ordenTrabajo') // ✅ agrega flag booleano
+        ->when($search, function ($query, $search) {
+            return $query->whereHas('cliente', function ($query) use ($search) {
+                $query->where('nombre', 'LIKE', "%$search%");
+            })->orWhere('fecha_entrega', 'LIKE', "%$search%");
+        })
+        ->orderBy('orden_trabajo_exists', 'asc') // ✅ primero sin OT
+        ->orderBy('created_at', 'desc') // ✅ más recientes dentro del grupo
+        ->paginate(10)
+        ->appends(request()->query());
 
+    return response()->json($ordenesCompra);
+}
 
-        return response()->json($ordenesCompra);
-    }
 
 
     /**
