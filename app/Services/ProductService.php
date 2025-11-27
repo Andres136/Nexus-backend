@@ -262,14 +262,15 @@ public function importInventarioFromExcel($filePath, $user, $empresaId, $bodegaI
 
             if ($inventarioExistente) {
                 // 🔄 Actualizar
-                $inventarioExistente->update([
-                    'stock'             => $data['stock'],
-                    'precio'            => $data['precio'] ?? $inventarioExistente->precio,
-                    'min_stock'         => $data['min_stock'] ?? $inventarioExistente->min_stock,
-                    'max_stock'         => $data['max_stock'] ?? $inventarioExistente->max_stock,
-                    'fecha_vencimiento' => $data['fecha_vencimiento'] ?? $inventarioExistente->fecha_vencimiento,
-                    'updated_at'        => now(),
-                ]);
+         $inventarioExistente->update([
+    'stock'             => $inventarioExistente->stock + $data['stock'],
+    'precio'            => $data['precio'] ?? $inventarioExistente->precio,
+    'min_stock'         => $data['min_stock'] ?? $inventarioExistente->min_stock,
+    'max_stock'         => $data['max_stock'] ?? $inventarioExistente->max_stock,
+    'fecha_vencimiento' => $data['fecha_vencimiento'] ?? $inventarioExistente->fecha_vencimiento,
+    'updated_at'        => now(),
+]);
+
                 $inventarios[] = $inventarioExistente;
                 $actualizados++;
             } else {
