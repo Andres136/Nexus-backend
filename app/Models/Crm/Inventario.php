@@ -21,6 +21,10 @@ class Inventario extends Model
         'fecha_vencimiento',
     ];
 
+    protected $casts = [
+        'fecha_vencimiento' => 'date',
+    ];
+
     // Relaciones con otros modelos (si es necesario)
     public function producto()
     {

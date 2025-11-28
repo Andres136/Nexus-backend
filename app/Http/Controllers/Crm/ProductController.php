@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Crm;
 
+use App\Exports\PlantillaProductosExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Crm\RegistrarInventarioResquest;
 use App\Http\Requests\Crm\StockRequest;
@@ -796,4 +797,29 @@ public function sincronizarProductosSiigoSetas(Request $request)
         ], 500);
     }
 }
+
+public function exportarPlantillaProductos()
+{
+    try {
+        $fecha = now()->format('Ymd_His');
+        $fileName = "plantilla_productos_{$fecha}.xlsx";
+
+        return Excel::download(
+            new PlantillaProductosExport,
+            $fileName,
+            \Maatwebsite\Excel\Excel::XLSX,
+            [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Content-Disposition' => "attachment; filename=\"{$fileName}\"",
+            ]
+        );
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Error al generar la plantilla: ' . $e->getMessage(),
+        ], 500);
+    }
+}
+
 }

@@ -6,7 +6,7 @@ use App\Models\Crm\Inventario;
 use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\product as CrmProduct;
 use App\Models\Crm\Sede;
-use App\Models\Product;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -249,6 +249,11 @@ public function importInventarioFromExcel($filePath, $user, $empresaId, $bodegaI
             if (!is_numeric($data['stock'])) {
                 throw new \Exception("El valor '{$rawStock}' no es numérico o tiene formato inválido");
             }
+            //Procesar fecha de vencimiento si existe
+            if (isset($data['fecha_vencimiento']) && !empty($data['fecha_vencimiento'])) {
+                $data['fecha_vencimiento'] = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($data['fecha_vencimiento'])->format('Y-m-d');
+            }
+
 
             $data['stock'] = (float) $data['stock']; // conversión segura a número decimal
 
