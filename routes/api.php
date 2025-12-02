@@ -228,7 +228,7 @@ Route::get('/eventos-entrega-por-usuario', [DeliveryEventController::class, 'lis
 //Cambio de estado de la entrega
 Route::post('/eventos-entrega/{deliveryEvent}/change-status', [DeliveryEventController::class, 'changeStatus']);
 
-
+Route::apiResource('procesos', ProcesoController::class);
 
 });
 Route::middleware(['auth:sanctum', 'es_responsable_del_departamento'])->group(function () {
@@ -281,7 +281,7 @@ Route::get("/usuarios-comerciales",[ClienteController::class,'usuariosComerciale
 route::get('dashboard-entregas-hoy', [DashboardController::class, 'ordenesEntreganHoy']);
 
 Route::get('documentos/descargar/{id}', [DocumentoController::class, 'download']);
-Route::apiResource('procesos', ProcesoController::class);
+
 Route::apiResource('documentos', DocumentoController::class);
 
 

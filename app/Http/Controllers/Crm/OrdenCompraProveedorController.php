@@ -9,7 +9,7 @@ use App\Mail\OrdenCompraProveedorMail;
 use App\Models\Crm\OrdenCompraProveedor;
 use App\Models\Crm\OrdenCompraProveedorDetalle;
 use Barryvdh\DomPDF\Facade\Pdf ;
-
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 
@@ -64,6 +64,21 @@ public function index(Request $request)
                 });
         });
     }
+    // 🔍 FILTRO POR SEMANA (formato: 2025-W48)
+if ($request->filled('week')) {
+    try {
+        [$year, $week] = explode('-W', $request->week);
+
+        $startDate = Carbon::now()->setISODate($year, $week)->startOfWeek();
+        $endDate   = Carbon::now()->setISODate($year, $week)->endOfWeek();
+
+        $query->whereBetween('fecha', [$startDate, $endDate]);
+
+    } catch (\Exception $e) {
+        // Si llega un formato inválido, no romper el endpoint
+    }
+}
+
 
     $ordenes = $query->paginate(10);
 

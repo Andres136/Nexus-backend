@@ -23,6 +23,7 @@
     <table>
         <thead>
             <tr>
+                
                 <th>Producto</th>
                 <th>Bodega</th>
                 <th>Empresa</th>
