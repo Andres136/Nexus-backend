@@ -21,7 +21,7 @@ class PlantillaProductosExport implements FromCollection, WithHeadings
                     'Código'            => $prod->code,
                     'Nombre Producto'   => $prod->name,
                     'Descripción'       => $prod->description,
-                    'Stock (Llenar)',
+                    'Stock'             => '',   // opcional
                        'precio'            => '',   // opcional
                     'min_stock'         => '',   // opcional
                     'max_stock'         => '',   // opcional

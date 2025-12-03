@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Crm;
 
+use App\Exports\InventarioExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Crm\StockMasivoRequest;
 use App\Http\Requests\Crm\StockRequest;
@@ -15,7 +16,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use PhpParser\Builder\Function_;
+use Maatwebsite\Excel\Facades\Excel;
+
+
+
 
 class InventorieController extends Controller
 {
@@ -494,6 +498,57 @@ public  function listarMovimientosStock(Request $request)
     $resultado = $this->movimientoStockService->listarMovimientos($request, $user);
 
     return response()->json($resultado, 200);
+}
+
+
+
+public function exportarInventarioExcel(Request $request)
+{
+    try {
+       
+     
+
+        $query = Inventario::with(['producto', 'empresa', 'sede', 'bodega']);
+
+     
+
+        // 🔎 Aplicar filtros (igual que index)
+        if ($request->sede_id) {
+            $query->where('sede_id', $request->sede_id);
+        }
+
+        if ($request->bodega_id) {
+            $query->where('bodega_id', $request->bodega_id);
+        }
+
+        if ($request->empresa_id) {
+            $query->where('empresa_id', $request->empresa_id);
+        }
+
+        if ($request->producto) {
+            $query->whereHas('producto', function ($q) use ($request) {
+                $q->where('name', 'like', "%{$request->producto}%")
+                  ->orWhere('code', 'like', "%{$request->producto}%");
+            });
+        }
+
+        // Obtener datos
+        $inventarios = $query->get();
+    
+
+        // 📄 Generar Excel
+        $fileName = "inventario_" . now()->format('Ymd_His') . ".xlsx";
+
+        return Excel::download(new InventarioExport($inventarios), $fileName);
+
+    } catch (\Exception $e) {
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Error al exportar inventario',
+            'error'   => $e->getMessage(),
+        ], 500);
+    }
 }
 
 }

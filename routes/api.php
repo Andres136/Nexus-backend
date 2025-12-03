@@ -199,6 +199,10 @@ Route::post('/products/descontar-stock-masivo', [InventorieController::class, 'd
 //Importar productos via exel
 Route::post('products/importar-excel', [CrmProductController::class, 'importarInventarioExcel']);
 Route::get('products/exportar/plantilla',[CrmProductController::class,'exportarPlantillaProductos']);
+
+//Exportar inventario a excel
+Route::get('inventarios-exportar-exel', [InventorieController::class, 'exportarInventarioExcel']);
+
 //Treaer Movimientos de  stock en   pdf
 Route::get('movimientos-stock/{id}/pdf', [CrmProductController::class, 'getMovimientoPDF']);
 //TRASLADOS INTERNOS
