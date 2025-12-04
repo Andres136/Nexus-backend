@@ -247,7 +247,7 @@ if ($request->filled('week')) {
         'usuario',
         'estado',
         'detalles.entregas' => function ($query) use ($user) {
-            if (!in_array($user->role_id, [1, 2])) {
+            if (!in_array($user->role_id, [1, 4])) {
                 $query->where('sede_id', $user->sede_id);
             }
 
