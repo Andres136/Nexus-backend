@@ -419,69 +419,97 @@ $ordenCompra->save();
     }
 
 
+public function obtenerOrdenesTrabajo(Request $request)
+{
+    $search        = $request->input('search');
+    $fecha         = $request->input('fecha');           // filtro exacto
+    $fechaInicio   = $request->input('fecha_inicio');    // rango desde
+    $fechaFin      = $request->input('fecha_fin');       // rango hasta
+    $sedeId        = $request->input('sede');
 
-    public function obtenerOrdenesTrabajo(Request $request)
-    {
-        $search = $request->input('search');
-        $fecha  = $request->input('fecha');
-        $sedeId = $request->input('sede');
+    $user = auth()->user();
 
-        $user = auth()->user();
+    $ordenesTrabajo = OrdenDeTrabajo::with([
+        'ordenCompra.sede',
+        'ordenCompra.usuario',
+        'ordenCompra',
+        'cliente',
+        'estado',
+        'user',
+        'entregas.usuario:id,name',
+        'movimientosStock:id,orden_trabajo_id,created_at,usuario_id',
+    ])
 
-        $ordenesTrabajo = OrdenDeTrabajo::with([
-            'ordenCompra.sede',
-            'ordenCompra.usuario',
-            'ordenCompra',
-            'cliente',
-            'estado',
-            'user',
-            'entregas.usuario:id,name',
-            'movimientosStock:id,orden_trabajo_id,created_at,usuario_id',
-        ])
-            ->when(!in_array($user->role_id, [1,4]), function ($query) use ($user) {
-    $query->whereHas('ordenCompra', function ($q) use ($user) {
-        $q->where(function ($sub) use ($user) {
-            $sub->where('sede_id', $user->sede_id)
-                ->orWhereNull('sede_id'); // ✅ incluir órdenes sin sede
-        });
-    });
-})
-
-            ->when($sedeId, function ($query, $sedeId) {
-                $query->whereHas('ordenCompra', function ($q) use ($sedeId) {
-                    $q->where('sede_id', $sedeId);
+        // Restricción por rol (excepto admin)
+        ->when(!in_array($user->role_id, [1, 4]), function ($query) use ($user) {
+            $query->whereHas('ordenCompra', function ($q) use ($user) {
+                $q->where(function ($sub) use ($user) {
+                    $sub->where('sede_id', $user->sede_id)
+                        ->orWhereNull('sede_id');
                 });
-            })
-            ->when($search, function ($query, $search) {
-                $query->where(function ($q) use ($search) {
-                    // Buscar por nombre del cliente
-                    $q->whereHas('cliente', function ($q2) use ($search) {
-                        $q2->where('nombre', 'LIKE', "%$search%");
-                    })
-                        // Buscar por nombre de la sede
-                        ->orWhereHas('ordenCompra.sede', function ($q3) use ($search) {
-                            $q3->where('nombre', 'LIKE', "%$search%");
-                        })
-                        // Buscar por ID de orden si se escribe un número exacto
-                        ->orWhere('id', $search);
-                });
-            })
+            });
+        })
 
-            ->when($fecha, function ($query, $fecha) {
-                $query->whereHas('ordenCompra', function ($q) use ($fecha) {
-                    $q->whereDate('fecha_entrega', $fecha);
-                });
-            })
-            
-            ->orderByRaw("CASE WHEN estado_id = 1 THEN 0 ELSE 1 END")
-            ->orderBy('created_at', 'desc')
-            ->paginate(10)
-            ->appends(request()->query());
+        // Filtro por sede enviada
+        ->when($sedeId, function ($query, $sedeId) {
+            $query->whereHas('ordenCompra', function ($q) use ($sedeId) {
+                $q->where('sede_id', $sedeId);
+            });
+        })
+
+        // Filtro por texto
+        ->when($search, function ($query, $search) {
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('cliente', function ($q2) use ($search) {
+                    $q2->where('nombre', 'LIKE', "%{$search}%");
+                })
+                ->orWhereHas('ordenCompra.sede', function ($q3) use ($search) {
+                    $q3->where('nombre', 'LIKE', "%{$search}%");
+                })
+                ->orWhere('id', $search);
+            });
+        })
+
+        // Filtro por fecha EXACTA (si la usan aún)
+        ->when($fecha, function ($query, $fecha) {
+            $query->whereHas('ordenCompra', function ($q) use ($fecha) {
+                $q->whereDate('fecha_entrega', $fecha);
+            });
+        })
+
+        // Filtro por rango: fecha_inicio + fecha_fin
+        ->when($fechaInicio && $fechaFin, function ($query) use ($fechaInicio, $fechaFin) {
+            $query->whereHas('ordenCompra', function ($q) use ($fechaInicio, $fechaFin) {
+                $q->whereBetween('fecha_entrega', [$fechaInicio, $fechaFin]);
+            });
+        })
+
+        // Solo fecha_inicio
+        ->when($fechaInicio && !$fechaFin, function ($query) use ($fechaInicio) {
+            $query->whereHas('ordenCompra', function ($q) use ($fechaInicio) {
+                $q->whereDate('fecha_entrega', '>=', $fechaInicio);
+            });
+        })
+
+        // Solo fecha_fin
+        ->when(!$fechaInicio && $fechaFin, function ($query) use ($fechaFin) {
+            $query->whereHas('ordenCompra', function ($q) use ($fechaFin) {
+                $q->whereDate('fecha_entrega', '<=', $fechaFin);
+            });
+        })
+
+        // Ordenar por pendiente primero
+        ->orderByRaw("CASE WHEN estado_id = 1 THEN 0 ELSE 1 END")
+        ->orderBy('created_at', 'desc')
+
+        ->paginate(10)
+        
+        ->appends(request()->query());
 
 
+    return response()->json($ordenesTrabajo);
+}
 
-        return response()->json($ordenesTrabajo);
-    }
 
 
     //Traer Entregas
