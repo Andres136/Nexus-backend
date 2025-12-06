@@ -7,6 +7,9 @@ namespace App\Models;
 use App\Models\Crm\DatoConductor;
 use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\Sede;
+use App\Models\Roles\Permission;
+use App\Models\Roles\Role;
+use App\Models\Roles\UserPermission;
 use App\Models\Rutas\DeliveryEvent;
 use App\Models\Rutas\DeliveryRecord;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -109,6 +112,26 @@ public function deliveryRecords()
     return $this->hasMany(DeliveryRecord::class, 'usuario_id');
 }
 
+//Relacion con permisos a traves de roles
+
+
+public function roles()
+{
+    return $this->belongsToMany(Role::class, 'user_role');
+}
+
+    
+public function permissions()
+{
+ return $this->role? $this->role->permissions() : collect([]);
+
+}
+
+public function permisos ()
+{
+ return $this->belongsToMany(Permission::class, 'user_permission', 'user_id', 'permission_id')
+ ->using(UserPermission::class);
+}
     /**
      * The attributes that should be hidden for serialization.
      *

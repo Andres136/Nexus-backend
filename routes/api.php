@@ -38,6 +38,7 @@ use App\Http\Controllers\EstadoController;
 use App\Http\Controllers\IndicadoresProcesosController;
 use App\Http\Controllers\MacroProcesoController;
 use App\Http\Controllers\NotificacionOrdenController;
+use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PqrController;
 use App\Http\Controllers\ProcesoController;
 use App\Http\Controllers\ProductController;
@@ -234,6 +235,20 @@ Route::post('/eventos-entrega/{deliveryEvent}/change-status', [DeliveryEventCont
 
 Route::apiResource('procesos', ProcesoController::class);
 
+//Guardar Rutas y permisos
+Route::post('/guardar-rutas', [PermissionController::class, 'guardarRutas']);
+Route::post('/roles/asignar-permisos', [PermissionController::class, 'asignar']);
+Route::get('/roles/{role_id}/permisos', [PermissionController::class, 'obtenerPorRol']);
+//CCargar Rutas
+Route::get('permissions', [PermissionController::class, 'index']);
+Route::get('user-permissions', [PermissionController::class, 'permissions']);
+
+Route::get('roles-permissions', [PermissionController::class, 'permissions']);
+//Asignar rol por usuario
+Route::post('asignar-permisos-usuario', [PermissionController::class, 'asignarPermisosUsuario']);
+Route::get('/user-permissions/{user_id}', [PermissionController::class, 'permisosDeUsuario']);
+
+
 });
 Route::middleware(['auth:sanctum', 'es_responsable_del_departamento'])->group(function () {
     Route::apiResource('/indicadores', IndicadoresProcesosController::class);
@@ -254,6 +269,15 @@ Route::middleware(['auth:sanctum', 'role:1'])->group(function () {
   Route::apiResource('empresas', EmpresaController::class);
 
 });
+
+
+//Middleware para verificar permisos
+Route::middleware(['auth:sanctum', 'check.permission'])->group(function () {
+
+
+});
+
+
 Route::get('empresas-all', [EmpresaController::class, 'index']);
 Route::get('empresas-all', [EmpresaController::class, 'index']);
 //Ruta para descargar archivos de el registro de indicadores
