@@ -33,7 +33,7 @@ class OrdenDeTrabajo extends Model
     //Relacion con la tabla clientes
     public function cliente()
     {
-        return $this->belongsTo(Cliente::class, 'cliente_id');
+        return $this->belongsTo(Cliente::class, 'cliente_id', 'id');
     }
 
     //Relacion con la tabla estados

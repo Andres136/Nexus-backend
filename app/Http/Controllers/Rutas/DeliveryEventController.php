@@ -15,7 +15,7 @@ class DeliveryEventController extends Controller
  public function index()
 {
     $query = DeliveryEvent::with(['orden.cliente', 'vehiculo', 'lastRecord', 'records', 'usuario']);
-        
+
 
     $deliveryEvents = $query->get();
 

@@ -2,6 +2,7 @@
 
 namespace App\Models\Crm;
 use App\Models\Crm\Orden_Compra_Detalle;
+use App\Models\Rutas\DeliveryEvent;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
@@ -33,4 +34,5 @@ public function usuario()
 {
     return $this->belongsTo(\App\Models\User::class, 'usuario_id', 'id');
 }
+
 }
