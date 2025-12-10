@@ -103,13 +103,29 @@ class EnvioInternoController extends Controller
         return response()->json($sedes);
     }
     //Traer Ordenes de Compra para el envio
-    public function traerOrdenesCompra(): JsonResponse
-    {
-        $ordenes = OrdenCompraProveedor::select('id', 'numero_orden', 'fecha')
-             ->latest()          // orden reciente primero
-        ->limit(50)         // por ejemplo 50
-        ->get();
-        return response()->json($ordenes);
-    
+  public function traerOrdenesCompra(Request $request): JsonResponse
+{
+    $q = $request->input('q'); // ← ESTA ES LA CORRECCIÓN
+
+    $query = OrdenCompraProveedor::select('id', 'numero_orden', 'fecha')
+        ->orderBy('id', 'desc');
+
+    // Si hay búsqueda → traer coincidencias
+    if ($q) {
+        $query->where('numero_orden', 'LIKE', "%{$q}%");
+        return response()->json($query->get());
     }
+
+    // Si no hay búsqueda → traer solo las 50 más recientes
+    return response()->json(
+        $query->limit(50)->get()
+    );
+}
+
+public function mostrarOC($id)
+{
+    return OrdenCompraProveedor::select('id','numero_orden','fecha')
+        ->findOrFail($id);
+}
+
 }

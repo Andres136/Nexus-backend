@@ -210,6 +210,8 @@ Route::get('movimientos-stock/{id}/pdf', [CrmProductController::class, 'getMovim
 Route::apiResource('traslados-internos', EnvioInternoController::class);
 Route::get('traslados-internos-sedes', [EnvioInternoController::class, 'traerSedes']);
 Route::get('traslados-internos-ordenes-compra', [EnvioInternoController::class, 'traerOrdenesCompra']);
+Route::get('/oc-traslados/{id}', [EnvioInternoController::class, 'mostrarOC']);
+
 Route::post('/productos/sincronizar-siigo', [CrmProductController::class, 'sincronizarProductosSiigoGlobal']);
 Route::post('/productos/sincronizar-siigo-setas', [CrmProductController::class, 'sincronizarProductosSiigoSetas']);
 
