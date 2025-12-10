@@ -223,7 +223,7 @@
                     <td>{{ $detalle->code_id ?? ($detalle->producto->code ?? 'N/A') }}</td>
                  
                     <td>{{ $detalle->descripcion ?? 'Sin descripción' }}</td>
-                    <td class="text-center">{{ number_format($detalle->cantidad, 0) }}</td>
+                    <td class="text-center">{{ $detalle->cantidad }}</td>
                 </tr>
             @endforeach
         </tbody>
