@@ -58,7 +58,7 @@ class ForecastController extends Controller
         // ----------------------------------------------------------
         // 1️⃣ PENDIENTES: estado_id = 2 (pendiente) o 5 (parcial)
         // ----------------------------------------------------------
-        $pendientes = OrdenDeTrabajo::whereIn('estado_id', [1])
+        $pendientes = OrdenDeTrabajo::whereIn('estado_id', [1,5])
             ->with('cliente')
             ->get();
 
