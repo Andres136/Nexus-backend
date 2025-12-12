@@ -12,6 +12,8 @@ use App\Models\Roles\Role;
 use App\Models\Roles\UserPermission;
 use App\Models\Rutas\DeliveryEvent;
 use App\Models\Rutas\DeliveryRecord;
+use App\Models\Vsm\Alistamiento;
+use App\Models\Vsm\AlistamientoUsuario;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -132,6 +134,15 @@ public function permisos ()
  return $this->belongsToMany(Permission::class, 'user_permission', 'user_id', 'permission_id')
  ->using(UserPermission::class);
 }
+
+public function alistamientos()
+{
+    return $this->belongsToMany(Alistamiento::class, 'alistamiento_usuario','usuario_id','alistamiento_id')
+                ->using(AlistamientoUsuario::class)
+                ->withTimestamps();
+}
+
+
     /**
      * The attributes that should be hidden for serialization.
      *

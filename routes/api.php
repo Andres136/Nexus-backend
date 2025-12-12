@@ -49,6 +49,9 @@ use App\Http\Controllers\TareaController;
 use App\Http\Controllers\Traslados\EnvioInternoController;
 use App\Http\Controllers\UpdateDepartamentoController;
 use App\Http\Controllers\UsuarioController;
+use App\Http\Controllers\Vsm\AlistamientoController;
+use App\Http\Controllers\Vsm\AlistamientoTiempoController;
+use App\Http\Controllers\Vsm\ForecastController;
 use App\Http\Controllers\whatsapp\WhatsappWebhookController;
 use App\Models\Pqr;
 use App\Models\Registro_indicadores;
@@ -249,6 +252,28 @@ Route::get('roles-permissions', [PermissionController::class, 'permissions']);
 //Asignar rol por usuario
 Route::post('asignar-permisos-usuario', [PermissionController::class, 'asignarPermisosUsuario']);
 Route::get('/user-permissions/{user_id}', [PermissionController::class, 'permisosDeUsuario']);
+
+//ALISTAMIENTOS VSM
+Route::post('/vsm-alistamientos', [AlistamientoController::class, 'store']);
+
+Route::post('/vsm-alistamientos/{id}/pausar', [AlistamientoController::class, 'pausar']);
+Route::post('/vsm-alistamientos/{id}/reanudar', [AlistamientoController::class, 'reanudar']);
+Route::post('/vsm-alistamientos/{id}/finalizar', [AlistamientoController::class, 'finalizar']);
+Route::get('alistamientos/{id}/historial', [AlistamientoController::class, 'historial']);
+
+//Obtener alistamientos activos
+Route::get('alistamientos-activos', [AlistamientoController::class, 'alistamientosActivos']);
+
+Route::post('/alistamientos/{alistamiento_id}/usuarios/{usuario_id}/pausar', [AlistamientoController::class, 'pausarUsuario']);
+Route::post('/alistamientos/{alistamiento_id}/usuarios/{usuario_id}/reanudar', [AlistamientoController::class, 'reanudarUsuario']);
+//Traer ordenes de trabajo para alistamiento
+Route::get('ordenes-trabajo-alistamiento', [AlistamientoController::class, 'ordenesTrabajoAlistamiento']);
+//Tiempos por alistamiento
+
+Route::get('/vsm/pronostico', [ForecastController::class, 'pronostico']);
+Route::get('/vsm/pronostico/{id}', [ForecastController::class, 'pronosticoOT']);
+
+Route::get('/vsm/flujo', [ForecastController::class, 'flujo']);
 
 
 });
