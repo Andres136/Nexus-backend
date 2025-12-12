@@ -79,11 +79,12 @@ public function estimarTiempoOT(OrdenDeTrabajo $ot, $usuarios = 1)
      */
 public function pronosticoGlobal($usuarios = 1)
 {
-    $ordenes = OrdenDeTrabajo::whereIn('estado_id', [1])
+    $ordenes = OrdenDeTrabajo::where('estado_id', 1)
         ->with([
             'ordenCompra.detalles.product',
             'ordenCompra.cliente'
         ])
+        ->distinct()
         ->get();
 
     return $ordenes->map(function ($ot) use ($usuarios) {
