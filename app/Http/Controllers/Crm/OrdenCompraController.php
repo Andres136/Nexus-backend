@@ -800,9 +800,16 @@ public function ordenesTrabajoEntregas(Request $request)
         'entregas'
     ])
 
-    ->when($search, function ($q) use ($search) {
-        $q->whereHas('ordenCompra.cliente', function ($c) use ($search) {
-            $c->where('nombre', 'LIKE', "%$search%");
+   //Filtar ordens de trabajo
+    ->when($search, function ($query, $search) {
+        $query->where(function ($q) use ($search) {
+          // 🔹 FILTRO POR ORDEN DE TRABAJO (ID o código)
+            $q->where('id', 'LIKE', "%{$search}%")
+              ->orWhere('codigo', 'LIKE', "%{$search}%"); // si existe
+            // 🔹 FILTRO POR CLIENTE
+            $q->orWhereHas('ordenCompra.cliente', function ($c) use ($search) {
+                $c->where('nombre', 'LIKE', "%{$search}%");
+            });
         });
     })
     ->orderBy('updated_at', 'desc')
