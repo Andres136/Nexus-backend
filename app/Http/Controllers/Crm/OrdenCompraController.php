@@ -791,7 +791,9 @@ public function ordenesTrabajoEntregas(Request $request)
     $search = $request->input('search');
 
     // IDs de estados necesarios
-
+    $estadoCompletado = Estados::where('nombre', 'Completado')->value('id');
+    $estadoParcial    = Estados::where('nombre', 'Entrega Parcial')->value('id');
+    $estadoPendiente  = Estados::where('nombre', 'Pendiente')->value('id');
 
     $ordenes = OrdenDeTrabajo::with([
         'ordenCompra.cliente',
@@ -799,17 +801,17 @@ public function ordenesTrabajoEntregas(Request $request)
         'estado',
         'entregas'
     ])
-
-   //Filtar ordens de trabajo
-    ->when($search, function ($query, $search) {
-        $query->where(function ($q) use ($search) {
-          // 🔹 FILTRO POR ORDEN DE TRABAJO (ID o código)
-            $q->where('id', 'LIKE', "%{$search}%")
-              ->orWhere('codigo', 'LIKE', "%{$search}%"); // si existe
-            // 🔹 FILTRO POR CLIENTE
-            $q->orWhereHas('ordenCompra.cliente', function ($c) use ($search) {
-                $c->where('nombre', 'LIKE', "%{$search}%");
-            });
+    ->where(function ($q) use ($estadoCompletado, $estadoParcial, $estadoPendiente) {
+        $q->where('estado_id', $estadoCompletado)         // completadas
+          ->orWhere('estado_id', $estadoParcial)          // parciales
+          ->orWhere('estado_id', $estadoPendiente)        // pendientes
+          ->orWhereHas('ordenCompra.detalles', function ($d) {
+              $d->where('cantidad_enviada', '>', 0);      // cantidad enviada > 0
+          });
+    })
+    ->when($search, function ($q) use ($search) {
+        $q->whereHas('ordenCompra.cliente', function ($c) use ($search) {
+            $c->where('nombre', 'LIKE', "%$search%");
         });
     })
     ->orderBy('updated_at', 'desc')
