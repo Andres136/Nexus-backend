@@ -799,8 +799,8 @@ public function ordenesTrabajoEntregas(Request $request)
                 $q->where('codigo', 'LIKE', "%{$search}%"); // si existe
             }
         })
-        ->orderBy('updated_at', 'desc') // o id desc
-      ->limit(100)
+        ->orderBy('id', 'desc') // o id desc
+
         ->get();
 
     return response()->json($ordenes, 200);
