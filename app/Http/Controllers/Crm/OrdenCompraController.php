@@ -790,28 +790,24 @@ public function ordenesTrabajoEntregas(Request $request)
 {
     $search = $request->input('search');
 
-    // IDs de estados necesarios
-    $estadoCompletado = Estados::where('nombre', 'Completado')->value('id');
-    $estadoParcial    = Estados::where('nombre', 'Entrega Parcial')->value('id');
-    $estadoPendiente  = Estados::where('nombre', 'Pendiente')->value('id');
-
     $ordenes = OrdenDeTrabajo::with([
         'ordenCompra.cliente',
         'ordenCompra',
         'estado',
         'entregas'
     ])
-    ->where(function ($q) use ($estadoCompletado, $estadoParcial, $estadoPendiente) {
-        $q->where('estado_id', $estadoCompletado)         // completadas
-          ->orWhere('estado_id', $estadoParcial)          // parciales
-          ->orWhere('estado_id', $estadoPendiente)        // pendientes
-          ->orWhereHas('ordenCompra.detalles', function ($d) {
-              $d->where('cantidad_enviada', '>', 0);      // cantidad enviada > 0
-          });
-    })
     ->when($search, function ($q) use ($search) {
-        $q->whereHas('ordenCompra.cliente', function ($c) use ($search) {
-            $c->where('nombre', 'LIKE', "%$search%");
+
+        // 🔎 SOLO ÓRDENES DE TRABAJO
+        $q->where(function ($ot) use ($search) {
+
+            // Buscar por ID de OT
+            if (is_numeric($search)) {
+                $ot->where('id', $search);
+            }
+
+            // Buscar por código de OT (si existe)
+            $ot->orWhere('codigo', 'LIKE', "%{$search}%");
         });
     })
     ->orderBy('updated_at', 'desc')
