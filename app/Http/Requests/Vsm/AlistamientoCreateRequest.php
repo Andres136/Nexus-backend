@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Vsm;
 
+use App\Models\Vsm\Alistamiento;
 use Illuminate\Foundation\Http\FormRequest;
 
 class AlistamientoCreateRequest extends FormRequest
@@ -31,6 +32,29 @@ class AlistamientoCreateRequest extends FormRequest
 
         ];
     }
+public function withValidator($validator)
+{
+    $validator->after(function ($validator) {
+
+        $ordenTrabajoId = $this->input('orden_trabajo_id');
+
+        $existeActivo = Alistamiento::where('orden_trabajo_id', $ordenTrabajoId)
+            ->whereIn('estado', [
+                'INICIADO',
+                'EN_PROGRESO',
+                'PAUSADO',
+                'REANUDADO'
+            ])
+            ->exists();
+
+        if ($existeActivo) {
+            $validator->errors()->add(
+                'orden_trabajo_id',
+                'La orden de trabajo ya tiene un alistamiento activo.'
+            );
+        }
+    });
+}
 
 
     public function messages(): array

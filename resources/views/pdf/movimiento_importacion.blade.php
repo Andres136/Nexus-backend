@@ -23,7 +23,7 @@
     <table>
         <thead>
             <tr>
-                
+                <th>Code</th>
                 <th>Producto</th>
                 <th>Bodega</th>
                 <th>Empresa</th>
@@ -34,6 +34,7 @@
         <tbody>
             @foreach ($inventarios as $inv)
                 <tr>
+                    <td>{{ $inv->producto->code ?? 'N/A' }}</td>
                     <td>{{ $inv->producto->name ?? 'N/A' }}</td>
                     <td>{{ $inv->bodega->nombre ?? 'N/A' }}</td>
                     <td>{{ $inv->empresa->nombre ?? 'N/A' }}</td>

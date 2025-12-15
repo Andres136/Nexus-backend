@@ -256,6 +256,10 @@ public function importInventarioFromExcel($filePath, $user, $empresaId, $bodegaI
 
 
             $data['stock'] = (float) $data['stock']; // conversión segura a número decimal
+            if ($data['stock'] <= 0) {
+    throw new \Exception("El stock debe ser mayor a 0");
+}
+
 
             // ✅ Buscar inventario existente
             $inventarioExistente = Inventario::where([

@@ -77,10 +77,13 @@ class ForecastController extends Controller
         // 3️⃣ FINALIZADAS SIN DELIVERY
         // OT finalizada de Alistamiento pero sin evento de delivery
         // ----------------------------------------------------------
+    $ordenesConDelivery = DeliveryEvent::where('estado', 'pendiente')
+        ->pluck('orden_id');
+
         $finalizadas =Alistamiento::where('estado', 'FINALIZADO')
+            ->whereNotIn('orden_trabajo_id', $ordenesConDelivery)
             ->with(['ordenTrabajo.cliente'])
             ->get();
-
         // ----------------------------------------------------------
         // 4️⃣ DELIVERY PENDIENTE
         // ----------------------------------------------------------

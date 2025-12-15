@@ -11,12 +11,14 @@ use App\Http\Requests\Crm\StoreProductRequest;
 use App\Http\Requests\Crm\UpdateProductRequest;
 use App\Http\Requests\Traslados\StockMasivoRequest;
 use App\Models\Crm\bodega;
+use App\Models\Crm\categoria;
 use App\Models\Crm\empresa;
 use App\Models\Crm\Inventario;
 use App\Models\Crm\MovimientoStock;
 use App\Models\Crm\product;
 use App\Models\Crm\ProductoEquivalentes;
 use App\Models\Crm\Sede;
+use App\Services\PdfEtiquetas;
 use App\Services\ProductService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Exception;
@@ -24,6 +26,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpParser\Node\Stmt\TryCatch;
@@ -59,6 +62,69 @@ class ProductController extends Controller
     } catch (\Exception $e) {
         return response()->json([
             'message' => 'Error al obtener los productos',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
+
+
+//Crear Producto
+
+public function createProduct(Request $request)
+{
+    $validatedData = $request->validate([
+        'name' => 'required|string|max:255',
+        'description' => 'nullable|string',
+        'categoria_id' => 'required|exists:categorias,id',
+    ]);
+
+    try {
+        DB::beginTransaction();
+
+        // Obtener categoría
+        $categoria = categoria::findOrFail($validatedData['categoria_id']);
+
+        // Prefijo: primeras 2 letras del nombre
+        $prefix = strtoupper(Str::substr($categoria->nombre, 0, 2));
+
+        // Último código generado para esa categoría
+        $lastProduct = Product::where('categoria_id', $categoria->id)
+            ->where('code', 'like', $prefix . '%')
+            ->orderBy('id', 'desc')
+            ->lockForUpdate()
+            ->first();
+
+        // Consecutivo
+        $nextNumber = 1;
+        if ($lastProduct) {
+            $lastNumber = intval(substr($lastProduct->code, 3));
+            $nextNumber = $lastNumber + 1;
+        }
+
+ $code = $prefix . '-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+
+
+        // Crear producto
+        $product = Product::create([
+            'name' => $validatedData['name'],
+            'description' => $validatedData['description'] ?? null,
+            'categoria_id' => $categoria->id,
+            'code' => $code,
+        ]);
+
+        DB::commit();
+
+        return response()->json([
+            'message' => 'Producto creado exitosamente',
+            'data' => $product
+        ], 201);
+
+    } catch (\Throwable $e) {
+        DB::rollBack();
+
+        return response()->json([
+            'message' => 'Error al crear el producto',
             'error' => $e->getMessage()
         ], 500);
     }
@@ -821,5 +887,20 @@ public function exportarPlantillaProductos()
         ], 500);
     }
 }
+public function barcodesMasivos(Request $request)
+{
+    $productos = Product::whereIn('id', $request->product_ids)->get();
 
+    // Generar PDF con etiquetas (DomPDF / Snappy)
+    return response()->streamDownload(function () use ($productos) {
+     ($productos);
+        echo PdfEtiquetas::generar($productos);
+    }, 'etiquetas.pdf');
+}
+public function testPdf()
+{
+    $html = '<h1>PDF FUNCIONA</h1><p>Si ves esto, DomPDF está bien</p>';
+
+    return Pdf::loadHTML($html)->stream('test.pdf');
+}
 }

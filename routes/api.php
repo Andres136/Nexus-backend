@@ -275,7 +275,12 @@ Route::get('/vsm/pronostico/{id}', [ForecastController::class, 'pronosticoOT']);
 
 Route::get('/vsm/flujo', [ForecastController::class, 'flujo']);
 
-
+//Traer ot finalizadas
+Route::get('/vsm/ots-finalizadas', [AlistamientoController::class, 'alistamientosFinalizados']);
+//Usuarios disponibles para alistamiento
+Route::get('/alistamientos/{alistamiento_id}/usuarios-disponibles', [AlistamientoController::class, 'usuariosDisponibles']);
+//Agregar usuario al alistamiento
+Route::post('/alistamientos/{alistamiento_id}/agregar-usuario', [AlistamientoController::class, 'agregarUsuario']);
 });
 Route::middleware(['auth:sanctum', 'es_responsable_del_departamento'])->group(function () {
     Route::apiResource('/indicadores', IndicadoresProcesosController::class);
@@ -363,6 +368,10 @@ Route::match(['GET', 'POST'], '/webhook', [WhatsappWebhookController::class, 'ha
 //Consultar todos los productos sin paginar
 Route::get('products-all', [CrmProductController::class, 'getAllProducts']);
 Route::apiResource('products',CrmProductController::class);
+Route::post('productos', [CrmProductController::class, 'createProduct']);
+Route::apiResource('categorias',CategoriaController::class);
+//Generar códigos de barra para productos
+Route::post('/products/generar-barcodes', [CrmProductController::class, 'barcodesMasivos']);
 //Registrar meta mensual
 Route::post('/meta-mensual', [OrdenCompraController::class, 'registrarMeta']);
 //Resumen de meta mensual
