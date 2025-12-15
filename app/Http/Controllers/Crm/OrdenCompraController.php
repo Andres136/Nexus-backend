@@ -788,31 +788,20 @@ public function obtenerOrdenesTrabajo(Request $request)
 
 public function ordenesTrabajoEntregas(Request $request)
 {
-    $search = $request->input('search');
+    $search = trim($request->input('search'));
 
-    $ordenes = OrdenDeTrabajo::with([
-        'ordenCompra.cliente',
-        'ordenCompra',
-        'estado',
-        'entregas'
-    ])
-    ->when($search, function ($q) use ($search) {
-
-        // 🔎 SOLO ÓRDENES DE TRABAJO
-        $q->where(function ($ot) use ($search) {
-
-            // Buscar por ID de OT
+    $ordenes = OrdenDeTrabajo::query()
+        ->when(!empty($search), function ($q) use ($search) {
+            // 🔎 Search SOLO por OT
             if (is_numeric($search)) {
-                $ot->where('id', $search);
+                $q->where('id', $search);
+            } else {
+                $q->where('codigo', 'LIKE', "%{$search}%"); // si existe
             }
-
-            // Buscar por código de OT (si existe)
-            $ot->orWhere('codigo', 'LIKE', "%{$search}%");
-        });
-    })
-    ->orderBy('updated_at', 'desc')
-    ->limit(50)
-    ->get();
+        })
+        ->orderBy('updated_at', 'desc') // o id desc
+      ->limit(100)
+        ->get();
 
     return response()->json($ordenes, 200);
 }
