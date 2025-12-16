@@ -800,7 +800,7 @@ public function ordenesTrabajoEntregas(Request $request)
             }
         })
         ->orderBy('id', 'desc') // o id desc
-       ->limit(50)
+       ->limit(200)
         ->get();
 
     return response()->json($ordenes, 200);

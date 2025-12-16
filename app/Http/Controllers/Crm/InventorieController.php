@@ -551,4 +551,18 @@ public function exportarInventarioExcel(Request $request)
     }
 }
 
+
+   public function show($code)
+{
+    $producto = Product::where('code', $code)
+        ->with([
+            'inventarios.bodega',
+            'inventarios.sede'
+        ])
+        ->firstOrFail();
+        $inventariosPorBodega = $producto->inventarios
+    ->groupBy(fn ($inv) => strtolower(trim($inv->bodega->nombre ?? 'sin bodega')));
+
+    return view('scan.product', compact('producto', 'inventariosPorBodega'));
+}
 }

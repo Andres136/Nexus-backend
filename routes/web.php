@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\comunicaciones\PlantillaController;
+use App\Http\Controllers\Crm\InventorieController;
 use App\Mail\PlantillaPreviewMail;
 use App\Models\comunicaciones\Plantilla;
 use Illuminate\Support\Facades\Mail;
@@ -23,3 +24,5 @@ Route::get('/test-email', function () {
     return '✅ Correo de prueba enviado a tu bandeja de entrada';
 });
 Route::get('/test-pdf', [App\Http\Controllers\Crm\ProductController::class, 'testPdf']);
+// routes/web.php
+Route::get('/scan/{code}', [InventorieController::class, 'show']);

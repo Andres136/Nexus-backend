@@ -17,7 +17,7 @@ class PdfEtiquetas
                 'name' => $p->name,
                 'code' => $p->code,
                 // SOLO base64
-                'barcode' => $barcode->getBarcodePNG($p->code, 'C128'),
+                'barcode' => $barcode->getBarcodePNG($p->code, 'C39'),
             ];
         });
 

@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Rutas;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rutas\StoreDeliveryEventRequest;
+use App\Mail\DeliveryStatusMail;
 use App\Models\Rutas\DeliveryEvent;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 
 class DeliveryEventController extends Controller
 {
@@ -41,6 +43,13 @@ public function store(StoreDeliveryEventRequest $request)
 
     // Si pasa la validación, crea el evento
     $deliveryEvent = DeliveryEvent::create($request->validated());
+
+$cliente = $deliveryEvent->orden->cliente;
+
+if ($cliente && $cliente->email) {
+    // Aquí puedes enviar una notificación o correo al cliente si es necesario
+    Mail::to($cliente->email)->send(new DeliveryStatusMail($deliveryEvent,$cliente));
+}
 
     return response()->json([
         'message' => 'Evento de entrega creado con éxito',
@@ -78,22 +87,42 @@ public function store(StoreDeliveryEventRequest $request)
     }
 
 
-    public function changeStatus(Request $request, DeliveryEvent $deliveryEvent)
+public function changeStatus(Request $request, DeliveryEvent $deliveryEvent)
 {
-   $request->validate([
-    'estado' => 'required|in:pendiente,en_ruta,completado,cancelado'
-]);
+    $request->validate([
+        'estado' => 'required|in:pendiente,en_ruta,completado,cancelado'
+    ]);
 
+    // 1️⃣ Estado anterior
+    $estadoAnterior = $deliveryEvent->estado;
 
+    // 2️⃣ Evitar reprocesar el mismo estado
+    if ($estadoAnterior === $request->estado) {
+        return response()->json([
+            'message' => 'El estado ya es el mismo, no se realizaron cambios.',
+            'event' => $deliveryEvent
+        ], 200);
+    }
+
+    // 3️⃣ Actualizar estado
     $deliveryEvent->update([
         'estado' => $request->estado
     ]);
 
+    // 4️⃣ Enviar correo al cliente
+    $cliente = $deliveryEvent->orden->cliente ?? null;
+
+    if ($cliente && $cliente->email) {
+        Mail::to($cliente->email)
+            ->send(new DeliveryStatusMail($deliveryEvent, $cliente));
+    }
+
     return response()->json([
-        'message' => 'Estado actualizado',
+        'message' => 'Estado actualizado correctamente',
         'event' => $deliveryEvent
-    ]);
+    ], 200);
 }
+
 
 public function addRecord(StoreDeliveryEventRequest $request, DeliveryEvent $deliveryEvent)
 {
@@ -130,4 +159,4 @@ public function listarEntregasPorUsuario()
     
     return response()->json(['data' => $deliveryEvents], 200);
 }
-}
+}         
