@@ -2,6 +2,7 @@
 
 namespace App\Models\Rutas;
 
+use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\OrdenDeTrabajo;
 use App\Models\Crm\Vehiculo;
 use App\Models\User;
@@ -26,7 +27,7 @@ class DeliveryEvent extends Model
     //Relacion con orden de trabajo
     public function orden()
     {
-        return $this->belongsTo(OrdenDeTrabajo::class, 'orden_id', 'id');
+        return $this->belongsTo(Orden_Compra::class, 'orden_id', 'id');
     }   
     //Relacion con usuarios
     public function usuario()

@@ -22,7 +22,7 @@ class StoreDeliveryEventRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'orden_id' => 'required|exists:orden_de_trabajos,id',
+            'orden_id' => 'required|exists:orden__compras,id',
             'fecha_entrega' => 'required|date',
             'hora' => 'required|date_format:H:i',
             'usuario_id' => 'required|exists:users,id',
