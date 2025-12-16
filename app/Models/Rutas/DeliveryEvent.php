@@ -53,4 +53,19 @@ class DeliveryEvent extends Model
         return $this->hasOne(DeliveryRecord::class)
             ->latestOfMany();
     }
+
+    public function getClienteFinalAttribute()
+{
+    return optional(
+        optional($this->orden)->ordenTrabajo
+    )->cliente;
+}
+
+public function getOrdenTrabajoIdAttribute()
+{
+    return optional($this->orden->ordenTrabajo)->id;
+}
+protected $appends = ['cliente_final', 'orden_trabajo_id'];
+
+
 }
