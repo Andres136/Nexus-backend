@@ -7,22 +7,31 @@ use Milon\Barcode\DNS1D;
 
 class PdfEtiquetas
 {
-    public static function generar($productos)
+ public static function generar($productos)
     {
         $barcode = new DNS1D();
-        $barcode->setStorPath(storage_path('framework/barcodes'));
 
         $data = $productos->map(function ($p) use ($barcode) {
+
+            // 🔴 SIEMPRE URL COMPLETA
+            $url = url('/scan/' . $p->code);
+
             return [
                 'name' => $p->name,
-                'code' => $p->code,
-                // SOLO base64
-                'barcode' => $barcode->getBarcodePNG($p->code, 'C39'),
+                'code' => (string) $p->code,
+                'barcode' => $barcode->getBarcodePNG(
+                    $url,
+                    'C128',
+                    2,   // ancho barras
+                    60   // alto barras
+                ),
             ];
         });
 
         return Pdf::loadView('pdf.etiquetas', [
             'productos' => $data
-        ])->output();
+        ])
+        ->setPaper([0, 0, 136, 71]) // 48mm x 25mm aprox
+        ->output();
     }
 }
