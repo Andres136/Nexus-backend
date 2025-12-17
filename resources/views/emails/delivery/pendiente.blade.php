@@ -15,10 +15,12 @@
 <!-- ✅ Saludo personalizado -->
 <div style="background-color: #F8FAFC; padding: 20px; border-radius: 8px; border-left: 4px solid #10B981; margin-bottom: 25px;">
     <p style="margin: 0; color: #374151; font-size: 16px;">
-        Hola <strong style="color: #10B981;">{{ $cliente->nombre }}</strong>, 👋
+        Hola 👋
+    
+        
     </p>
     <p style="margin: 8px 0 0 0; color: #6B7280; font-size: 14px;">
-        Te confirmamos que tu entrega ha sido programada exitosamente
+        Te confirmamos que se ha programado  una entrega por parte de nuestro equipo.
     </p>
 </div>
 

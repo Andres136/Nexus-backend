@@ -15,7 +15,7 @@
 <!-- ✅ Saludo personalizado -->
 <div style="background-color: #FEF2F2; padding: 20px; border-radius: 8px; border-left: 4px solid #DC2626; margin-bottom: 25px;">
     <p style="margin: 0; color: #374151; font-size: 16px;">
-        Hola <strong style="color: #DC2626;">{{ $cliente->nombre }}</strong>, 👋
+        Hola 👋
     </p>
     <p style="margin: 8px 0 0 0; color: #6B7280; font-size: 14px;">
         Lamentamos informarte que la entrega de tu Entrega ha sido <strong style="color: #DC2626;">CANCELADA</strong>
