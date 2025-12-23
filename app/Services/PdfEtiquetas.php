@@ -9,6 +9,7 @@ class PdfEtiquetas
 {
  public static function generar($productos)
     {
+       
         $barcode = new DNS1D();
 
         $data = $productos->map(function ($p) use ($barcode) {

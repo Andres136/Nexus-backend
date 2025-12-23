@@ -19,11 +19,13 @@ class OrdenComprasRequest extends FormRequest
             'cliente_id' => 'required',
             'ubicacion_entrega' => 'required',
             'observaciones' => 'required',
+            'empresa_id' => 'required|exists:empresas,id',
+            'cliente_documento' =>  'required|mimes:pdf,doc,docx,xls,xlsx|max:10240', // 10MB in KB
         ];
 
         // Validaciones condicionales para detalles
         $rules['detalles'] = 'nullable|array|min:1';
-        $rules['detalles.*.product_id'] = 'nullable|exists:products,id';
+        $rules['detalles.*.product_id'] = 'sometimes|nullable|exists:products,id';
         $rules['detalles.*.largo_cm'] = 'nullable:detalles|numeric';
         $rules['detalles.*.ancho_cm'] = 'nullable:detalles|numeric';
         $rules['detalles.*.calibre'] = 'required_with:detalles';
@@ -37,12 +39,15 @@ class OrdenComprasRequest extends FormRequest
         $rules['detalles.*.cliente_clb'] = 'required_with:detalles';
         $rules['detalles.*.cantidad_requerida_kg'] = 'required_with:detalles';
         $rules['detalles.*.descripcion'] = 'required_with:detalles';
+        $rules['detalles.*.tipo_embalaje'] = 'required_with:detalles';
         $rules['detalles.*.valor_total'] = 'required_with:detalles|numeric|regex:/^\d+(\.\d{1,2})?$/';
 
 
 
         return $rules;
     }
+
+
 
 
     public function messages(): array
@@ -52,6 +57,11 @@ class OrdenComprasRequest extends FormRequest
             'cliente_id.required' => 'El cliente es obligatorio',
             'ubicacion_entrega.required' => 'La ubicación de entrega es obligatoria',
             'observaciones.required' => 'Las observaciones son obligatorias',
+            'empresa_id.required' => 'La empresa es obligatoria',
+            'empresa_id.exists' => 'La empresa seleccionada no es válida',
+            'cliente_documento.required' => 'El documento del cliente es obligatorio',
+            'cliente_documento.mimes' => 'El documento del cliente debe ser un archivo de tipo: pdf, doc, docx, xls, xlsx',
+            'cliente_documento.max' => 'El documento del cliente no debe superar los 10MB',
             
 
             // Mensajes de error para detalles

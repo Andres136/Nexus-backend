@@ -18,6 +18,8 @@ use App\Models\Crm\MovimientoStock;
 use App\Models\Crm\product;
 use App\Models\Crm\ProductoEquivalentes;
 use App\Models\Crm\Sede;
+use App\Services\Crm\ProductImportResultExport;
+use App\Services\Crm\ProductImportService;
 use App\Services\PdfEtiquetas;
 use App\Services\ProductService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -130,6 +132,29 @@ public function createProduct(Request $request)
     }
 }
 
+public function crearProductosExcel(ProductImportService $importService, Request $request)
+{
+
+ //  dd($request->all());
+    $request->validate([
+        'file' => 'required|file|mimes:xlsx,xls',
+        'categoria_id' => 'required|exists:categorias,id',
+    ],
+    [
+        'file.required' => 'El archivo es obligatorio.',
+        'file.file' => 'El archivo debe ser un archivo válido.',
+        'file.mimes' => 'El archivo debe ser un archivo de Excel (xlsx, xls).',
+        'categoria_id.required' => 'La categoría es obligatoria.',
+        'categoria_id.exists' => 'La categoría seleccionada no existe.',
+    ]);
+    $result = $importService->importFromExcel($request->file('file'), $request->input('categoria_id'));
+
+    return Excel::download(
+        new ProductImportResultExport($result['created'], $result['errors']),
+        'resultado_importacion_productos.xlsx'
+    );
+
+}
 
 
 public function stock($productoId, Request $request)

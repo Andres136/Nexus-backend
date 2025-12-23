@@ -88,6 +88,7 @@ Route::middleware('auth:sanctum')->group(function () {
   Route::get('/documentacion/{id}', [DocumentoController::class, 'index']);
   Route::get('/errores/kpi', [ErrorController::class, 'kpiErrores']);
   Route::apiResource('clientes/{cliente}/seguimientos', SeguimientoController::class);
+  
 
   
  
@@ -136,6 +137,9 @@ Route::get('/orden-trabajo/{id}', [ordenTrabajoController::class, 'show']);
 Route::get('ordenes-trabajo', [OrdenCompraController::class, 'obtenerOrdenesTrabajo']);
 //Generar pdf de la orden de trabajo
 Route::get('/orden-trabajo/{id}/pdf', [ordenTrabajoController::class, 'generarPDF']);
+
+//Marcar orden de trabajo como revisada
+Route::post('/orden-trabajo/{id}/marcar-revisada', [ordenTrabajoController::class, 'marcarRevisada']);
 
 Route::get('pqrs', [PqrController::class, 'index']);
 Route::delete('/pqrs/{id}', [PqrController::class, 'destroy']);
@@ -203,6 +207,9 @@ Route::post('/products/descontar-stock-masivo', [InventorieController::class, 'd
 //Importar productos via exel
 Route::post('products/importar-excel', [CrmProductController::class, 'importarInventarioExcel']);
 Route::get('products/exportar/plantilla',[CrmProductController::class,'exportarPlantillaProductos']);
+
+//Crear productos via excel
+Route::post('products/crear-productos-excel', [CrmProductController::class, 'crearProductosExcel']);
 
 //Exportar inventario a excel
 Route::get('inventarios-exportar-exel', [InventorieController::class, 'exportarInventarioExcel']);
@@ -380,3 +387,4 @@ Route::get('/dashboard/exportar-ordenes-criticas-mes', [DashboardController::cla
 //Rutas para el módulo de eventos
 Route::apiResource('/eventos', EventoController::class);
 Route::post('/eventos/crear-qr', [EventoController::class, 'crearQr']);
+Route::get('/orden-compras/{orden}/preview-documento', [OrdenCompraController::class, 'previewDocumento']);

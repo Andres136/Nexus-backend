@@ -19,6 +19,7 @@ use App\Notifications\OrdenCompraNotificacion;
 use App\Notifications\OrdenTrabajoCreada;
 use App\Notifications\OrdenTrabajoGeneradaParaCreador;
 use App\Notifications\OrdenTrabajoListaParcial;
+use App\Services\Crm\OrdenCompraService;
 use App\Services\ProductService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -85,7 +86,20 @@ class OrdenCompraController extends Controller
     public function store(OrdenComprasRequest $request)
     {
         DB::beginTransaction();
+    
+   
+
         try {
+
+            // Manejo de archivo subido
+            $rutaArchivo = null;
+            if ($request->hasFile('cliente_documento')) {
+                $nombreArchivo = $request->file('cliente_documento')->getClientOriginalName();
+            $rutaArchivo = $request->file('cliente_documento')
+    ->storeAs('documentos_clientes', $nombreArchivo, 'public');
+
+            }
+
             // Crear la orden sin valor total inicialmente
             $ordenCompra = Orden_Compra::create([
                 'fecha_entrega' => $request->fecha_entrega,
@@ -94,6 +108,8 @@ class OrdenCompraController extends Controller
                 'estado_id' => 1,
                 'ubicacion_entrega' => $request->ubicacion_entrega,
                 'observaciones' => $request->observaciones,
+                'empresa_id' => $request->empresa_id,
+                'cliente_documento' => $rutaArchivo,
                 'valor_total' => 0, // Inicialmente 0
 
             ]);
@@ -151,6 +167,10 @@ class OrdenCompraController extends Controller
             // 4. Si no hay ninguna → error
             return response()->json(['error' => 'La sede es obligatoria y no se encontró en el request, en la orden o en el usuario'], 422);
         }
+        $documentoVisto = $request->input('documento_revisado_at', false);
+
+        //Guardar si el documento fue revisado
+        $ordenCompra->documento_revisado_at = $documentoVisto ? now() : null;
 
         // Asignar sede a la orden
         $ordenCompra->sede_id = $sedeId;
@@ -436,6 +456,7 @@ public function obtenerOrdenesTrabajo(Request $request)
         'cliente',
         'estado',
         'user',
+      
         'entregas.usuario:id,name',
         'movimientosStock:id,orden_trabajo_id,created_at,usuario_id',
     ])
@@ -804,6 +825,31 @@ public function ordenesTrabajoEntregas(Request $request)
         ->get();
 
     return response()->json($ordenes, 200);
+}
+
+public function previewDocumento(Orden_Compra $orden, OrdenCompraService $ordenCompraService)
+{
+
+    return $ordenCompraService->obtenerDocumentoPreview($orden);
+}
+public function mostrarDocumentoFirmado(Orden_Compra $orden)
+{
+    $path = $orden->cliente_documento;
+
+    abort_if(
+        !$path || !Storage::disk('public')->exists($path),
+        404
+    );
+
+    return response(
+        Storage::disk('public')->get($path),
+        200,
+        [
+            'Content-Type' => Storage::disk('public')->mimeType($path),
+            'Content-Disposition' => 'inline',
+            'X-Content-Type-Options' => 'nosniff',
+        ]
+    );
 }
 
 

@@ -20,7 +20,9 @@ class OrdenDeTrabajo extends Model
         'valor_total',
         'faltantes',
         'estado_id',
-        'user_id'
+        'user_id',
+        'documento_revisado_at',
+        'documento_revisado_por',
 
     ];
 
@@ -67,6 +69,12 @@ class OrdenDeTrabajo extends Model
     {
         return $this->hasMany(MovimientoStock::class, 'orden_trabajo_id', 'id');
     }   
+    //Relacion de usuario quien reviso la orden de trabajo
+public function usuarioRevisor()
+
+{
+    return $this->belongsTo(User::class, 'documento_revisado_por');
+}
 
 
 }

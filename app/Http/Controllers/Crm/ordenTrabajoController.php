@@ -16,6 +16,7 @@ class ordenTrabajoController extends Controller
             'cliente',
             'user',
             'estado',
+            'usuarioRevisor',
             'ordenCompra.detalles.product',
 
         ])->findOrFail($id);
@@ -31,7 +32,8 @@ class ordenTrabajoController extends Controller
             'ordenCompra.estado',
             'cliente',
             'user',
-            'entregas.usuario'
+            'entregas.usuario',
+            'ordenCompra.empresa' // Cargar la relación con empresa
         ])->findOrFail($id);
 
         // Calcular totales
@@ -50,7 +52,8 @@ class ordenTrabajoController extends Controller
             'detalles' => $detalles,
             'totalKg' => $totalKg,
             'valorTotal' => $valorTotal,
-            'observaciones' => $orden->observaciones ?? 'Sin observaciones'
+            'observaciones' => $orden->observaciones ?? 'Sin observaciones',
+            'empresa' => $orden->empresa->nombre ?? 'N/A',
         ]);
 
         $fileName = "ordenes_trabajo/orden_trabajo_{$orden->id}.pdf";
@@ -61,5 +64,25 @@ class ordenTrabajoController extends Controller
 
         return response()->download(storage_path("app/public/{$fileName}"));
     }
+
+
+public function marcarRevisada($id)
+{
+    $orden = OrdenDeTrabajo::findOrFail($id);
+
+    if (!$orden->documento_revisado_at) {
+        $orden->update([
+            'documento_revisado_at'  => now(),
+            'documento_revisado_por' => auth()->id(),
+        ]);
+    }
+
+    return response()->json([
+        'message' => 'Orden de trabajo revisada correctamente',
+        'orden'   => $orden
+    ]);
+}
+
+
     }
 

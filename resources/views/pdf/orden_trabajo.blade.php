@@ -1,165 +1,234 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <title>Orden de Trabajo</title>
-    <style>
-        body { 
-            font-family: sans-serif; 
-            font-size: 12px; 
-            color: #333; 
-            margin: 20px;
-        }
+<meta charset="UTF-8">
+<title>Orden de Trabajo</title>
 
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid #3498db;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-        }
+<style>
+@page {
+    size: A4;
+    margin: 20mm;
+}
 
-        .header img {
-            width: 70px;
-            height: auto;
-        }
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12px;
+    color: #333;
+    margin: 0;
+}
 
-        .header h2 {
-            flex: 1;
-            text-align: center;
-            color: #2c3e50;
-            font-size: 20px;
-            margin: 0;
-        }
+/* HEADER */
+.header {
+    display: flex;
+    align-items: center;
+    border-bottom: 2px solid #1f6fd2;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+.header img {
+    height: 45px;
+}
+.header h2 {
+    flex: 1;
+    text-align: center;
+    margin: 0;
+    font-size: 18px;
+    color: #1f2d3d;
+}
 
-        h3 { 
-            margin-top: 20px; 
-            margin-bottom: 10px; 
-            color: #2c3e50;
-        }
+/* INFO GRID */
+.info {
+    display: table;
+    width: 100%;
+    margin-bottom: 15px;
+}
+.info div {
+    display: table-cell;
+    padding: 6px 10px;
+    vertical-align: top;
+}
+.info strong {
+    display: block;
+    font-size: 10px;
+    color: #6b7280;
+}
+.info span {
+    font-size: 12px;
+    font-weight: 600;
+}
 
-        table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            margin-bottom: 20px; 
-            font-size: 11px; 
-        }
+/* OBSERVACIONES OC */
+.alert {
+    border: 1px solid #f0ad4e;
+    background: #fff7e6;
+    padding: 10px;
+    margin-bottom: 20px;
+}
+.alert h3 {
+    margin: 0 0 5px;
+    font-size: 13px;
+    color: #d9822b;
+}
 
-        th, td { 
-            border: 1px solid #ddd; 
-            padding: 6px; 
-        }
+/* TABLE */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 10px;
+}
+th {
+    background: #1f6fd2;
+    color: #fff;
+    padding: 6px;
+    border: 1px solid #ddd;
+}
+td {
+    border: 1px solid #ddd;
+    padding: 5px;
+    text-align: center;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+}
 
-        th { 
-            background: #3498db; 
-            color: white; 
-            text-align: center; 
-        }
+td:first-child { max-width: 70px; }
+.descripcion { max-width: 160px; text-align: left; }
 
-        td { 
-            text-align: center; 
-        }
+tr { page-break-inside: avoid; }
 
-        td:first-child, .descripcion { 
-            text-align: left; 
-        }
+/* ENTREGAS */
+.entregas {
+    font-size: 9px;
+    background: #f9fafb;
+    text-align: left;
+    padding: 6px;
+}
 
-        .totales { 
-            margin-top: 20px; 
-            padding: 12px; 
-            border: 1px solid #3498db;
-            border-radius: 6px;
-            background: #f4f9ff;
-        }
+/* TOTALES */
+.resumen {
+    margin-top: 20px;
+    border: 1px solid #1f6fd2;
+    background: #f4f9ff;
+    padding: 12px;
+}
+.resumen p {
+    margin: 4px 0;
+    font-size: 13px;
+}
+.resumen strong {
+    color: #1f2d3d;
+}
 
-        .totales p {
-            margin: 5px 0;
-            font-size: 13px;
-        }
-
-        .totales strong {
-            color: #2c3e50;
-        }
-    </style>
+/* OBSERVACIONES FINALES */
+.obs-final {
+    margin-top: 20px;
+    padding-top: 10px;
+    border-top: 1px dashed #ccc;
+}
+</style>
 </head>
+
 <body>
-    <!-- HEADER -->
-    <div class="header">
-        <img src="{{ public_path('images/SETAS.png') }}" alt="SETAS">
-        <h2>Orden de Trabajo #{{ $orden->id }}</h2>
-        <span></span> <!-- placeholder para centrar el título -->
-    </div>
 
-    <p><strong>Cliente:</strong> {{ $orden->cliente->nombre ?? 'N/A' }}</p>
-    <p><strong>Fecha de entrega:</strong> {{ $orden->fecha_entrega }}</p>
-    <p><strong>Generado por:</strong> {{ $orden->user->name ?? 'N/A' }}</p>
-   @if($orden->ordenCompra && $orden->ordenCompra->observaciones)
-    <div class="observaciones-section" style="border-color: #e67e22; background: #f4ecf7;">
-        <h3 style="margin-top: 0; color: #e67e22;"> Observaciones de la Orden de Compra</h3>
-        <div class="observaciones-content" style="color: #8b4513;">
-            {{ $orden->ordenCompra->observaciones }}
-        </div>
+<!-- HEADER -->
+<div class="header">
+    <img src="{{ public_path('images/SETAS.png') }}">
+    <h2>Orden de Trabajo #{{ $orden->id }}</h2>
+    <span></span>
+</div>
+
+<!-- INFO -->
+<div class="info">
+    <div>
+        <strong>Cliente</strong>
+        <span>{{ $orden->cliente->nombre ?? 'N/A' }}</span>
     </div>
+    <div>
+        <strong>Fecha Entrega</strong>
+        <span>{{ $orden->fecha_entrega }}</span>
+    </div>
+    <div>
+        <strong>Generado por</strong>
+        <span>{{ $orden->user->name ?? 'N/A' }}</span>
+    </div>
+    <div>
+        <strong>Empresa</strong>
+        <span>{{ $orden->ordenCompra->empresa->nombre ?? 'N/A' }}</span>
+    </div>
+</div>
+
+@if($orden->ordenCompra && $orden->ordenCompra->observaciones)
+<div class="alert">
+    <h3>Observaciones de la Orden de Compra</h3>
+    {{ $orden->ordenCompra->observaciones }}
+</div>
 @endif
-    <h3>Detalles</h3>
-    <table>
-        <thead>
-            <tr>
-                <th>Producto</th>
-                <th>Ancho</th>
-                <th>Largo</th>
-                <th>Calibre</th>
-                <th>Calibre Cl</th>
-                <th>Descripción</th>
-                <th>Kg Req.</th>
-                <th>Cantidad</th>
-                <th>Enviada</th>
-                <th>Faltantes</th>
-                <th>Valor Unit.</th>
-                <th>Valor Total</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($detalles as $d)
-                <tr>
-                    <td>{{ $d->product->code ?? '-' }}</td>
-                    <td>{{ $d->ancho_cm }}</td>
-                    <td>{{ $d->largo_cm }}</td>
-                    <td>{{ $d->calibre }}</td>
-                    <td>{{ $d->cliente_clb }}</td>
-                    <td class="descripcion">{{ $d->descripcion }}</td>
-                    <td>{{ number_format($d->cantidad_requerida_kg, 2) }}</td>
-                    <td>{{ $d->cantidad }}</td>
-                    <td>{{ $d->cantidad_enviada }}</td>
-                    <td>{{ $d->faltantes }}</td>
-                    <td>${{ number_format($d->valor_unitario, 2, ',', '.') }}</td>
-                    <td>${{ number_format($d->valor_total, 2, ',', '.') }}</td>
-                </tr>
-                @if($d->entregas->count())
-                    <tr>
-                        <td colspan="11">
-                            <strong>Entregas:</strong><br>
-                            @foreach($d->entregas as $e)
-                                - Cantidad: {{ $e->cantidad }} |
-                                Fecha: {{ \Carbon\Carbon::parse($e->fecha_entrega)->format('d/m/Y') }} |
-                                Usuario: {{ $e->usuario->name }}
-                                <br>
-                            @endforeach
-                        </td>
-                    </tr>
-                @endif
-            @endforeach
-        </tbody>
-    </table>
 
-    <!-- Totales -->
-    <div class="totales">
-        <p><strong>Total Kg:</strong> {{ number_format($totalKg, 2) }} Kg</p>
-        <p><strong>Valor Total:</strong> ${{ number_format($valorTotal, 2, ',', '.') }}</p>
-    </div>
+<h3>Detalles</h3>
 
+<table>
+<thead>
+<tr>
+    <th>Producto</th>
+    <th>Ancho</th>
+    <th>Largo</th>
+    <th>Cal.</th>
+    <th>Cal. Cl</th>
+    <th>Descripción</th>
+    <th>Emb.</th>
+    <th>Kg Req</th>
+    <th>Cant</th>
+    <th>Env</th>
+    <th>Falt</th>
+    <th>V. Unit</th>
+    <th>Total</th>
+</tr>
+</thead>
+<tbody>
+@foreach($detalles as $d)
+<tr>
+    <td>{{ $d->product->code ?? '-' }}</td>
+    <td>{{ $d->ancho_cm }}</td>
+    <td>{{ $d->largo_cm }}</td>
+    <td>{{ $d->calibre }}</td>
+    <td>{{ $d->cliente_clb }}</td>
+    <td class="descripcion">{{ $d->descripcion }}</td>
+    <td>{{ ucfirst($d->tipo_embalaje) }}</td>
+    <td>{{ number_format($d->cantidad_requerida_kg, 2) }}</td>
+    <td>{{ $d->cantidad }}</td>
+    <td>{{ $d->cantidad_enviada }}</td>
+    <td>{{ $d->faltantes }}</td>
+    <td>${{ number_format($d->valor_unitario, 2, ',', '.') }}</td>
+    <td>${{ number_format($d->valor_total, 2, ',', '.') }}</td>
+</tr>
+
+@if($d->entregas->count())
+<tr>
+    <td colspan="13" class="entregas">
+        <strong>Entregas:</strong><br>
+        @foreach($d->entregas as $e)
+            • {{ $e->cantidad }} — {{ \Carbon\Carbon::parse($e->fecha_entrega)->format('d/m/Y') }} — {{ $e->usuario->name }}<br>
+        @endforeach
+    </td>
+</tr>
+@endif
+@endforeach
+</tbody>
+</table>
+
+<!-- RESUMEN -->
+<div class="resumen">
+    <p><strong>Total Kg:</strong> {{ number_format($totalKg, 2) }} Kg</p>
+    <p><strong>Valor Total:</strong> ${{ number_format($valorTotal, 2, ',', '.') }}</p>
+</div>
+
+<!-- OBSERVACIONES -->
+<div class="obs-final">
     <h3>Observaciones</h3>
     <p>{{ $observaciones ?: 'Sin observaciones adicionales.' }}</p>
+</div>
+
 </body>
 </html>
+

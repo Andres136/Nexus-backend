@@ -105,9 +105,14 @@ function sinCeros($valor) {
             <td>{{ $item->item }}</td>
             <td>
                 {{ mb_strtoupper($item->descripcion) }}
-                @if ($item->ancho_cm > 0 && $item->largo_cm > 0 && $item->calibre > 0)
-                    {{ sinCeros($item->ancho_cm) }}*{{ sinCeros($item->largo_cm) }} Cal.{{ sinCeros($item->cliente_clb) }}
-                @endif
+              @if ($item->ancho_cm && $item->largo_cm)
+    {{ sinCeros($item->ancho_cm) }}*{{ sinCeros($item->largo_cm) }}
+@endif
+
+@if ($item->cliente_clb)
+    Cal.{{ sinCeros($item->cliente_clb) }}
+@endif
+
             </td>
             <td>{{ $item->cantidad }}</td>
             <td class="text-right">$ {{ number_format($item->valor_unitario, 0, ',', '.') }}</td>
