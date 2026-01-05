@@ -119,7 +119,13 @@ public function createProduct(Request $request)
 
         return response()->json([
             'message' => 'Producto creado exitosamente',
-            'data' => $product
+            'data' => [
+                'id' => $product->id,
+                'name' => $product->name,
+                'description' => $product->description,
+                'categoria_id' => $product->categoria_id,
+                'code' => $product->code,
+            ]
         ], 201);
 
     } catch (\Throwable $e) {
@@ -277,6 +283,20 @@ return response()->json([
         }
         return response()->json(['data' => $product], 200);
     }
+   /**
+   * Actualizar un producto específico.     
+   *
+   *  */
+
+   public function edit(Request $request, string $id)
+   {
+       $product = product::find($id);
+       if (!$product) {
+           return response()->json(['message' => 'Producto no encontrado'], 404);
+       }
+       $product->update($request->all());
+       return response()->json(['data' => $product], 200);
+   }
 
     /**
      * Update the specified resource in storage.

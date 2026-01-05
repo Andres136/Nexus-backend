@@ -229,6 +229,11 @@ Route::post('/productos/sincronizar-siigo-setas', [CrmProductController::class, 
 
 //**LOGICA DE INVENTARIOS */
 
+//** RUTAS API PRODUCTOS */
+Route::apiResource('products',CrmProductController::class);
+//**ACTUALIZAR PRODUCTO */
+Route::put('productos/{id}', [CrmProductController::class, 'edit']);
+
 Route::apiResource('inventarios',InventorieController::class);
 //Anular movimiento de stock
 Route::post('anular-movimiento-stock/{movimientoId}', [InventorieController::class, 'importar']);
@@ -289,6 +294,10 @@ Route::get('/alistamientos/{alistamiento_id}/usuarios-disponibles', [Alistamient
 //Agregar usuario al alistamiento
 Route::post('/alistamientos/{alistamiento_id}/agregar-usuario', [AlistamientoController::class, 'agregarUsuario']);
 });
+
+//**RUTAS MIDDLEWARE PARA RESPONSABLES DE CADA PROCESOS O DEPARTAMENTO */
+
+
 Route::middleware(['auth:sanctum', 'es_responsable_del_departamento'])->group(function () {
     Route::apiResource('/indicadores', IndicadoresProcesosController::class);
     Route::apiResource('registro-indicadores',RegistroIndicadoresController::class);
@@ -303,18 +312,20 @@ Route::middleware(['auth:sanctum', 'es_responsable_del_departamento'])->group(fu
 });
 
 
-//Ruta para roles y permisos  usando middleware  roles
+//**RUTAS PARA GESTIONAR EMPRESAS SOLO ROLE 1   ADMINISTRADOR DEL SISTEMA */
 Route::middleware(['auth:sanctum', 'role:1'])->group(function () {
   Route::apiResource('empresas', EmpresaController::class);
 
 });
 
 
-//Middleware para verificar permisos
+//**RUTAS PARA GESTIONAR ROLES  */
 Route::middleware(['auth:sanctum', 'check.permission'])->group(function () {
 
 
 });
+
+//**RUTAS SIN AUTENTICACION */
 
 
 Route::get('empresas-all', [EmpresaController::class, 'index']);
@@ -374,7 +385,7 @@ Route::match(['GET', 'POST'], '/webhook', [WhatsappWebhookController::class, 'ha
 
 //Consultar todos los productos sin paginar
 Route::get('products-all', [CrmProductController::class, 'getAllProducts']);
-Route::apiResource('products',CrmProductController::class);
+
 Route::post('productos', [CrmProductController::class, 'createProduct']);
 Route::apiResource('categorias',CategoriaController::class);
 //Generar códigos de barra para productos
