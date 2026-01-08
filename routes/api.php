@@ -196,6 +196,8 @@ Route::apiResource('sedes', SedeController::class);
 Route::get('audit-ordenes-compra',[DashboardController::class,'getAuditData']);
 //Stock con sugerencias de productos
 Route::get('stock-products-sugerencias/{id}', [CrmProductController::class, 'stockProductoConSugerencias']);
+//REGISTRAR REVICION DE LA ORDEN DE COMPRA
+Route::post('ordenes-compra/{id}/marcar-documento-revisado', [OrdenCompraController::class, 'marcarDocumentoRevisado']);
 
 Route::get('stock-products/{id}', [CrmProductController::class, 'stock']);
 Route::get('stock-products-for-user/{id}', [CrmProductController::class, 'stockForUserAndOrder']);

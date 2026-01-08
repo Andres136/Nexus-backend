@@ -55,6 +55,7 @@ protected $movimientoStockService;
             'sede_id' => 'integer|exists:sedes,id',
             'bodega_id' => 'integer|exists:bodegas,id',
             'empresa_id' => 'integer|exists:empresas,id',
+            'categoria_id' => 'integer|exists:categorias,id',
             'producto' => 'string|max:255',
             'stock_min' => 'integer|min:0',
             'stock_max' => 'integer|min:0',
@@ -91,6 +92,7 @@ protected $movimientoStockService;
             'ultimos_movimientos' => $resultado['ultimos_movimientos'],
             'sedes_disponibles' => $resultado['sedes'],
             'bodegas_disponibles' => $resultado['bodegas'],
+            'categorias_disponibles' => $resultado['categorias'],
         ]);
 
     } catch (\Illuminate\Validation\ValidationException $e) {
@@ -508,9 +510,8 @@ public function exportarInventarioExcel(Request $request)
        
      
 
-        $query = Inventario::with(['producto', 'empresa', 'sede', 'bodega']);
+        $query = Inventario::with(['producto.categoria', 'empresa', 'sede', 'bodega']);
 
-     
 
         // 🔎 Aplicar filtros (igual que index)
         if ($request->sede_id) {
@@ -524,6 +525,12 @@ public function exportarInventarioExcel(Request $request)
         if ($request->empresa_id) {
             $query->where('empresa_id', $request->empresa_id);
         }
+if ($request->filled('categoria_id')) {
+    $query->whereHas('producto', function ($q) use ($request) {
+        $q->where('categoria_id', $request->categoria_id);
+    });
+}
+
 
         if ($request->producto) {
             $query->whereHas('producto', function ($q) use ($request) {

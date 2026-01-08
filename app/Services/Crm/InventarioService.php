@@ -3,6 +3,7 @@
 namespace App\Services\Crm;
 
 use App\Models\Crm\bodega;
+use App\Models\Crm\categoria;
 use App\Models\Crm\Inventario;
 use App\Models\Crm\MovimientoStock;
 use App\Models\Crm\OrdenDeTrabajo;
@@ -24,18 +25,30 @@ class InventarioService
 public function listarInventarios(Request $request, $user)
 {
     try {
-        $rolesPermitidos = [1, 4]; // SuperAdmin y Admin
+        $rolesPermitidos = [1,3,4,5,6,7,9,9,10,11]; // SuperAdmin y Admin
         $isAdmin = in_array($user->role_id, $rolesPermitidos);
 
         // ===============================
         // 🔹 QUERY BASE CON RELACIONES
         // ===============================
         $query = Inventario::with([
-            'producto:id,name,code',
+            'producto:id,name,code,categoria_id',
             'empresa:id,nombre',
             'sede:id,nombre',
             'bodega:id,nombre'
         ])->select('inventories.*');
+
+
+        //=====================
+        // 🔹 RELACION CON CATEGORIA 
+        
+
+        
+
+        // ======================
+        if ($request->filled('filtro_estatico')) {
+            $query->where('inventories.filtro_estatico', $request->filtro_estatico);
+        }
 
         // ===============================
         // 🔹 CONTROL DE ACCESO POR ROL
@@ -62,6 +75,12 @@ public function listarInventarios(Request $request, $user)
         if ($request->filled('bodega_id')) {
             $query->where('inventories.bodega_id', $request->bodega_id);
         }
+        if ($request->filled('categoria_id')) {
+    $query->whereHas('producto', function ($q) use ($request) {
+        $q->where('categoria_id', $request->categoria_id);
+    });
+}
+
 
         if ($request->filled('producto')) {
             $producto = $request->producto;
@@ -186,6 +205,8 @@ $estadisticasPorFiltro['por_empresa'] = Inventario::select('empresa_id')
         // ===============================
         $sedesDisponibles = Sede::all(['id', 'nombre']);
         $bodegasDisponibles = bodega::all(['id', 'nombre']);
+        $categoriasDisponibles = categoria::all(['id', 'nombre']);
+       
 
         // ===============================
         // 🔹 CATÁLOGOS DE FILTRO (CORREGIDO)
@@ -194,7 +215,10 @@ $estadisticasPorFiltro['por_empresa'] = Inventario::select('empresa_id')
 if (in_array($user->role_id, $rolesPermitidos)) {
     // 🟢 ADMINS: TODAS las sedes del sistema (no solo las que tienen inventario)
     $sedesDisponibles = Sede::all(['id', 'nombre']); // ⚡ CAMBIO AQUÍ
-    
+
+    // Para categorías también todas las del sistema
+    $categoriasDisponibles = categoria::all(['id', 'nombre']);
+
     // Para bodegas también todas las del sistema
        $bodegasDisponibles = bodega::with('sede:id,nombre')
                 ->select(['id', 'nombre', 'sede_id']) // ✅ INCLUIR sede_id
@@ -222,8 +246,10 @@ if (in_array($user->role_id, $rolesPermitidos)) {
 } else {
     // 🟢 USUARIOS NORMALES: Solo su sede y bodegas de su sede
     $sedesDisponibles = Sede::where('id', $user->sede_id)->get(['id', 'nombre']);
- $bodegasDisponibles = bodega::with('sede:id,nombre')
-                ->select(['id', 'nombre', 'sede_id']) 
+    $categoriasDisponibles = categoria::all(['id', 'nombre']);
+
+    $bodegasDisponibles = bodega::with('sede:id,nombre')
+                ->select(['id', 'nombre', 'sede_id'])
     ->whereHas('inventarios', function($q) use ($user) {
         $q->where('sede_id', $user->sede_id);
     })->get(['id', 'nombre']);
@@ -248,6 +274,7 @@ if (in_array($user->role_id, $rolesPermitidos)) {
             'ultimos_movimientos' => $movimientos,
             'sedes' => $sedesDisponibles,
             'bodegas' => $bodegasDisponibles,
+            'categorias' => $categoriasDisponibles,
         ];
 
     } catch (\Throwable $e) {

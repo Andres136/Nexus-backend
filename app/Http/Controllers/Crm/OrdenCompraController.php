@@ -153,6 +153,16 @@ class OrdenCompraController extends Controller
        $user = auth()->user(); 
         try {
             $ordenCompra = Orden_Compra::findOrFail($id);
+
+            // 🔒 VALIDACIÓN: Documento del cliente obligatorio
+if ($ordenCompra->cliente_documento && !$ordenCompra->documento_revisado_at) {
+    return response()->json([
+        'error' => 'Debe revisar el documento del cliente antes de generar la Orden de Trabajo.'
+    ], 422);
+}
+
+
+
         // Verificar de dónde sacar el sede_id
         if ($request->filled('sede_id')) {
             // 1. Si viene en el request
@@ -167,10 +177,7 @@ class OrdenCompraController extends Controller
             // 4. Si no hay ninguna → error
             return response()->json(['error' => 'La sede es obligatoria y no se encontró en el request, en la orden o en el usuario'], 422);
         }
-        $documentoVisto = $request->input('documento_revisado_at', false);
-
-        //Guardar si el documento fue revisado
-        $ordenCompra->documento_revisado_at = $documentoVisto ? now() : null;
+       
 
         // Asignar sede a la orden
         $ordenCompra->sede_id = $sedeId;
@@ -851,6 +858,16 @@ public function mostrarDocumentoFirmado(Orden_Compra $orden)
         ]
     );
 }
+public function marcarDocumentoRevisado($id)
+{
+    $orden = Orden_Compra::findOrFail($id);
+    $orden->documento_revisado_at = now();
+    $orden->save();
+
+    return response()->json(['ok' => true]);
+}
+
+
 
 
   

@@ -5,8 +5,9 @@
 <title>Etiqueta Rollo</title>
 
 <style>
+/* 🖨️ CONFIGURACIÓN DE IMPRESIÓN */
 @page {
-    size: 32mm 25mm;
+    size: 103.5mm 50mm;
     margin: 0;
 }
 
@@ -18,70 +19,53 @@
 
 body {
     font-family: Arial, Helvetica, sans-serif;
-    line-height: normal;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
 }
 
-/* ETIQUETA = PÁGINA */
-body {
-    font-family: Arial, Helvetica, sans-serif;
-    line-height: normal;
-}
-
-/* ETIQUETA = PÁGINA */
+/* 🏷️ ETIQUETA = UNA PÁGINA */
 .etiqueta {
-    width: 32mm;
-    height: 25mm;
-    padding: 1mm 1.5mm 0.5mm 1.5mm;
-    text-align: center;
-    overflow: hidden;
+    width: 97.5mm;   /* área útil */
+    height: 44mm;    /* área útil */
+    margin: 3mm;     /* margen físico */
 
     display: flex;
     flex-direction: column;
-    justify-content: center; /* 🔥 CENTRADO REAL */
+    justify-content: center;
+    align-items: center;
+
+    text-align: center;
+    overflow: hidden;
 }
 
-/* TEXTO */
+/* 🔤 NOMBRE PRODUCTO */
 .nombre {
-    font-size: 6.8px;
+    font-size: 14px;
     font-weight: bold;
-    line-height: 1.05;
-    margin-bottom: 0.5mm;
-    margin-top: 1.2mm;
+    line-height: 1.1;
+    margin-bottom: 2mm;
+    max-height: 12mm;
+    overflow: hidden;
 }
 
+/* 🔢 CÓDIGO */
 .codigo {
-    font-size: 6px;
-    margin-bottom: 0.6mm;
+    font-size: 11px;
+    margin-bottom: 2mm;
+    letter-spacing: 0.5px;
 }
 
-/* BARCODE */
+/* 🧾 BARCODE */
 .barcode img {
-    width: 26mm;
-    max-height: 10mm;
+    width: 80mm;
+    max-height: 22mm;
     object-fit: contain;
 }
 
-
-/* TEXTO */
-.nombre {
-    font-size: 6.8px;
-    font-weight: bold;
-    line-height: 1.05;
-    margin-bottom: 0.5mm;
+/* 🚫 EVITAR SALTOS EXTRA */
+.etiqueta:last-child {
+    page-break-after: auto;
 }
-
-.codigo {
-    font-size: 6px;
-    margin-bottom: 0.6mm;
-}
-
-/* BARCODE */
-.barcode img {
-    width: 26mm;
-    max-height: 10mm;
-    object-fit: contain;
-}
-
 </style>
 </head>
 
