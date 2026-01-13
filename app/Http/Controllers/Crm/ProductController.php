@@ -170,7 +170,7 @@ public function stock($productoId, Request $request)
     $sedeId   = null; // por defecto null → usa la sede del auth
 
     // Solo algunos roles pueden consultar stock de otra sede
-    $rolesPermitidos = [1, 2]; // Ejemplo: 1=super_admin, 2=company_admin
+    $rolesPermitidos = [1, 2,4]; // Ejemplo: 1=super_admin, 2=company_admin
 
     if (in_array($user->role_id, $rolesPermitidos)) {
         $sedeId = $request->query('sede_id'); // opcional en el request
