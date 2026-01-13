@@ -154,13 +154,15 @@ class OrdenCompraController extends Controller
         try {
             $ordenCompra = Orden_Compra::findOrFail($id);
 
-            // 🔒 VALIDACIÓN: Documento del cliente obligatorio
-if ($ordenCompra->cliente_documento && !$ordenCompra->documento_revisado_at) {
+// Verificar si ya existe una OT
+$existeOT = OrdenDeTrabajo::where('orden_compra_id', $ordenCompra->id)->exists();
+
+// 🔒 VALIDAR SOLO SI SE VA A CREAR
+if (!$existeOT && $ordenCompra->cliente_documento && !$ordenCompra->documento_revisado_at) {
     return response()->json([
         'error' => 'Debe revisar el documento del cliente antes de generar la Orden de Trabajo.'
     ], 422);
 }
-
 
 
         // Verificar de dónde sacar el sede_id
