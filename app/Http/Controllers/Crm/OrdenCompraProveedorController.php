@@ -556,7 +556,15 @@ public function entregasShow($id)
     public function update(Request $request, $id)
     {
         $user = auth()->user();
-        $orden = OrdenCompraProveedor::findOrFail($id);
+            $orden = OrdenCompraProveedor::with('detalles.entregas')->findOrFail($id);
+
+    // 🚫 BLOQUEO: si ya tiene entregas
+    if ($this->ordenTieneEntregas($orden)) {
+        return response()->json([
+            'success' => false,
+            'message' => 'No se puede editar la orden porque ya tiene entregas registradas.'
+        ], 422);
+    }
         DB::beginTransaction();
         try {
             $orden->update([
@@ -593,6 +601,14 @@ public function entregasShow($id)
         return response()->json(['message' => 'Orden actualizada correctamente.']);
     }
 
+
+
+private function ordenTieneEntregas(OrdenCompraProveedor $orden): bool
+{
+    return $orden->detalles()
+        ->whereHas('entregas')
+        ->exists();
+}
 
     //Eliminar un detalle de orden de compra
 public function destroy($id)

@@ -54,6 +54,10 @@ body {
     margin-bottom: 2mm;
     letter-spacing: 0.5px;
 }
+.barcode {
+    padding: 0 6mm; /* zona silenciosa */
+}
+
 
 /* 🧾 BARCODE */
 .barcode img {

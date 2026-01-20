@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 
+use App\Http\Requests\Traslados\ResponsabilidadEstoreRequest;
 use App\Models\Crm\DatoConductor;
 use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\Sede;
@@ -12,6 +13,8 @@ use App\Models\Roles\Role;
 use App\Models\Roles\UserPermission;
 use App\Models\Rutas\DeliveryEvent;
 use App\Models\Rutas\DeliveryRecord;
+use App\Models\Traslados\Responsabilidad;
+use App\Models\Traslados\ResponsabilidadUser;
 use App\Models\Vsm\Alistamiento;
 use App\Models\Vsm\AlistamientoUsuario;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -142,8 +145,13 @@ public function alistamientos()
                 ->withTimestamps();
 }
 
-
-
+public function responsabilidades()
+{
+    return $this->belongsToMany(Responsabilidad::class, 'responsabilidades_user', 'user_id', 'responsabilidad_id')
+                ->using(ResponsabilidadUser::class)
+                ->withPivot(['bodega_id', 'sede_id', 'activo', 'fecha_asignacion', 'fecha_fin'])
+                ->withTimestamps();
+}
 
     /**
      * The attributes that should be hidden for serialization.

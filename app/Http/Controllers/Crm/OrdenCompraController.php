@@ -20,6 +20,7 @@ use App\Notifications\OrdenTrabajoCreada;
 use App\Notifications\OrdenTrabajoGeneradaParaCreador;
 use App\Notifications\OrdenTrabajoListaParcial;
 use App\Services\Crm\OrdenCompraService;
+use App\Services\Crm\OrdenTrabajoService;
 use App\Services\ProductService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -31,6 +32,7 @@ use Illuminate\Support\Facades\DB;
 
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class OrdenCompraController extends Controller
 {
@@ -38,10 +40,12 @@ class OrdenCompraController extends Controller
      * Display a listing of the resource.
      */
      protected $productService;
+     protected $ordenTrabajoService;
 
     public function __construct()
     {
         $this->productService = app(ProductService::class);
+        $this->ordenTrabajoService = app(OrdenTrabajoService::class);
     }
 
 
@@ -146,7 +150,7 @@ class OrdenCompraController extends Controller
     }
 
 
-
+/*
     public function generarOrdenTrabajo(OrdenTrabajoRequest $request, $id)
     {
 
@@ -154,15 +158,8 @@ class OrdenCompraController extends Controller
         try {
             $ordenCompra = Orden_Compra::findOrFail($id);
 
-// Verificar si ya existe una OT
-$existeOT = OrdenDeTrabajo::where('orden_compra_id', $ordenCompra->id)->exists();
 
-// 🔒 VALIDAR SOLO SI SE VA A CREAR
-if (!$existeOT && $ordenCompra->cliente_documento && !$ordenCompra->documento_revisado_at) {
-    return response()->json([
-        'error' => 'Debe revisar el documento del cliente antes de generar la Orden de Trabajo.'
-    ], 422);
-}
+$this->validarDocumentoCliente($ordenCompra);
 
 
         // Verificar de dónde sacar el sede_id
@@ -446,6 +443,70 @@ $ordenCompra->save();
             ], 500);
         }
     }
+*/
+
+
+
+
+public function generarOrdenTrabajo(OrdenTrabajoRequest $request, $id)
+{
+    $user = auth()->user();
+    
+    try {
+        $ordenCompra = Orden_Compra::findOrFail($id);
+        
+        $this->validarDocumentoCliente($ordenCompra);
+        
+        // Determinar sede (mantener lógica exacta)
+        $sedeId = $this->determinarSede($request, $ordenCompra, $user);
+        $ordenCompra->sede_id = $sedeId;
+        $ordenCompra->save();
+        
+        // ✅ Usar el service con toda la lógica
+        $ordenTrabajoService = app(OrdenTrabajoService::class);
+        $resultado = $ordenTrabajoService->generarOrdenTrabajo(
+            $ordenCompra, 
+            $request->all(), // Pasar todos los datos del request
+            $user->id
+        );
+        
+        return response()->json([
+            'message' => 'Orden de Trabajo generada/actualizada con éxito',
+            'ordenTrabajo' => $resultado['ordenTrabajo'],
+            'pdf_url' => $resultado['pdf_url'],
+        ], 201);
+        
+    } catch (Exception $e) {
+        return response()->json([
+            'message' => 'Error al generar/actualizar la Orden de Trabajo',
+            'error' => $e->getMessage(),
+        ], 500);
+    }
+}
+
+private function determinarSede($request, $ordenCompra, $user)
+{
+    if ($request->filled('sede_id')) {
+        return $request->input('sede_id');
+    } elseif ($ordenCompra->sede_id) {
+        return $ordenCompra->sede_id;
+    } elseif ($user->sede_id) {
+        return $user->sede_id;
+    } else {
+        throw new \Exception('La sede es obligatoria y no se encontró en el request, en la orden o en el usuario');
+    }
+}
+private function validarDocumentoCliente(Orden_Compra $ordenCompra): void
+{
+    $existeOT = OrdenDeTrabajo::where('orden_compra_id', $ordenCompra->id)->exists();
+
+    if (!$existeOT && $ordenCompra->cliente_documento && !$ordenCompra->documento_revisado_at) {
+        throw ValidationException::withMessages([
+            'documento' => 'Debe revisar el documento del cliente antes de generar la Orden de Trabajo.'
+        ]);
+    }
+}
+
 
 
 public function obtenerOrdenesTrabajo(Request $request)

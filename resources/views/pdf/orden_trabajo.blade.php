@@ -149,8 +149,8 @@ tr { page-break-inside: avoid; }
         <span>{{ $orden->fecha_entrega }}</span>
     </div>
     <div>
-        <strong>Generado por</strong>
-        <span>{{ $orden->user->name ?? 'N/A' }}</span>
+        <strong>Asesor Comercial</strong>
+        <span>{{ $orden->ordenCompra->user->name ?? 'N/A' }}</span>
     </div>
     <div>
         <strong>Empresa</strong>

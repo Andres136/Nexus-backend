@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\Crm\MovimientoStock;
+use App\Observers\MovimientoStockObserver;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -24,6 +26,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        MovimientoStock::observe(MovimientoStockObserver::class);
     }
 }

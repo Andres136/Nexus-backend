@@ -23,8 +23,8 @@ class PdfEtiquetas
                 'barcode' => $barcode->getBarcodePNG(
                     $url,
                     'C128',
-                    2,   // ancho barras
-                    60   // alto barras
+                    1,   // ancho barras
+                    70   // alto barras
                 ),
             ];
         });

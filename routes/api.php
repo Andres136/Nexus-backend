@@ -47,6 +47,8 @@ use App\Http\Controllers\RolController;
 use App\Http\Controllers\Rutas\DeliveryEventController;
 use App\Http\Controllers\TareaController;
 use App\Http\Controllers\Traslados\EnvioInternoController;
+use App\Http\Controllers\Traslados\ResponsabilidadesController;
+use App\Http\Controllers\Traslados\TrasladosBodegaController;
 use App\Http\Controllers\UpdateDepartamentoController;
 use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\Vsm\AlistamientoController;
@@ -295,6 +297,17 @@ Route::get('/vsm/ots-finalizadas', [AlistamientoController::class, 'alistamiento
 Route::get('/alistamientos/{alistamiento_id}/usuarios-disponibles', [AlistamientoController::class, 'usuariosDisponibles']);
 //Agregar usuario al alistamiento
 Route::post('/alistamientos/{alistamiento_id}/agregar-usuario', [AlistamientoController::class, 'agregarUsuario']);
+
+//**RUTAS PARA GESTIONAR RESPONSABILIDADES */
+
+Route::apiResource('responsabilidades', ResponsabilidadesController::class);
+Route::post('responsabilidades/{id}/asignar', [ResponsabilidadesController::class, 'asignarResponsabilidad']);
+Route::apiResource('traslados-bodegas',TrasladosBodegaController::class);
+//Aprobaciones
+Route::post('traslados-bodegas/{id}/aprobar', [TrasladosBodegaController::class, 'aprobarPorBodega']);
+Route::post('traslados-bodegas/{id}/rechazar', [TrasladosBodegaController::class, 'rechazarPorBodega']);
+//Aprobacion por inventario
+Route::post('traslados-bodegas/{id}/aprobar-inventario', [TrasladosBodegaController::class, 'aprobarInventario']);
 });
 
 //**RUTAS MIDDLEWARE PARA RESPONSABLES DE CADA PROCESOS O DEPARTAMENTO */
