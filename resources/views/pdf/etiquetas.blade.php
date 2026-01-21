@@ -1,47 +1,73 @@
 <!DOCTYPE html>
-<html lang="es">
+<html>
 <head>
 <meta charset="UTF-8">
 <style>
-@page { margin: 0; }
-body {
+@page {
+    size: 102.5mm 56mm;
+    margin: 0;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
     font-family: Arial, Helvetica, sans-serif;
+}
+
+/* 🔥 CONTENEDOR SIN HEIGHT FIJO */
+.etiqueta {
+    width: 103.5mm;
+    min-height: 50mm;
+    padding: 3mm;
+    box-sizing: border-box;
+
+    display: table;
     text-align: center;
 }
-.etiqueta {
-    width: 100%;
-    height: 100%;
-    padding: 6mm;
+
+/* CONTENIDO CENTRADO */
+.contenido {
+    display: table-cell;
+    vertical-align: middle;
+ 
 }
+
+/* TEXTO */
 .nombre {
-    font-size: 14px;
+    font-size: 10px;
     font-weight: bold;
-}
-.codigo {
-    font-size: 11px;
     margin-bottom: 3mm;
+    text-transform: uppercase;
 }
-.qr svg {
-    width: 30mm;
-    height: 30mm;
+
+.codigo {
+    font-size: 8px;
+    margin-bottom: 2mm;
+    font-family: monospace;
+}
+
+/* BARCODE */
+.barcode img {
+    width: 85mm;
+    max-height: 15mm;
+    object-fit: contain;
+    margin-top: 2mm;
 }
 
 </style>
 </head>
-<body>
 
+<body>
 @foreach ($productos as $p)
 <div class="etiqueta">
-    <div class="nombre">{{ $p['name'] }}</div>
-    <div class="codigo">{{ $p['code'] }}</div>
-
-    <div class="qr">
-        {!! $p['qr_svg'] !!}
+    <div class="contenido">
+        <div class="nombre">{{ $p['name'] }}</div>
+        <div class="codigo">{{ $p['code'] }}</div>
+        <div class="barcode">
+            <img src="data:image/png;base64,{{ $p['barcode'] }}">
+        </div>
     </div>
 </div>
 @endforeach
-
-
 </body>
 </html>
-

@@ -1,35 +1,38 @@
 <?php
 
+namespace App\Services;
+
 use Barryvdh\DomPDF\Facade\Pdf;
-use SimpleSoftwareIO\QrCode\Facades\QrCode;
+use Milon\Barcode\DNS1D;
 
 class PdfEtiquetas
 {
-    public static function generar($productos)
+ public static function generar($productos)
     {
-        $productos = collect($productos);
+       
+        $barcode = new DNS1D();
 
-        $data = $productos->map(function ($p) {
+        $data = $productos->map(function ($p) use ($barcode) {
 
-            $url = url('/scan/' . $p->code);
-
-            // ✅ QR SVG (NO usa Imagick)
-            $qrSvg = QrCode::format('svg')
-                ->size(120)
-                ->margin(1)
-                ->generate($url);
+            // 🔴 SIEMPRE URL COMPLETA
+            $url = url('/s/' . $p->code);
 
             return [
-                'name'   => $p->name ?? 'SIN NOMBRE',
-                'code'   => (string) $p->code,
-                'qr_svg' => $qrSvg,
+                'name' => $p->name,
+                'code' => (string) $p->code,
+                'barcode' => $barcode->getBarcodePNG(
+                    $url,
+                    'C128',
+                    1,   // ancho barras
+                    80   // alto barras
+                ),
             ];
         });
 
         return Pdf::loadView('pdf.etiquetas', [
             'productos' => $data
         ])
-        ->setPaper([0, 0, 292, 142]) // etiqueta
-        ->output();
+        ->setPaper([0, 0, 292, 142], 'portrait')
+         ->output();
     }
 }

@@ -31,6 +31,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
+
 use PhpParser\Node\Stmt\TryCatch;
 
 class ProductController extends Controller
@@ -932,6 +933,8 @@ public function exportarPlantillaProductos()
         ], 500);
     }
 }
+
+   //Generare  etiquetas codigo de barras PDF
 public function barcodesMasivos(Request $request)
 {
     $productos = Product::whereIn('id', $request->product_ids)->get();
@@ -942,6 +945,12 @@ public function barcodesMasivos(Request $request)
         echo PdfEtiquetas::generar($productos);
     }, 'etiquetas.pdf');
 }
+   
+   
+   
+   
+
+
 public function testPdf()
 {
     $html = '<h1>PDF FUNCIONA</h1><p>Si ves esto, DomPDF está bien</p>';
