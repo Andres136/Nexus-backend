@@ -199,7 +199,11 @@ public function registerInventario(array $data)
 public function importInventarioFromExcel($filePath, $user, $empresaId, $bodegaId)
 {
     $rows = \Maatwebsite\Excel\Facades\Excel::toArray([], $filePath)[0];
-    $header = array_map('strtolower', array_shift($rows));
+ $header = array_map(
+    fn($h) => trim(strtolower($h)),
+    array_shift($rows)
+);
+
 
     // ✅ Columnas requeridas
     $requiredColumns = ['code', 'stock'];
@@ -217,23 +221,41 @@ public function importInventarioFromExcel($filePath, $user, $empresaId, $bodegaI
     foreach ($rows as $index => $row) {
         try {
             $data = array_combine($header, $row);
+          // 🔧 Normalizar valores (elimina espacios invisibles de Excel)
+foreach ($data as $key => $value) {
+    if (is_string($value)) {
+        $value = trim($value);                       // espacios visibles
+        $value = preg_replace('/\s+/u', ' ', $value); // tabs, saltos de línea
+        $value = preg_replace('/[^\PC\s]/u', '', $value); // caracteres invisibles
+        $data[$key] = $value;
+    }
+}
 
             // ✅ Datos base del usuario y frontend
             $data['empresa_id'] = $empresaId;
             $data['bodega_id'] = $bodegaId;
             $data['sede_id'] = $user->sede_id;
             $data['usuario_id'] = $user->id;
+// ⛔ Saltar filas completamente vacías
+if (empty(array_filter($data, fn($v) => trim((string)$v) !== ''))) {
+    continue;
+}
 
             // ✅ Validaciones generales
             foreach ($requiredColumns as $col) {
-                if (!isset($data[$col]) || trim($data[$col]) === '') {
-                    throw new \Exception("Dato requerido faltante en columna '{$col}'");
-                }
-            }
+              
+            }if (!array_key_exists($col, $data) || $data[$col] === '') {
+    throw new \Exception("Dato requerido faltante o inválido en columna '{$col}'");
+}
+
 
             if (!$user->sede_id) throw new \Exception("El usuario no tiene una sede asignada");
             if (!$empresaId) throw new \Exception("Debe seleccionar una empresa");
             if (!$bodegaId) throw new \Exception("Debe seleccionar una bodega");
+// 🔒 Normalizar código definitivamente
+$data['code'] = (string) $data['code'];
+$data['code'] = trim($data['code']);
+$data['code'] = preg_replace('/\.0$/', '', $data['code']); // Excel numérico
 
             // ✅ Buscar producto
             $producto = CrmProduct::where('code', $data['code'])->first();
@@ -256,9 +278,10 @@ public function importInventarioFromExcel($filePath, $user, $empresaId, $bodegaI
 
 
             $data['stock'] = (float) $data['stock']; // conversión segura a número decimal
-            if ($data['stock'] <= 0) {
-    throw new \Exception("El stock debe ser mayor a 0");
-}
+            if ($data['stock'] <= 0) throw new \Exception(
+    "Producto con código '{$data['code']}' no encontrado (verifique espacios o formato)"
+);
+
 
 
             // ✅ Buscar inventario existente
@@ -324,7 +347,11 @@ public function importInventarioFromExcel($filePath, $user, $empresaId, $bodegaI
 public function descontarInventarioFromExcel($filePath, $user, $empresaId, $bodegaId)
 {
     $rows = \Maatwebsite\Excel\Facades\Excel::toArray([], $filePath)[0];
-    $header = array_map('strtolower', array_shift($rows));
+   $header = array_map(
+    fn($h) => trim(strtolower($h)),
+    array_shift($rows)
+);
+
 
     // Columnas requeridas
     $requiredColumns = ['code', 'stock'];
@@ -347,18 +374,41 @@ public function descontarInventarioFromExcel($filePath, $user, $empresaId, $bode
             try {
                 $data = array_combine($header, $row);
 
+                // 🔧 Normalizar datos (Excel introduce basura invisible)
+foreach ($data as $key => $value) {
+    if (is_string($value)) {
+        $value = trim($value);
+        $value = preg_replace('/\s+/u', ' ', $value);          // tabs, saltos
+        $value = preg_replace('/[^\PC\s]/u', '', $value);     // invisibles
+        $data[$key] = $value;
+    }
+}
+// ⛔ Ignorar filas completamente vacías
+if (empty(array_filter($data, fn($v) => trim((string)$v) !== ''))) {
+    continue;
+}
+
+
                 // Validar campos obligatorios
                 foreach ($requiredColumns as $col) {
-                    if (!isset($data[$col]) || trim($data[$col]) === '') {
-                        throw new \Exception("Dato requerido faltante en columna '{$col}'");
-                    }
+                  if (!array_key_exists($col, $data) || $data[$col] === '') {
+    throw new \Exception("Dato requerido faltante o inválido en columna '{$col}'");
+}
+
                 }
 
                 if (!$user->sede_id) throw new \Exception("El usuario no tiene una sede asignada");
                 if (!$empresaId) throw new \Exception("Debe seleccionar una empresa");
                 if (!$bodegaId) throw new \Exception("Debe seleccionar una bodega");
 
+               // 🔒 Normalizar código (Excel numérico / espacios)
+$data['code'] = (string) $data['code'];
+$data['code'] = trim($data['code']);
+$data['code'] = preg_replace('/\.0$/', '', $data['code']);
+
+
                 // Buscar producto por código
+                
                 $producto = CrmProduct::where('code', $data['code'])->first();
                 if (!$producto) {
                     throw new \Exception("Producto con código '{$data['code']}' no encontrado");
@@ -367,12 +417,20 @@ public function descontarInventarioFromExcel($filePath, $user, $empresaId, $bode
                 $data['producto_id'] = $producto->id;
 
                 // Normalizar stock
-                $rawStock = $data['stock'];
-                $data['stock'] = (float) str_replace(',', '.', trim($rawStock));
+              $rawStock = (string) $data['stock'];
+$rawStock = trim($rawStock);
+$rawStock = str_replace(',', '.', $rawStock);
 
-                if (!is_numeric($data['stock'])) {
-                    throw new \Exception("El valor '{$rawStock}' no es numérico o tiene formato inválido");
-                }
+if (!is_numeric($rawStock)) {
+    throw new \Exception("El valor '{$rawStock}' no es numérico o tiene formato inválido");
+}
+
+$cantidadADescontar = (float) $rawStock;
+
+if ($cantidadADescontar <= 0) {
+    throw new \Exception("La cantidad a descontar debe ser mayor a 0");
+}
+
 
                 $cantidadADescontar = $data['stock'];
 
@@ -387,7 +445,10 @@ public function descontarInventarioFromExcel($filePath, $user, $empresaId, $bode
                 ->first();
 
                 if (!$inventario) {
-                    throw new \Exception("No existe inventario para este producto en esta bodega");
+                    throw new \Exception(
+    "No existe inventario para el producto '{$producto->code}' en esta sede y bodega"
+);
+
                 }
 
                 // Validar stock suficiente

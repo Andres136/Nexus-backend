@@ -42,5 +42,17 @@ class Inventario extends Model
     {
         return $this->belongsTo(bodega::class, 'bodega_id');
     }
+protected static function booted()
+{
+    static::creating(function ($inventario) {
+        logger()->error('🚨 INVENTARIO CREADO FUERA DEL IMPORT', [
+            'attributes' => $inventario->getAttributes(),
+            'trace' => collect(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 10))
+                ->pluck('file')
+                ->filter()
+                ->values(),
+        ]);
+    });
+}
 
 }

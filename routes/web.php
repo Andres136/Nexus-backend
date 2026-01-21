@@ -7,6 +7,7 @@ use App\Mail\PlantillaPreviewMail;
 use App\Models\comunicaciones\Plantilla;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 Route::get('/', function () {
     return view('welcome');
@@ -33,4 +34,15 @@ Route::prefix('email/traslados')->group(function () {
 
     Route::get('{traslado}/rechazar', [TrasladosBodegaEmailController::class, 'rechazar'])
         ->name('email.traslados.rechazar');
+});
+
+
+Route::get('/test-qr', function () {
+    return response(
+        QrCode::format('svg')
+            ->size(300)
+            ->generate('https://google.com'),
+        200,
+        ['Content-Type' => 'image/svg+xml']
+    );
 });

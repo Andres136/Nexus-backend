@@ -781,7 +781,7 @@ $bodega  = bodega::find($request->bodega_id);
     } catch (\Exception $e) {
         return response()->json([
             'success' => false,
-            'message' => 'Error al importar inventarios: ' . $e->getMessage(),
+            'message' => 'Error al importar inventarios DESDE Excel: ' . $e->getMessage(),
             'errors' => ['file' => [$e->getMessage()]]
         ], 422);
     }

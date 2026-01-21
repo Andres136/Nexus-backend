@@ -210,6 +210,7 @@ Route::post('/products/descontar-stock-masivo', [InventorieController::class, 'd
 
 //Importar productos via exel
 Route::post('products/importar-excel', [CrmProductController::class, 'importarInventarioExcel']);
+Route::post('descontar-stock-excel', [CrmProductController::class, 'importarExcelDescuento']);
 Route::get('products/exportar/plantilla',[CrmProductController::class,'exportarPlantillaProductos']);
 
 //Crear productos via excel
@@ -246,7 +247,7 @@ Route::get('movimientos-stock', [InventorieController::class, 'listarMovimientos
 
 /*DESCONTAR STOCK VIA EXCEL*/
 
-Route::post('descontar-stock-excel', [CrmProductController::class, 'importarExcelDescuento']);
+
 
 //Registrar Evento de entrega
 Route::apiResource('/eventos-entrega', DeliveryEventController::class);

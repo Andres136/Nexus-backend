@@ -10,27 +10,11 @@ class MovimientoStockObserver
     /**
      * Handle the MovimientoStock "created" event.
      */
-    public function created(MovimientoStock $movimientoStock): void
-    {
-     $inventario = Inventario::firstOrCreate(
-            [
-                'empresa_id'  => $movimientoStock->empresa_id,
-                'producto_id' => $movimientoStock->producto_id,
-                'bodega_id'   => $movimientoStock->bodega_id,
-            ],
-            [
-                'stock' => 0,
-            ]
-        );
+ public function created(MovimientoStock $movimientoStock): void
+{
+    
+}
 
-        if ($movimientoStock->tipo === 'SALIDA') {
-            $inventario->decrement('stock', $movimientoStock->cantidad);
-        }
-
-        if ($movimientoStock->tipo === 'ENTRADA') {
-            $inventario->increment('stock', $movimientoStock->cantidad);
-        }
-    }
 
     /**
      * Handle the MovimientoStock "updated" event.
