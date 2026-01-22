@@ -115,9 +115,10 @@ function sinCeros($valor) {
 
             </td>
             <td>{{ $item->cantidad }}</td>
-            <td class="text-right">$ {{ number_format($item->valor_unitario, 0, ',', '.') }}</td>
-            <td class="text-right">$ {{ number_format($item->valor_paquete, 0, ',', '.') }}</td>
-            <td class="text-right">$ {{ number_format($item->valor_total, 0, ',', '.') }}</td>
+       <td class="text-right">$ {{ number_format($item->valor_unitario, 2, ',', '.') }}</td>
+<td class="text-right">$ {{ number_format($item->valor_paquete, 2, ',', '.') }}</td>
+<td class="text-right">$ {{ number_format($item->valor_total, 2, ',', '.') }}</td>
+
         </tr>
         @endforeach
     </tbody>

@@ -3,6 +3,7 @@
 use App\Http\Controllers\comunicaciones\PlantillaController;
 use App\Http\Controllers\Crm\InventorieController;
 use App\Http\Controllers\Traslados\TrasladosBodegaEmailController;
+use App\Http\Controllers\Traslados\TrasladosInventarioEmailController;
 use App\Mail\PlantillaPreviewMail;
 use App\Models\comunicaciones\Plantilla;
 use Illuminate\Support\Facades\Mail;
@@ -36,7 +37,14 @@ Route::prefix('email/traslados')->group(function () {
         ->name('email.traslados.rechazar');
 });
 
-
+Route::prefix('email/traslados')->group(function () {
+    Route::get('{traslado}/inventario/aprobar', 
+        [TrasladosInventarioEmailController::class, 'aprobar']
+    )->name('email.traslados.inventario.aprobar');
+    Route::get('{traslado}/inventario/rechazar', 
+        [TrasladosInventarioEmailController::class, 'rechazar']
+    )->name('email.traslados.inventario.rechazar');
+});
 Route::get('/test-qr', function () {
     return response(
         QrCode::format('svg')

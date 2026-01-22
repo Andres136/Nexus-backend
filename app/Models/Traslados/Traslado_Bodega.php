@@ -18,7 +18,7 @@ class Traslado_Bodega extends Model
         'usuario_aprobador_bodega_id',
         'usuario_aprobador_inventario_id',
         'usuario_creador_id',
-        'estado_id',
+        'estado',
         'fecha_despacho',
         'fecha_recepcion',
         'observaciones',

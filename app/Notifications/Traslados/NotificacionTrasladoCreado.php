@@ -14,7 +14,7 @@ class NotificacionTrasladoCreado extends Notification
     /**
      * Create a new notification instance.
      */
-    public function __construct()
+    public function __construct(public $traslado)
     {
         //
     }
@@ -34,10 +34,16 @@ class NotificacionTrasladoCreado extends Notification
      */
     public function toMail(object $notifiable): MailMessage
     {
+        $aprobarUrl = route('email.traslados.inventario.aprobar', ['traslado' => $this->traslado->id, 'user' => $notifiable->id]);
+        $rechazarUrl = route('email.traslados.inventario.rechazar', ['traslado' => $this->traslado->id, 'user' => $notifiable->id]);
+
         return (new MailMessage)
-                    ->line('The introduction to the notification.')
-                    ->action('Notification Action', url('/'))
-                    ->line('Thank you for using our application!');
+             ->subject('Traslado pendiente de aprobacion -Inventario')
+             ->view('emails.traslados.pendiente_inventario', [
+                 'traslado' => $this->traslado,
+                 'aprobarUrl' => $aprobarUrl,
+                 'rechazarUrl' => $rechazarUrl
+             ]);
     }
 
     /**

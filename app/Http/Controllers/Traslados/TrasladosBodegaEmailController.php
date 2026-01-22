@@ -17,8 +17,11 @@ class TrasladosBodegaEmailController extends Controller
     {
    Auth::loginUsingId(request()->query('user'));
 
-       $this->service->aprobarPorBodega($traslado->id,true);
-      return view('emails.traslados.aprobado_bodega', compact('traslado')); 
+   $trasladoActualizado = $this->service->aprobarPorBodega($traslado->id,true);
+       return view(
+        'emails.traslados.aprobado_bodega',
+        ['traslado' => $trasladoActualizado]
+    );
     }
 
 
