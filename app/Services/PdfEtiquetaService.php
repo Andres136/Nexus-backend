@@ -13,7 +13,7 @@ class PdfEtiquetaService
         $data = $productos->map(function ($p) use ($barcode) {
 
             // 🔴 SIEMPRE URL COMPLETA
-            $url = url('/' . $p->code);
+            $url = url('/s/' . $p->code);
 
             return [
                 'name' => $p->name,
