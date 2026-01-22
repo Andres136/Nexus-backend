@@ -1,11 +1,9 @@
 <?php
-
 namespace App\Services;
-
 use Barryvdh\DomPDF\Facade\Pdf;
 use Milon\Barcode\DNS1D;
 
-class PdfEtiquetas
+class PdfEtiquetaService
 {
  public static function generar($productos)
     {
@@ -15,7 +13,7 @@ class PdfEtiquetas
         $data = $productos->map(function ($p) use ($barcode) {
 
             // 🔴 SIEMPRE URL COMPLETA
-            $url = url('/s/' . $p->code);
+            $url = url('/' . $p->code);
 
             return [
                 'name' => $p->name,

@@ -20,7 +20,7 @@ use App\Models\Crm\ProductoEquivalentes;
 use App\Models\Crm\Sede;
 use App\Services\Crm\ProductImportResultExport;
 use App\Services\Crm\ProductImportService;
-use App\Services\PdfEtiquetas;
+use App\Services\PdfEtiquetaService;
 use App\Services\ProductService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Exception;
@@ -942,7 +942,7 @@ public function barcodesMasivos(Request $request)
     // Generar PDF con etiquetas (DomPDF / Snappy)
     return response()->streamDownload(function () use ($productos) {
      ($productos);
-        echo PdfEtiquetas::generar($productos);
+        echo PdfEtiquetaService::generar($productos);
     }, 'etiquetas.pdf');
 }
    
