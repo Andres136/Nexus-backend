@@ -8,6 +8,7 @@ use App\Http\Requests\Crm\UpdateOrdenCompraProveedorDetallesRequest;
 use App\Mail\OrdenCompraProveedorMail;
 use App\Models\Crm\OrdenCompraProveedor;
 use App\Models\Crm\OrdenCompraProveedorDetalle;
+use App\Services\Crm\OrdenCompraService;
 use Barryvdh\DomPDF\Facade\Pdf ;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -19,7 +20,7 @@ class OrdenCompraProveedorController extends Controller
      * Display a listing of the resource.
      */
 
-public function index(Request $request)
+public function index(Request $request,OrdenCompraService $estadoService)
 {
     $user = auth()->user();
     
@@ -83,7 +84,7 @@ if ($request->filled('week')) {
     $ordenes = $query->paginate(10);
 
     // ✅ CALCULAMOS EL ESTADO SEGÚN LA SEDE DEL USUARIO
-    $ordenes->getCollection()->transform(function ($orden) use ($user) {
+    /*$ordenes->getCollection()->transform(function ($orden) use ($user) {
         $detalles = $orden->detalles->map(function ($detalle) use ($user) {
             
             // ✅ Calcular cantidad entregada según la vista del usuario
@@ -148,7 +149,8 @@ if ($request->filled('week')) {
             (in_array($user->role_id, [1, 2, 4]) && $user->sede_id);
 
         return $orden;
-    });
+    });*/
+    $ordenes= $estadoService->procesar($ordenes, $user);
 
     return response()->json([
         'message' => 'Lista paginada de órdenes de compra',

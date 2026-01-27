@@ -29,7 +29,10 @@ class Traslado_Bodega extends Model
     *
     Relaciones
     **/
-
+protected $casts = [
+        'fecha_despacho' => 'datetime',
+        'fecha_recepcion' => 'datetime',
+    ];
 
    public function detalles()
    {
@@ -53,11 +56,22 @@ class Traslado_Bodega extends Model
 
     public function usuarioAprobador()
     {
-        return $this->belongsTo(User::class, 'usuario_aprobador_id');
+        return $this->belongsTo(User::class, 'usuario_aprobador_bodega_id');
     }
 
     public function estado()
     {
         return $this->belongsTo(Estados::class);
     }
+    public function aprobadorBodega()
+{
+    return $this->belongsTo(User::class, 'usuario_aprobador_bodega_id');
+}
+
+public function aprobadorInventario()
+{
+    return $this->belongsTo(User::class, 'usuario_aprobador_inventario_id');
+}
+
+
 }

@@ -99,15 +99,15 @@
     <table>
         <tr>
             <td><strong>Bodega Origen:</strong></td>
-            <td>{{ $traslado->bodegaOrigen->nombre ?? '—' }}</td>
+            <td>- {{ $traslado->bodegaOrigen->nombre ?? '—' }}</td>
             <td><strong>Bodega Destino:</strong></td>
-            <td>{{ $traslado->bodegaDestino->nombre ?? '—' }}</td>
+            <td>+ {{ $traslado->bodegaDestino->nombre ?? '—' }}</td>
         </tr>
         <tr>
             <td><strong>Creado por:</strong></td>
             <td>{{ $traslado->creador->name ?? '—' }}</td>
             <td><strong>Fecha creación:</strong></td>
-            <td>{{ optional($traslado->created_at)->format('d/m/Y H:i') }}</td>
+            <td>{{ optional($traslado->created_at)->format('d/m/Y') }}</td>
         </tr>
     </table>
 </div>
@@ -145,13 +145,13 @@
             <td><strong>Aprobado por Bodega:</strong></td>
             <td>{{ optional($traslado->aprobadorBodega)->name ?? 'Pendiente' }}</td>
             <td><strong>Fecha:</strong></td>
-            <td>{{ optional($traslado->fecha_despacho)->format('d/m/Y H:i') ?? '—' }}</td>
+            <td>{{ optional($traslado->fecha_despacho)->format('d/m/Y') ?? '—' }}</td>
         </tr>
         <tr>
             <td><strong>Aprobado por Inventario:</strong></td>
             <td>{{ optional($traslado->aprobadorInventario)->name ?? 'Pendiente' }}</td>
             <td><strong>Fecha:</strong></td>
-            <td>{{ optional($traslado->fecha_aprobacion)->format('d/m/Y H:i') ?? '—' }}</td>
+            <td>{{ optional($traslado->fecha_recepcion)->format('d/m/Y ') ?? '—' }}</td>
         </tr>
     </table>
 </div>
