@@ -7,6 +7,7 @@ use App\Http\Requests\Traslados\AsignarResponsabilidadRequest;
 use App\Http\Requests\Traslados\ResponsabilidadEstoreRequest;
 use App\Models\Traslados\Responsabilidad;
 use App\Services\Responsabilidades\ResponsablidadAsignacionService;
+use App\Services\Traslados\ResponsabilidadesService;
 use Illuminate\Http\Request;
 
 class ResponsabilidadesController extends Controller
@@ -15,13 +16,23 @@ class ResponsabilidadesController extends Controller
      * Display a listing of the resource.
      */
     public function __construct(
-        protected ResponsablidadAsignacionService $service
+        protected ResponsablidadAsignacionService $service,
+        protected ResponsabilidadesService $responsabilidadesService
     ) {}
 
 
-    public function index()
+    public function index(Request $request)
     {
-        //
+        $responsabilidades = $this->responsabilidadesService->listar(
+            $request->only([
+                'search',
+                'activo',
+                'order_by',
+                'order',
+                'per_page'
+            ])
+        );
+        return response()->json($responsabilidades);
     }
 
     /**
@@ -29,8 +40,9 @@ class ResponsabilidadesController extends Controller
      */
     public function store(ResponsabilidadEstoreRequest $request)
     {
-         $data = new Responsabilidad($request->validated());
-         $data->save();
+        $data = $this->responsabilidadesService->crear(
+            $request->validated()
+        );
 
          return response()->json([
             'message' => 'Responsabilidad creada exitosamente',

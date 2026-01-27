@@ -169,6 +169,7 @@ public function stock($productoId, Request $request)
     $user     = $request->user();
     $bodegaId = $request->query('bodega_id'); 
     $sedeId   = null; // por defecto null → usa la sede del auth
+    $empresaId = $request->query('empresa_id'); // opcional
 
     // Solo algunos roles pueden consultar stock de otra sede
     $rolesPermitidos = [1, 2,4]; // Ejemplo: 1=super_admin, 2=company_admin
@@ -177,7 +178,7 @@ public function stock($productoId, Request $request)
         $sedeId = $request->query('sede_id'); // opcional en el request
     }
 
-    $stock = $this->productService->getStockByProduct($productoId, $user, $bodegaId, $sedeId);
+    $stock = $this->productService->getStockByProduct($productoId, $user, $bodegaId, $sedeId, $empresaId);
 
     return response()->json([
         'producto_id' => (string) $productoId,

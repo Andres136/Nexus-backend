@@ -59,7 +59,7 @@ class ProductService
 
 
 
-public function getStockByProduct($productoId, $user, $bodegaId = null, $sedeId = null)
+public function getStockByProduct($productoId, $user, $bodegaId = null, $sedeId = null, $empresaId = null)
 {
     $query = Inventario::where('producto_id', $productoId)
         ->with(['bodega', 'empresa', 'sede']);
@@ -68,6 +68,10 @@ public function getStockByProduct($productoId, $user, $bodegaId = null, $sedeId 
     $sedeId = $sedeId ?: $user->sede_id;
 
     $query->where('sede_id', $sedeId);
+
+    if ($empresaId) {
+        $query->where('empresa_id', $empresaId);
+    }
 
     if ($bodegaId) {
         $query->where('bodega_id', $bodegaId);
