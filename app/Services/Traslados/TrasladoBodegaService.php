@@ -91,7 +91,7 @@ public function listar(array $filters = [])
         foreach ($traslado->detalles as $item) {
 
             $inventario = Inventario::where([
-                'empresa_id' => $traslado->empresa_id,
+              //  'empresa_id' => $traslado->empresa_id,
                 'bodega_id' => $traslado->bodega_origen_id,
                 'producto_id' => $item->producto_id,
             ])->lockForUpdate()->first();
@@ -251,10 +251,9 @@ public function listar(array $filters = [])
         });
     }
 
-    private function generarMovimientoStockTraslado(Traslado_Bodega $traslado): void
-    {
-
-         //  RECARGAR MODELO CON TODO LO NECESARIO
+   private function generarMovimientoStockTraslado(Traslado_Bodega $traslado): void
+{
+    // RECARGAR MODELO CON TODO LO NECESARIO
     $traslado = $traslado->fresh([
         'bodegaOrigen',
         'bodegaDestino',
@@ -264,80 +263,98 @@ public function listar(array $filters = [])
         'detalles.producto',
     ]);
 
-        // 📄 PDF
-        $pdfPath = $this->generarPDFTraslado(
-            $traslado,
-            $traslado->detalles->map(function ($item) {
-                return [
-                    'producto' => $item->producto->name ?? '',
-                    'cantidad' => $item->cantidad,
-                    'producto_id' => $item->producto_id,
-
-                ];
-            })->toArray()
-        );
-
-        foreach ($traslado->detalles as $item) {
-
-            // 🔴 INVENTARIO ORIGEN (SALIDA)
-            $inventarioOrigen = Inventario::where([
+    // 📄 PDF
+    $pdfPath = $this->generarPDFTraslado(
+        $traslado,
+        $traslado->detalles->map(function ($item) {
+            return [
+                'producto' => $item->producto->name ?? '',
+                'cantidad' => $item->cantidad,
                 'producto_id' => $item->producto_id,
-                'bodega_id'   => $traslado->bodega_origen_id,
-            ])->lockForUpdate()->firstOrFail();
+            ];
+        })->toArray()
+    );
 
-            if ($inventarioOrigen->stock < $item->cantidad) {
-                throw new Exception('Stock insuficiente para el producto');
-            }
+    foreach ($traslado->detalles as $item) {
+        
+        // ✅ OBTENER TODOS LOS REGISTROS DE INVENTARIO DE LA BODEGA ORIGEN
+        $inventariosOrigen = Inventario::where([
+            'producto_id' => $item->producto_id,
+            'bodega_id'   => $traslado->bodega_origen_id,
+        ])
+        ->where('stock', '>', 0) // Solo los que tienen stock
+        ->lockForUpdate()
+        ->orderBy('stock', 'desc') // Priorizar los de mayor stock
+        ->get();
 
-            $inventarioOrigen->decrement('stock', $item->cantidad);
+        if ($inventariosOrigen->sum('stock') < $item->cantidad) {
+            throw new Exception('Stock insuficiente para el producto ' . $item->producto->name);
+        }
 
+        // ✅ DESCONTAR DE MÚLTIPLES REGISTROS SI ES NECESARIO
+        $cantidadPendiente = $item->cantidad;
+        
+        foreach ($inventariosOrigen as $inventarioOrigen) {
+            if ($cantidadPendiente <= 0) break;
+            
+            $cantidadADescontar = min($cantidadPendiente, $inventarioOrigen->stock);
+            
+            logger()->info('Descontando stock', [
+                'inventario_id' => $inventarioOrigen->id,
+                'stock_antes' => $inventarioOrigen->stock,
+                'cantidad_a_descontar' => $cantidadADescontar,
+                'cantidad_pendiente' => $cantidadPendiente
+            ]);
+            
+            // Descontar del inventario
+            $inventarioOrigen->decrement('stock', $cantidadADescontar);
+            
+            // Crear movimiento de salida
             MovimientoStock::create([
                 'producto_id' => $item->producto_id,
                 'bodega_id'   => $traslado->bodega_origen_id,
                 'tipo'        => 'SALIDA_BODEGA',
-                'cantidad'    => $item->cantidad,
+                'cantidad'    => $cantidadADescontar,
                 'origen_tipo' => 'TRASLADO',
                 'origen_id'   => $traslado->id,
                 'usuario_id'  => auth()->id(),
                 'pdf_path'    => $pdfPath,
+                'observaciones' => "Traslado {$traslado->codigo} - Inventario ID: {$inventarioOrigen->id}",
             ]);
-
-            // 🟢 INVENTARIO DESTINO (ENTRADA)
-            $inventarioDestino = Inventario::firstOrCreate(
-                [
-                    'producto_id' => $item->producto_id,
-                    'bodega_id'   => $traslado->bodega_destino_id,
-                    
-                ],
-                ['stock' => 0]
-            );
-
-            $inventarioDestino->increment('stock', $item->cantidad);
-
-            MovimientoStock::create([
-                'producto_id' => $item->producto_id,
-                'bodega_id'   => $traslado->bodega_destino_id,
-                'tipo'        => 'ENTRADA_BODEGA',
-                'cantidad'    => $item->cantidad,
-                'origen_tipo' => 'TRASLADO',
-                'origen_id'   => $traslado->id,
-                'usuario_id'  => auth()->id(),
-                'pdf_path'    => $pdfPath,
-            ]);
+            
+            $cantidadPendiente -= $cantidadADescontar;
         }
 
+        // ✅ INVENTARIO DESTINO (ENTRADA) - Crear o actualizar UN SOLO REGISTRO
+        $inventarioDestino = Inventario::firstOrCreate(
+            [
+                'producto_id' => $item->producto_id,
+                'bodega_id'   => $traslado->bodega_destino_id,
+            ],
+            ['stock' => 0]
+        );
 
+        $inventarioDestino->increment('stock', $item->cantidad);
 
-
-        $traslado->update([
-            'estado' => 'DESPACHADO',
-            'pdf_path' => $pdfPath,
-            'fecha_despacho' => $traslado->fecha_despacho,
+        // Crear movimiento de entrada (solo uno)
+        MovimientoStock::create([
+            'producto_id' => $item->producto_id,
+            'bodega_id'   => $traslado->bodega_destino_id,
+            'tipo'        => 'ENTRADA_BODEGA',
+            'cantidad'    => $item->cantidad,
+            'origen_tipo' => 'TRASLADO',
+            'origen_id'   => $traslado->id,
+            'usuario_id'  => auth()->id(),
+            'pdf_path'    => $pdfPath,
         ]);
-   
-
-
     }
+
+    $traslado->update([
+        'estado' => 'DESPACHADO',
+        'pdf_path' => $pdfPath,
+        'fecha_despacho' => $traslado->fecha_despacho,
+    ]);
+}
 
     private function generarPDFTraslado(Traslado_Bodega $traslado, array $detalle): string
     {
