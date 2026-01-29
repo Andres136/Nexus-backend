@@ -22,7 +22,9 @@ class TrasladosBodegaController extends Controller
   
     public function index()
     {
-        //
+        return response()->json([
+            'data' => $this->trasladoBodegaService->listar()
+        ]);
     }
 
     /**

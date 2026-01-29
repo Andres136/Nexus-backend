@@ -31,6 +31,7 @@ class CotizacionRequest extends FormRequest
             'detalles.*.ancho_cm' => 'nullable|numeric|min:0',
             'detalles.*.calibre' => 'nullable|numeric|min:0',
             'detalles.*.numero_bolsas' => 'nullable|integer|min:1',
+            
             'detalles.*.cantidad' => 'required|numeric|min:0.01',
           
             'detalles.*.descripcion' => 'nullable|string',

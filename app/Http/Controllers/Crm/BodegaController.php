@@ -27,6 +27,18 @@ class BodegaController extends Controller
         }
     }
 
+
+    //Traer todas las bodegas
+    public function getAllBodegas()
+    {
+        try {
+            $bodegas = bodega::with('sede', 'estado')->get();
+            return response()->json($bodegas);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Error al obtener las bodegas', 'error' => $e->getMessage()], 500);
+        }
+    }
+
     /**
      * Store a newly created resource in storage.
      */

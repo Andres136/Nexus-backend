@@ -404,7 +404,7 @@ public function registrarEnvioConDescuento($data, $user)
                     throw new \Exception("La cantidad a trasladar debe ser mayor que 0 para el producto {$productoId}.");
                 }
 
-                // 🔒 Traer TODOS los inventarios de esa bodega (pueden ser varias empresas) y bloquear
+                // Traer TODOS los inventarios de esa bodega (pueden ser varias empresas) y bloquear
                 $inventariosOrigen = Inventario::where('producto_id', $productoId)
                     ->where('sede_id', $sedeOrigen)
                     ->where('bodega_id', $bodegaId)
@@ -416,13 +416,13 @@ public function registrarEnvioConDescuento($data, $user)
                     throw new \Exception("Inventario no encontrado para el producto {$productoId} en la bodega {$bodegaId}.");
                 }
 
-                // ✅ Validación consolidada
+                //  Validación consolidada
                 $stockTotal = (float) $inventariosOrigen->sum('stock');
                 if ($stockTotal < $cantidad) {
                     throw new \Exception("Stock insuficiente en bodega {$bodegaId} ({$stockTotal} disponibles).");
                 }
 
-                // ✅ Descontar Opción A: del primero que pueda cubrir, sino ir agotando
+                //  Descontar Opción A: del primero que pueda cubrir, sino ir agotando
                 $restante = $cantidad;
                 $consumos = []; // [ ['inventario_id'=>x, 'consumido'=>y], ... ]
 

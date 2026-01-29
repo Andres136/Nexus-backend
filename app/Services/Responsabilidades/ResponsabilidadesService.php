@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Traslados;
+namespace App\Services\Responsabilidades;
 
 use App\Models\Traslados\Responsabilidad;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -16,10 +16,7 @@ class ResponsabilidadesService
             $query->where('nombre', 'like', '%' . $filtros['search'] . '%');
         }
 
-        // 🧩 Filtro por estado (si aplica)
-        if (isset($filtros['activo'])) {
-            $query->where('activo', $filtros['activo']);
-        }
+     
 
         // ↕️ Ordenamiento
         $orderBy = $filtros['order_by'] ?? 'nombre';
@@ -36,5 +33,31 @@ class ResponsabilidadesService
     public function crear(array $data): Responsabilidad
     {
         return Responsabilidad::create($data);
+    }
+
+
+    //Update
+public function actualizar(string $id, array $data): ?Responsabilidad
+{
+    $responsabilidad = Responsabilidad::find($id);
+
+    if (!$responsabilidad) {
+        return null;
+    }
+
+    $responsabilidad->update($data);
+
+    return $responsabilidad;
+}
+
+
+    //Eliminar+
+    public function eliminar(string $id): bool
+    {
+        $responsabilidad = Responsabilidad::find($id);
+        if (!$responsabilidad) {
+            return false;
+        }
+        return $responsabilidad->delete();
     }
 }

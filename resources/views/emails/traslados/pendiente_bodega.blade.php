@@ -172,11 +172,11 @@
                     Aprobar Traslado
                   </a>
                   
-                  <!-- Botón Rechazar -->
+                  <!-- Botón Rechazar 
                   <a href="{{ $rechazarUrl }}" 
                      style="display:inline-block;background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%);color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:16px;font-weight:600;margin:0 8px;box-shadow:0 4px 6px -1px rgba(239,68,68,0.3);transition:all 0.2s;">
                     Rechazar Traslado
-                  </a>
+                  </a>-->
                 </div>
               </div>
 

@@ -19,6 +19,40 @@ use Symfony\Contracts\EventDispatcher\Event;
 class TrasladoBodegaService
 {
 
+
+    /**
+     * Listar traslados de bodega CON FILTROS DE BUSQUEDA Y PAGINACION
+     */
+
+public function listar(array $filters = [])
+    {
+        $query = Traslado_Bodega::with([
+            'bodegaOrigen',
+            'bodegaDestino',
+            'creador',
+            'aprobadorBodega',
+            'aprobadorInventario',
+            'detalles.producto',
+        ]);
+
+        // Filtros de búsqueda
+        if (!empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->where(function ($q) use ($search) {
+                $q->where('codigo', 'like', "%{$search}%")
+                  ->orWhere('estado', 'like', "%{$search}%");
+            });
+        }
+
+        // Ordenamiento
+        $orderBy = $filters['order_by'] ?? 'created_at';
+        $order = $filters['order'] ?? 'desc';
+        $query->orderBy($orderBy, $order);
+
+        // Paginación
+        $perPage = $filters['per_page'] ?? 15;
+        return $query->paginate($perPage);
+    }
     /**
      * Crear traslado (BORRADOR)
      */
@@ -73,6 +107,7 @@ class TrasladoBodegaService
     /**
      * Despachar traslado (impacta inventario)
      */
+   /* 
     public function despachar(int $trasladoId): Traslado_Bodega
     {
         return DB::transaction(function () use ($trasladoId) {
@@ -121,7 +156,7 @@ class TrasladoBodegaService
 
             return $traslado->fresh();
         });
-    }
+    }*/
 
 
     private function generarCodigo(): string
@@ -169,9 +204,10 @@ class TrasladoBodegaService
 
     private function validarResponsableInventario(Traslado_Bodega $traslado): void
     {
+        $idInventario = Responsabilidad::where('nombre', 'Inventario')->value('id');
         $esResponsable = auth()->user()
             ->responsabilidades()
-            ->where('responsabilidad_id', Responsabilidad::INVENTARIO)
+            ->where('responsabilidad_id', $idInventario)
             ->wherePivot('activo', true)
             ->exists();
 
@@ -271,6 +307,7 @@ class TrasladoBodegaService
                 [
                     'producto_id' => $item->producto_id,
                     'bodega_id'   => $traslado->bodega_destino_id,
+                    
                 ],
                 ['stock' => 0]
             );

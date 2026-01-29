@@ -231,6 +231,7 @@ Route::post('/productos/sincronizar-siigo', [CrmProductController::class, 'sincr
 Route::post('/productos/sincronizar-siigo-setas', [CrmProductController::class, 'sincronizarProductosSiigoSetas']);
 
  Route::apiResource('bodegas', BodegaController::class);
+ Route::get('bodegas-all', [BodegaController::class, 'getAllBodegas']);
 
 //**LOGICA DE INVENTARIOS */
 
@@ -301,8 +302,11 @@ Route::post('/alistamientos/{alistamiento_id}/agregar-usuario', [AlistamientoCon
 
 //**RUTAS PARA GESTIONAR RESPONSABILIDADES */
 
-Route::apiResource('responsabilidades', ResponsabilidadesController::class);
+Route::apiResource('responsabilidades', ResponsabilidadesController::class); 
 Route::post('responsabilidades/{id}/asignar', [ResponsabilidadesController::class, 'asignarResponsabilidad']);
+Route::put('responsabilidades/{pivotId}/update', [ResponsabilidadesController::class, 'actualizarAsignacion']);
+Route::delete('responsabilidades/{pivotId}/remover', [ResponsabilidadesController::class, 'desactivarAsignacion']);
+Route::get('responsabilidades-asignadas', [ResponsabilidadesController::class, 'mostrarResponsabilidadesAsignadas']);
 Route::apiResource('traslados-bodegas',TrasladosBodegaController::class);
 //Aprobaciones
 Route::post('traslados-bodegas/{id}/aprobar', [TrasladosBodegaController::class, 'aprobarPorBodega']);

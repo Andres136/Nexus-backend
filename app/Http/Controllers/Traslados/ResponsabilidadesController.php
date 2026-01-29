@@ -5,10 +5,11 @@ namespace App\Http\Controllers\Traslados;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Traslados\AsignarResponsabilidadRequest;
 use App\Http\Requests\Traslados\ResponsabilidadEstoreRequest;
-use App\Models\Traslados\Responsabilidad;
+use App\Services\Responsabilidades\ResponsabilidadesService;
 use App\Services\Responsabilidades\ResponsablidadAsignacionService;
-use App\Services\Traslados\ResponsabilidadesService;
+
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ResponsabilidadesController extends Controller
 {
@@ -68,6 +69,25 @@ class ResponsabilidadesController extends Controller
         ], 200);
     }
 
+//Mostrar Responsabilidades asignadas
+public function mostrarResponsabilidadesAsignadas()
+{
+
+
+    
+    $responsabilidades = $this->service->listarResponsabilidades(
+        request('per_page', 15),
+        [
+            'sede_id'   => request('sede_id'),
+            'bodega_id'=> request('bodega_id'),
+            'activo'    => true,
+        ]
+    );
+
+    return response()->json($responsabilidades);
+}
+
+
     /**
      * Display the specified resource.
      */
@@ -81,7 +101,21 @@ class ResponsabilidadesController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        //
+        $data = $this->responsabilidadesService->actualizar(
+            $id,
+            $request->all()
+        );
+
+        if (!$data) {
+            return response()->json([
+                'message' => 'Error al actualizar la responsabilidad',
+            ], 400);
+        }
+
+        return response()->json([
+            'message' => 'Responsabilidad actualizada exitosamente',
+            'data'    => $data,
+        ], 200);
     }
 
     /**
@@ -89,6 +123,117 @@ class ResponsabilidadesController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        $deleted = $this->responsabilidadesService->eliminar($id);
+
+        if (!$deleted) {
+            return response()->json([
+                'message' => 'Error al eliminar la responsabilidad',
+            ], 400);
+        }
+
+        return response()->json([
+            'message' => 'Responsabilidad eliminada exitosamente',
+        ], 200);
     }
+
+
+//ACTUALIZAR RESPONSABILIDAD ASIGNADA
+public function actualizarResponsabilidadAsignada(
+    Request $request,
+    string $id
+) {
+dd('ENTRÓ', request()->all());
+
+    try {
+        $request->validate([
+            'responsabilidad_id' => 'required|integer|exists:responsabilidades,id',
+            'user_id'       => 'required|integer|exists:users,id',
+            'sede_id'      => 'required|integer|exists:sedes,id',
+            'bodega_id'    => 'required|integer|exists:bodegas,id',
+        ]);
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        return response()->json([
+            'message' => 'Error de validación',
+            'errors'  => $e->errors(),
+        ], 422);
+    }
+    $data = $this->service->editar(
+        (int) $id,
+        $request->only([
+            'responsabilidad_id',
+            'user_id',
+            'sede_id',
+            'bodega_id',
+        ])
+    );
+
+    return response()->json([
+        'message' => 'Responsabilidad actualizada exitosamente',
+        'data'    => $data,
+    ], 200);
+}
+public function actualizarAsignacion($pivotId, Request $request)
+{
+    $pivotId = (int) $pivotId;
+
+    $data = $request->validate([
+        'sede_id'   => 'required|exists:sedes,id',
+        'bodega_id'=> 'required|exists:bodegas,id',
+        'activo'    => 'required|boolean',
+    ]);
+
+    $updated = DB::table('responsabilidades_user')
+        ->where('id', $pivotId)
+        ->update([
+            'sede_id'    => $data['sede_id'],
+            'bodega_id' => $data['bodega_id'],
+            'activo'     => $data['activo'],
+            'updated_at'=> now(),
+        ]);
+
+    if (!$updated) {
+        return response()->json([
+            'message' => 'No se pudo actualizar la asignación'
+        ], 409);
+    }
+
+    return response()->json([
+        'message' => 'Asignación actualizada correctamente'
+    ]);
+}
+
+
+
+public function desactivarAsignacion($pivotId)
+{try {
+        $pivotId = (int) $pivotId;
+
+        $updated = DB::table('responsabilidades_user')
+            ->where('id', $pivotId)
+            ->update([
+                'activo'     => false,
+                'updated_at'=> now(),
+            ]);
+
+        if (!$updated) {
+            return response()->json([
+                'message' => 'No se pudo desactivar la asignación'
+            ], 409);
+        }
+
+        return response()->json([
+            'message' => 'Asignación desactivada correctamente'
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'message' => 'Error al desactivar la asignación',
+            'error'   => $e->getMessage(),
+        ], 500);
+    }
+}
+    
+
+
+
+
 }
