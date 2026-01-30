@@ -251,6 +251,27 @@ public function listar(array $filters = [])
         });
     }
 
+
+    //RECHAZAR POR BODEGA
+    public function rechazarPorBodega(int $trasladoId, string $motivo): Traslado_Bodega
+    {
+        return DB::transaction(function () use ($trasladoId, $motivo) {
+
+            $traslado = Traslado_Bodega::lockForUpdate()->findOrFail($trasladoId);
+
+            $this->asegurarEstado($traslado, 'PENDIENTE_BODEGA');
+
+            $traslado->update([
+                'estado' => 'RECHAZADO_BODEGA',
+                'observaciones' => $motivo,
+                'usuario_aprobador_bodega_id' => auth()->id(),
+                'fecha_despacho' => now(),
+            ]);
+
+            return $traslado->fresh();
+        });
+    }
+
    private function generarMovimientoStockTraslado(Traslado_Bodega $traslado): void
 {
     // RECARGAR MODELO CON TODO LO NECESARIO
@@ -290,11 +311,16 @@ public function listar(array $filters = [])
         if ($inventariosOrigen->sum('stock') < $item->cantidad) {
             throw new Exception('Stock insuficiente para el producto ' . $item->producto->name);
         }
+$empresaId = $inventariosOrigen->first()->empresa_id ?? null;
 
+if (!$empresaId) {
+    throw new Exception('No se pudo determinar la empresa del inventario');
+}
         // ✅ DESCONTAR DE MÚLTIPLES REGISTROS SI ES NECESARIO
         $cantidadPendiente = $item->cantidad;
-        
+    
         foreach ($inventariosOrigen as $inventarioOrigen) {
+
             if ($cantidadPendiente <= 0) break;
             
             $cantidadADescontar = min($cantidadPendiente, $inventarioOrigen->stock);
@@ -311,6 +337,7 @@ public function listar(array $filters = [])
             
             // Crear movimiento de salida
             MovimientoStock::create([
+              
                 'producto_id' => $item->producto_id,
                 'bodega_id'   => $traslado->bodega_origen_id,
                 'tipo'        => 'SALIDA_BODEGA',
@@ -327,7 +354,9 @@ public function listar(array $filters = [])
 
         // ✅ INVENTARIO DESTINO (ENTRADA) - Crear o actualizar UN SOLO REGISTRO
         $inventarioDestino = Inventario::firstOrCreate(
-            [
+
+            [   'empresa_id' => $empresaId,
+                 'sede_id' => $inventarioOrigen->sede_id,
                 'producto_id' => $item->producto_id,
                 'bodega_id'   => $traslado->bodega_destino_id,
             ],
@@ -338,6 +367,7 @@ public function listar(array $filters = [])
 
         // Crear movimiento de entrada (solo uno)
         MovimientoStock::create([
+            'empresa_id' => $empresaId,
             'producto_id' => $item->producto_id,
             'bodega_id'   => $traslado->bodega_destino_id,
             'tipo'        => 'ENTRADA_BODEGA',
@@ -394,5 +424,11 @@ public function listar(array $filters = [])
                 "No se puede generar movimiento de inventario. Estado actual: {$traslado->estado}"
             );
         }
+    }
+
+    public function getById(int $id): ?Traslado_Bodega
+    {
+        return Traslado_Bodega::with([    'bodegaOrigen:id,nombre',
+        'bodegaDestino:id,nombre','detalles','detalles.producto'])->find($id);
     }
 }

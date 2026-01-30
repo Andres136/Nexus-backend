@@ -308,6 +308,7 @@ Route::put('responsabilidades/{pivotId}/update', [ResponsabilidadesController::c
 Route::delete('responsabilidades/{pivotId}/remover', [ResponsabilidadesController::class, 'desactivarAsignacion']);
 Route::get('responsabilidades-asignadas', [ResponsabilidadesController::class, 'mostrarResponsabilidadesAsignadas']);
 Route::apiResource('traslados-bodegas',TrasladosBodegaController::class);
+
 //Aprobaciones
 Route::post('traslados-bodegas/{id}/aprobar', [TrasladosBodegaController::class, 'aprobarPorBodega']);
 Route::post('traslados-bodegas/{id}/rechazar', [TrasladosBodegaController::class, 'rechazarPorBodega']);

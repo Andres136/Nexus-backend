@@ -32,4 +32,7 @@ class TrasladosInventarioEmailController extends Controller
             ]);
         }
     }
+
+
+
 }

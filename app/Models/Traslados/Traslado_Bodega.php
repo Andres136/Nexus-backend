@@ -3,6 +3,7 @@
 namespace App\Models\Traslados;
 
 use App\Models\Crm\bodega;
+use App\Models\Crm\MovimientoStock;
 use App\Models\Estados;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
@@ -72,6 +73,7 @@ public function aprobadorInventario()
 {
     return $this->belongsTo(User::class, 'usuario_aprobador_inventario_id');
 }
+
 
 
 }

@@ -43,7 +43,11 @@ class TrasladosBodegaController extends Controller
      */
     public function show(string $id)
     {
-        //
+        $traslado = $this->trasladoBodegaService->getById($id);
+        if (!$traslado) {
+            return response()->json(['error' => 'Traslado no encontrado'], 404);
+        }
+        return response()->json(['data' => $traslado]);
     }
 
     /**
@@ -62,39 +66,56 @@ class TrasladosBodegaController extends Controller
         //
     }
 
-    public function aprobarPorBodega(Request $request, int $traslado)
+public function aprobarPorBodega(Request $request, $id)
+{
+    $aprueba = $request->boolean('aprueba');
+    $motivo  = $request->input('motivo');
+
+    $trasladoId = (int) $id;
+
+    $traslado = $this->trasladoBodegaService
+        ->aprobarPorBodega($trasladoId, $aprueba, $motivo);
+
+    return response()->json([
+        'message' => $aprueba
+            ? 'Traslado aprobado por bodega'
+            : 'Traslado rechazado',
+        'data' => $traslado,
+    ]);
+}
+
+
+
+
+    public function rechazarPorBodega(Request $request, $id)
     {
-        $request->validate([
-            'aprueba' => 'required|boolean',
-            'motivo'  => 'nullable|string|max:500',
+        $motivo = $request->input('motivo');
+
+        $trasladoId = (int) $id;
+
+        $traslado = $this->trasladoBodegaService
+            ->rechazarPorBodega($trasladoId, $motivo);
+
+        return response()->json([
+            'message' => 'Traslado rechazado por bodega',
+            'data' => $traslado,
         ]);
+    }
+public function aprobarInventario(Request $request, $id)
+{
+    $trasladoId = (int) $id;
 
-        return response()->json(
-            [
-                'message'=>'Traslado aprobado por bodega',
-                'data'=>$this->trasladoBodegaService->aprobarPorBodega(
-                    $traslado,
-                    $request->input('aprueba'),
-                    $request->input('motivo')
-                )
-            ]
-        );
+    $traslado = $this->trasladoBodegaService->aprobar($trasladoId);
 
+    if (!$traslado) {
+        return response()->json(['error' => 'Traslado no encontrado'], 404);
     }
 
-    public function rechazarPorBodega(string $id)
-    {
-        //
-    }
-    public function aprobarInventario(int $traslado)
-    {
-        return response()->json(
-            [
-                'message'=>'Traslado aprobado por inventario',
-                'data'=>$this->trasladoBodegaService->aprobar($traslado)
-            ]
-        );
+    return response()->json([
+        'message' => 'Traslado aprobado por inventario',
+        'data'    => $traslado
+    ]);
+}
 
-    }
 
 }
