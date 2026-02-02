@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Traslados;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Traslados\StoreTrasladoRequest;
+use App\Http\Requests\Traslados\UpdateTrasladoBodegaRequest;
 use App\Services\Traslados\TrasladoBodegaService;
 use Illuminate\Http\Request;
 
@@ -53,9 +54,13 @@ class TrasladosBodegaController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(UpdateTrasladoBodegaRequest $request, string $id)
     {
-        //
+        $traslado = $this->trasladoBodegaService->update($id, $request->validated());
+        if (!$traslado) {
+            return response()->json(['error' => 'Traslado no encontrado'], 404);
+        }
+        return response()->json(['message' => 'Traslado actualizado con éxito', 'data' => $traslado]);
     }
 
     /**
@@ -116,6 +121,7 @@ public function aprobarInventario(Request $request, $id)
         'data'    => $traslado
     ]);
 }
+
 
 
 }

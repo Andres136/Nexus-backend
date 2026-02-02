@@ -28,10 +28,7 @@ class NotificarResponsableInventario
 {
     $traslado = $event->traslado;
 
-    $responsables = User::whereHas('responsabilidades', function ($q) {
-        $q->where('responsabilidades.id', Responsabilidad::INVENTARIO)
-          ->where('responsabilidades_user.activo', true);
-    })->get();
+    $responsables = $this->obtenerResponsablesInventario();
 
     Notification::send(
         $responsables,
@@ -39,4 +36,13 @@ class NotificarResponsableInventario
     );
 }
 
+private function obtenerResponsablesInventario(): \Illuminate\Support\Collection
+{
+    $idInventario = Responsabilidad::where('nombre', 'Inventario')->value('id');
+    return User::whereHas('responsabilidades', function ($q) use ($idInventario) {
+        $q->where('responsabilidades.id', $idInventario)
+          ->where('responsabilidades_user.activo', true);
+    })->get();
+
+}
 }

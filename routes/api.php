@@ -312,6 +312,7 @@ Route::apiResource('traslados-bodegas',TrasladosBodegaController::class);
 //Aprobaciones
 Route::post('traslados-bodegas/{id}/aprobar', [TrasladosBodegaController::class, 'aprobarPorBodega']);
 Route::post('traslados-bodegas/{id}/rechazar', [TrasladosBodegaController::class, 'rechazarPorBodega']);
+Route::put('traslados-bodegas/{id}', [TrasladosBodegaController::class, 'update']);
 //Aprobacion por inventario
 Route::post('traslados-bodegas/{id}/aprobar-inventario', [TrasladosBodegaController::class, 'aprobarInventario']);
 });

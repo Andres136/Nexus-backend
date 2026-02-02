@@ -2,6 +2,7 @@
 
 namespace App\Services\Traslados;
 
+use App\Events\Traslados\TrasladoActualizado;
 use App\Events\Traslados\TrasladoAprobadorPorBodega;
 use App\Events\Traslados\TrasladoCreado;
 use App\Exceptions\Traslados\EstadoTrasladoInvalidoException;
@@ -198,6 +199,8 @@ public function listar(array $filters = [])
       
             $this->generarMovimientoStockTraslado($traslado);
             return $traslado->fresh();
+
+
         });
     }
 
@@ -430,5 +433,38 @@ if (!$empresaId) {
     {
         return Traslado_Bodega::with([    'bodegaOrigen:id,nombre',
         'bodegaDestino:id,nombre','detalles','detalles.producto'])->find($id);
+    }
+
+    public function update(int $id, array $data): ?Traslado_Bodega
+    {
+        return DB::transaction(function () use ($id, $data) {
+
+            $traslado = Traslado_Bodega::with('detalles')->find($id);
+            if (!$traslado) {
+                return null;
+            }
+
+            // Actualizar campos principales
+            $traslado->update([
+                'bodega_origen_id' => $data['bodega_origen_id'],
+                'bodega_destino_id' => $data['bodega_destino_id'],
+                'observaciones' => $data['observaciones'] ?? null,
+            ]);
+
+            // Actualizar detalles
+            $traslado->detalles()->delete();
+            foreach ($data['detalles'] as $item) {
+                $traslado->detalles()->create([
+                    'producto_id' => $item['producto_id'],
+                    'cantidad' => $item['cantidad'],
+                ]);
+            }
+          event(new TrasladoActualizado(
+    $traslado,
+    auth()->id()
+));
+            return $traslado->fresh('detalles');
+        });
+  
     }
 }

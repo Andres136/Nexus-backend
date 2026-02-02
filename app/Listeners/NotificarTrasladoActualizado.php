@@ -1,17 +1,16 @@
 <?php
 
-namespace App\Listeners\Traslados;
+namespace App\Listeners;
 
-use App\Events\Traslados\TrasladoCreado;
+use App\Events\Traslados\TrasladoActualizado;
 use App\Models\Traslados\Responsabilidad;
 use App\Models\User;
-use App\Notifications\Traslados\TrasladoPendienteBodegaNotificacion;
+use App\Notifications\Traslados\TrasladoActualizadoNotification;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Notifications\Notification;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Support\Facades\Notification as FacadesNotification;
+use Illuminate\Support\Facades\Notification;
 
-class NotificarResponsable
+class NotificarTrasladoActualizado
 {
     /**
      * Create the event listener.
@@ -24,17 +23,23 @@ class NotificarResponsable
     /**
      * Handle the event.
      */
- public function handle(TrasladoCreado $event): void
+   public function handle(TrasladoActualizado $event)
 {
     $traslado = $event->traslado;
 
+    // Notificar responsable de bodega
     $responsables = $this->obtenerResponsablesBodega($traslado->bodega_origen_id);
 
-    FacadesNotification::send(
-        $responsables,
-        new TrasladoPendienteBodegaNotificacion($traslado)
-    );
+    Notification::send($responsables, new TrasladoActualizadoNotification($traslado));
+
+    // Notificar creador si no es el editor
+    if ($traslado->usuario_creador_id !== $event->usuarioEditorId) {
+        $traslado->creador->notify(
+            new TrasladoActualizadoNotification($traslado)
+        );
+    }
 }
+
 private function obtenerResponsablesBodega(int $bodegaId)
 {
     $responsabilidadId = Responsabilidad::where('nombre', 'Bodega')->value('id');

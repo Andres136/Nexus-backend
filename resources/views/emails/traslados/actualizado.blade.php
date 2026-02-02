@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Traslado  Actualizado</title>
+  <title>Traslado Pendiente de Aprobación</title>
 </head>
 <body style="margin:0;padding:0;background:#f8fafc;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
   
@@ -19,10 +19,10 @@
           <tr>
             <td style="padding:32px 40px;background:linear-gradient(135deg,#1e293b 0%,#334155 100%);color:#ffffff;">
               <h1 style="margin:0 0 8px 0;font-size:24px;font-weight:600;letter-spacing:-0.025em;">
-                Traslado Actualizado
+                Solicitud de Aprobación
               </h1>
               <div style="font-size:16px;opacity:0.9;font-weight:400;">
-               Modificacion en Traslado entre Bodegas
+                Traslado entre Bodegas
               </div>
               <div style="margin-top:12px;padding:8px 16px;background:rgba(255,255,255,0.15);border-radius:6px;display:inline-block;">
                 <span style="font-size:14px;font-weight:500;">{{ $traslado->codigo }}</span>
