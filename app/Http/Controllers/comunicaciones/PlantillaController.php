@@ -7,6 +7,7 @@ use App\Http\Requests\comunicaciones\PlantillaRequest;
 use App\Models\comunicaciones\Plantilla;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 
 class PlantillaController extends Controller
 {
@@ -178,101 +179,132 @@ public function edit($id)
 /**
  * ✅ MÉTODO UPDATE MEJORADO
  */
+private function jsonDecodeSafe($value): array
+{
+    if (is_array($value)) return $value;
+    if (is_string($value)) {
+        $decoded = json_decode($value, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+    return [];
+}
 
+private function storageRelativePath(?string $url): ?string
+{
+    if (!$url) return null;
+
+    // esperas "storage/xxx/yyy.ext"
+    if (str_starts_with($url, 'storage/')) {
+        return substr($url, strlen('storage/')); // => "xxx/yyy.ext" (para disk public)
+    }
+
+    return null;
+}
 public function update(Request $request, $id)
 {
     try {
         $plantilla = Plantilla::findOrFail($id);
 
-        // ✅ Validaciones básicas
         $request->validate([
             'nombre' => 'required|string|max:255',
             'tipo' => 'nullable|string|max:100',
-
             'contenido_html' => 'nullable|string',
             'video_url' => 'nullable|url',
+
+            // nuevos: lo que se conserva
+            'imagenes_keep' => 'nullable',
+            'logos_keep' => 'nullable',
+
             'imagenes.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'logos_empresas.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'imagen_principal' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
         ]);
 
-        //  Helper para decodificar JSON o arrays
-        $jsonDecode = fn($field) =>
-            is_string($field) ? json_decode($field, true) : (is_array($field) ? $field : []);
+        // -------------------------
+        // 1) Estado anterior (BD)
+        // -------------------------
+        $oldImages = $this->jsonDecodeSafe($plantilla->imagenes);
+        $oldLogos  = $this->jsonDecodeSafe($plantilla->logos_empresas);
 
-        // ✅ Mantener imágenes existentes
-        $imagenesPaths = $jsonDecode($plantilla->imagenes);
+        // -------------------------
+        // 2) Nuevo estado = keep + nuevos uploads
+        // -------------------------
+        $keepImages = $this->jsonDecodeSafe($request->input('imagenes_keep'));
+        $keepLogos  = $this->jsonDecodeSafe($request->input('logos_keep'));
+
+        // Normaliza por si vienen strings o incompletos
+        $newImages = array_values(array_filter($keepImages, fn($x) => is_array($x) && !empty($x['url'])));
+        $newLogos  = array_values(array_filter($keepLogos, fn($x) => is_array($x) && !empty($x['url'])));
+
+        // Agregar imágenes nuevas
         if ($request->hasFile('imagenes')) {
             foreach ($request->file('imagenes') as $img) {
-                $imagenesPaths[] = [
-                    'url' => 'storage/' . $img->store('plantillas/imagenes', 'public'),
+                $path = $img->store('plantillas/imagenes', 'public');
+                $newImages[] = [
+                    'url' => 'storage/' . $path,
                     'titulo' => pathinfo($img->getClientOriginalName(), PATHINFO_FILENAME),
                 ];
             }
         }
 
-        // ✅ Mantener logos existentes
-        $logosPaths = $jsonDecode($plantilla->logos_empresas);
+        // Agregar logos nuevos
         if ($request->hasFile('logos_empresas')) {
             foreach ($request->file('logos_empresas') as $logo) {
-                $logosPaths[] = [
-                    'url' => 'storage/' . $logo->store('plantillas/logos', 'public'),
+                $path = $logo->store('plantillas/logos', 'public');
+                $newLogos[] = [
+                    'url' => 'storage/' . $path,
                     'nombre' => pathinfo($logo->getClientOriginalName(), PATHINFO_FILENAME),
                 ];
             }
         }
 
-        // ✅ Mantener certificaciones existentes
-// Mantener certificaciones existentes
-$certsPaths = $jsonDecode($plantilla->certificaciones);
+        // -------------------------
+        // 3) Eliminar del disco lo que ya no está
+        // -------------------------
+        $oldImageUrls = array_map(fn($x) => $x['url'] ?? null, $oldImages);
+        $newImageUrls = array_map(fn($x) => $x['url'] ?? null, $newImages);
 
-if ($request->has('certificaciones')) {
-
-    foreach ($request->certificaciones as $i => $cert) {
-
-        // Obtener valores enviados
-        $nombre = $cert['nombre'] ?? ($certsPaths[$i]['nombre'] ?? null);
-        $urlCert = $cert['url_cert'] ?? ($certsPaths[$i]['url_cert'] ?? null);
-
-        // Mantener logo existente si no llega uno nuevo
-        $logoPath = $certsPaths[$i]['logo'] ?? null;
-
-        // Reemplazar si hay un archivo nuevo
-        if ($request->hasFile("certificaciones.$i.logo")) {
-            $file = $request->file("certificaciones.$i.logo");
-            $logoPath = 'storage/' . $file->store('plantillas/ccertificaciones', 'public');
+        $toDeleteImages = array_diff(array_filter($oldImageUrls), array_filter($newImageUrls));
+        foreach ($toDeleteImages as $url) {
+            $rel = $this->storageRelativePath($url);
+            if ($rel) Storage::disk('public')->delete($rel);
         }
 
-        $certsPaths[$i] = [
-            'nombre' => $nombre,
-            'logo' => $logoPath,
-            'url_cert' => $urlCert,
-        ];
-    }
-}
+        $oldLogoUrls = array_map(fn($x) => $x['url'] ?? null, $oldLogos);
+        $newLogoUrls = array_map(fn($x) => $x['url'] ?? null, $newLogos);
 
+        $toDeleteLogos = array_diff(array_filter($oldLogoUrls), array_filter($newLogoUrls));
+        foreach ($toDeleteLogos as $url) {
+            $rel = $this->storageRelativePath($url);
+            if ($rel) Storage::disk('public')->delete($rel);
+        }
 
-        // ✅ Actualizar imagen principal
+        // -------------------------
+        // 4) Imagen principal (si reemplazas, borra la anterior)
+        // -------------------------
+        $imagenPath = $plantilla->imagen_principal;
         if ($request->hasFile('imagen_principal')) {
+            // borra anterior si existía
+            $oldMain = $this->storageRelativePath($plantilla->imagen_principal);
+            if ($oldMain) Storage::disk('public')->delete($oldMain);
+
             $imagenPath = 'storage/' . $request->file('imagen_principal')->store('plantillas/portadas', 'public');
         }
 
-        // ✅ Actualizar video
-        $videoUrl = $request->filled('video_url') ? $request->input('video_url') : $plantilla->video_url;
-
-        // ✅ Actualizar datos generales
+        // -------------------------
+        // 5) Update
+        // -------------------------
         $plantilla->update([
             'nombre' => $request->input('nombre'),
             'tipo' => $request->input('tipo'),
             'contenido_html' => $request->input('contenido_html'),
-            'video_url' => $videoUrl,
-            'imagenes' => $imagenesPaths,
-            'logos_empresas' => $logosPaths,
-            'certificaciones' => $certsPaths,
+            'video_url' => $request->filled('video_url') ? $request->input('video_url') : $plantilla->video_url,
+            'imagenes' => $newImages,
+            'logos_empresas' => $newLogos,
             'redes_sociales' => $request->input('redes_sociales', $plantilla->redes_sociales),
             'descargas' => $request->input('descargas', $plantilla->descargas),
             'publicada' => (bool) $request->input('publicada', $plantilla->publicada),
-            'imagen_principal' => $imagenPath ?? $plantilla->imagen_principal,
+            'imagen_principal' => $imagenPath,
         ]);
 
         return response()->json([
@@ -289,6 +321,7 @@ if ($request->has('certificaciones')) {
         ], 500);
     }
 }
+
 
  /**
      * Remove the specified resource from storage.
@@ -445,6 +478,7 @@ public function enviar(Request $request, $id)
     }
 
 
+    //Crear funcion que cree un qr por productos con una url determinada
 
-
+ 
 }

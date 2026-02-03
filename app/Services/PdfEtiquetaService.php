@@ -33,4 +33,13 @@ class PdfEtiquetaService
         ->setPaper([0, 0, 292, 142], 'portrait')
          ->output();
     }
+
+      public static function generarQrs(array $etiquetas)
+    {
+        return Pdf::loadView('pdf.qr-etiquetas', [
+            'etiquetas' => $etiquetas
+        ])
+        ->setPaper([0, 0, 292, 142], 'portrait')
+        ->output();
+    }
 }

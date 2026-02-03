@@ -561,6 +561,7 @@ if ($request->filled('categoria_id')) {
 
    public function show($code)
 {
+    
     $producto = Product::where('code', $code)
         ->with([
             'inventarios.bodega',

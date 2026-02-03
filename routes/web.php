@@ -28,7 +28,7 @@ Route::get('/test-email', function () {
 });
 Route::get('/test-pdf', [App\Http\Controllers\Crm\ProductController::class, 'testPdf']);
 // routes/web.php
-Route::get('/{code}', [InventorieController::class, 'show']);
+Route::get('/scan/producto/{code}', [InventorieController::class, 'show']);
 Route::prefix('email/traslados')->group(function () {
     Route::get('{traslado}/aprobar', [TrasladosBodegaEmailController::class, 'aprobar'])
         ->name('email.traslados.aprobar');

@@ -420,4 +420,6 @@ Route::get('/dashboard/exportar-ordenes-criticas-mes', [DashboardController::cla
 //Rutas para el módulo de eventos
 Route::apiResource('/eventos', EventoController::class);
 Route::post('/eventos/crear-qr', [EventoController::class, 'crearQr']);
+Route::post('/qrs/productos/pdf', [EventoController::class, 'crearQrMasivoConPdf']);
+
 Route::get('/orden-compras/{orden}/preview-documento', [OrdenCompraController::class, 'previewDocumento']);
