@@ -234,7 +234,16 @@ class AuthController extends Controller
     $nuevoEstado = $user->estado_id == 3 ? 4 : 3;
     $user->estado_id = $nuevoEstado;
     $user->save();
-
+ // ✅ Eliminar todos los tokens del usuario cuando se desactiva
+    if ($nuevoEstado == 4) { // Solo cuando se desactiva
+        try {
+            $user->tokens()->delete();
+            Log::info("Tokens eliminados para usuario desactivado: {$user->name} (ID: {$user->id})");
+        } catch (\Exception $e) {
+            Log::error("Error eliminando tokens del usuario {$user->id}: " . $e->getMessage());
+            // No fallar la desactivación por error en tokens
+        }
+    }
     return response()->json([
         "message" => $nuevoEstado == 3 ? "Usuario activado correctamente" : "Usuario desactivado correctamente",
         "user" => $user
