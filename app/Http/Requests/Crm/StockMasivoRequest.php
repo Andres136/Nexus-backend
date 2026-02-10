@@ -32,14 +32,14 @@ public function rules(): array
 
         // 🔹 Ya no es obligatoria si existen equivalentes
         'items.*.bodegas' => ['nullable', 'array'],
-        'items.*.bodegas' => ['required_with:items.*.producto_equivalentes', 'array'],
+        //'items.*.bodegas' => ['required_with:items.*.producto_equivalentes', 'array'],
         'items.*.bodegas.*.bodega_id' => ['required_with:items.*.bodegas', 'integer', 'exists:bodegas,id'],
         'items.*.bodegas.*.cantidad' => ['required_with:items.*.bodegas', 'numeric', 'min:0'],
 
         'items.*.producto_equivalentes' => ['nullable', 'array'],
         'items.*.producto_equivalentes.*.id' => ['required_with:items.*.producto_equivalentes', 'integer', 'exists:products,id'],
         'items.*.producto_equivalentes.*.razon' => ['nullable', 'string'],
-        'items.*.producto_equivalentes.*.bodegas' => ['required_with:items.*.producto_equivalentes', 'array'],
+       // 'items.*.producto_equivalentes.*.bodegas' => ['required_with:items.*.producto_equivalentes', 'array'],
         'items.*.producto_equivalentes.*.bodegas.*.bodega_id' => ['required_with:items.*.producto_equivalentes.*.bodegas', 'integer', 'exists:bodegas,id'],
         'items.*.producto_equivalentes.*.bodegas.*.cantidad' => ['required_with:items.*.producto_equivalentes.*.bodegas', 'numeric', 'min:0'],
 
