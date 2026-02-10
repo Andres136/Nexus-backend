@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Crm;
 
+use App\Models\Crm\Inventario;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StockMasivoRequest extends FormRequest
@@ -30,7 +31,8 @@ public function rules(): array
         'items.*.orden_compra_id' => ['nullable', 'integer'],
 
         // 🔹 Ya no es obligatoria si existen equivalentes
-        'items.*.bodegas' => ['required_without:items.*.producto_equivalentes', 'array'],
+        'items.*.bodegas' => ['nullable', 'array'],
+        'items.*.bodegas' => ['required_with:items.*.producto_equivalentes', 'array'],
         'items.*.bodegas.*.bodega_id' => ['required_with:items.*.bodegas', 'integer', 'exists:bodegas,id'],
         'items.*.bodegas.*.cantidad' => ['required_with:items.*.bodegas', 'numeric', 'min:0'],
 
@@ -57,6 +59,56 @@ public function rules(): array
             },
         ],
     ];
+}
+public function withValidator($validator)
+{
+    $validator->after(function ($validator) {
+
+        foreach ($this->input('items', []) as $i => $item) {
+
+            $totalBodegas = collect($item['bodegas'] ?? [])
+                ->sum(fn ($b) => (float) ($b['cantidad'] ?? 0));
+
+            $totalEquivalentes = collect($item['producto_equivalentes'] ?? [])
+                ->flatMap(fn ($eq) => $eq['bodegas'] ?? [])
+                ->sum(fn ($b) => (float) ($b['cantidad'] ?? 0));
+
+            $cantidadReal = $totalBodegas + $totalEquivalentes;
+
+            // ✅ SI NO PARTICIPA EN ESTA ENTREGA → NO VALIDAR
+            if ($cantidadReal <= 0) {
+                continue;
+            }
+
+            // ❌ Tiene cantidad pero no tiene origen
+            if ($totalBodegas <= 0 && $totalEquivalentes <= 0) {
+                $validator->errors()->add(
+                    "items.$i.bodegas",
+                    "Debe especificar al menos una bodega o un equivalente para este ítem."
+                );
+            }
+
+            // 🔹 Validar stock SOLO de equivalentes usados
+            foreach ($item['producto_equivalentes'] ?? [] as $e => $equivalente) {
+                foreach ($equivalente['bodegas'] ?? [] as $b => $bodega) {
+
+                    $cantidad = (float) ($bodega['cantidad'] ?? 0);
+                    if ($cantidad <= 0) continue;
+
+                    $stock = Inventario::where('producto_id', $equivalente['id'])
+                        ->where('bodega_id', $bodega['bodega_id'])
+                        ->sum('stock');
+
+                    if ($cantidad > $stock) {
+                        $validator->errors()->add(
+                            "items.$i.producto_equivalentes.$e.bodegas.$b.cantidad",
+                            "Stock insuficiente: Disponible $stock, Requerido $cantidad"
+                        );
+                    }
+                }
+            }
+        }
+    });
 }
 
 

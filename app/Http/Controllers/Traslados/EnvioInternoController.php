@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Traslados;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Traslados\EnvioRequest;
 use App\Models\Crm\OrdenCompraProveedor;
+use App\Models\Crm\OrdenCompraProveedorDetalle;
 use App\Models\Crm\Sede;
 use App\Services\Crm\InventarioService;
 
@@ -126,6 +127,16 @@ public function mostrarOC($id)
 {
     return OrdenCompraProveedor::select('id','numero_orden','fecha')
         ->findOrFail($id);
+}
+//Crear una funcion que reciba como fitro el  id del producto y traiga ordenes de compra provvedor  pendiente segun la sede destino
+public function traerOrdenesCompraPendientes(Request $request, int $id, int $sedeDestinoId): JsonResponse
+{
+    $ordenes = OrdenCompraProveedorDetalle::where('producto_id', $id)
+        ->where('sede_destino_id', $sedeDestinoId)
+        ->where('estado', 'pendiente')
+        ->get();
+
+    return response()->json($ordenes);
 }
 
 }

@@ -591,7 +591,8 @@ public function descontarStockMasivo(array $items, $user)
                     $errores[] = [
                         'producto_id' => $productoId,
                         'bodega_id'   => $bodegaId,
-                        'mensaje'     => "Stock insuficiente: Disponible {$stockTotal}, Requerido {$cantDescontar}"
+                        'mensaje'     => "Stock insuficiente: Disponible {$stockTotal}, Requerido {$cantDescontar}",
+                    
                     ];
                     continue;
                 }
@@ -628,9 +629,8 @@ public function descontarStockMasivo(array $items, $user)
                 }
             }
 
-            // 2. Descontar equivalentes si hay déficit
-            $deficit = max(0, $cantidadTotal - $cantidadCubierta);
-            if ($deficit > 0) {
+     
+            if (!empty($equivalentes)) {
                 foreach ($equivalentes as $equivalente) {
                     $eqId   = (int) $equivalente['id'];
                     $razon  = $equivalente['razon'] ?? 'Equivalente por falta de stock';

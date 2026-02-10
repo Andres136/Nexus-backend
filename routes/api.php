@@ -223,10 +223,11 @@ Route::get('inventarios-exportar-exel', [InventorieController::class, 'exportarI
 Route::get('movimientos-stock/{id}/pdf', [CrmProductController::class, 'getMovimientoPDF']);
 //TRASLADOS INTERNOS
 Route::apiResource('traslados-internos', EnvioInternoController::class);
+  
 Route::get('traslados-internos-sedes', [EnvioInternoController::class, 'traerSedes']);
 Route::get('traslados-internos-ordenes-compra', [EnvioInternoController::class, 'traerOrdenesCompra']);
 Route::get('/oc-traslados/{id}', [EnvioInternoController::class, 'mostrarOC']);
-
+Route::get('/traslados-internos-ordenes-compra-pendientes/{id}/{sedeDestinoId}', [EnvioInternoController::class, 'traerOrdenesCompraPendientes']);
 Route::post('/productos/sincronizar-siigo', [CrmProductController::class, 'sincronizarProductosSiigoGlobal']);
 Route::post('/productos/sincronizar-siigo-setas', [CrmProductController::class, 'sincronizarProductosSiigoSetas']);
 

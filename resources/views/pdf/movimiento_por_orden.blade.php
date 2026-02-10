@@ -24,9 +24,7 @@
             $producto = \App\Models\Crm\product::find($res['producto_id']);
         @endphp
 
-        <h2>{{ $producto->name ?? 'ID '.$res['producto_id'] }}</h2>
-        <p><strong>Cantidad requerida:</strong> {{ $res['cantidad_requerida'] }}</p>
-        <p><strong>Resultado:</strong> {{ $res['message'] }}</p>
+  
 
         {{-- Detalle original --}}
         @if(!empty($res['detalle_original']))
@@ -35,6 +33,7 @@
                 <thead>
                     <tr>
                         <th>Bodega</th>
+                        <th>Producto</th>
                         <th>Cant. descontada</th>
                         <th>Stock restante</th>
                     </tr>
@@ -46,6 +45,7 @@
                         @endphp
                         <tr>
                             <td>{{ $bod->nombre ?? 'ID '.$d['bodega_id'] }}</td>
+                            <td>{{ $producto->name ?? 'Code '.$res['producto_id'] }}</td>
                             <td>{{ number_format($d['cantidad_descontada'] ?? 0, 2) }}</td>
                             <td>{{ number_format($d['stock_restante'] ?? 0, 2) }}</td>
                         </tr>
@@ -62,10 +62,10 @@
             </p>
             <table>
                 <thead>
-                    <tr>
+                    <tr><th>Bodega</th>
                         <th>Producto Equivalente</th>
                         <th>Usado como reemplazo de</th>
-                        <th>Bodega</th>
+                    
                         <th>Cant. descontada</th>
                         <th>Stock restante</th>
                     </tr>
@@ -80,10 +80,10 @@
                             @php
                                 $bodEq = \App\Models\Crm\bodega::find($b['bodega_id']);
                             @endphp
-                            <tr>
+                            <tr>  <td>{{ $bodEq->nombre ?? 'ID '.$b['bodega_id'] }}</td>
                                 <td>{{ $prodEq->name ?? 'ID '.$eq['producto_id'] }}</td>
                                 <td>{{ $prodOri->name ?? 'ID '.$res['producto_id'] }}</td>
-                                <td>{{ $bodEq->nombre ?? 'ID '.$b['bodega_id'] }}</td>
+                              
                                 <td>{{ number_format($b['cantidad_descontada'] ?? 0, 2) }}</td>
                                 <td>{{ number_format($b['stock_restante'] ?? 0, 2) }}</td>
                             </tr>
