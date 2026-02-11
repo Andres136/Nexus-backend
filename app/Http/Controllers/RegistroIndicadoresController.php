@@ -289,7 +289,7 @@ public function indexByCompany(Request $request)
 {
     $user = auth()->user();
 
-    if (!in_array($user->role_id, [1, 2])) {
+    if (!$user) {
         return response()->json(['message' => 'No autorizado.'], 403);
     }
 

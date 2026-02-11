@@ -227,7 +227,7 @@ Route::apiResource('traslados-internos', EnvioInternoController::class);
 Route::get('traslados-internos-sedes', [EnvioInternoController::class, 'traerSedes']);
 Route::get('traslados-internos-ordenes-compra', [EnvioInternoController::class, 'traerOrdenesCompra']);
 Route::get('/oc-traslados/{id}', [EnvioInternoController::class, 'mostrarOC']);
-Route::get('/traslados-internos-ordenes-compra-pendientes/{id}/{sedeDestinoId}', [EnvioInternoController::class, 'traerOrdenesCompraPendientes']);
+Route::get('ordenes-compra-pendientes', [EnvioInternoController::class, 'traerOrdenesCompraPendientes']);
 Route::post('/productos/sincronizar-siigo', [CrmProductController::class, 'sincronizarProductosSiigoGlobal']);
 Route::post('/productos/sincronizar-siigo-setas', [CrmProductController::class, 'sincronizarProductosSiigoSetas']);
 
@@ -316,6 +316,8 @@ Route::post('traslados-bodegas/{id}/rechazar', [TrasladosBodegaController::class
 Route::put('traslados-bodegas/{id}', [TrasladosBodegaController::class, 'update']);
 //Aprobacion por inventario
 Route::post('traslados-bodegas/{id}/aprobar-inventario', [TrasladosBodegaController::class, 'aprobarInventario']);
+//DASHBOARD INDICADORESº
+    Route::get('/rendimiento-indicadores', [RegistroIndicadoresController::class, 'indexByCompany']);
 });
 
 //**RUTAS MIDDLEWARE PARA RESPONSABLES DE CADA PROCESOS O DEPARTAMENTO */
@@ -324,7 +326,7 @@ Route::post('traslados-bodegas/{id}/aprobar-inventario', [TrasladosBodegaControl
 Route::middleware(['auth:sanctum', 'es_responsable_del_departamento'])->group(function () {
     Route::apiResource('/indicadores', IndicadoresProcesosController::class);
     Route::apiResource('registro-indicadores',RegistroIndicadoresController::class);
-    Route::get('/rendimiento-indicadores', [RegistroIndicadoresController::class, 'indexByCompany']);
+
    Route::get ('/indicadoresAdmin',[IndicadoresProcesosController::class,'indexAdmin']);
    //Inventarios
    

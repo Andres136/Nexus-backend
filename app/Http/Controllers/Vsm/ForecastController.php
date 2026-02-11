@@ -53,49 +53,41 @@ class ForecastController extends Controller
 
 
 
-     public function flujo()
-    {
-        // ----------------------------------------------------------
-        // 1️⃣ PENDIENTES: estado_id = 2 (pendiente) o 5 (parcial)
-        // ----------------------------------------------------------
-        $pendientes = OrdenDeTrabajo::whereIn('estado_id', [1,5])
-            ->with('cliente')
-            ->get();
+    public function flujo()
+{
+    // 1️⃣ PENDIENTES
+    $pendientes = OrdenDeTrabajo::whereIn('estado_id', [1, 5])
+        ->with('cliente')
+        ->get();
 
-        // ----------------------------------------------------------
-        // 2️⃣ ALISTANDO: alistamientos activos
-        // ----------------------------------------------------------
-        $alistando = Alistamiento::whereIn('estado', [
-                'INICIADO',
-                'EN_PROGRESO',
-                'PAUSADO'
-            ])
-            ->with(['ordenTrabajo.cliente', 'detalles'])
-            ->get();
+    // 2️⃣ ALISTANDO
+    $alistando = Alistamiento::whereIn('estado', [
+            'INICIADO',
+            'EN_PROGRESO',
+            'PAUSADO'
+        ])
+        ->with(['ordenTrabajo.cliente', 'detalles'])
+        ->get();
 
-        // ----------------------------------------------------------
-        // 3️⃣ FINALIZADAS SIN DELIVERY
-        // OT finalizada de Alistamiento pero sin evento de delivery
-        // ----------------------------------------------------------
-    $ordenesConDelivery = DeliveryEvent::where('estado', 'pendiente')
-        ->pluck('orden_id');
+    // 3️⃣ FINALIZADAS (SIN DELIVERY)
+    $ordenesConDelivery = DeliveryEvent::pluck('orden_id');
 
-        $finalizadas =Alistamiento::where('estado', 'FINALIZADO')
-            ->whereNotIn('orden_trabajo_id', $ordenesConDelivery)
-            ->with(['ordenTrabajo.cliente'])
-            ->get();
-        // ----------------------------------------------------------
-        // 4️⃣ DELIVERY PENDIENTE
-        // ----------------------------------------------------------
-        $delivery = DeliveryEvent::where('estado', 'pendiente')
-            ->with(['orden.cliente'])
-            ->get();
+    $finalizadas = Alistamiento::where('estado', 'FINALIZADO')
+        ->whereNotIn('orden_trabajo_id', $ordenesConDelivery)
+        ->with(['ordenTrabajo.cliente'])
+        ->get();
 
-        return response()->json([
-            'pendientes' => $pendientes,
-            'alistando'  => $alistando,
-            'finalizadas'=> $finalizadas,
-            'delivery'   => $delivery,
-        ]);
-    }
+    // 4️⃣ EN RUTA
+    $delivery = DeliveryEvent::whereIn('estado', ['pendiente', 'en_ruta'])
+        ->with(['orden.cliente'])
+        ->get();
+
+    return response()->json([
+        'pendientes' => $pendientes,
+        'alistando'  => $alistando,
+        'finalizadas'=> $finalizadas,
+        'delivery'   => $delivery,
+    ]);
+}
+
 }

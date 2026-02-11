@@ -43,27 +43,40 @@ public function rules(): array
         'items.*.producto_equivalentes.*.bodegas.*.bodega_id' => ['required_with:items.*.producto_equivalentes.*.bodegas', 'integer', 'exists:bodegas,id'],
         'items.*.producto_equivalentes.*.bodegas.*.cantidad' => ['required_with:items.*.producto_equivalentes.*.bodegas', 'numeric', 'min:0'],
 
-        // 🔸 Validación final: asegurar que haya alguna cantidad > 0
-        'validacion_global' => [
-            function ($attribute, $value, $fail) {
-                foreach ($this->input('items', []) as $item) {
-                    $totalBodegas = collect($item['bodegas'] ?? [])->sum('cantidad');
-                    $totalEquivalentes = collect($item['producto_equivalentes'] ?? [])
-                        ->flatMap(fn($eq) => $eq['bodegas'] ?? [])
-                        ->sum('cantidad');
-
-                    if (($totalBodegas + $totalEquivalentes) <= 0) {
-                        $fail("El producto #{$item['producto_id']} no tiene cantidades válidas para descontar.");
-                    }
-                }
-            },
-        ],
+  
     ];
 }
 public function withValidator($validator)
 {
     $validator->after(function ($validator) {
 
+        // 🔴 VALIDACIÓN GLOBAL DEL REQUEST
+        $hayAlMenosUnItem = false;
+
+        foreach ($this->input('items', []) as $item) {
+            $totalBodegas = collect($item['bodegas'] ?? [])
+                ->sum(fn ($b) => (float) ($b['cantidad'] ?? 0));
+
+            $totalEquivalentes = collect($item['producto_equivalentes'] ?? [])
+                ->flatMap(fn ($eq) => $eq['bodegas'] ?? [])
+                ->sum(fn ($b) => (float) ($b['cantidad'] ?? 0));
+
+            if (($totalBodegas + $totalEquivalentes) > 0) {
+                $hayAlMenosUnItem = true;
+                break;
+            }
+        }
+
+        // ❌ NADIE PARTICIPA → BLOQUEAR TODO
+        if (! $hayAlMenosUnItem) {
+            $validator->errors()->add(
+                'items',
+                'Debe existir al menos un producto con cantidad mayor a 0 para generar el movimiento.'
+            );
+            return;
+        }
+
+        // 🔽 VALIDACIONES POR ÍTEM (las tuyas)
         foreach ($this->input('items', []) as $i => $item) {
 
             $totalBodegas = collect($item['bodegas'] ?? [])
@@ -75,20 +88,20 @@ public function withValidator($validator)
 
             $cantidadReal = $totalBodegas + $totalEquivalentes;
 
-            // ✅ SI NO PARTICIPA EN ESTA ENTREGA → NO VALIDAR
+            // 👉 entrega parcial: no participa → NO validar
             if ($cantidadReal <= 0) {
                 continue;
             }
 
-            // ❌ Tiene cantidad pero no tiene origen
+            // ❌ tiene cantidad pero sin origen
             if ($totalBodegas <= 0 && $totalEquivalentes <= 0) {
                 $validator->errors()->add(
                     "items.$i.bodegas",
-                    "Debe especificar al menos una bodega o un equivalente para este ítem."
+                    "Debe especificar al menos una bodega o un equivalente."
                 );
             }
 
-            // 🔹 Validar stock SOLO de equivalentes usados
+            // 🔹 validar stock SOLO de equivalentes usados
             foreach ($item['producto_equivalentes'] ?? [] as $e => $equivalente) {
                 foreach ($equivalente['bodegas'] ?? [] as $b => $bodega) {
 

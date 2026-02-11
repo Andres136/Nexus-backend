@@ -129,14 +129,32 @@ public function mostrarOC($id)
         ->findOrFail($id);
 }
 //Crear una funcion que reciba como fitro el  id del producto y traiga ordenes de compra provvedor  pendiente segun la sede destino
-public function traerOrdenesCompraPendientes(Request $request, int $id, int $sedeDestinoId): JsonResponse
+public function traerOrdenesCompraPendientes(Request $request): JsonResponse
 {
-    $ordenes = OrdenCompraProveedorDetalle::where('producto_id', $id)
-        ->where('sede_destino_id', $sedeDestinoId)
-        ->where('estado', 'pendiente')
+    $request->validate([
+        'producto_id' => 'required|integer',
+        'sede_id'     => 'required|integer',
+    ]);
+
+    $ordenes = OrdenCompraProveedor::query()
+        ->where('sede_id', $request->sede_id)   // 👈 sede en la orden
+        ->where('estado_id', 1)                 // 👈 pendiente
+        ->whereHas('detalles', function ($q) use ($request) {
+            $q->where('producto_id', $request->producto_id);
+        })
+        ->with([
+            'detalles' => function ($q) use ($request) {
+                $q->where('producto_id', $request->producto_id);
+            },
+            'proveedor:id,nombre',
+        ])
+        ->orderBy('fecha')
         ->get();
 
     return response()->json($ordenes);
 }
+
+
+
 
 }
