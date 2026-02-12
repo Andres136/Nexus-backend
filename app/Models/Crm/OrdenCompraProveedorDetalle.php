@@ -48,4 +48,14 @@ class OrdenCompraProveedorDetalle extends Model
     {
         return $this->belongsTo(product::class, 'producto_id', 'id');
     }
+
+    public function procesoBolsa()
+    {
+        return $this->belongsTo(proceso_bolsas::class, 'proceso_bolsas_id', 'id');
+    }
+
+    public function observaciones()
+    {
+        return $this->hasMany(OrdenDetalleObservaciones::class, 'orden_detalle_id', 'id');
+    }
 }

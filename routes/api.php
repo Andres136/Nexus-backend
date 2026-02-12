@@ -134,6 +134,7 @@ Route::get('orden-compras/{id}/edit', [OrdenCompraController::class, 'edit']);
 Route::get('/ordenes-compra/faltantes/pendientes', [OrdenCompraController::class, 'verificarFaltantesPendientes']);
 
 Route::post('/ordenes-compra-proveedor/{id}/dividir', [OrdenCompraProveedorController::class, 'dividirOrden']);
+Route::post('/ordenes-compra-proveedor/observaciones', [procesoBolsasController::class, 'storeObservacion']);
 
 Route::get('/orden-trabajo/{id}', [ordenTrabajoController::class, 'show']);
 Route::get('ordenes-trabajo', [OrdenCompraController::class, 'obtenerOrdenesTrabajo']);
@@ -174,7 +175,9 @@ Route::get('entregas/proveedores/{id}', [OrdenCompraProveedorController::class, 
 Route::get('/proveedores-all', [ProveedorController::class, 'proveedoresAll']);
 Route::apiResource('ordenes-compra-proveedor', OrdenCompraProveedorController::class);
 Route::get('referencias-faltantes', [EntregaProveedorController::class, 'referenciasFaltantes']);
-Route::get('/dashboard/ordenespdf', [DashboardController::class, 'descargarOrdenesCriticasHoy']);
+
+
+Route::get('/dashboard/ordenes-anuales', [EntregaProveedorController::class, 'dashboardOrdenesAnual']);
 
 //Descargar pendientes de ordenes de proveedor
 
@@ -379,9 +382,10 @@ Route::get('/dashboard', [DashboardController::class, 'getDashboardData']);
 Route::get('/orden-compras/{id}/pdf', [OrdenCompraController::class, 'generarPdf']);
 Route::get('/cotizaciones/{id}/pdf', [CotizacionController::class, 'descargarPDF']);
 Route::get("/usuarios-comerciales",[ClienteController::class,'usuariosComerciales']);
+Route::get('dashboard-comercial-mes-a-mes', [SeguimientoController::class, 'dashboardComercialMesAMes']);
 
 
-route::get('dashboard-entregas-hoy', [DashboardController::class, 'ordenesEntreganHoy']);
+Route::get('dashboard-entregas-hoy', [DashboardController::class, 'ordenesEntreganHoy']);
 
 Route::get('documentos/descargar/{id}', [DocumentoController::class, 'download']);
 

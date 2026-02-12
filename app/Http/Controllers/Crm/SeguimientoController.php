@@ -233,6 +233,98 @@ if ($mesFiltro !== null) {
 }
 
 
-    
+    public function dashboardComercialMesAMes(Request $request)
+{
+    $user = auth()->user();
+    $rol  = $user->role_id; // ajusta si usas roles por relación
+
+    $inicio = Carbon::now()->subMonths(6)->startOfMonth();
+
+    // 🔒CONTROL DE ACCESO
+    if (in_array($rol, ['Ejecutivo Comercial', 'Comercial'])) {
+        $userId = $user->id; //  forzado
+    } else {
+        // root / admin
+        $userId = $request->query('user_id'); // opcional
+    }
+
+    // 1️⃣ Gestiones
+    $gestiones = DB::table('seguimiento_clientes')
+        ->join('users', 'seguimiento_clientes.user_id', '=', 'users.id')
+        ->select(
+            'users.id as user_id',
+            'users.name as usuario',
+            DB::raw('DATE_FORMAT(seguimiento_clientes.created_at, "%Y-%m") as mes'),
+            DB::raw('COUNT(*) as gestiones')
+        )
+        ->where('seguimiento_clientes.created_at', '>=', $inicio)
+        ->when($userId, fn ($q) => $q->where('users.id', $userId))
+        ->groupBy('users.id', 'users.name', 'mes')
+        ->get();
+
+    // 2️⃣ Cotizaciones
+    $cotizaciones = DB::table('cotizaciones')
+        ->join('users', 'cotizaciones.user_id', '=', 'users.id')
+        ->select(
+            'users.id as user_id',
+            DB::raw('DATE_FORMAT(cotizaciones.created_at, "%Y-%m") as mes'),
+            DB::raw('COUNT(*) as cotizaciones')
+        )
+        ->where('cotizaciones.created_at', '>=', $inicio)
+        ->when($userId, fn ($q) => $q->where('users.id', $userId))
+        ->groupBy('users.id', 'mes')
+        ->get();
+
+    // 3️⃣ Órdenes
+    $ordenes = DB::table('orden__compras')
+        ->join('users', 'orden__compras.user_id', '=', 'users.id')
+        ->select(
+            'users.id as user_id',
+            DB::raw('DATE_FORMAT(orden__compras.created_at, "%Y-%m") as mes'),
+            DB::raw('COUNT(*) as ordenes'),
+            DB::raw('SUM(orden__compras.valor_total) as valor')
+        )
+        ->where('orden__compras.created_at', '>=', $inicio)
+        ->when($userId, fn ($q) => $q->where('users.id', $userId))
+        ->groupBy('users.id', 'mes')
+        ->get();
+
+    // 4️⃣ Consolidar
+    $resultado = [];
+
+    foreach ([$gestiones, $cotizaciones, $ordenes] as $coleccion) {
+        foreach ($coleccion as $r) {
+            $key = $r->user_id . '_' . $r->mes;
+
+            if (!isset($resultado[$key])) {
+                $resultado[$key] = [
+                    'user_id' => $r->user_id,
+                    'usuario' => $r->usuario ?? $user->name,
+                    'mes' => $r->mes,
+                    'gestiones' => 0,
+                    'cotizaciones' => 0,
+                    'ordenes' => 0,
+                    'valor_ventas' => 0,
+                ];
+            }
+
+            if (isset($r->gestiones)) {
+                $resultado[$key]['gestiones'] = (int) $r->gestiones;
+            }
+            if (isset($r->cotizaciones)) {
+                $resultado[$key]['cotizaciones'] = (int) $r->cotizaciones;
+            }
+            if (isset($r->ordenes)) {
+                $resultado[$key]['ordenes'] = (int) $r->ordenes;
+                $resultado[$key]['valor_ventas'] = (float) $r->valor;
+            }
+        }
+    }
+
+    return response()->json(
+        collect($resultado)->sortBy('mes')->values()
+    );
+}
+
 
 }

@@ -27,6 +27,7 @@
             <th>Solicitado</th>
             <th>Entregado</th>
             <th>Pendiente</th>
+            <th>Observaciones</th>
         </tr>
     </thead>
     <tbody>
@@ -40,6 +41,18 @@
                 <td>{{ $item['cantidad_solicitada'] }}</td>
                 <td>{{ $item['cantidad_entregada'] }}</td>
                 <td>{{ $item['pendiente'] }}</td>
+                <td>
+                    @foreach ($item['observaciones'] as $observacion)
+                        <div>
+                            <strong>Fecha:</strong> {{ $observacion['fecha'] }} <br>
+                            <strong>Estado:</strong> {{ $observacion['estado'] }} <br>
+                            <strong>Observación:</strong> {{ $observacion['observacion'] }} <br>
+                            <strong>Usuario:</strong> {{ $observacion['usuario'] }} <br>
+                            <strong>Proceso:</strong> {{ $observacion['proceso'] }} <br>
+                            <strong>Proveedor:</strong> {{ $observacion['proveedor'] }} <br>
+                        </div>
+                    @endforeach
+                </td>
             </tr>
         @endforeach
     </tbody>

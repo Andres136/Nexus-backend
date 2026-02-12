@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Crm;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Crm\procesoBolsasRequest;
+use App\Http\Requests\Crm\StoreObservacionProcesoBolsasRequest;
+use App\Models\Crm\OrdenDetalleObservaciones;
 use App\Models\Crm\proceso_bolsas;
 use GuzzleHttp\Promise\Create;
 use Illuminate\Http\Request;
@@ -29,6 +31,18 @@ class procesoBolsasController extends Controller
         ]);
         return response()->json(['message' => 'Proceso de bolsa creado con éxito', 'data' => $proceso_bolsas], 201);
     }
+
+
+   //Registrar observaciones para Proceso Bolsas
+   public function storeObservacion(StoreObservacionProcesoBolsasRequest $request)
+   {
+       $observacion = OrdenDetalleObservaciones::create([
+        ...$request->validated(),
+        'usuario_id' => auth()->id(),
+       ]);
+
+       return response()->json(['message' => 'Observación registrada con éxito', 'data' => $observacion], 201);
+   }
 
     /**
      * Display the specified resource.

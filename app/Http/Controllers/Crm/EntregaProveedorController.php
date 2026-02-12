@@ -198,40 +198,61 @@ public function update(EntregasRequest $request, $id)
     }
 
 
-    public function referenciasFaltantes()
+   public function referenciasFaltantes()
 {
-    $ordenes = \App\Models\Crm\OrdenCompraProveedor::with(['detalles', 'proveedor'])->get();
+    $ordenes = \App\Models\Crm\OrdenCompraProveedor::with([
+        'proveedor',
+        'detalles',
+        'detalles.observaciones.usuario',
+        'detalles.observaciones.proceso',
+    ])->get();
 
     $faltantes = collect();
 
     foreach ($ordenes as $orden) {
-        $faltantesOrden = $orden->detalles->filter(function ($detalle) {
-            return $detalle->cantidad_entregada < $detalle->cantidad_solicitada;
-        })->map(function ($detalle) use ($orden) {
-            return [
-                'orden_id' => $orden->id,
-                'numero_orden' => $orden->numero_orden,
-                'fecha_orden' => $orden->fecha,
-                'proveedor' => $orden->proveedor->nombre ?? 'N/A',
-                'descripcion' => $detalle->descripcion,
-                'cantidad_solicitada' => $detalle->cantidad_solicitada,
-                'cantidad_entregada' => $detalle->cantidad_entregada,
-                'cantidad_faltante' => $detalle->cantidad_solicitada - $detalle->cantidad_entregada,
-                'item' => $detalle->item,
-                'porcentaje_entregado' => $detalle->cantidad_solicitada > 0 
-                    ? round(($detalle->cantidad_entregada / $detalle->cantidad_solicitada) * 100, 2)
-                    : 0,
-            ];
-        });
+        $faltantesOrden = $orden->detalles
+            ->filter(fn ($detalle) =>
+                $detalle->cantidad_entregada < $detalle->cantidad_solicitada
+            )
+            ->map(function ($detalle) use ($orden) {
+                return [
+                    'orden_id' => $orden->id,
+                    'numero_orden' => $orden->numero_orden,
+                    'fecha_orden' => $orden->fecha,
+                    'proveedor' => $orden->proveedor->nombre ?? 'N/A',
+                    'descripcion' => $detalle->descripcion,
+                    'cantidad_solicitada' => $detalle->cantidad_solicitada,
+                    'cantidad_entregada' => $detalle->cantidad_entregada,
+                    'cantidad_faltante' => $detalle->cantidad_solicitada - $detalle->cantidad_entregada,
+                    'item' => $detalle->item,
+                    'porcentaje_entregado' => $detalle->cantidad_solicitada > 0
+                        ? round(($detalle->cantidad_entregada / $detalle->cantidad_solicitada) * 100, 2)
+                        : 0,
+                    'observaciones' => $detalle->observaciones->map(fn ($obs) => [
+                        'id' => $obs->id,
+                        'observacion' => $obs->observacion,
+                        'estado' => $obs->estado,
+                        'fecha' => $obs->created_at,
+                        'proveedor' => $obs->proveedor->nombre ?? 'N/A',
+                        'usuario' => $obs->usuario->name ?? 'N/A',
+                        'proceso' => $obs->proceso
+                            ? [
+                                'id' => $obs->proceso->id,
+                                'nombre' => $obs->proceso->nombre,
+                              ]
+                            : null,
+                    ]),
+                ];
+            });
 
         $faltantes = $faltantes->merge($faltantesOrden);
     }
 
     return response()->json([
         'referencias_faltantes' => $faltantes->values(),
-     
     ]);
 }
+
     
     public function updateDetalle(Request $request, $id)
 {
@@ -269,7 +290,7 @@ public function descargarPendientes(Request $request)
 {
     $proveedorId = $request->query('proveedor_id');
 
-    $detalles = OrdenCompraProveedorDetalle::with(['orden.proveedor'])
+    $detalles = OrdenCompraProveedorDetalle::with(['orden.proveedor','observaciones.usuario', 'observaciones.proceso'])
         ->whereColumn('cantidad_entregada', '<', 'cantidad_solicitada')
         ->when($proveedorId, fn ($q) => $q->whereHas('orden', fn ($qq) =>
             $qq->where('proveedor_id', $proveedorId)
@@ -291,6 +312,19 @@ public function descargarPendientes(Request $request)
             'cantidad_solicitada' => $d->cantidad_solicitada,
             'cantidad_entregada'  => $d->cantidad_entregada,
             'pendiente'           => $d->cantidad_solicitada - $d->cantidad_entregada,
+       'observaciones' => $d->observaciones
+            ->sortByDesc('created_at')
+            ->map(function ($obs) {
+                return [
+                    'fecha'       => $obs->created_at->format('Y-m-d H:i'),
+                    'estado'      => $obs->estado,
+                    'observacion' => $obs->observacion,
+                    'usuario'     => $obs->usuario->name ?? 'N/A',
+                    'proceso'     => $obs->proceso->nombre ?? 'N/A',
+                    'proveedor'   => optional($obs->proveedor)->nombre ?? 'N/A',
+                ];
+            })
+            ->values(),
         ];
     });
 
@@ -304,5 +338,83 @@ public function descargarPendientes(Request $request)
         'Content-Disposition' => 'attachment; filename="items_pendientes.pdf"',
     ]);
 }
+
+public function dashboardOrdenesMensual(Request $request)
+{
+    $mes = $request->query('mes', now()->month);
+    $anio = $request->query('anio', now()->year);
+
+    $inicio = \Carbon\Carbon::create($anio, $mes, 1)->startOfMonth();
+    $fin    = \Carbon\Carbon::create($anio, $mes, 1)->endOfMonth();
+
+    // 1️⃣ Órdenes creadas en el mes
+    $ordenesTotales = OrdenCompraProveedor::whereBetween('created_at', [$inicio, $fin])->count();
+
+    // 2️⃣ Órdenes COMPLETADAS en el mes
+    $ordenesCompletadas = OrdenCompraProveedor::where('estado_id', 2)
+        ->whereBetween('updated_at', [$inicio, $fin])
+        ->count();
+
+    // 3️⃣ Órdenes pendientes
+    $ordenesPendientes = $ordenesTotales - $ordenesCompletadas;
+
+    // 4️⃣ Porcentaje de cumplimiento
+    $porcentajeCumplimiento = $ordenesTotales > 0
+        ? round(($ordenesCompletadas / $ordenesTotales) * 100, 2)
+        : 0;
+
+    return response()->json([
+        'periodo' => [
+            'mes' => $mes,
+            'anio' => $anio,
+        ],
+        'ordenes' => [
+            'totales'     => $ordenesTotales,
+            'completadas' => $ordenesCompletadas,
+            'pendientes'  => max($ordenesPendientes, 0),
+            'porcentaje_cumplimiento' => $porcentajeCumplimiento,
+        ],
+    ]);
+}
+
+public function dashboardOrdenesAnual(Request $request)
+{
+    $anio = $request->query('anio', now()->year);
+
+    $resultado = collect();
+
+    for ($mes = 1; $mes <= 12; $mes++) {
+
+        $inicio = \Carbon\Carbon::create($anio, $mes, 1)->startOfMonth();
+        $fin    = \Carbon\Carbon::create($anio, $mes, 1)->endOfMonth();
+
+        $totales = OrdenCompraProveedor::whereBetween('created_at', [$inicio, $fin])->count();
+
+        $completadas = OrdenCompraProveedor::where('estado_id', 2)
+            ->whereBetween('created_at', [$inicio, $fin])
+            ->count();
+
+        $pendientes = $totales - $completadas;
+
+        $porcentaje = $totales > 0
+            ? round(($completadas / $totales) * 100, 2)
+            : 0;
+
+        $resultado->push([
+            'mes' => $mes,
+            'mes_nombre' => $inicio->translatedFormat('F'),
+            'ordenes_totales' => $totales,
+            'ordenes_completadas' => $completadas,
+            'ordenes_pendientes' => max($pendientes, 0),
+            'porcentaje_cumplimiento' => $porcentaje,
+        ]);
+    }
+
+    return response()->json([
+        'anio' => $anio,
+        'resumen_mensual' => $resultado,
+    ]);
+}
+
 
 }
