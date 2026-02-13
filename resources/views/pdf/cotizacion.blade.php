@@ -83,7 +83,13 @@ function sinCeros($valor) {
 <p><strong>Cliente:</strong> {{ $cotizacion->cliente->nombre ?? 'N/A' }}</p>
 <p><strong>Teléfono:</strong> {{ $cotizacion->cliente->telefono ?? 'N/A' }}</p>
 <p><strong>Correo:</strong> {{ $cotizacion->cliente->email ?? 'N/A' }}</p>
-<p><strong>Fecha de Cotización:</strong> {{ $cotizacion->created_at->format('d \\d\\e F \\d\\e Y') }}</p>
+<p><strong>Fecha de Cotización:</strong> 
+    {{ $cotizacion->updated_at->format('d \\d\\e F \\d\\e Y') }}
+    @if($cotizacion->updated_at->ne($cotizacion->created_at))
+    
+    
+    @endif
+</p>
 <p><strong>Elaborado por:</strong> {{ $cotizacion->user->name }}</p>
 
 <div class="section-title">Detalles:</div>

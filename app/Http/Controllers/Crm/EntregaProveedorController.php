@@ -205,6 +205,7 @@ public function update(EntregasRequest $request, $id)
         'detalles',
         'detalles.observaciones.usuario',
         'detalles.observaciones.proceso',
+        'detalles.entregas',
     ])->get();
 
     $faltantes = collect();
@@ -215,6 +216,11 @@ public function update(EntregasRequest $request, $id)
                 $detalle->cantidad_entregada < $detalle->cantidad_solicitada
             )
             ->map(function ($detalle) use ($orden) {
+
+                //Calcular cantidad_faltante y total entregado para el detalle
+                 $cantidadFaltante = $detalle->cantidad_solicitada - $detalle->cantidad_entregada;
+                 $totalEntregado = $detalle->entregas->sum('cantidad_entregada');
+
                 return [
                     'orden_id' => $orden->id,
                     'numero_orden' => $orden->numero_orden,
@@ -222,11 +228,12 @@ public function update(EntregasRequest $request, $id)
                     'proveedor' => $orden->proveedor->nombre ?? 'N/A',
                     'descripcion' => $detalle->descripcion,
                     'cantidad_solicitada' => $detalle->cantidad_solicitada,
-                    'cantidad_entregada' => $detalle->cantidad_entregada,
-                    'cantidad_faltante' => $detalle->cantidad_solicitada - $detalle->cantidad_entregada,
+                    'cantidad_entregada' => $totalEntregado,
+
+                    'cantidad_faltante' => $cantidadFaltante,
                     'item' => $detalle->item,
                     'porcentaje_entregado' => $detalle->cantidad_solicitada > 0
-                        ? round(($detalle->cantidad_entregada / $detalle->cantidad_solicitada) * 100, 2)
+                        ? round(($totalEntregado / $detalle->cantidad_solicitada) * 100, 2)
                         : 0,
                     'observaciones' => $detalle->observaciones->map(fn ($obs) => [
                         'id' => $obs->id,

@@ -42,6 +42,9 @@ use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PqrController;
 use App\Http\Controllers\ProcesoController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\RegistroDiaro\PreguntaController;
+use App\Http\Controllers\RegistroDiaro\RegistroDiarioController;
+use App\Http\Controllers\RegistroDiaro\VerificacionDiariaControllerr;
 use App\Http\Controllers\RegistroIndicadoresController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\Rutas\DeliveryEventController;
@@ -321,6 +324,15 @@ Route::put('traslados-bodegas/{id}', [TrasladosBodegaController::class, 'update'
 Route::post('traslados-bodegas/{id}/aprobar-inventario', [TrasladosBodegaController::class, 'aprobarInventario']);
 //DASHBOARD INDICADORESº
     Route::get('/rendimiento-indicadores', [RegistroIndicadoresController::class, 'indexByCompany']);
+//RUTAS PARA REGISTRO DIARIO DE PREGUNTAS SEGUIMIENTO
+Route::apiResource('registro-diario', RegistroDiarioController::class);
+Route::apiResource('registro-preguntas', PreguntaController::class);
+Route::apiResource('verificacion', VerificacionDiariaControllerr::class);
+
+
+
+
+
 });
 
 //**RUTAS MIDDLEWARE PARA RESPONSABLES DE CADA PROCESOS O DEPARTAMENTO */
