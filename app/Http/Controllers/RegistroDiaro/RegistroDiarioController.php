@@ -4,7 +4,7 @@ namespace App\Http\Controllers\RegistroDiaro;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RegistroDiario\StoreRegistroDiarioRequest;
-use App\Services\RegistroDiario\RegistroDarioService;
+use App\Services\RegistroDiario\RegistroDiarioService;
 use Illuminate\Http\Request;
 
 class RegistroDiarioController extends Controller
@@ -15,14 +15,16 @@ class RegistroDiarioController extends Controller
 
     protected $registroDiarioService;
 
-    public function __construct(RegistroDarioService $registroDiarioService)
+    public function __construct(RegistroDiarioService $registroDiarioService)
     {
         $this->registroDiarioService = $registroDiarioService;
     }
 
-    public function index()
+    public function index(int $anio)
     {
-       
+        $estadisticas = $this->registroDiarioService->estadisticasAnualesDepartamentos($anio);
+
+        return response()->json($estadisticas);
     }
 
     /**

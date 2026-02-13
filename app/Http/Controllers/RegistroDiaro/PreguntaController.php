@@ -41,7 +41,15 @@ class PreguntaController extends Controller
      */
     public function show(string $id)
     {
-        //
+        $pregunta = $this->preguntaService->obtenerPreguntasPorDepartamento($id);
+
+        if (!$pregunta) {
+            return response()->json([
+                'message' => 'Pregunta no encontrada',
+            ], 404);
+        }
+
+        return response()->json($pregunta);
     }
 
     /**

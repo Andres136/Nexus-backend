@@ -23,7 +23,8 @@ class StorePreguntaRequest extends FormRequest
     {
         return [
             'departamento_id' => 'required|exists:departamentos,id',
-            'pregunta' => 'required|string',
+             'preguntas' => ['required', 'array', 'min:1'],
+        'preguntas.*.pregunta' => ['required', 'string', 'min:5'],
         ];
     }
 
@@ -32,8 +33,12 @@ class StorePreguntaRequest extends FormRequest
         return [
             'departamento_id.required' => 'El campo departamento es obligatorio.',
             'departamento_id.exists' => 'El departamento seleccionado no existe.',
-            'pregunta.required' => 'El campo pregunta es obligatorio.',
-            'pregunta.string' => 'El campo pregunta debe ser una cadena de texto.',
+            'preguntas.required' => 'El campo preguntas es obligatorio.',
+            'preguntas.array' => 'El campo preguntas debe ser un array.',
+            'preguntas.min' => 'El campo preguntas debe tener al menos una pregunta.',
+            'preguntas.*.pregunta.required' => 'El campo pregunta es obligatorio.',
+            'preguntas.*.pregunta.string' => 'El campo pregunta debe ser una cadena de texto.',
+            'preguntas.*.pregunta.min' => 'El campo pregunta debe tener al menos 5 caracteres.',
         ];
     }
 }

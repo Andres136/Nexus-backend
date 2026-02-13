@@ -24,10 +24,10 @@ class StoreRegistroDiarioRequest extends FormRequest
         return [
             'departamento_id' => 'required|exists:departamentos,id',
             'pregunta_id' => 'required|exists:preguntas,id',
-            'respuesta' => 'required|string|max:255',
-            'observaciones' => 'nullable|string|max:255',
-            'fecha' => 'required|date',
+            'respuesta' => 'nullable|integer',
+            'observaciones' => 'nullable|string',
             'tipo' => 'required|string|in:si,no',
+            'novedad' => 'nullable|string',
         ];
     }
 
@@ -40,7 +40,7 @@ class StoreRegistroDiarioRequest extends FormRequest
             'pregunta_id.required' => 'El campo pregunta es obligatorio.',
             'pregunta_id.exists' => 'La pregunta seleccionada no existe.',
             'respuesta.required' => 'El campo respuesta es obligatorio.',
-            'respuesta.string' => 'El campo respuesta debe ser una cadena de texto.',
+            'respuesta.integer' => 'El campo respuesta debe ser un número entero.',
             'respuesta.max' => 'El campo respuesta no debe exceder los 255 caracteres.',
             'observaciones.string' => 'El campo observaciones debe ser una cadena de texto.',
             'observaciones.max' => 'El campo observaciones no debe exceder los 255 caracteres.',
@@ -49,6 +49,7 @@ class StoreRegistroDiarioRequest extends FormRequest
             'tipo.required' => 'El campo tipo es obligatorio.',
             'tipo.string' => 'El campo tipo debe ser una cadena de texto.',
             'tipo.in' => 'El campo tipo debe ser uno de los siguientes valores: tipo1, tipo2, tipo3.',
+            'novedad.string' => 'El campo novedad debe ser una cadena de texto.',
         ];
     }
 }

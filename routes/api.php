@@ -326,8 +326,10 @@ Route::post('traslados-bodegas/{id}/aprobar-inventario', [TrasladosBodegaControl
     Route::get('/rendimiento-indicadores', [RegistroIndicadoresController::class, 'indexByCompany']);
 //RUTAS PARA REGISTRO DIARIO DE PREGUNTAS SEGUIMIENTO
 Route::apiResource('registro-diario', RegistroDiarioController::class);
-Route::apiResource('registro-preguntas', PreguntaController::class);
+Route::apiResource('preguntas', PreguntaController::class);
 Route::apiResource('verificacion', VerificacionDiariaControllerr::class);
+Route::get('/estadisticas-anuales-verificacion/{anio}', [VerificacionDiariaControllerr::class, 'index']);
+Route::get('/estadisticas-anuales-departamentos/{anio}', [RegistroDiarioController::class, 'index']);
 
 
 
