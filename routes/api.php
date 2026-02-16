@@ -397,9 +397,10 @@ Route::get('/orden-compras/{id}/pdf', [OrdenCompraController::class, 'generarPdf
 Route::get('/cotizaciones/{id}/pdf', [CotizacionController::class, 'descargarPDF']);
 Route::get("/usuarios-comerciales",[ClienteController::class,'usuariosComerciales']);
 Route::get('dashboard-comercial-mes-a-mes', [SeguimientoController::class, 'dashboardComercialMesAMes']);
-
+Route::get('/dashboard/ordenespdf', [DashboardController::class, 'descargarOrdenesCriticasHoy']);
 
 Route::get('dashboard-entregas-hoy', [DashboardController::class, 'ordenesEntreganHoy']);
+
 
 Route::get('documentos/descargar/{id}', [DocumentoController::class, 'download']);
 
