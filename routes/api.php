@@ -51,6 +51,7 @@ use App\Http\Controllers\RolController;
 use App\Http\Controllers\Rutas\DeliveryEventController;
 use App\Http\Controllers\TareaController;
 use App\Http\Controllers\Tic\AsignacionesController;
+use App\Http\Controllers\Tic\MantenimientoEquiposController;
 use App\Http\Controllers\Traslados\EnvioInternoController;
 use App\Http\Controllers\Traslados\ResponsabilidadesController;
 use App\Http\Controllers\Traslados\TrasladosBodegaController;
@@ -344,6 +345,10 @@ Route::get('/productos-asignar', [CrmProductController::class, 'productQuery']);
 Route::apiResource('categorias',CategoriaController::class);
 
 
+//MANTENIMIENTO DE EQUIPOS TIC
+Route::apiResource('mantenimiento-equipos-tic', MantenimientoEquiposController::class);
+
+    Route::apiResource('categorias',CategoriaController::class);
 });
 
 //**RUTAS MIDDLEWARE PARA RESPONSABLES DE CADA PROCESOS O DEPARTAMENTO */
@@ -357,7 +362,7 @@ Route::middleware(['auth:sanctum', 'es_responsable_del_departamento'])->group(fu
    //Inventarios
    
     //Categorias
-    Route::apiResource('categorias',CategoriaController::class);
+
     //Productos
     
 });

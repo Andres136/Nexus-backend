@@ -49,4 +49,6 @@ class Asignaciones extends Model
     {
         return $this->belongsTo(User::class, 'usuario_asignacion_id');
     }
+
+    
 }
