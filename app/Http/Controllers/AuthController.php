@@ -21,7 +21,7 @@ class AuthController extends Controller
      */
     public function index(Request $request)
     {
-        $query = User::with('departamento', 'role', 'estado', 'sede');
+        $query = User::with('departamento', 'role', 'estado', 'sede'); // Solo usuarios activos por defecto
 
         if ($request->has('search') && $request->search !== null) {
             $search = $request->search;
@@ -260,7 +260,9 @@ public  function DeparamentosUsuario($id){
 
 public function DepartamentoUsuario($id)
 {
-    $usuarios = User::where('departamento_id', $id)->with('departamento')->get();
+    $usuarios = User::where('departamento_id', $id)
+    ->where('estado_id', 3) // Solo usuarios activos
+    ->with('departamento')->get();
 
     if ($usuarios->isEmpty()) {
         return response()->json(["Error" => "No hay usuarios en este departamento"], 404);
@@ -272,7 +274,8 @@ public function DepartamentoUsuario($id)
 public function indexUsuarios(Request $request)
 { 
      $search = $request->input('search');
-    $query = User::select('id', 'name');
+    $query = User::select('id', 'name')
+                     ->where('estado_id', 3); // Solo usuarios activos
 
     if ($search && strlen($search) >= 2) {
         $query->where('name', 'like', "%$search%");
@@ -285,7 +288,7 @@ public function indexUsuarios(Request $request)
 
 public function userAll()
 {
-    $conductores = User::all();
+    $conductores = User::where('estado_id',3);
 
     if ($conductores->isEmpty()) {
         return response()->json(["Error" => "No hay conductores registrados"], 404);

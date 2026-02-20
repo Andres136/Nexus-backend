@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\RegistroDiaro;
+namespace App\Http\Controllers\RegistroDiario;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RegistroDiario\StoreRegistroDiarioRequest;

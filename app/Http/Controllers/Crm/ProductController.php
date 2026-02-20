@@ -20,6 +20,7 @@ use App\Models\Crm\ProductoEquivalentes;
 use App\Models\Crm\Sede;
 use App\Services\Crm\ProductImportResultExport;
 use App\Services\Crm\ProductImportService;
+use App\Services\Crm\ProductQueryService;
 use App\Services\PdfEtiquetaService;
 use App\Services\ProductService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -44,13 +45,15 @@ class ProductController extends Controller
     protected $productService;
     protected $siigoService;
     protected $siigoGlobalService;
+    protected $productQueryService;
 
     public function __construct(\App\Services\ProductService $productService, \App\Services\SiigoGlobalService $siigoService,
-     \App\Services\SiigoGlobalService $siigoGlobalService)
+     \App\Services\SiigoGlobalService $siigoGlobalService, ProductQueryService $productQueryService)
     {
         $this->productService = $productService;
         $this->siigoService = $siigoService;
         $this->siigoGlobalService = $siigoGlobalService;
+        $this->productQueryService = $productQueryService;
     }
 
  public function index (Request $request)
@@ -958,4 +961,23 @@ public function testPdf()
 
     return Pdf::loadHTML($html)->stream('test.pdf');
 }
+
+public function productQuery(Request $request)
+{
+    try {
+        $user = auth()->user();
+        $result = $this->productQueryService->inventariosDisponibles($request, $user);
+
+        return response()->json([
+            'success' => true,
+            'data' => $result
+        ], 200);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Error al ejecutar la consulta: ' . $e->getMessage(),
+        ], 500);
+    }
+}
+
 }

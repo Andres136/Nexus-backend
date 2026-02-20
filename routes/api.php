@@ -42,13 +42,15 @@ use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PqrController;
 use App\Http\Controllers\ProcesoController;
 use App\Http\Controllers\ProductController;
-use App\Http\Controllers\RegistroDiaro\PreguntaController;
-use App\Http\Controllers\RegistroDiaro\RegistroDiarioController;
-use App\Http\Controllers\RegistroDiaro\VerificacionDiariaControllerr;
+use App\Http\Controllers\RegistroDiario\NovedadController;
+use App\Http\Controllers\RegistroDiario\PreguntaController;
+use App\Http\Controllers\RegistroDiario\RegistroDiarioController;
+use App\Http\Controllers\RegistroDiario\VerificacionDiariaControllerr;
 use App\Http\Controllers\RegistroIndicadoresController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\Rutas\DeliveryEventController;
 use App\Http\Controllers\TareaController;
+use App\Http\Controllers\Tic\AsignacionesController;
 use App\Http\Controllers\Traslados\EnvioInternoController;
 use App\Http\Controllers\Traslados\ResponsabilidadesController;
 use App\Http\Controllers\Traslados\TrasladosBodegaController;
@@ -331,8 +333,15 @@ Route::apiResource('verificacion', VerificacionDiariaControllerr::class);
 Route::get('/estadisticas-anuales-verificacion/{anio}', [VerificacionDiariaControllerr::class, 'index']);
 Route::get('/estadisticas-anuales-departamentos/{anio}', [RegistroDiarioController::class, 'index']);
 
+//RUTAS  PARA NOVEDADES PRODUCTOS  NO CONFORMES
+Route::apiResource('novedades', NovedadController::class);
 
 
+//RUTAS DE ASGINACION DE EQUIPOS TIC
+Route::apiResource('asignaciones', AsignacionesController::class);
+Route::get('/productos-asignar', [CrmProductController::class, 'productQuery']);
+
+Route::apiResource('categorias',CategoriaController::class);
 
 
 });
@@ -431,7 +440,7 @@ Route::match(['GET', 'POST'], '/webhook', [WhatsappWebhookController::class, 'ha
 Route::get('products-all', [CrmProductController::class, 'getAllProducts']);
 
 Route::post('productos', [CrmProductController::class, 'createProduct']);
-Route::apiResource('categorias',CategoriaController::class);
+
 //Generar códigos de barra para productos
 Route::post('/products/generar-barcodes', [CrmProductController::class, 'barcodesMasivos']);
 //Registrar meta mensual
