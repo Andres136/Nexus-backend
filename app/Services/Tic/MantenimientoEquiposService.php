@@ -16,9 +16,9 @@ class MantenimientoEquiposService
             'tipo' => $data['tipo'],
             'fecha_programada' => $data['fecha_programada'],
             'fecha_ejecucion' => $data['fecha_ejecucion'] ?? null,
-            'observaciones' => $data['observaciones'],
+            'observaciones' => $data['observaciones'] ?? null,
             'estado' => $data['estado'] ?? 'pendiente',
-            'costo' => $data['costo'],
+            'costo' => $data['costo'] ?? null,
         ]);
         return $query;
     }
@@ -72,4 +72,70 @@ private function colorEstado($estado)
     };
 }
 
+
+//Lstar mantenimientos  todos los mantenimientos xon filtros
+public function listarMantenimientos(array $filters = [])
+{
+    $query = MantenimientoEquipos::with(['producto', 'sede', 'empresa', 'usuario', 'asignacion.usuarioRecibe', 'archivos']);
+
+    if (!empty($filters['sede_id'])) {
+        $query->where('sede_id', $filters['sede_id']);
+    }
+    if (!empty($filters['producto_id'])) {
+        $query->where('producto_id', $filters['producto_id']);
+    }
+    if (!empty($filters['empresa_id'])) {
+        $query->where('empresa_id', $filters['empresa_id']);
+    }
+    if (!empty($filters['tipo'])) {
+        $query->where('tipo', $filters['tipo']);
+    }
+    if (!empty($filters['estado'])) {
+        $query->where('estado', $filters['estado']);
+    }
+
+       $query->orderByRaw("
+        FIELD(estado, 'pendiente', 'en_proceso', 'completado')
+    ");
+
+    // Orden secundario por fecha programada (opcional pero recomendado)
+    $query->orderBy('fecha_programada', 'asc');
+
+    return $query->paginate($filters['per_page'] ?? 10);
+}
+
+ //Metodo para actualizar el estado del mantenimiento
+
+public function cambiarEstado($id, array $data, $archivos = null)
+{
+    $mantenimiento = MantenimientoEquipos::findOrFail($id);
+
+    if ($data['estado'] === 'completado' && empty($archivos)) {
+        throw new \Exception('Debe adjuntar al menos un archivo para completar el mantenimiento.');
+    }
+
+    if ($data['estado'] === 'completado') {
+        $mantenimiento->fecha_ejecucion = now();
+    }
+
+    $mantenimiento->estado = $data['estado'];
+    $mantenimiento->save();
+
+    // Guardar múltiples archivos
+    if ($archivos && is_array($archivos)) {
+
+        foreach ($archivos as $archivo) {
+
+            $ruta = $archivo->store('mantenimientos', 'public');
+
+            $mantenimiento->archivos()->create([
+                'archivo' => $ruta,
+                'tipo' => $data['tipo_archivo'] ?? 'evidencia',
+                'descripcion' => $data['descripcion'] ?? null,
+            ]);
+        }
+    }
+
+    return $mantenimiento->load('archivos');
+}
 }

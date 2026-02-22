@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Tic;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Tic\CambiarEstadoRequest;
 use App\Http\Requests\Tic\StoreMantenimientoEquiposRequest;
 use App\Services\Tic\MantenimientoEquiposService;
 use Illuminate\Http\Request;
@@ -37,6 +38,13 @@ class MantenimientoEquiposController extends Controller
         ]);
     }
 
+  public function obtenerMantenimientos()
+    {
+        $filters = request()->only(['sede_id', 'producto_id', 'empresa_id', 'tipo', 'estado']);
+        $mantenimientos = $this->mantenimientoEquiposService->listarMantenimientos($filters);
+        return response()->json($mantenimientos);
+    }
+
     /**
      * Display the specified resource.
      */
@@ -48,16 +56,35 @@ class MantenimientoEquiposController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
+  public function update(CambiarEstadoRequest $request, string $id)
+{
+    $data = $request->validated();
+
+    $mantenimiento = $this->mantenimientoEquiposService->cambiarEstado(
+        $id,
+        $data,
+        $request->file('archivos') // 👈 ahora es array
+    );
+
+    return response()->json([
+        'message' => 'Estado del mantenimiento actualizado exitosamente',
+        'data' => $mantenimiento,
+    
+    ]);
+}
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function destroy(CambiarEstadoRequest $request, string $id)
     {
-        //
+        $data = $request->validated();
+        $mantenimiento = $this->mantenimientoEquiposService->cambiarEstado($id, $data);
+        return response()->json([
+            'message' => 'Estado del mantenimiento actualizado exitosamente',
+            'data' => $mantenimiento
+        ]);
     }
+
+
 }

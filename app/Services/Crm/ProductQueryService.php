@@ -31,6 +31,7 @@ class ProductQueryService
                 'inventario_id' => $inv->id,
                 'producto_id' => $inv->producto->id,
                 'nombre' => $inv->producto->name,
+                 'descripcion' => $inv->producto->description,
                 'code' => $inv->producto->code,
                 'stock' => $inv->stock
             ];

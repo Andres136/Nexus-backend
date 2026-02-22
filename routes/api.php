@@ -347,8 +347,12 @@ Route::apiResource('categorias',CategoriaController::class);
 
 //MANTENIMIENTO DE EQUIPOS TIC
 Route::apiResource('mantenimiento-equipos-tic', MantenimientoEquiposController::class);
+Route::post('ejecutar-mantenimiento-equipos-tic/{id}', [MantenimientoEquiposController::class, 'update']);
 
-    Route::apiResource('categorias',CategoriaController::class);
+Route::apiResource('categorias',CategoriaController::class);
+
+Route::get('obtener-mantenimientos-tic', [MantenimientoEquiposController::class, 'obtenerMantenimientos']);
+Route::put('mantenimiento-equipos-tic/{id}/actualizar-estado', [MantenimientoEquiposController::class, 'actualizarEstado']);
 });
 
 //**RUTAS MIDDLEWARE PARA RESPONSABLES DE CADA PROCESOS O DEPARTAMENTO */

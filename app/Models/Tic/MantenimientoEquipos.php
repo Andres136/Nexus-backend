@@ -50,4 +50,9 @@ class MantenimientoEquipos extends Model
     return $this->hasOne(Asignaciones::class, 'producto_id', 'producto_id')
                 ->where('activo', 1);
 }
+
+public function archivos()
+{
+    return $this->hasMany(MantenimientoArchivo::class, 'mantenimiento_id');
+}
 }

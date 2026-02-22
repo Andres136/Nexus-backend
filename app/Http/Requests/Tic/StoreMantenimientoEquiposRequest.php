@@ -25,12 +25,10 @@ class StoreMantenimientoEquiposRequest extends FormRequest
             'sede_id' => 'required|exists:sedes,id',
             'producto_id' => 'required|exists:products,id',
             'empresa_id' => 'required|exists:empresas,id',
-         
-            'tipo' => 'required|in:preventivo,correctivo',
+            'tipo' => 'string|required',
             'fecha_programada' => 'nullable|date',
             'fecha_ejecucion' => 'nullable|date',
-            'observaciones' => 'nullable|string',
-           
+            'observaciones' => 'nullable|string',       
             'costo' => 'nullable|numeric',
         ];
     }
@@ -46,7 +44,8 @@ class StoreMantenimientoEquiposRequest extends FormRequest
             'empresa_id.exists' => 'La empresa seleccionada no existe.',
           
             'tipo.required' => 'El tipo de mantenimiento es obligatorio.',
-            'tipo.in' => 'El tipo de mantenimiento debe ser preventivo o correctivo.',
+                'tipo.string' => 'El tipo de mantenimiento debe ser un texto válido.',
+
             'fecha_programada.date' => 'La fecha programada debe ser una fecha válida.',
             'fecha_ejecucion.date' => 'La fecha de ejecución debe ser una fecha válida.',
             'observaciones.string' => 'Las observaciones deben ser un texto válido.',
