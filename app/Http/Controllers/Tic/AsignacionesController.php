@@ -9,6 +9,7 @@ use App\Models\Crm\product;
 use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class AsignacionesController extends Controller
 {
@@ -69,7 +70,16 @@ if ($empresa->logo) {
 
     $fileName = 'acta_asignacion_'.$asignacion->id.'.pdf';
 
-    $pdf->save(storage_path('app/public/asignaciones/'.$fileName));
+ // Crear carpeta si no existe
+Storage::disk('public')->makeDirectory('asignaciones');
+
+$fileName = 'acta_asignacion_'.$asignacion->id.'.pdf';
+
+// Guardar PDF
+Storage::disk('public')->put(
+    'asignaciones/'.$fileName,
+    $pdf->output()
+);
 
     return response()->json([
         'message' => 'Producto asignado exitosamente',
