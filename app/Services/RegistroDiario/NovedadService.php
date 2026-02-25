@@ -19,7 +19,8 @@ class NovedadService
             if (!empty($filters['fecha_inicio']) && !empty($filters['fecha_fin'])) {
                 $query->whereBetween('fecha_proceso', [
                     $filters['fecha_inicio'],
-                    $filters['fecha_fin']
+                    $filters['fecha_fin'],
+                    
                 ]);
             }
 
