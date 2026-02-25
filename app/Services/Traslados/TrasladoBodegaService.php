@@ -51,7 +51,7 @@ public function listar(array $filters = [])
         $query->orderBy($orderBy, $order);
 
         // Paginación
-        $perPage = $filters['per_page'] ?? 15;
+        $perPage = $filters['per_page'] ?? 5;
         return $query->paginate($perPage);
     }
     /**
@@ -222,19 +222,14 @@ public function listar(array $filters = [])
         });
     }
 
-   private function generarMovimientoStockTraslado(Traslado_Bodega $traslado): void
+ private function generarMovimientoStockTraslado(Traslado_Bodega $traslado): void
 {
-    // RECARGAR MODELO CON TODO LO NECESARIO
     $traslado = $traslado->fresh([
         'bodegaOrigen',
         'bodegaDestino',
-        'creador',
-        'aprobadorBodega',
-        'aprobadorInventario',
         'detalles.producto',
     ]);
 
-    // 📄 PDF
     $pdfPath = $this->generarPDFTraslado(
         $traslado,
         $traslado->detalles->map(function ($item) {
@@ -246,58 +241,91 @@ public function listar(array $filters = [])
         })->toArray()
     );
 
-    $totalesPorProducto = [];
+    $totalTraslado = 0;
+    $empresaId = null;
 
-foreach ($traslado->detalles as $item) {
+    foreach ($traslado->detalles as $item) {
 
-    $inventariosOrigen = Inventario::where([
-        'producto_id' => $item->producto_id,
-        'bodega_id'   => $traslado->bodega_origen_id,
-    ])
-    ->where('stock', '>', 0)
-    ->lockForUpdate()
-    ->orderBy('stock', 'desc')
-    ->get();
+        $inventariosOrigen = Inventario::where([
+                'producto_id' => $item->producto_id,
+                'bodega_id'   => $traslado->bodega_origen_id,
+            ])
+            ->where('stock', '>', 0)
+            ->lockForUpdate()
+            ->orderBy('stock', 'desc')
+            ->get();
 
-    if ($inventariosOrigen->sum('stock') < $item->cantidad) {
-        throw new Exception('Stock insuficiente para el producto ' . $item->producto->name);
+        if ($inventariosOrigen->sum('stock') < $item->cantidad) {
+            throw new Exception(
+                'Stock insuficiente para el producto ' . $item->producto->name
+            );
+        }
+
+        $empresaId = $inventariosOrigen->first()->empresa_id;
+        $totalTraslado += $item->cantidad;
+
+        $cantidadPendiente = $item->cantidad;
+
+        // 🔻 DESCONTAR ORIGEN
+        foreach ($inventariosOrigen as $inventarioOrigen) {
+            if ($cantidadPendiente <= 0) break;
+
+            $cantidadADescontar = min($cantidadPendiente, $inventarioOrigen->stock);
+            $inventarioOrigen->decrement('stock', $cantidadADescontar);
+            $cantidadPendiente -= $cantidadADescontar;
+        }
+
+        // 🔵 SUMAR DESTINO
+        $inventarioDestino = Inventario::where([
+                'empresa_id'  => $empresaId,
+                'producto_id' => $item->producto_id,
+                'bodega_id'   => $traslado->bodega_destino_id,
+            ])
+            ->lockForUpdate()
+            ->first();
+
+        if (!$inventarioDestino) {
+            $inventarioDestino = Inventario::create([
+                'empresa_id'  => $empresaId,
+                'producto_id' => $item->producto_id,
+                'bodega_id'   => $traslado->bodega_destino_id,
+                'sede_id'     => $traslado->bodegaDestino->sede_id, // 🔥 IMPORTANTE
+                'user_id'     => auth()->id(),
+                'stock'       => 0,
+                'min_stock'   => 0,
+                'max_stock'   => 0,
+            ]);
+        }
+
+        $inventarioDestino->increment('stock', $item->cantidad);
     }
 
-    $empresaId = $inventariosOrigen->first()->empresa_id;
-    $cantidadPendiente = $item->cantidad;
+    // 🔻 Movimiento único salida
+    MovimientoStock::create([
+        'empresa_id'   => $empresaId,
+        'bodega_id'    => $traslado->bodega_origen_id,
+        'tipo'         => 'SALIDA_BODEGA',
+        'cantidad'     => $totalTraslado,
+        'usuario_id'   => auth()->id(),
+        'pdf_path'     => $pdfPath,
+        'observaciones'=> "Salida por traslado {$traslado->codigo}",
+    ]);
 
-    foreach ($inventariosOrigen as $inventarioOrigen) {
-        if ($cantidadPendiente <= 0) break;
-
-        $cantidadADescontar = min($cantidadPendiente, $inventarioOrigen->stock);
-        $inventarioOrigen->decrement('stock', $cantidadADescontar);
-        $cantidadPendiente -= $cantidadADescontar;
-    }
-
-    // 🔥 ACUMULAR (no crear movimiento aquí)
-    $totalesPorProducto[$item->producto_id] =
-        ($totalesPorProducto[$item->producto_id] ?? 0) + $item->cantidad;
-}
-
-//Crear movimientos de salida
-MovimientoStock::create([
-    'empresa_id' => $empresaId,
-    'bodega_id'  => $traslado->bodega_origen_id,
-    'tipo'       => 'SALIDA_BODEGA',
-    'cantidad'   => array_sum($totalesPorProducto),
-
-    'usuario_id' => auth()->id(),
-    'pdf_path'   => $pdfPath,
-    'observaciones' => "Salida por traslado {$traslado->codigo}",
-]);
-
-
-
+    // 🔵 Movimiento único entrada
+    MovimientoStock::create([
+        'empresa_id'   => $empresaId,
+        'bodega_id'    => $traslado->bodega_destino_id,
+        'tipo'         => 'ENTRADA_BODEGA',
+        'cantidad'     => $totalTraslado,
+        'usuario_id'   => auth()->id(),
+        'pdf_path'     => $pdfPath,
+        'observaciones'=> "Entrada por traslado {$traslado->codigo}",
+    ]);
 
     $traslado->update([
         'estado' => 'DESPACHADO',
         'pdf_path' => $pdfPath,
-        'fecha_despacho' => $traslado->fecha_despacho,
+        'fecha_despacho' => now(),
     ]);
 }
 
