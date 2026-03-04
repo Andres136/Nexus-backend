@@ -573,4 +573,7 @@ if ($request->filled('categoria_id')) {
 
     return view('scan.product', compact('producto', 'inventariosPorBodega'));
 }
+
+
+
 }

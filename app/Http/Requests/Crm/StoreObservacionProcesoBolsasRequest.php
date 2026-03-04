@@ -27,6 +27,8 @@ class StoreObservacionProcesoBolsasRequest extends FormRequest
 
             'proceso_bolsas_id' => 'required|exists:proceso_bolsas,id',
             'proveedor_id' => 'required|exists:proveedores,id',
+
+         
         ];
     }
 
@@ -42,7 +44,7 @@ class StoreObservacionProcesoBolsasRequest extends FormRequest
             'proceso_bolsas_id.exists' => 'El proceso_bolsas_id seleccionado no es válido.',
             'proveedor_id.required' => 'Debes seleccionar un proveedor.',
             'proveedor_id.exists' => 'El proveedor_id seleccionado no es válido.',
-            
+          
         ];
     }
 }

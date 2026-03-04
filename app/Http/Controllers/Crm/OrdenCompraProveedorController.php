@@ -8,6 +8,7 @@ use App\Http\Requests\Crm\UpdateOrdenCompraProveedorDetallesRequest;
 use App\Mail\OrdenCompraProveedorMail;
 use App\Models\Crm\OrdenCompraProveedor;
 use App\Models\Crm\OrdenCompraProveedorDetalle;
+use App\Models\Crm\OrdenDetalleObservaciones;
 use App\Services\Crm\OrdenCompraService;
 use Barryvdh\DomPDF\Facade\Pdf ;
 use Carbon\Carbon;
@@ -83,73 +84,7 @@ if ($request->filled('week')) {
 
     $ordenes = $query->paginate(10);
 
-    // ✅ CALCULAMOS EL ESTADO SEGÚN LA SEDE DEL USUARIO
-    /*$ordenes->getCollection()->transform(function ($orden) use ($user) {
-        $detalles = $orden->detalles->map(function ($detalle) use ($user) {
-            
-            // ✅ Calcular cantidad entregada según la vista del usuario
-            if (!in_array($user->role_id, [1, 2, 4])) {
-                // Usuario normal: solo entregas de su sede
-                $cantidadEntregadaVista = $detalle->entregas->sum('cantidad_entregada');
-            } else {
-                // Admin: puede ver global o por sede específica
-                if ($user->sede_id) {
-                    // Si el admin tiene sede asignada, mostrar estado de esa sede
-                    $cantidadEntregadaVista = $detalle->entregas
-                        ->where('sede_id', $user->sede_id)
-                        ->sum('cantidad_entregada');
-                    
-                    // ✅ FALLBACK: Si no hay entregas con sede_id (órdenes viejas), usar total
-                    if ($cantidadEntregadaVista == 0 && $detalle->entregas->whereNull('sede_id')->count() > 0) {
-                        $cantidadEntregadaVista = $detalle->cantidad_entregada;
-                    }
-                } else {
-                    // Admin sin sede: usar total global
-                    $cantidadEntregadaVista = $detalle->cantidad_entregada;
-                }
-            }
-
-            // ✅ Estado basado en la cantidad vista por el usuario
-            $estado = 'Pendiente';
-            if ($cantidadEntregadaVista >= $detalle->cantidad_solicitada) {
-                $estado = $cantidadEntregadaVista > $detalle->cantidad_solicitada
-                    ? 'Con entrega extra'
-                    : 'Completo';
-            }
-
-            return [
-                'estado_producto' => $estado,
-                'cantidad_entregada_vista' => $cantidadEntregadaVista,
-                'cantidad_solicitada' => $detalle->cantidad_solicitada,
-            ];
-        });
-
-        $total = $detalles->count();
-        $completados = $detalles->whereIn('estado_producto', ['Completo', 'Con entrega extra'])->count();
-
-        // ✅ Estado de la orden según la perspectiva del usuario
-        $orden->estado_calculado = match (true) {
-            $completados === 0 => 'Pendiente',
-            $completados < $total => 'Parcialmente Entregada',
-            default => 'Completada',
-        };
-
-        $orden->sede_nombre = $orden->sede->nombre ?? 'Sin sede';
-
-        // ✅ NUEVOS: Estadísticas adicionales para el frontend
-        $orden->estadisticas_detalle = [
-            'total_items' => $total,
-            'items_completos' => $completados,
-            'items_pendientes' => $total - $completados,
-            'porcentaje_completado' => $total > 0 ? round(($completados / $total) * 100, 2) : 0,
-        ];
-
-        // ✅ Indicador de si es vista filtrada por sede
-        $orden->vista_filtrada_por_sede = !in_array($user->role_id, [1, 2, 4]) || 
-            (in_array($user->role_id, [1, 2, 4]) && $user->sede_id);
-
-        return $orden;
-    });*/
+ 
     $ordenes= $estadoService->procesar($ordenes, $user);
 
     return response()->json([
@@ -206,7 +141,7 @@ if ($request->filled('week')) {
             ]);
 
             foreach ($request->detalles as $i => $detalle) {
-                $ordenCompra->detalles()->create([
+             $nuevoDetalle=   $ordenCompra->detalles()->create([
                     'item' => $i + 1,
                     'descripcion' => $detalle['descripcion'],
                     'cantidad_solicitada' => $detalle['cantidad_solicitada'],
@@ -216,9 +151,23 @@ if ($request->filled('week')) {
                     'code' => $detalle['code'] ?? null, // Nuevo campo código
                     'producto_id' => $detalle['producto_id'] ?? null, // Nuevo campo producto_id
                 ]);
+   if (!empty($detalle['procesos'])) {
+        foreach ($detalle['procesos'] as $proceso) {
+            OrdenDetalleObservaciones::create([
+                'orden_detalle_id' =>$nuevoDetalle->id, // Asegúrate de que el detalle ya tenga un ID asignado
+                'proceso_bolsas_id' => $proceso['proceso_bolsas_id'],
+                'proveedor_id' => $proceso['proveedor_id'],
+                'observacion' => $proceso['observacion'] ?? 'Proceso registrado sin observación',
+                'estado' => 'pendiente',
+                'usuario_id' => auth()->id(),
+            ]);
+        }
+    }
+
             }
 
             DB::commit();
+            return $this->show($ordenCompra->id);
 
             return response()->json(['message' => 'Orden de compra creada con éxito.',
                'orden' => $ordenCompra

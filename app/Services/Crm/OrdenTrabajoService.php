@@ -243,13 +243,7 @@ class OrdenTrabajoService
         }
 
         // Log para seguimiento
-        Log::info('Notificaciones de Orden de Trabajo enviadas', [
-            'orden_trabajo_id' => $ordenTrabajo->id,
-            'orden_compra_id' => $ordenCompra->id,
-            'usuario_creador' => $ordenCompra->user->name ?? 'N/A',
-            'inventario_notificados' => $usuariosInventarioSede->count(),
-            'sede' => $ordenCompra->sede->nombre ?? 'N/A'
-        ]);
+  
 
         // 3. Notificar si hay productos alistados
         $user = $ordenCompra->user;

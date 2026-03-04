@@ -4,6 +4,7 @@ namespace App\Services\Crm;
 
 use App\Models\Crm\Inventario;
 use App\Models\Crm\product;
+use App\Models\Tic\Asignaciones;
 
 class ProductQueryService
 {
@@ -27,13 +28,19 @@ class ProductQueryService
 
     return response()->json([
         'data' => $query->get()->map(function ($inv) {
+    $asignacion = Asignaciones::with('usuarioRecibe')
+                ->where('producto_id', $inv->producto->id)
+                ->where('activo', true)
+                ->first();
+    
             return [
                 'inventario_id' => $inv->id,
                 'producto_id' => $inv->producto->id,
                 'nombre' => $inv->producto->name,
                  'descripcion' => $inv->producto->description,
                 'code' => $inv->producto->code,
-                'stock' => $inv->stock
+                'stock' => $inv->stock,
+                'asignado_a' => $asignacion ? $asignacion->usuarioRecibe->name : null,
             ];
         })
     ]);

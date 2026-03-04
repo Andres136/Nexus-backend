@@ -5,7 +5,7 @@
 @section('content')
     <div style="margin: 30px 0;">
         <h2 style="color: #208040; margin-bottom: 25px; font-size: 22px; font-weight: 600;">
-            🔐 Inicio de sesión detectado
+          Inicio de sesión detectado
         </h2>
         
         <p style="font-size: 16px; line-height: 1.6; margin-bottom: 25px;">
@@ -19,9 +19,9 @@
         </div>
 
         <div style="margin: 25px 0; padding: 20px; background: #fff9f0; border: 1px solid #ffd700; border-radius: 6px;">
-            <h3 style="color: #b8860b; margin: 0 0 15px 0; font-size: 16px;">🕒 Información del acceso:</h3>
+            <h3 style="color: #b8860b; margin: 0 0 15px 0; font-size: 16px;"> Información del acceso:</h3>
             <ul style="margin: 0; padding-left: 20px; color: #8b4513;">
-                <li style="margin: 8px 0;">Fecha y hora: {{ now()->format('d/m/Y - H:i:s') }}</li>
+               <li style="margin: 8px 0;">Fecha y hora: {{ now()->setTimezone('America/Bogota')->format('d/m/Y - H:i:s') }}</li>
                 <li style="margin: 8px 0;">Usuario: {{ $nombreUsuario }}</li>
                 <li style="margin: 8px 0;">Sistema: SETASPLAST SIG</li>
             </ul>

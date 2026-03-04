@@ -39,6 +39,7 @@ class procesoBolsasController extends Controller
        $observacion = OrdenDetalleObservaciones::create([
         ...$request->validated(),
         'usuario_id' => auth()->id(),
+        'estado' => $request->estado ?? 'pendiente', // Asegúrate de que el estado se guarde correctamente
        ]);
 
        return response()->json(['message' => 'Observación registrada con éxito', 'data' => $observacion], 201);
@@ -67,4 +68,20 @@ class procesoBolsasController extends Controller
     {
         //
     }
+
+    public function updateEstado(Request $request, $id)
+{
+    $request->validate([
+        'estado' => 'required|in:pendiente,completada,en_proceso'
+    ],[
+        'estado.required' => 'El campo estado es obligatorio.',
+        'estado.in' => 'El estado seleccionado no es válido. Los valores permitidos son: pendiente, completada, en_proceso.',
+    ]);
+
+    $observacion = OrdenDetalleObservaciones::findOrFail($id);
+    $observacion->estado = $request->estado;
+    $observacion->save();
+
+    return response()->json(['success' => true, 'message' => 'Estado actualizado correctamente', 'data' => $observacion]);
+}
 }

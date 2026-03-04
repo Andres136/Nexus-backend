@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Crm;
 
+use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\OrdenDeTrabajo;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -20,7 +21,7 @@ class OrdenTrabajoRequest extends FormRequest
         ];
 
         // 🔹 Solo validar sede_id si viene en la solicitud
-        if ($this->has('sede_id')) {
+        if ($this->filled('sede_id')) {
             $rules['sede_id'] = ['required', 'integer', Rule::exists('sedes', 'id')];
         }
       
@@ -57,15 +58,20 @@ class OrdenTrabajoRequest extends FormRequest
      * 🔸 Prepara los datos antes de la validación.
      * Si no viene "sede_id" en el request, lo toma del usuario autenticado.
      */
-    protected function prepareForValidation()
-    {
-        if (!$this->has('sede_id') && $this->user()) {
+protected function prepareForValidation()
+{
+    $ordenCompraId = $this->route('id');
+
+    if (!$this->filled('sede_id') && $ordenCompraId) {
+        $ordenCompra = Orden_Compra::find($ordenCompraId);
+
+        if ($ordenCompra && $ordenCompra->sede_id) {
             $this->merge([
-                'sede_id' => $this->user()->sede_id,
+                'sede_id' => $ordenCompra->sede_id,
             ]);
         }
     }
-
+}
     private function debeValidarProducto(): bool
     {
        $ordenCompraId = $this->route('id');

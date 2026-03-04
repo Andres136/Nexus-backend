@@ -17,6 +17,7 @@ use App\Http\Controllers\Crm\EventoController;
 use App\Http\Controllers\Crm\InspeccionController;
 use App\Http\Controllers\Crm\InventorieController;
 use App\Http\Controllers\Crm\MantenimientoController;
+use App\Http\Controllers\Crm\Orden_servicio\OrdenesServicioController;
 use App\Http\Controllers\Crm\OrdenCompraController;
 use App\Http\Controllers\Crm\OrdenCompraDetallesController;
 use App\Http\Controllers\Crm\OrdenCompraProveedorController;
@@ -141,6 +142,7 @@ Route::get('/ordenes-compra/faltantes/pendientes', [OrdenCompraController::class
 
 Route::post('/ordenes-compra-proveedor/{id}/dividir', [OrdenCompraProveedorController::class, 'dividirOrden']);
 Route::post('/ordenes-compra-proveedor/observaciones', [procesoBolsasController::class, 'storeObservacion']);
+Route::put('/observaciones/{id}/estado', [procesoBolsasController::class, 'updateEstado']);
 
 Route::get('/orden-trabajo/{id}', [ordenTrabajoController::class, 'show']);
 Route::get('ordenes-trabajo', [OrdenCompraController::class, 'obtenerOrdenesTrabajo']);
@@ -181,6 +183,7 @@ Route::get('entregas/proveedores/{id}', [OrdenCompraProveedorController::class, 
 Route::get('/proveedores-all', [ProveedorController::class, 'proveedoresAll']);
 Route::apiResource('ordenes-compra-proveedor', OrdenCompraProveedorController::class);
 Route::get('referencias-faltantes', [EntregaProveedorController::class, 'referenciasFaltantes']);
+Route::get('referencias-faltantes/{ordenId}', [EntregaProveedorController::class, 'referenciasFaltantesbyId']);
 
 
 Route::get('/dashboard/ordenes-anuales', [EntregaProveedorController::class, 'dashboardOrdenesAnual']);
@@ -353,6 +356,11 @@ Route::apiResource('categorias',CategoriaController::class);
 
 Route::get('obtener-mantenimientos-tic', [MantenimientoEquiposController::class, 'obtenerMantenimientos']);
 Route::put('mantenimiento-equipos-tic/{id}/actualizar-estado', [MantenimientoEquiposController::class, 'actualizarEstado']);
+
+//RUTAS PARA ACTUALIZAR DEPARTAMENTOSRUTAS PARA ORDENES DE SERVICIO
+Route::apiResource('ordenes-servicio', OrdenesServicioController::class);
+Route::get('ordenes-servicio/{id}/show', [OrdenesServicioController::class, 'obtenerOrdenesShow']);
+
 });
 
 //**RUTAS MIDDLEWARE PARA RESPONSABLES DE CADA PROCESOS O DEPARTAMENTO */
