@@ -139,6 +139,8 @@ Route::get("/mis-cotizaciones", [CotizacionController::class, 'misCotizaciones']
 Route::get('ordenes-compra/{id}', [OrdenCompraController::class, 'show']);
 Route::get('orden-compras/{id}/edit', [OrdenCompraController::class, 'edit']);
 Route::get('/ordenes-compra/faltantes/pendientes', [OrdenCompraController::class, 'verificarFaltantesPendientes']);
+//KPIS DASHBOARD CLIENTES
+Route::get('/dashboard/kpis', [DashboardController::class, 'kpis']);
 
 Route::post('/ordenes-compra-proveedor/{id}/dividir', [OrdenCompraProveedorController::class, 'dividirOrden']);
 Route::post('/ordenes-compra-proveedor/observaciones', [procesoBolsasController::class, 'storeObservacion']);

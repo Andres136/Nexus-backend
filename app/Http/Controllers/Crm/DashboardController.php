@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Crm\Cliente;
 use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\OrdenDeTrabajo;
+use App\Services\Crm\KpiService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use GuzzleHttp\Client;
@@ -17,8 +18,22 @@ use Maatwebsite\Excel\Facades\Excel;
 class DashboardController extends Controller
 {
 
+protected $kpiService;
+
+public function __construct(KpiService $kpiService)
+{
+    $this->kpiService = $kpiService;
+}
 
 
+public function kpis(Request $request)
+{
+    $year = $request->get('year');
+
+    return response()->json(
+        $this->kpiService->getDashboardKpisYearly($year)
+    );
+}
     public function getDashboardData()
     {
         $ordenes = Orden_Compra::with('ordenTrabajo', 'detalles', 'cliente', 'creador')->get();

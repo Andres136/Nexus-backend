@@ -41,6 +41,7 @@ class OrdenCompraController extends Controller
      */
      protected $productService;
      protected $ordenTrabajoService;
+     
 
     public function __construct()
     {
