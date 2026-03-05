@@ -625,27 +625,44 @@ public function getFaltantesOrdenesPendientes()
 {
     $user = auth()->user();
 
-    $ordenes = Orden_Compra::with(['detalles.product', 'estado', 'cliente','OrdenesTrabajo'])
-        ->whereIn('estado_id', [1, 5]) // Pendiente y Parcial
-        ->when(!in_array($user->role_id, [1, 2, 4]), function ($query) use ($user) {
-            // 🔒 Si no es admin, superadmin o gerente, filtra por la sede del usuario
-            $query->where('sede_id', $user->sede_id);
-        })
-        ->get();
+    $ordenes = Orden_Compra::with([
+        'detalles.product:id,code,name',
+        'estado:id,nombre',
+        'cliente:id,nombre,nit',
+        'sede:id,nombre',
+        'OrdenesTrabajo.estado:id,nombre'
+    ])
+    ->whereIn('estado_id', [1, 5])
+    ->when(!in_array($user->role_id, [1, 2, 4]), function ($query) use ($user) {
+        $query->where('sede_id', $user->sede_id);
+    })
+    ->paginate(15);
 
     $resultado = [];
 
+    // cache de stock por producto
+    $stockCache = [];
+
     foreach ($ordenes as $orden) {
+
         $faltantes = [];
 
         foreach ($orden->detalles as $detalle) {
+
             if (!$detalle->product) continue;
 
             $productoId = $detalle->product_id;
             $cantidadRequerida = $detalle->cantidad_requerida_kg ?? 0;
 
-            $stockInfo = $this->getStockByProduct($productoId, $user);
+            // Cache para evitar recalcular
+            if (!isset($stockCache[$productoId])) {
+                $stockCache[$productoId] = $this->getStockByProduct($productoId, $user);
+            }
+
+            $stockInfo = $stockCache[$productoId];
+
             $stockTotal = $stockInfo['stock_total'];
+
             $faltante = max(0, $cantidadRequerida - $stockTotal);
 
             if ($faltante > 0) {
@@ -653,38 +670,46 @@ public function getFaltantesOrdenesPendientes()
                     'producto_id'        => $productoId,
                     'codigo'             => $detalle->product->code ?? '-',
                     'nombre'             => $detalle->product->name ?? 'Sin nombre',
-                    'cantidad_requerida' => floatval($cantidadRequerida),
-                    'stock_disponible'   => floatval($stockTotal),
-                    'faltante'           => floatval($faltante),
+                    'cantidad_requerida' => (float) $cantidadRequerida,
+                    'stock_disponible'   => (float) $stockTotal,
+                    'faltante'           => (float) $faltante,
                     'resumen_bodegas'    => $stockInfo['resumen_por_bodega'],
                 ];
             }
         }
 
         if (!empty($faltantes)) {
+
             $resultado[] = [
-                'orden_id'        => $orden->id,
-                'codigo'          => "OC-" . str_pad($orden->id, 4, '0', STR_PAD_LEFT),
-                'estado'          => $orden->estado->nombre ?? 'Desconocido',
-                'cliente'         => [
-                    'id'      => $orden->cliente->id ?? null,
-                    'nombre'  => $orden->cliente->nombre ?? 'Sin cliente',
-                    'nit'     => $orden->cliente->nit ?? null,
+                'orden_id' => $orden->id,
+
+                'codigo' => "OC-" . str_pad($orden->id, 4, '0', STR_PAD_LEFT),
+
+                'estado' => $orden->estado->nombre ?? 'Desconocido',
+
+                'cliente' => [
+                    'id'     => $orden->cliente->id ?? null,
+                    'nombre' => $orden->cliente->nombre ?? 'Sin cliente',
+                    'nit'    => $orden->cliente->nit ?? null,
                 ],
-                'sede'            => [
-                    'id'      => $orden->sede->id ?? null,
-                    'nombre'  => $orden->sede->nombre ?? 'Sin sede',
+
+                'sede' => [
+                    'id'     => $orden->sede->id ?? null,
+                    'nombre' => $orden->sede->nombre ?? 'Sin sede',
                 ],
+
                 'ordenes_trabajo' => $orden->OrdenesTrabajo->map(function ($ot) {
                     return [
-                        'id'      => $ot->id,
-                        'codigo'  => "OT-" . str_pad($ot->id, 4, '0', STR_PAD_LEFT),
-                        'estado'  => $ot->estado->nombre ?? 'Desconocido',
+                        'id'     => $ot->id,
+                        'codigo' => "OT-" . str_pad($ot->id, 4, '0', STR_PAD_LEFT),
+                        'estado' => $ot->estado->nombre ?? 'Desconocido',
                     ];
                 }),
+
                 'faltantes_total' => count($faltantes),
-                'faltantes'       => $faltantes,
-            ];  
+
+                'faltantes' => $faltantes,
+            ];
         }
     }
 
