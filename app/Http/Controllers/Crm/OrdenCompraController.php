@@ -50,9 +50,9 @@ class OrdenCompraController extends Controller
     }
 
 
-    public function verificarFaltantesPendientes()
+    public function verificarFaltantesPendientes(Request $request)
     {
-          $resultado = $this->productService->getFaltantesOrdenesPendientes();
+          $resultado = $this->productService->getFaltantesOrdenesPendientes($request);
     return response()->json($resultado);
     }
 

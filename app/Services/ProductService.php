@@ -620,7 +620,7 @@ public function getStockConSugerencias(int $productoId, $user): array
 
 
 
-
+/*
 public function getFaltantesOrdenesPendientes()
 {
     $user = auth()->user();
@@ -692,11 +692,129 @@ public function getFaltantesOrdenesPendientes()
         'total_ordenes' => count($resultado),
         'ordenes'       => $resultado,
     ];
+}*/
+
+
+
+public function getFaltantesOrdenesPendientes(Request $request)
+{
+    $user = auth()->user();
+
+    $search = $request->input('search');
+    $estado = $request->input('estado');
+    $perPage = $request->input('per_page', 20);
+
+    $ordenes = Orden_Compra::with(['detalles.product', 'estado', 'cliente', 'OrdenesTrabajo'])
+
+        ->whereIn('estado_id', [1, 5]) // Pendiente y Parcial
+
+        ->when(!in_array($user->role_id, [1, 2, 4]), function ($query) use ($user) {
+            $query->where('sede_id', $user->sede_id);
+        })
+
+        // 🔎 filtro búsqueda por cliente o código
+        ->when($search, function ($query) use ($search) {
+
+            $query->where(function ($q) use ($search) {
+
+                $q->where('id', 'like', "%{$search}%")
+
+                  ->orWhereHas('cliente', function ($clienteQuery) use ($search) {
+                      $clienteQuery->where('nombre', 'like', "%{$search}%");
+                  });
+
+            });
+
+        })
+
+        // 🔎 filtro por estado
+        ->when($estado, function ($query) use ($estado) {
+            $query->whereHas('estado', function ($q) use ($estado) {
+                $q->where('nombre', $estado);
+            });
+        })
+
+        ->paginate($perPage);
+
+    $resultado = [];
+
+    foreach ($ordenes as $orden) {
+
+        $faltantes = [];
+
+        foreach ($orden->detalles as $detalle) {
+
+            if (!$detalle->product) continue;
+
+            $productoId = $detalle->product_id;
+            $cantidadRequerida = $detalle->cantidad_requerida_kg ?? 0;
+
+            $stockInfo = $this->getStockByProduct($productoId, $user);
+            $stockTotal = $stockInfo['stock_total'];
+
+            $faltante = max(0, $cantidadRequerida - $stockTotal);
+
+            if ($faltante > 0) {
+
+                $faltantes[] = [
+                    'producto_id'        => $productoId,
+                    'codigo'             => $detalle->product->code ?? '-',
+                    'nombre'             => $detalle->product->name ?? 'Sin nombre',
+                    'cantidad_requerida' => floatval($cantidadRequerida),
+                    'stock_disponible'   => floatval($stockTotal),
+                    'faltante'           => floatval($faltante),
+                    'resumen_bodegas'    => $stockInfo['resumen_por_bodega'],
+                ];
+
+            }
+        }
+
+        if (!empty($faltantes)) {
+
+            $resultado[] = [
+                'orden_id' => $orden->id,
+                'codigo'   => "OC-" . str_pad($orden->id, 4, '0', STR_PAD_LEFT),
+
+                'estado' => $orden->estado->nombre ?? 'Desconocido',
+
+                'cliente' => [
+                    'id'     => $orden->cliente->id ?? null,
+                    'nombre' => $orden->cliente->nombre ?? 'Sin cliente',
+                    'nit'    => $orden->cliente->nit ?? null,
+                ],
+
+                'sede' => [
+                    'id'     => $orden->sede->id ?? null,
+                    'nombre' => $orden->sede->nombre ?? 'Sin sede',
+                ],
+
+                'ordenes_trabajo' => $orden->OrdenesTrabajo->map(function ($ot) {
+                    return [
+                        'id'     => $ot->id,
+                        'codigo' => "OT-" . str_pad($ot->id, 4, '0', STR_PAD_LEFT),
+                        'estado' => $ot->estado->nombre ?? 'Desconocido',
+                    ];
+                }),
+
+                'faltantes_total' => count($faltantes),
+                'faltantes'       => $faltantes,
+            ];
+        }
+    }
+
+    return response()->json([
+
+        'data' => $resultado,
+
+        'pagination' => [
+            'total' => $ordenes->total(),
+            'per_page' => $ordenes->perPage(),
+            'current_page' => $ordenes->currentPage(),
+            'last_page' => $ordenes->lastPage(),
+        ]
+
+    ]);
 }
-
-
-
-
     
 
     

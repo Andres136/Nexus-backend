@@ -27,7 +27,7 @@ class KpiService
 
         // =========================
         // BASE: Clientes totales (base de cálculo)
-        // =========================
+        // =========================s
         $clientesTotales = (int) Cliente::count();
 
         // =========================

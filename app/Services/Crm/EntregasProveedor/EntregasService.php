@@ -167,6 +167,7 @@ class EntregasService
             'producto_id'        => $data['producto_id'] ?? null,
             'user_id'            => $user->id,
             'sede_id'            => $user->sede_id,
+            
         ]);
 
         $productoId = $this->resolverProductoId($data);

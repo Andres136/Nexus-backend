@@ -123,50 +123,71 @@ public function getMonthlyStats(Request $request)
     $year  = $request->input('year', now()->year);
     $month = $request->input('month', now()->month);
 
-    $start = Carbon::create($year, $month, 1)->startOfDay();
-    $end   = Carbon::create($year, $month, 1)->endOfMonth()->endOfDay();
+    $start = Carbon::create($year, $month, 1)->startOfMonth();
+    $end   = Carbon::create($year, $month, 1)->endOfMonth();
 
-    // 🔹 Total órdenes generadas en el mes (excluyendo entregas parciales)
-    $ordenesGeneradas = Orden_Compra::whereBetween('created_at', [$start, $end])
-        ->where('estado_id', '!=', 5)
+    // Órdenes cuyo compromiso de entrega es en el mes
+    $ordenes = Orden_Compra::with('detalles')
+        ->whereBetween('fecha_entrega', [$start, $end])
+        ->where('estado_id', '!=', 5) // excluir parciales
         ->get();
-    $totalGeneradas   = $ordenesGeneradas->count();
 
-    // 🔹 Total órdenes despachadas en el mes (excluyendo entregas parciales)
-    $totalDespachadas = Orden_Compra::whereBetween('fecha_despacho', [$start, $end])
-        ->where('estado_id', '!=', 5)
-        ->count();
+    $totalOrdenes = $ordenes->count();
 
-    // 🔹 Órdenes vencidas en el mes (usa tu método auxiliar existente)
-    $vencidas = $ordenesGeneradas->filter(function ($orden) {
-        return $this->esVencida($orden);
-    })->count();
+    $entregadasATiempo = 0;
+    $entregadasTarde = 0;
+    $pendientes = 0;
+    $despachadas = 0;
 
-    // 🔹 Órdenes pendientes = generadas sin despacho y no vencidas
-    $pendientes = $ordenesGeneradas->filter(function ($orden) {
-        return !$orden->fecha_despacho && !$this->esVencida($orden);
-    })->count();
+    foreach ($ordenes as $orden) {
 
-    // 🔹 Órdenes despachadas a tiempo (excluyendo entregas parciales)
-    $despachadasATiempo = Orden_Compra::whereBetween('fecha_despacho', [$start, $end])
-        ->where('estado_id', '!=', 5)
-        ->get()
-        ->filter(function ($orden) {
-            if (!$orden->fecha_entrega || !$orden->fecha_despacho) {
-                return false;
+        $fechaEntrega  = $orden->fecha_entrega ? Carbon::parse($orden->fecha_entrega) : null;
+        $fechaDespacho = $orden->fecha_despacho ? Carbon::parse($orden->fecha_despacho) : null;
+
+        // Si no tiene despacho
+        if (!$fechaDespacho) {
+
+            // si la fecha de entrega ya pasó → pendiente vencida
+            if ($fechaEntrega && $fechaEntrega->lt(now())) {
+                $pendientes++;
             }
-            return Carbon::parse($orden->fecha_despacho)->lte(Carbon::parse($orden->fecha_entrega));
-        })
-        ->count();
+
+            continue;
+        }
+
+        $despachadas++;
+
+        // comparar entrega vs despacho
+        if ($fechaEntrega && $fechaDespacho->lte($fechaEntrega)) {
+            $entregadasATiempo++;
+        } else {
+            $entregadasTarde++;
+        }
+    }
+
+    // KPI cumplimiento general
+    $cumplimientoTotal = $totalOrdenes > 0
+        ? ($entregadasATiempo / $totalOrdenes) * 100
+        : 0;
+
+    // KPI logístico (solo órdenes despachadas)
+    $cumplimientoLogistico = $despachadas > 0
+        ? ($entregadasATiempo / $despachadas) * 100
+        : 0;
 
     return response()->json([
-        'year'                 => $year,
-        'month'                => $month,
-        'total_generadas'      => $totalGeneradas,
-        'total_despachadas'    => $totalDespachadas,
-        'vencidas'             => $vencidas,
-        'pendientes'           => $pendientes,
-        'despachadas_a_tiempo' => $despachadasATiempo,
+        'year' => $year,
+        'month' => $month,
+
+        'total_ordenes' => $totalOrdenes,
+
+        'despachadas' => $despachadas,
+        'entregadas_a_tiempo' => $entregadasATiempo,
+        'entregadas_tarde' => $entregadasTarde,
+        'pendientes_vencidas' => $pendientes,
+
+        'cumplimiento_total_pct' => round($cumplimientoTotal, 2),
+        'cumplimiento_logistico_pct' => round($cumplimientoLogistico, 2)
     ]);
 }
 
