@@ -14,6 +14,8 @@ use App\Http\Controllers\Crm\DocumentoVehiculoController;
 use App\Http\Controllers\Crm\EmpresaController;
 use App\Http\Controllers\Crm\EntregaProveedorController;
 use App\Http\Controllers\Crm\EventoController;
+use App\Http\Controllers\Crm\GestionCarteraController;
+use App\Http\Controllers\Crm\GestionPivoteCarteraController;
 use App\Http\Controllers\Crm\InspeccionController;
 use App\Http\Controllers\Crm\InventorieController;
 use App\Http\Controllers\Crm\MantenimientoController;
@@ -362,6 +364,12 @@ Route::put('mantenimiento-equipos-tic/{id}/actualizar-estado', [MantenimientoEqu
 //RUTAS PARA ACTUALIZAR DEPARTAMENTOSRUTAS PARA ORDENES DE SERVICIO
 Route::apiResource('ordenes-servicio', OrdenesServicioController::class);
 Route::get('ordenes-servicio/{id}/show', [OrdenesServicioController::class, 'obtenerOrdenesShow']);
+
+
+
+//RUTAS PARA GESTIONAR CARTERA
+Route::apiResource('gestion-cartera', GestionCarteraController::class);
+Route::apiResource('abonos-cartera',GestionPivoteCarteraController::class);
 
 });
 
