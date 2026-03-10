@@ -854,6 +854,7 @@ $proveedorCubre = ($stockTotal + $solicitadoProveedor) >= $cantidadRequerida;
 
                 $resultado[] = [
                     'orden_id' => $orden->id,
+                    'fecha_entrega' => $orden->fecha_entrega,
                     'codigo'   => "OC-" . str_pad($orden->id, 4, '0', STR_PAD_LEFT),
 
                     'estado' => $orden->estado->nombre ?? 'Desconocido',
