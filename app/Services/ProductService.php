@@ -240,7 +240,7 @@ class ProductService
                 $data['bodega_id'] = $bodegaId;
                 $data['sede_id'] = $user->sede_id;
                 $data['usuario_id'] = $user->id;
-                // ⛔ Saltar filas completamente vacías
+                //  Saltar filas completamente vacías
                 if (empty(array_filter($data, fn($v) => trim((string)$v) !== ''))) {
                     continue;
                 }
@@ -386,7 +386,7 @@ class ProductService
                             $data[$key] = $value;
                         }
                     }
-                    // ⛔ Ignorar filas completamente vacías
+                    //  Ignorar filas completamente vacías
                     if (empty(array_filter($data, fn($v) => trim((string)$v) !== ''))) {
                         continue;
                     }

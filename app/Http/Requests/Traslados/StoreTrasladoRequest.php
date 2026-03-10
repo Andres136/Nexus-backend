@@ -36,7 +36,7 @@ class StoreTrasladoRequest extends FormRequest
            //DETALLES OBLIGATORIOS
            'detalles' => 'required|array|min:1',
            'detalles.*.producto_id'=>'required|exists:products,id',
-           'detalles.*.cantidad'=>'required|numeric|min:1',
+           'detalles.*.cantidad'=>'required|numeric|min:0',
 
 
         ];
