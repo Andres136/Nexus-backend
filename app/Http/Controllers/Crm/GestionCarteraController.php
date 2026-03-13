@@ -23,11 +23,14 @@ class GestionCarteraController extends Controller
 
     public function index(Request $request)
     {
-        $filtros = $request->only(['fecha_inicio', 'fecha_fin', 'cliente_id', 'user_comercial_id', 'estado', 'per_page']);
+        $filtros = $request->only(['buscar', 'fecha_inicio', 'fecha_fin', 'cliente_id', 'user_comercial_id', 'estado', 'per_page']);
         $data = $this->gestionCarteraService->listarGestionCartera($filtros);
         return response()->json([
             'message' => 'Gestión de cartera obtenida exitosamente',
-            'data' => $data
+            'data' => $data['paginator'],
+            'total' => $data['total_cartera']
+            
+            
         ]);
     }
 
@@ -38,7 +41,7 @@ class GestionCarteraController extends Controller
     {
         $gestionCartera = $this->gestionCarteraService->crearGestionCartera($request->validated());
         return response()->json([
-            'message' => 'Gestión de cartera creada exitosamente',
+            'message' => 'Factura registrada exitosamente',
             'data' => $gestionCartera
         ]);
     }
@@ -50,7 +53,7 @@ class GestionCarteraController extends Controller
     {
         $gestionCartera = $this->gestionCarteraService->find($id);
         return response()->json([
-            'message' => 'Gestión de cartera obtenida exitosamente',
+            'message' => 'Factura obtenida exitosamente',
             'data' => $gestionCartera
         ]);
     }
@@ -62,7 +65,7 @@ class GestionCarteraController extends Controller
     {
         $updatedGestionCartera = $this->gestionCarteraService->update($id, $request->validated());
         return response()->json([
-            'message' => 'Gestión de cartera actualizada exitosamente',
+            'message' => 'Factura actualizada exitosamente',
             'data' => $updatedGestionCartera
         ]);
     }
@@ -70,8 +73,25 @@ class GestionCarteraController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
-    {
-        //
-    }
+   public function destroy($id)
+{
+    $cartera = $this->gestionCarteraService->cancelarDeuda($id);
+
+    return response()->json([
+        'message' => 'Deuda cancelada correctamente',
+        'data' => $cartera
+    ]);
+}
+
+
+public function estadisticasCartera(Request $request)
+{
+    $year = $request->query('year', now()->year);
+    $lineaTiempo = $this->gestionCarteraService->lineaTiempoAnual($year);
+
+    return response()->json([
+        'message' => 'Línea de tiempo anual obtenida exitosamente',
+        'data' => $lineaTiempo
+    ]);
+}
 }

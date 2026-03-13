@@ -65,10 +65,10 @@ class MantenimientoEquiposService
 private function colorEstado($estado)
 {
     return match($estado) {
-        'PENDIENTE' => '#f59e0b',
-        'EN_PROCESO' => '#3b82f6',
-        'COMPLETADO' => '#10b981',
-        default => '#6b7280',
+        'pendiente' => '#f59e0b',   // amarillo
+        'en_proceso' => '#3b82f6',  // azul
+        'completado' => '#10b981',  // verde
+        default => '#6b7280',       // gris
     };
 }
 

@@ -150,13 +150,15 @@ public function listarEntregasPorUsuario()
         'records', 
         'usuario'
     ])
-    ->where('usuario_id', $user->id) // Filtrar por conductor asignado
-    // ✅ ALTERNATIVA: Solo mostrar entregas activas (pendientes y en ruta)
+    ->where('usuario_id', $user->id)
     ->whereIn('estado', ['pendiente', 'en_ruta'])
     ->orderBy('fecha_entrega', 'desc')
     ->orderBy('hora', 'desc')
     ->get();
-    
-    return response()->json(['data' => $deliveryEvents], 200);
+
+    return response()->json([
+        'user' => $user,
+        'data' => $deliveryEvents
+    ], 200);
 }
 }         

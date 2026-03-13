@@ -38,6 +38,15 @@ use App\Http\Controllers\DepartamentoController;
 use App\Http\Controllers\DocumentoController;
 use App\Http\Controllers\ErrorController;
 use App\Http\Controllers\EstadoController;
+use App\Http\Controllers\Hseq\ConsumoServicioController;
+use App\Http\Controllers\Hseq\HallazgoNovedadController;
+use App\Http\Controllers\Hseq\InspeccionHseqController;
+use App\Http\Controllers\Hseq\PreguntaInspeccionController;
+use App\Http\Controllers\Hseq\ResiduoController;
+use App\Http\Controllers\Hseq\RespuestaInspeccionController;
+use App\Http\Controllers\Hseq\TipoInspeccionController;
+use App\Http\Controllers\Hseq\TipoResiduoController;
+use App\Http\Controllers\Hseq\TipoServicioController;
 use App\Http\Controllers\IndicadoresProcesosController;
 use App\Http\Controllers\MacroProcesoController;
 use App\Http\Controllers\NotificacionOrdenController;
@@ -370,6 +379,22 @@ Route::get('ordenes-servicio/{id}/show', [OrdenesServicioController::class, 'obt
 //RUTAS PARA GESTIONAR CARTERA
 Route::apiResource('gestion-cartera', GestionCarteraController::class);
 Route::apiResource('abonos-cartera',GestionPivoteCarteraController::class);
+Route::get('estadisticas-cartera', [GestionCarteraController::class, 'estadisticasCartera']);
+//RUTAS PARA HSEQ
+Route::apiResource('tipo-servicios', TipoServicioController::class);
+Route::apiResource('consumo-servicios', ConsumoServicioController::class);
+//RUTAS PARA RESIDUOS
+Route::apiResource('tipo-residuos', TipoResiduoController::class);
+Route::apiResource('residuos', ResiduoController::class);
+
+//RUTAS PARA TIPO DE INSPECCION
+Route::apiResource('tipo-inspecciones', TipoInspeccionController::class);
+Route::apiResource('preguntas-inspeccion', PreguntaInspeccionController::class);
+Route::apiResource('inspecciones-hseq', InspeccionHseqController::class);
+Route::apiResource('respuestas-inspeccion', RespuestaInspeccionController::class);
+
+Route::apiResource('hallazgo-novedad', HallazgoNovedadController::class);
+
 
 });
 
