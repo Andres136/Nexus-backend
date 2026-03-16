@@ -13,20 +13,37 @@ class TareaController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $request)
-    {
-        $query = Tareas::with('usuario', 'departamentos');
-    
-        // Filtrar por nombre de usuario si se envía un parámetro de búsqueda
-        if ($request->has('usuario')) {
-            $query->whereHas('usuario', function ($q) use ($request) {
-                $q->where('name', 'like', '%' . $request->usuario . '%');
-            });
-        }
-        $query->orderByRaw('estado_id = 1 DESC');
-        $tareas = $query->paginate(10);
-        return response()->json($tareas);
+ public function index(Request $request)
+{
+    $user = auth()->user();
+
+    $query = Tareas::with('usuario', 'departamentos');
+
+    // 🔹 Si NO es admin (1) ni supervisor (20), solo ve sus tareas
+    if (!in_array($user->role_id, [1, 20])) {
+        $query->where('user_id', $user->id);
     }
+
+    // 🔹 Filtro por nombre de usuario
+    if ($request->has('usuario')) {
+        $query->whereHas('usuario', function ($q) use ($request) {
+            $q->where('name', 'like', '%' . $request->usuario . '%');
+        });
+    }
+    // 🔹 Filtro por departamento
+    if ($request->has('departamento')) {
+        $query->whereHas('departamentos', function ($q) use ($request) {
+            $q->where('name', 'like', '%' . $request->departamento . '%');
+        });
+    }
+
+    // 🔹 Orden: pendientes primero
+    $query->orderByRaw('estado_id = 1 DESC');
+
+    $tareas = $query->paginate(10);
+
+    return response()->json($tareas);
+}
     
     /**
      * Store a newly created resource in storage.
@@ -68,20 +85,32 @@ class TareaController extends Controller
      * Update the specified resource in storage.
      */
     public function update(Request $request, string $id)
-    {
-        $tarea = Tareas::find($id);
+{
+    $tarea = Tareas::find($id);
 
-        if (!$tarea) {
-            return response()->json(['message' => 'Tarea no encontrada'], 404);
-        }
-    
-        $tarea->estado_id = 2; // Asume que "2" representa "completada"
-        $tarea->save();
-    
+    if (!$tarea) {
         return response()->json([
-            'message' => 'Tarea marcada como completada'
-        ]);
+            'message' => 'Tarea no encontrada'
+        ], 404);
     }
+
+    $estadoActual = $tarea->estado_id;
+
+    // Flujo de estados
+    if ($estadoActual == 1) {
+        $tarea->estado_id = 5; // En curso (Entrega parcial)
+    } 
+    elseif ($estadoActual == 5) {
+        $tarea->estado_id = 2; // Completada
+    }
+
+    $tarea->save();
+
+    return response()->json([
+        'message' => 'Estado actualizado correctamente',
+        'estado_actual' => $tarea->estado_id
+    ]);
+}
 
 
     //Actualizar tarea

@@ -21,6 +21,15 @@ class VerificacionDiariaService
 
     }
 
-
-    
+//Consultar verificacion 
+    public function getIncidentesHoy(int $departamentoId)
+{
+    return Verificaciones::with([
+        'pregunta:id,pregunta',
+        'usuario:id,name'
+    ])
+    ->where('estado','no')
+    ->whereDate('fecha', now())
+    ->get();
+}
 }

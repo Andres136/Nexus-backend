@@ -16,9 +16,7 @@ class RegistroDiarioService
 {
     public function crearRegistroDiario($data)
     {
-        // Aquí puedes implementar la lógica para crear un nuevo registro diario
-        // utilizando los modelos correspondientes (RegistroDiarios, Preguntas, etc.)
-        // y cualquier validación necesaria.
+        
         $registroDiario = RegistroDiarios::create([
             'usuario_id' => auth()->id(),
             'departamento_id' => $data['departamento_id'],
@@ -29,7 +27,7 @@ class RegistroDiarioService
             'tipo' => $data['tipo'],
         ]);
 
-          // AQUÍ estaba lo que faltaba
+          
     if (!empty($data['novedad'])) {
         Novedades::create([
             'registro_diario_id' => $registroDiario->id,
@@ -49,16 +47,19 @@ class RegistroDiarioService
 public function getByDepartamento(int $departamentoId)
 {
     return RegistroDiarios::with([
-         'departamento:id,nombre',
+        'departamento:id,nombre',
         'usuario:id,name',
         'verificaciones.pregunta:id,pregunta',
         'pregunta:id,pregunta'
     ])
-   ->where('departamento_id', $departamentoId)
-    ->whereDate('fecha', Carbon::today()) // 👈 SOLO HOY
-    ->orderBy('created_at', 'desc')
+    ->where('departamento_id', $departamentoId)
+    ->where('tipo', 'no')
+    ->whereBetween('fecha', [
+        Carbon::today()->startOfDay(),
+        Carbon::today()->endOfDay()
+    ])
+    ->latest()
     ->get();
-
 }
 
 
@@ -66,65 +67,56 @@ public function getByDepartamento(int $departamentoId)
 
 public function estadisticasAnuales(int $anio)
 {
-   // 1️⃣ Registros diarios
+    // 1️⃣ Registros diarios (solo tipo NO)
     $registros = RegistroDiarios::select(
+            'id',
             'departamento_id',
             DB::raw('MONTH(fecha) as mes'),
-            DB::raw('COUNT(*) as total_registros'),
-            DB::raw('AVG(respuesta) as promedio_respuesta'),
-            DB::raw('SUM(respuesta) as total_respuesta')
+            DB::raw("SUM(CASE WHEN tipo = 'no' THEN 1 ELSE 0 END) as total_registros"),
+            DB::raw("AVG(CASE WHEN tipo='no' THEN respuesta END) as promedio_respuesta"),
+            DB::raw("SUM(CASE WHEN tipo='no' THEN respuesta ELSE 0 END) as total_respuesta")
         )
         ->whereYear('fecha', $anio)
-        ->groupBy('departamento_id', DB::raw('MONTH(fecha)'))
+        ->groupBy('id','departamento_id', DB::raw('MONTH(fecha)'))
         ->get();
 
     // 2️⃣ Verificaciones
     $verificaciones = Verificaciones::select(
-            DB::raw('MONTH(fecha) as mes'),
             'registro_diario_id',
+            DB::raw('MONTH(fecha) as mes'),
             DB::raw("SUM(CASE WHEN estado = 'si' THEN 1 ELSE 0 END) as si"),
             DB::raw("SUM(CASE WHEN estado = 'no' THEN 1 ELSE 0 END) as no")
         )
         ->whereYear('fecha', $anio)
         ->groupBy('registro_diario_id', DB::raw('MONTH(fecha)'))
-        ->get();
+        ->get()
+        ->keyBy('registro_diario_id');
 
-    // 3️⃣ Mapear verificaciones por registro
-    $verificacionesPorRegistro = [];
-
-    foreach ($verificaciones as $v) {
-        $verificacionesPorRegistro[$v->registro_diario_id][$v->mes] = [
-            'si' => $v->si,
-            'no' => $v->no,
-        ];
-    }
-
-    // 4️⃣ Departamentos
-    $departamentos = Departamentos::select('id', 'nombre')->get();
+    // 3️⃣ Departamentos
+    $departamentos = Departamentos::select('id','nombre')->get();
 
     $resultado = [];
 
     foreach ($departamentos as $departamento) {
+
         $meses = [];
 
         for ($mes = 1; $mes <= 12; $mes++) {
-            $registro = $registros
-                ->first(fn($r) =>
-                    $r->departamento_id === $departamento->id &&
-                    $r->mes === $mes
-                );
 
-            $total = $registro->total_registros ?? 0;
+            $registrosMes = $registros->filter(fn($r) =>
+                $r->departamento_id === $departamento->id &&
+                $r->mes === $mes
+            );
+
+            $total = $registrosMes->sum('total_registros');
 
             $si = 0;
             $no = 0;
 
-            if ($registro) {
-                foreach ($verificacionesPorRegistro as $data) {
-                    if (isset($data[$mes])) {
-                        $si += $data[$mes]['si'];
-                        $no += $data[$mes]['no'];
-                    }
+            foreach ($registrosMes as $r) {
+                if(isset($verificaciones[$r->id])){
+                    $si += $verificaciones[$r->id]->si;
+                    $no += $verificaciones[$r->id]->no;
                 }
             }
 
@@ -144,8 +136,8 @@ public function estadisticasAnuales(int $anio)
                     'no' => $no,
                 ],
                 'respuestas' => [
-                    'promedio' => round($registro->promedio_respuesta ?? 0, 2),
-                    'total' => $registro->total_respuesta ?? 0,
+                    'promedio' => round($registrosMes->avg('promedio_respuesta') ?? 0, 2),
+                    'total' => $registrosMes->sum('total_respuesta') ?? 0,
                 ],
             ];
         }

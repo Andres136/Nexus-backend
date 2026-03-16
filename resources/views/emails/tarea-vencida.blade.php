@@ -99,12 +99,9 @@
   <!-- CTAs (se apilan en móvil) -->
   <tr>
     <td align="center">
-      <a href="{{ $appUrl }}/auth/crm/tareas?filter=vencidas"
-         style="display:block;width:100%;max-width:600px;background:#c62828;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:6px;font-weight:700;text-align:center;">
-        Revisar todas las tareas vencidas
-      </a>
+   
       <div style="height:10px;line-height:10px;">&nbsp;</div>
-      <a href="{{ $appUrl }}/auth/crm/dashboard"
+      <a href="{{ $appUrl }}/auth/tareas"
          style="display:block;width:100%;max-width:600px;background:#3498db;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:6px;font-weight:600;text-align:center;">
         Ir al dashboard
       </a>

@@ -63,14 +63,11 @@
   <tr>
     <td align="center">
       <!-- Botón principal: ocupa todo el ancho en móvil -->
-      <a href="{{ $appUrl }}/auth/crm/tareas/{{ $tarea->id }}"
-         style="display:block; max-width:320px; width:100%; background:#208040; color:#ffffff; text-decoration:none; padding:12px 24px; border-radius:6px; font-weight:600; text-align:center; margin:0 auto;">
-        🚀 Gestionar tarea
-      </a>
+  
 
       <div style="height:10px; line-height:10px;">&nbsp;</div>
 
-      <a href="{{ $appUrl }}/auth/crm/tareas"
+      <a href="{{ $appUrl }}/auth/tareas"
          style="display:block; max-width:320px; width:100%; background:#3498db; color:#ffffff; text-decoration:none; padding:12px 24px; border-radius:6px; font-weight:600; text-align:center; margin:0 auto;">
         📋 Ver todas
       </a>
