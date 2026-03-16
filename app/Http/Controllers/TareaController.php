@@ -13,23 +13,27 @@ class TareaController extends Controller
     /**
      * Display a listing of the resource.
      */
- public function index(Request $request)
+public function index(Request $request)
 {
     $user = auth()->user();
 
     $query = Tareas::with('usuario', 'departamentos');
+
+    // 🔹 Solo pendientes (1) y en curso (5)
+    $query->whereIn('estado_id', [1, 5]);
 
     // 🔹 Si NO es admin (1) ni supervisor (20), solo ve sus tareas
     if (!in_array($user->role_id, [1, 20])) {
         $query->where('user_id', $user->id);
     }
 
- // Filtro por nombre de usuario
-if ($request->filled('usuario')) {
-    $query->whereHas('usuario', function ($q) use ($request) {
-        $q->where('name', 'like', '%' . $request->usuario . '%');
-    });
-}
+    // 🔹 Filtro por nombre de usuario
+    if ($request->filled('usuario')) {
+        $query->whereHas('usuario', function ($q) use ($request) {
+            $q->where('name', 'like', '%' . $request->usuario . '%');
+        });
+    }
+
     // 🔹 Filtro por departamento
     if ($request->filled('departamento')) {
         $query->whereHas('departamentos', function ($q) use ($request) {
@@ -37,12 +41,10 @@ if ($request->filled('usuario')) {
         });
     }
 
-    // 🔹 Orden: pendientes primero
-    $query->orderByRaw('estado_id = 1 DESC');
+    // 🔹 Ordenar por fecha
+    $query->orderBy('created_at', 'desc');
 
-    $tareas = $query->paginate(10);
-
-    return response()->json($tareas);
+    return response()->json($query->get()); // ❌ sin paginación
 }
     
     /**
