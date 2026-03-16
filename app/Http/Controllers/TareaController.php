@@ -24,14 +24,14 @@ class TareaController extends Controller
         $query->where('user_id', $user->id);
     }
 
-    // 🔹 Filtro por nombre de usuario
-    if ($request->has('usuario')) {
-        $query->whereHas('usuario', function ($q) use ($request) {
-            $q->where('name', 'like', '%' . $request->usuario . '%');
-        });
-    }
+ // Filtro por nombre de usuario
+if ($request->filled('usuario')) {
+    $query->whereHas('usuario', function ($q) use ($request) {
+        $q->where('name', 'like', '%' . $request->usuario . '%');
+    });
+}
     // 🔹 Filtro por departamento
-    if ($request->has('departamento')) {
+    if ($request->filled('departamento')) {
         $query->whereHas('departamentos', function ($q) use ($request) {
             $q->where('name', 'like', '%' . $request->departamento . '%');
         });
