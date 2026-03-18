@@ -55,7 +55,7 @@
                             <th>Cant.</th>
                             <th>Enviada</th>
                             <th>Faltantes</th>
-                            <th>Inventario</th>
+                         
                             <th>Observaciones</th>
                         </tr>
                     </thead>
@@ -83,14 +83,7 @@
                                 <td>
                                     {{ rtrim(rtrim(number_format($detalle->faltantes ?? 0, 2, '.', ''), '0'), '.') }}
                                 </td>
-                                <td>
-                                    {{ \App\Models\Crm\Inventario::getStockOrSimilarFromCollection(
-                                        $detalle->product,
-                                        $inventarios,
-                                        $orden->empresa_id ?? null,
-                                        $orden->sede_id ?? null
-                                    ) }}
-                                </td>
+                        
                                 <td></td>
                             </tr>
                         @endforeach
