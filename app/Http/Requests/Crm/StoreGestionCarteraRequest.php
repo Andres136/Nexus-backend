@@ -23,6 +23,7 @@ class StoreGestionCarteraRequest extends FormRequest
 {
     return [
         'registros' => 'required|array|min:1',
+        'registros.*.empresa_id' => 'required|exists:empresas,id',
 
         'registros.*.numero_factura' => 'required|string|max:255',
         'registros.*.user_comercial_id' => 'required|exists:users,id',
@@ -51,6 +52,8 @@ class StoreGestionCarteraRequest extends FormRequest
         return [
             'registros.required' => 'Se requiere al menos un registro de gestión de cartera.',
             'registros.array' => 'Los registros deben ser un arreglo.',
+            'registros.*.empresa_id.required' => 'El campo de la empresa es obligatorio para cada registro.',
+            'registros.*.empresa_id.exists' => 'La empresa no existe en la base de datos.',
             'registros.*.numero_factura.required' => 'El número de factura es obligatorio para cada registro.',
             'registros.*.user_comercial_id.required' => 'El campo del usuario comercial es obligatorio para cada registro.',
             'registros.*.user_comercial_id.exists' => 'El usuario comercial no existe en la base de datos.',

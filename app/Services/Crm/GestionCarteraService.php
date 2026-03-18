@@ -28,6 +28,7 @@ DB::transaction(function() use ($data) {
 
         $gestionCartera = GestionCartera::create([
             'user_id' => auth()->id(),
+            'empresa_id' => $registro['empresa_id'],
             'numero_factura' => $registro['numero_factura'],
             'user_comercial_id' => $registro['user_comercial_id'],
             'cliente_id' => $registro['cliente_id'],
@@ -81,7 +82,7 @@ public function crearAbono($gestionCarteraId, $data)
 
 public function listarGestionCartera(array $filtros)
 {
-    $query = GestionCartera::query()->with('cliente', 'comercial');
+    $query = GestionCartera::query()->with('cliente', 'comercial', 'pagos', 'empresa');
 
     $user = auth()->user();
 
@@ -95,6 +96,8 @@ public function listarGestionCartera(array $filtros)
         $query->where('user_comercial_id', $user->id);
     }
 
+ 
+
     if (!empty($filtros['buscar'])) {
         $buscar = $filtros['buscar'];
 
@@ -105,7 +108,11 @@ public function listarGestionCartera(array $filtros)
               })
               ->orWhereHas('comercial', function ($q3) use ($buscar) {
                   $q3->where('name', 'like', "%{$buscar}%");
+              })
+              ->orWhereHas('empresa', function ($q4) use ($buscar) {
+                  $q4->where('nombre', 'like', "%{$buscar}%");
               });
+
         });
     }
 

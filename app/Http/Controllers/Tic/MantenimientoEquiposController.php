@@ -79,12 +79,32 @@ class MantenimientoEquiposController extends Controller
     public function destroy(CambiarEstadoRequest $request, string $id)
     {
         $data = $request->validated();
-        $mantenimiento = $this->mantenimientoEquiposService->cambiarEstado($id, $data);
+
+    $mantenimiento = $this->mantenimientoEquiposService->cambiarEstado(
+        $id,
+        $data,
+        $request->file('archivos') // 👈 ahora es array
+    );
+
+    return response()->json([
+        'message' => 'Estado del mantenimiento actualizado exitosamente',
+        'data' => $mantenimiento,
+    
+    ]);
+    }
+
+
+    //Actualizar mantenimiento
+    public function actualizarMantenimiento(Request $request, string $id)
+    {
+        $data = $request->all();
+
+        $mantenimiento = $this->mantenimientoEquiposService->actualizarMantenimiento($id, $data);
+
         return response()->json([
-            'message' => 'Estado del mantenimiento actualizado exitosamente',
+            'message' => 'Mantenimiento actualizado exitosamente',
             'data' => $mantenimiento
         ]);
     }
-
 
 }

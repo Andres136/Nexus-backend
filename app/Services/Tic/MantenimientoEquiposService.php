@@ -138,4 +138,22 @@ public function cambiarEstado($id, array $data, $archivos = null)
 
     return $mantenimiento->load('archivos');
 }
+
+//Actualizar mantenimiento
+public function actualizarMantenimiento($id, array $data)
+{
+    $mantenimiento = MantenimientoEquipos::findOrFail($id);
+
+    $mantenimiento->update([
+        'sede_id' => $data['sede_id'] ?? $mantenimiento->sede_id,
+        'producto_id' => $data['producto_id'] ?? $mantenimiento->producto_id,
+        'empresa_id' => $data['empresa_id'] ?? $mantenimiento->empresa_id,
+        'tipo' => $data['tipo'] ?? $mantenimiento->tipo,
+        'fecha_programada' => $data['fecha_programada'] ?? $mantenimiento->fecha_programada,
+        'observaciones' => $data['observaciones'] ?? $mantenimiento->observaciones,
+        'costo' => $data['costo'] ?? $mantenimiento->costo,
+    ]);
+
+    return $mantenimiento;
+}
 }

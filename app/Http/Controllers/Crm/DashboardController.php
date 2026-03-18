@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Crm;
 use App\Exports\OrdenesCriticasExport;
 use App\Http\Controllers\Controller;
 use App\Models\Crm\Cliente;
+use App\Models\Crm\Inventario;
 use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\OrdenDeTrabajo;
 use App\Services\Crm\KpiService;
@@ -250,7 +251,7 @@ public function descargarOrdenesCriticasHoy(Request $request)
         ? Carbon::parse($request->input('fecha'))->startOfDay()
         : now()->startOfDay();
 
-    $ordenes = Orden_Compra::with(['detalles', 'cliente'])->get();
+    $ordenes = Orden_Compra::with(['detalles.product', 'cliente'])->get();
 
     // 1) Buckets iniciales
     $vencidas = $ordenes->filter(function ($orden) use ($fecha) {
@@ -310,12 +311,20 @@ $hoy = $ordenes->filter(function ($orden) use ($fecha) {
     if ($vencidas->isEmpty() && $conFaltantes->isEmpty() && $hoy->isEmpty()) {
         return response()->json(['mensaje' => 'No hay órdenes críticas para la fecha.'], 404);
     }
+    $productosIds = $ordenes
+    ->flatMap(fn($o) => $o->detalles->pluck('producto_id'))
+    ->unique();
+
+$inventarios = Inventario::with(['producto', 'empresa', 'sede', 'bodega'])
+    ->where('stock', '>', 0) 
+    ->get();
 
     $pdf = Pdf::loadView('pdf.ordenes_criticas', [
         'fecha'     => $fecha->toDateString(),
         'vencidas'  => $vencidas,
         'faltantes' => $conFaltantes,
         'hoy'       => $hoy,
+        'inventarios' => $inventarios
     ]);
 
     $filename = 'ordenes_criticas_' . $fecha->format('Ymd') . '.pdf';

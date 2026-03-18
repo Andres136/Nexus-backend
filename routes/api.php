@@ -364,6 +364,7 @@ Route::apiResource('categorias',CategoriaController::class);
 //MANTENIMIENTO DE EQUIPOS TIC
 Route::apiResource('mantenimiento-equipos-tic', MantenimientoEquiposController::class);
 Route::post('ejecutar-mantenimiento-equipos-tic/{id}', [MantenimientoEquiposController::class, 'update']);
+Route::post('mantenimiento-equipos-tic/{id}/actualizar', [MantenimientoEquiposController::class, 'actualizarMantenimiento']);
 
 Route::apiResource('categorias',CategoriaController::class);
 

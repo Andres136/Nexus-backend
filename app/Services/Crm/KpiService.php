@@ -191,6 +191,14 @@ class KpiService
                 ? ($ordenes / $cotizaciones) * 100
                 : 0;
 
+                $funnelGestionToCompra = $clientesGestionadosMes > 0
+    ? ($compradoresMes / $clientesGestionadosMes) * 100
+    : 0;
+
+$funnelCompraToFiel = $compradoresMes > 0
+    ? ($clientesFielesMes / $compradoresMes) * 100
+    : 0;
+
             return [
                 'month' => $mes,
                 'label' => $m['label'],
@@ -217,6 +225,8 @@ class KpiService
 
                 // Ranking mensual
                 'ventas_por_usuario' => ($ventasPorUsuarioMensual[$mes] ?? collect())->values(),
+                'funnel_gestion_to_compra' => round($funnelGestionToCompra, 2),
+                'funnel_compra_to_fiel' => round($funnelCompraToFiel, 2),
             ];
         })->values();
 

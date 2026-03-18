@@ -11,6 +11,7 @@ class GestionCartera extends Model
 
     protected $fillable = [
         'user_id',
+        'empresa_id',
         'numero_factura',
         'user_comercial_id',
         'cliente_id',
@@ -41,5 +42,10 @@ class GestionCartera extends Model
 public function comercial()
 {
     return $this->belongsTo(User::class, 'user_comercial_id');
+}
+
+public function empresa()
+{
+    return $this->belongsTo(empresa::class, 'empresa_id');
 }
 }
