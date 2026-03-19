@@ -146,7 +146,7 @@ tr { page-break-inside: avoid; }
     </div>
     <div>
         <strong>Fecha Entrega</strong>
-        <span>{{ $orden->fecha_entrega }}</span>
+        <span>{{ $orden->ordenCompra->fecha_entrega ?? 'N/A' }}</span>
     </div>
     <div>
         <strong>Asesor Comercial</strong>
@@ -164,6 +164,14 @@ tr { page-break-inside: avoid; }
     {{ $orden->ordenCompra->observaciones }}
 </div>
 @endif
+<!-- Dirección -->
+@if($orden->ordenCompra && $orden->ordenCompra->ubicacion_entrega)
+<div class="alert">
+    <h3>Dirección de Entrega</h3>
+    {{ $orden->ordenCompra->ubicacion_entrega }}
+</div>
+@endif
+
 
 <h3>Detalles</h3>
 
