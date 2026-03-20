@@ -40,7 +40,10 @@ class RespuestaInspeccionController extends Controller
      */
     public function show(string $id)
     {
-        //
+        $respuestas = $this->respuestaService->getByTipoInspeccion($id);
+        return response()->json([
+            'data' => $respuestas
+        ]);
     }
 
     /**

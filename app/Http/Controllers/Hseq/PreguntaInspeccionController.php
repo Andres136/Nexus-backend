@@ -45,7 +45,7 @@ class PreguntaInspeccionController extends Controller
      */
     public function show(string $id)
     {
-        $pregunta = $this->preguntaInspeccionService->find($id);
+        $pregunta = $this->preguntaInspeccionService->getByTipoInspeccion($id);
         return response()->json([
             'message' => 'Pregunta de inspección encontrada exitosamente',
             'data' => $pregunta
@@ -75,4 +75,18 @@ class PreguntaInspeccionController extends Controller
             'message' => 'Pregunta de inspección eliminada exitosamente'
         ]);
     }
+public function preguntasPorTipoInspeccion(Request $request)
+{
+     $filtros = [
+        'buscar' => $request->input('search'),
+        'per_page' => $request->input('per_page', 20)
+    ];
+    
+    $preguntas = $this->preguntaInspeccionService->listarPreguntasInspeccion($filtros);
+    
+    return response()->json([
+        'message' => 'Preguntas de inspección listadas exitosamente',
+        'data' => $preguntas
+    ]);
+}
 }

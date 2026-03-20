@@ -10,7 +10,14 @@ class InspeccionHseqService
 
     public function create(array $data)
     {
-        return InspeccionHseq::create($data);
+        return InspeccionHseq::create([
+           'sede_id' => $data['sede_id'],
+           'tipo_inspeccion_id' => $data['tipo_inspeccion_id'],
+           'fecha' => $data['fecha'],
+           'responsable_id' => auth()->id(),
+           'estado' => $data['estado'] ?? 'pendiente',
+           'observaciones' => $data['observaciones'] ?? null,
+        ]);
     }   
 
     public function find($id)
@@ -33,13 +40,18 @@ class InspeccionHseqService
     }
 
     //listar todas las inspecciones
-    public function all($search = null, $limit = 10)
-    {
-        $query = InspeccionHseq::query();
-        if ($search) {
-            $query->where('observaciones', 'like', "%{$search}%");
-        }
-        return $query->limit($limit)->get();
+public function all($search = null, $perPage = 100)
+{
+    $query = InspeccionHseq::with([
+        'sede:id,nombre',
+        'tipoInspeccion:id,nombre',
+        'responsable:id,name'
+    ]);
 
+    if ($search) {
+        $query->where('observaciones', 'like', "%{$search}%");
     }
+
+    return $query->orderBy('fecha', 'desc')->paginate($perPage);
+}
 }

@@ -14,15 +14,18 @@ public function create(array $data)
     return DB::transaction(function () use ($data) {
 
         $preguntas = [];
-
+$ultimoOrden = PreguntaInspeccion::where('tipo_inspeccion_id', $data['tipo_inspeccion_id'])
+    ->max('orden') ?? 0;
         foreach ($data['preguntas'] as $pregunta) {
 
             $preguntas[] = PreguntaInspeccion::create([
                 'tipo_inspeccion_id' => $data['tipo_inspeccion_id'],
                 'pregunta' => $pregunta['pregunta'],
-                'orden' => $pregunta['orden'],
+                'tipo_respuesta' => $pregunta['tipo_respuesta'],
+                'orden' => $ultimoOrden + 1,
                 'activa' => $pregunta['activa'] ?? true
             ]);
+            $ultimoOrden++;
         }
 
         return $preguntas;
@@ -30,25 +33,20 @@ public function create(array $data)
 }
 
 
-public function find($id)
+public function findOne($id)
 {
-    return PreguntaInspeccion::where('tipo_inspeccion_id', $id)
-        ->where('activa', 1)
-        ->orderBy('orden')
-        ->get();
+    return PreguntaInspeccion::findOrFail($id);
 }
 
-
-    public function update($id, array $data)
-    {
-        $preguntaInspeccion = $this->find($id);
-        $preguntaInspeccion->update($data);
-        return $preguntaInspeccion;
-    }
-
+public function update($id, array $data)
+{
+    $pregunta = $this->findOne($id);
+    $pregunta->update($data);
+    return $pregunta;
+}
     public function delete($id)
     {
-        $preguntaInspeccion = $this->find($id);
+        $preguntaInspeccion = $this->findOne($id);
         return $preguntaInspeccion->delete();
     }
 
@@ -63,4 +61,43 @@ public function find($id)
         return $query->limit($limit)->get();
 
     }
+
+
+public function listarPreguntasInspeccion(array $filtros)
+{
+ $query = PreguntaInspeccion::query([
+        'id',
+        'tipo_inspeccion_id',
+        'pregunta',
+        'tipo_respuesta',
+        'orden',
+        'activa'
+    ])->with('tipoInspeccion:id,nombre');
+
+  if(!empty($filtros['buscar'])) {
+          $buscar = $filtros['buscar'];
+            $query->where(function($q) use ($buscar) {
+                $q->where('pregunta', 'like', "%{$buscar}%")
+                    ->orWhereHas('tipoInspeccion', function($q2) use ($buscar) {
+                        $q2->where('nombre', 'like', "%{$buscar}%");
+                    });
+            });
+
+    }
+
+    return $query->paginate($filtros['per_page'] ?? 20);
+   
+             
+}
+public function getByTipoInspeccion($tipoInspeccionId)
+{
+    return PreguntaInspeccion::where('tipo_inspeccion_id', $tipoInspeccionId)
+        ->where('activa', true)
+        ->orderBy('orden')
+        ->get([
+            'id',
+            'pregunta',
+            'tipo_respuesta'
+        ]);
+}
 }

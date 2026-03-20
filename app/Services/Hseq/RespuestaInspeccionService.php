@@ -3,6 +3,7 @@
 namespace App\Services\Hseq;
 
 use App\Models\Hseq\InspeccionHseq;
+use App\Models\Hseq\PreguntaInspeccion;
 use App\Models\Hseq\RespuestaInspeccion;
 use Illuminate\Support\Facades\DB;
 
@@ -56,10 +57,10 @@ class RespuestaInspeccionService
         return $respuesta;
     }
 
-    public function all($search = null, $limit = 10)
+    public function all($search = null, $limit = 100)
     {
         // Lógica para listar todas las respuestas de inspección con búsqueda y paginación
-        $query = RespuestaInpeccion::query();
+        $query = RespuestaInspeccion::query();
         if ($search) {
             $query->where('respuesta', 'like', "%{$search}%");
         }

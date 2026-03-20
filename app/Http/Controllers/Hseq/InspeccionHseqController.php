@@ -20,7 +20,10 @@ class InspeccionHseqController extends Controller
     }
     public function index()
     {
-        //
+        $inspecciones = $this->inspeccionService->all();
+        return response()->json([
+            'data' => $inspecciones
+        ]);
     }
 
     /**

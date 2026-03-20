@@ -390,11 +390,12 @@ Route::apiResource('residuos', ResiduoController::class);
 
 //RUTAS PARA TIPO DE INSPECCION
 Route::apiResource('tipo-inspecciones', TipoInspeccionController::class);
-Route::apiResource('preguntas-inspeccion', PreguntaInspeccionController::class);
+Route::apiResource('preguntas-inspecciones', PreguntaInspeccionController::class);
+Route::get('preguntas-tipo-inspecciones', [PreguntaInspeccionController::class, 'preguntasPorTipoInspeccion']);
 Route::apiResource('inspecciones-hseq', InspeccionHseqController::class);
-Route::apiResource('respuestas-inspeccion', RespuestaInspeccionController::class);
+Route::apiResource('respuestas-inspecciones', RespuestaInspeccionController::class);
 
-Route::apiResource('hallazgo-novedad', HallazgoNovedadController::class);
+Route::apiResource('hallazgo-inspecciones', HallazgoNovedadController::class);
 
 
 });

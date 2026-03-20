@@ -25,7 +25,7 @@ class StoreInspecionRequest extends FormRequest
             'sede_id' => 'required|exists:sedes,id',
             'tipo_inspeccion_id' => 'required|exists:tipo_inspecciones,id',
             'fecha' => 'required|date',
-            'responsable_id' => 'required|exists:users,id',
+      
           
             'observaciones' => 'nullable|string',
         ];
@@ -41,8 +41,8 @@ class StoreInspecionRequest extends FormRequest
             'tipo_inspeccion_id.exists' => 'El tipo de inspección seleccionado no existe.',
             'fecha.required' => 'El campo fecha es obligatorio.',
             'fecha.date' => 'El campo fecha debe ser una fecha válida.',
-            'responsable_id.required' => 'El campo responsable es obligatorio.',
-            'responsable_id.exists' => 'El responsable seleccionado no existe.',
+   
+          
 
             'observaciones.string' => 'El campo observaciones debe ser una cadena de texto.',
         ];

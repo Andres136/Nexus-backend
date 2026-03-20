@@ -53,7 +53,7 @@ class RegistroDiarioService
             'pregunta:id,pregunta'
         ])
             ->where('departamento_id', $departamentoId)
-            ->where('tipo', 'no')
+            ->whereIn('tipo', ['si', 'no'])
             ->whereBetween('fecha', [
                 Carbon::today()->startOfDay(),
                 Carbon::today()->endOfDay()
@@ -68,17 +68,18 @@ class RegistroDiarioService
     public function estadisticasAnuales(int $anio)
     {
         // 1️⃣ Registros diarios (solo tipo NO)
-        $registros = RegistroDiarios::select(
-            'id',
-            'departamento_id',
-            DB::raw('MONTH(fecha) as mes'),
-            DB::raw("SUM(CASE WHEN tipo = 'no' THEN 1 ELSE 0 END) as total_registros"),
-            DB::raw("AVG(CASE WHEN tipo='no' THEN respuesta END) as promedio_respuesta"),
-            DB::raw("SUM(CASE WHEN tipo='no' THEN respuesta ELSE 0 END) as total_respuesta")
-        )
-            ->whereYear('fecha', $anio)
-            ->groupBy('id', 'departamento_id', DB::raw('MONTH(fecha)'))
-            ->get();
+       $registros = RegistroDiarios::select(
+        'id',
+        'departamento_id',
+        DB::raw('MONTH(fecha) as mes'),
+        DB::raw("SUM(CASE WHEN tipo IN ('si', 'no') THEN 1 ELSE 0 END) as total_registros"),
+        DB::raw("AVG(CASE WHEN tipo IN ('si', 'no') THEN respuesta END) as promedio_respuesta"),
+        DB::raw("SUM(CASE WHEN tipo IN ('si', 'no') THEN respuesta ELSE 0 END) as total_respuesta")
+    )
+        ->whereYear('fecha', $anio)
+        ->whereIn('tipo', ['si', 'no'])
+        ->groupBy('id', 'departamento_id', DB::raw('MONTH(fecha)'))
+        ->get();
 
         // 2️⃣ Verificaciones
         $verificaciones = Verificaciones::select(

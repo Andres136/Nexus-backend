@@ -18,4 +18,8 @@ class RespuestaInspeccion extends Model
     {
         return $this->belongsTo(InspeccionHseq::class, 'inspeccion_id');
     }
+    public function pregunta()
+    {
+        return $this->belongsTo(PreguntaInspeccion::class, 'pregunta_inspeccion_id');
+    }
 }
