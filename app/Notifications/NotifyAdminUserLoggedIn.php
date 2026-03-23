@@ -15,6 +15,8 @@ class NotifyAdminUserLoggedIn extends Notification
 
 
     private $name;
+    private $ipAddress;
+    private $device;
 
     /**
      * Create a new notification instance.
@@ -23,10 +25,12 @@ class NotifyAdminUserLoggedIn extends Notification
 
 
 
-    public function __construct( $name)
+    public function __construct( $name, $ipAddress, $device)
     {
 
         $this->name = $name;
+        $this->ipAddress = $ipAddress;
+        $this->device = $device;
     }
     
 
@@ -49,7 +53,10 @@ class NotifyAdminUserLoggedIn extends Notification
             ->subject('Inicio de sesión - ' . $this->name)
             ->view('notifications.login-admin-limpia', [
                 'usuario' => $notifiable,
-                'nombreUsuario' => $this->name
+                'nombreUsuario' => $this->name,
+                'ipAddress' => $this->ipAddress,
+                'device' => $this->device,
+
             ]);
     }
 
@@ -62,7 +69,9 @@ class NotifyAdminUserLoggedIn extends Notification
     {
         return [
             'mensaje' => 'El usuario "' . $this->name . '" ha iniciado sesión en el sistema.',
-          
+            'ipAddress' => $this->ipAddress,
+            'device' => $this->device,
+
         ];
     }
     

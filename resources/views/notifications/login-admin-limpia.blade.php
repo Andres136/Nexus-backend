@@ -23,6 +23,8 @@
             <ul style="margin: 0; padding-left: 20px; color: #8b4513;">
                <li style="margin: 8px 0;">Fecha y hora: {{ now()->setTimezone('America/Bogota')->format('d/m/Y - H:i:s') }}</li>
                 <li style="margin: 8px 0;">Usuario: {{ $nombreUsuario }}</li>
+                <li style="margin: 8px 0;">Dirección IP: {{ $ipAddress }}</li>
+                <li style="margin: 8px 0;">Dispositivo: {{ $device }}</li>
                 <li style="margin: 8px 0;">Sistema: SETASPLAST SIG</li>
             </ul>
         </div>

@@ -61,6 +61,7 @@ use App\Http\Controllers\RegistroDiario\VerificacionDiariaControllerr;
 use App\Http\Controllers\RegistroIndicadoresController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\Rutas\DeliveryEventController;
+use App\Http\Controllers\SessionController;
 use App\Http\Controllers\TareaController;
 use App\Http\Controllers\Tic\AsignacionesController;
 use App\Http\Controllers\Tic\MantenimientoEquiposController;
@@ -89,6 +90,12 @@ Route::middleware('auth:sanctum')->group(function () {
   Route::apiResource('users', AuthController::class);
   Route::post('/logout', [AuthController::class, 'logout']);
   Route::put('/users/{id}/estado', [AuthController::class, 'desactivar']);
+
+//RUTAS SESSION DE USUARIOS
+Route::get('sessions', [SessionController::class, 'index']);
+Route::delete('/sessions/{id}', [SessionController::class, 'destroy']);
+Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
+
   //Clientes
 
   Route::get('/clientes-registro-user', [ClienteController::class, 'clientesUsuario']);
@@ -356,6 +363,7 @@ Route::apiResource('novedades', NovedadController::class);
 
 //RUTAS DE ASGINACION DE EQUIPOS TIC
 Route::apiResource('asignaciones', AsignacionesController::class);
+
 Route::get('/productos-asignar', [CrmProductController::class, 'productQuery']);
 
 Route::apiResource('categorias',CategoriaController::class);
@@ -365,6 +373,8 @@ Route::apiResource('categorias',CategoriaController::class);
 Route::apiResource('mantenimiento-equipos-tic', MantenimientoEquiposController::class);
 Route::post('ejecutar-mantenimiento-equipos-tic/{id}', [MantenimientoEquiposController::class, 'update']);
 Route::post('mantenimiento-equipos-tic/{id}/actualizar', [MantenimientoEquiposController::class, 'actualizarMantenimiento']);
+Route::get('tic-estadisticas-mensuales', [MantenimientoEquiposController::class, 'estadisticasMensuales']);
+
 
 Route::apiResource('categorias',CategoriaController::class);
 
@@ -381,6 +391,7 @@ Route::get('ordenes-servicio/{id}/show', [OrdenesServicioController::class, 'obt
 Route::apiResource('gestion-cartera', GestionCarteraController::class);
 Route::apiResource('abonos-cartera',GestionPivoteCarteraController::class);
 Route::get('estadisticas-cartera', [GestionCarteraController::class, 'estadisticasCartera']);
+Route::get('recaudo-semanal', [GestionCarteraController::class, 'recaudoSemanal']);
 //RUTAS PARA HSEQ
 Route::apiResource('tipo-servicios', TipoServicioController::class);
 Route::apiResource('consumo-servicios', ConsumoServicioController::class);

@@ -70,10 +70,11 @@ class StoreGestionCarteraRequest extends FormRequest
             'registros.*.estado.in' => 'El estado debe ser "pendiente" o "completado".',
             'registros.*.dias_credito.required' => 'Los días de crédito son obligatorios para cada registro.',
             'registros.*.dias_credito.integer' => 'Los días de crédito deben ser un número entero.',
+
             'registros.*.base.numeric' => 'La base debe ser un número.',
             'registros.*.iva.numeric' => 'El IVA debe ser un número.',
-            'registros.*.rete_renta.numeric' => 'La retención en la fuente debe ser un número.',
-            'registros.*.rete_ica.numeric' => 'La retención de ICA debe ser un número.'
+            'registros.*.rete_renta.numeric' => 'La retención de renta debe ser un número.',
+            'registros.*.rete_ica.numeric' => 'La retención de ICA debe ser un número.',
         ];
 
     }

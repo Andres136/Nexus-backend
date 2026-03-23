@@ -107,4 +107,17 @@ class MantenimientoEquiposController extends Controller
         ]);
     }
 
+
+    //Estadisticas mensuales
+    public function estadisticasMensuales(Request $request)
+    {
+        $year = $request->query('year');
+        $estadisticas = $this->mantenimientoEquiposService->estadisticasMensuales($year);
+
+        return response()->json([
+            'message' => 'Estadísticas mensuales obtenidas exitosamente',
+            'data' => $estadisticas
+        ]);
+    }
+
 }

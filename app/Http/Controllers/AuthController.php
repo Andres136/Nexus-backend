@@ -184,10 +184,12 @@ class AuthController extends Controller
                          ->get();
             
             if ($admins->count() > 0) {
+                $ip = $request->ip();
+                $device = substr($request->userAgent(), 0, 120);
                 foreach ($admins as $admin) {
                     try {
                         if ($admin->email && $admin->id !== $user->id) { // No notificar a sí mismo
-                            $admin->notify(new NotifyAdminUserLoggedIn($user->name));
+                            $admin->notify(new NotifyAdminUserLoggedIn($user->name, $ip,$device ));
                         }
                     } catch (\Exception $notifError) {
                         // Error individual de notificación - continúa con los demás

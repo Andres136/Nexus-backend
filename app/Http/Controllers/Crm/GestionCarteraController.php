@@ -28,7 +28,8 @@ class GestionCarteraController extends Controller
         return response()->json([
             'message' => 'Gestión de cartera obtenida exitosamente',
             'data' => $data['paginator'],
-            'total' => $data['total_cartera']
+            'total' => $data['total_cartera'],
+            'total_vencido' => $data['total_vencido']
             
             
         ]);
@@ -94,4 +95,15 @@ public function estadisticasCartera(Request $request)
         'data' => $lineaTiempo
     ]);
 }
+ public function recaudoSemanal(Request $request)
+ {
+    $year = $request->query('year', now()->year);
+    $recaudoSemanal = $this->gestionCarteraService->recaudoSemanal($year);
+
+    return response()->json([
+        'message' => 'Recaudo semanal obtenido exitosamente',
+        'data' => $recaudoSemanal
+    ]);
+ }
+
 }

@@ -91,13 +91,12 @@ public function listarPreguntasInspeccion(array $filtros)
 }
 public function getByTipoInspeccion($tipoInspeccionId)
 {
-    return PreguntaInspeccion::where('tipo_inspeccion_id', $tipoInspeccionId)
+    
+    return PreguntaInspeccion::select('id', 'tipo_inspeccion_id', 'pregunta', 'tipo_respuesta', )
+        ->where('tipo_inspeccion_id', $tipoInspeccionId)
         ->where('activa', true)
         ->orderBy('orden')
-        ->get([
-            'id',
-            'pregunta',
-            'tipo_respuesta'
-        ]);
+        ->with('tipoInspeccion:id,nombre')
+        ->get();
 }
 }

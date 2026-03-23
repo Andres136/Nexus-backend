@@ -3,6 +3,7 @@
 namespace App\Services\Tic;
 
 use App\Models\Tic\MantenimientoEquipos;
+use Illuminate\Support\Facades\DB;
 
 class MantenimientoEquiposService
 {
@@ -155,5 +156,35 @@ public function actualizarMantenimiento($id, array $data)
     ]);
 
     return $mantenimiento;
+}
+
+
+public function estadisticasMensuales($year = null)
+{
+    $year = $year ?? now()->year;
+
+    $result = MantenimientoEquipos::selectRaw("
+            MONTH(fecha_programada) as mes,
+            COUNT(*) as total,
+            SUM(CASE WHEN estado = 'completado' THEN 1 ELSE 0 END) as completados
+        ")
+        ->whereYear('fecha_programada', $year)
+        ->groupBy(DB::raw('MONTH(fecha_programada)'))
+        ->orderBy('mes')
+        ->get()
+        ->map(function ($item) {
+            $porcentaje = $item->total > 0 
+                ? round(($item->completados / $item->total) * 100, 2)
+                : 0;
+
+            return [
+                'mes' => $item->mes,
+                'total' => $item->total,
+                'completados' => $item->completados,
+                'porcentaje_cumplimiento' => $porcentaje,
+            ];
+        });
+
+    return $result;
 }
 }

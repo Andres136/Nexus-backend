@@ -177,37 +177,44 @@ class RegistroDiarioService
             ->groupBy(['departamento_id', 'mes']);
 
 
-        $tareas = DB::table('tareas')
-            ->select(
-                'departamento_id',
-                DB::raw('MONTH(created_at) as mes'),
+       $tareasPorMes = [];
 
-                DB::raw('COUNT(*) as total_creadas'),
+for ($mes = 1; $mes <= 12; $mes++) {
 
-                DB::raw("
-            SUM(
-                CASE 
-                    WHEN estado_id = 2 
-                    AND MONTH(fecha_fin) = MONTH(created_at)
-                    THEN 1 ELSE 0 
-                END
-            ) as completadas_mismo_mes
-        "),
+    $inicioMes = Carbon::create($anio, $mes, 1)->startOfMonth();
+    $finMes    = Carbon::create($anio, $mes, 1)->endOfMonth();
 
-                DB::raw("
-            SUM(
-                CASE 
-                    WHEN estado_id = 2 
-                    AND fecha_fin IS NOT NULL
-                    THEN 1 ELSE 0 
-                END
-            ) as completadas_total
-        ")
-            )
-            ->whereYear('created_at', $anio)
-            ->groupBy('departamento_id', DB::raw('MONTH(created_at)'))
-            ->get()
-            ->groupBy(['departamento_id', 'mes']);
+    $data = DB::table('tareas')
+        ->select(
+            'departamento_id',
+
+            // 🔹 Tareas activas en el mes (backlog)
+            DB::raw("
+                COUNT(*) as total_activas
+            "),
+
+            // 🔹 Completadas en ese mes
+            DB::raw("
+                SUM(
+                    CASE 
+                        WHEN estado_id = 2 
+                        AND fecha_fin BETWEEN '$inicioMes' AND '$finMes'
+                        THEN 1 ELSE 0 
+                    END
+                ) as completadas_mes
+            ")
+        )
+        ->where('created_at', '<=', $finMes)
+        ->where(function ($q) use ($inicioMes) {
+            $q->whereNull('fecha_fin')
+              ->orWhere('fecha_fin', '>=', $inicioMes);
+        })
+        ->groupBy('departamento_id')
+        ->get()
+        ->keyBy('departamento_id');
+
+    $tareasPorMes[$mes] = $data;
+}
 
         // 🔹 Novedades
         // 🔹 Novedades ACTIVAS por mes (arrastre)
@@ -266,10 +273,10 @@ $registrosConNovedadMes = $nEstabilidad->registros_con_novedad_mes ?? 0;
 $si = $r->si ?? 0;
 $no = $r->no ?? 0;
 
-$t = $tareas[$dep->id][$mes][0] ?? null;
+$t = $tareasPorMes[$mes][$dep->id] ?? null;
 
-$totalTareas = $t->total_creadas ?? 0;
-$completadas = $t->completadas_mismo_mes ?? 0;
+$totalTareas = $t->total_activas ?? 0;
+$completadas = $t->completadas_mes ?? 0;
 
 $rendimiento = $totalTareas > 0
     ? round(($completadas / $totalTareas) * 100, 2)

@@ -25,15 +25,20 @@ DB::transaction(function() use ($data) {
         $diasCredito = (int) $registro['dias_credito'];
 
         $fechaVencimiento = $fechaFactura->addDays($diasCredito);
+$base = (float) ($registro['base'] ?? 0);
+$iva = (float) ($registro['iva'] ?? 0);
+$reteRenta = (float) ($registro['rete_renta'] ?? 0);
+$reteIca = (float) ($registro['rete_ica'] ?? 0);
 
+$valorTotal = $base + $iva - $reteRenta - $reteIca;
         $gestionCartera = GestionCartera::create([
             'user_id' => auth()->id(),
             'empresa_id' => $registro['empresa_id'],
             'numero_factura' => $registro['numero_factura'],
             'user_comercial_id' => $registro['user_comercial_id'],
             'cliente_id' => $registro['cliente_id'],
-            'valor_total' => $registro['valor_total'],
-            'saldo_pendiente' => $registro['saldo_pendiente'] ?? $registro['valor_total'],
+            'valor_total' => $valorTotal,
+            'saldo_pendiente' => $valorTotal,
             'fecha_vencimiento' => $fechaVencimiento,
             'observaciones' => $registro['observaciones'] ?? null,
             'fecha_factura' => $registro['fecha_factura'],
@@ -123,6 +128,10 @@ public function listarGestionCartera(array $filtros)
 
     // Calcular total SIN alterar la query principal
     $totalCartera = (clone $query)->sum('saldo_pendiente');
+    $totalVencido = (clone $query)
+    ->where('estado', 'pendiente')
+    ->whereDate('fecha_vencimiento', '<', now())
+    ->sum('saldo_pendiente');
 
     $query->orderByRaw("
         CASE
@@ -138,7 +147,8 @@ public function listarGestionCartera(array $filtros)
 
     return [
         'paginator' => $data,
-        'total_cartera' => $totalCartera
+        'total_cartera' => $totalCartera,
+        'total_vencido' => $totalVencido
     ];
 }
 
@@ -169,14 +179,18 @@ public function cancelarDeuda($id)
 
     DB::transaction(function () use ($cartera) {
 
+        // 🔥 guardar el valor REAL de la deuda antes de modificar
+        $valorDeuda = $cartera->saldo_pendiente;
+
+        // actualizar deuda
         $cartera->update([
             'saldo_pendiente' => 0,
             'estado' => 'cancelado'
         ]);
 
-        // Opcional: registrar motivo
+        // registrar el pago con el valor correcto
         $cartera->pagos()->create([
-            'valor_pago' => $cartera->saldo_pendiente,
+            'valor_pago' => $valorDeuda,
             'fecha_pago' => now(),
             'observacion' => 'Deuda cancelada manualmente'
         ]);
@@ -224,6 +238,42 @@ public function lineaTiempoAnual($year = null)
         'total_vencido' => $totalVencido,
         'total_cartera' => $totalCartera,
         'porcentaje_vencido' => $porcentaje
+    ];
+}
+
+//Reacaudo Semanal
+public function recaudoSemanal($year = null)
+{
+    $year = $year ?? now()->year;
+
+    $recaudoSemanal = DB::table('gestion_cartera_pivote')
+        ->select(
+            DB::raw('WEEK(fecha_pago, 1) as semana'),
+            DB::raw('SUM(valor_pago) as total')
+        )
+        ->whereYear('fecha_pago', $year)
+        ->groupBy(DB::raw('WEEK(fecha_pago, 1)'))
+        ->orderBy('semana')
+        ->get();
+
+    $semanas = collect(range(1, 52))->map(function ($semana) use ($recaudoSemanal) {
+
+        $registro = $recaudoSemanal->firstWhere('semana', $semana);
+
+        return [
+            'semana' => $semana,
+            'es_actual' => $semana === now()->weekOfYear,
+            'total' => $registro ? (float)$registro->total : 0
+        ];
+    });
+
+    $totalRecaudo = $semanas->sum('total');
+
+    return [
+        'year' => $year,
+        'semana_actual' => now()->weekOfYear,
+        'timeline' => $semanas,
+        'total_recaudo' => $totalRecaudo
     ];
 }
 }
