@@ -22,16 +22,19 @@ class UpdateGestionCarteraRequest extends FormRequest
 public function rules(): array
 {
     return [
+        'numero_factura' => 'nullable|string',
+        'fecha_factura' => 'nullable|date',
+        'valor_total' => 'nullable|numeric',
+        'valor' => 'nullable|numeric',
+        
+        'base' => 'nullable|numeric',
+        'iva' => 'nullable|numeric',
+        'rete_renta' => 'nullable|numeric',
+        'rete_ica' => 'nullable|numeric',
         'fecha_vencimiento' => 'nullable|date',
-        'dias_credito' => 'nullable|integer|min:0|max:365',
-        'observaciones' => 'nullable|string|max:500',
+        'dias_credito' => 'nullable|integer',
+        'observaciones' => 'nullable|string',
         'user_comercial_id' => 'nullable|exists:users,id',
-        'valor_total' => 'nullable|numeric|min:0',
-        'valor' => 'nullable|numeric|min:0',
-       'base' => 'nullable|numeric|min:0',
-        'iva' => 'nullable|numeric|min:0',
-        'rete_renta' => 'nullable|numeric|min:0',
-        'rete_ica' => 'nullable|numeric|min:0'
     ];
 }
 public function messages()
@@ -59,4 +62,5 @@ public function messages()
     ];
 
 
+}
 }

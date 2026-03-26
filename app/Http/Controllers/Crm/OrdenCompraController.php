@@ -447,22 +447,25 @@ public function obtenerOrdenesTrabajo(Request $request)
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
-    {
-        $ordenCompra = Orden_Compra::findOrFail($id);
+public function destroy(string $id)
+{
+    $ordenCompra = Orden_Compra::findOrFail($id);
 
-        if ($ordenCompra->estado_id !== 1) {
-            return response()->json([
-                'error' => 'Solo se pueden eliminar órdenes en estado Pendiente.'
-            ], 403);
-        }
-
-        $ordenCompra->detalles()->delete(); // Eliminar detalles asociados
-        $ordenCompra->delete(); // Eliminar la orden de compra
-
-        return response()->json(['message' => 'Orden de compra eliminada con éxito'], 200);
+    // permitir Pendiente (1) y Parcial (5)
+    if (!in_array($ordenCompra->estado_id, [1, 5])) {
+        return response()->json([
+            'error' => 'Solo se pueden inactivar órdenes en estado Pendiente o Entrega Parcial.'
+        ], 403);
     }
 
+    $ordenCompra->update([
+        'estado_id' => 4 // Inactivo
+    ]);
+
+    return response()->json([
+        'message' => 'Orden inactivada correctamente'
+    ], 200);
+}
 
     //Listar todas las ordenes de compra con cantidad enviada para facturar
     public function ordenesFacturar(Request $request)

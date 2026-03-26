@@ -156,16 +156,46 @@ public function update($id, array $data)
 {
     $cartera = GestionCartera::findOrFail($id);
 
-    $cartera->update([
-        'fecha_vencimiento' => $data['fecha_vencimiento'] ?? $cartera->fecha_vencimiento,
-        'dias_credito' => $data['dias_credito'] ?? $cartera->dias_credito,
-        'observaciones' => $data['observaciones'] ?? $cartera->observaciones,
-        'user_comercial_id' => $data['user_comercial_id'] ?? $cartera->user_comercial_id,
-    ]);
+    //  recalcular fechas
+    $fechaFactura = isset($data['fecha_factura'])
+        ? Carbon::parse($data['fecha_factura'])
+        : Carbon::parse($cartera->fecha_factura);
 
-    return $cartera;
+    $diasCredito = isset($data['dias_credito'])
+        ? (int) $data['dias_credito']
+        : (int) $cartera->dias_credito;
+
+    if (isset($data['fecha_factura']) || isset($data['dias_credito'])) {
+        $data['fecha_vencimiento'] = $fechaFactura->copy()->addDays($diasCredito);
+    }
+
+    //  recalcular total
+    $base = (float) ($data['base'] ?? $cartera->base);
+    $iva = (float) ($data['iva'] ?? $cartera->iva);
+    $reteRenta = (float) ($data['rete_renta'] ?? $cartera->rete_renta);
+    $reteIca = (float) ($data['rete_ica'] ?? $cartera->rete_ica);
+
+    $data['valor_total'] = $base + $iva - $reteRenta - $reteIca;
+
+    //  actualizar
+    $cartera->update(array_filter($data, fn($v) => $v !== null && $v !== ''));
+
+    //  recalcular saldo (IMPORTANTE)
+    $this->recalcularSaldo($cartera);
+
+    return $cartera->fresh(['cliente', 'comercial', 'pagos']);
 }
+private function recalcularSaldo($cartera)
+{
+    $totalPagado = $cartera->pagos()->sum('valor_pago');
 
+    $nuevoSaldo = $cartera->valor_total - $totalPagado;
+
+    $cartera->saldo_pendiente = max(0, $nuevoSaldo);
+    $cartera->estado = $nuevoSaldo <= 0 ? 'completado' : 'pendiente';
+
+    $cartera->save();
+}
 
 public function find($id)
 {
