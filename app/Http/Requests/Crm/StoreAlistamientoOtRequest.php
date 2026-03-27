@@ -30,6 +30,7 @@ class StoreAlistamientoOtRequest extends FormRequest
         'items.*.bodega_id' => 'required|integer|exists:bodegas,id',
         'items.*.cantidad' => 'required|numeric|min:0.01',
         'items.*.tipo' => 'required|in:original,equivalente',
+        'items.*.observacion' => 'nullable|string|max:255',
     ];
 }
 
@@ -63,6 +64,8 @@ class StoreAlistamientoOtRequest extends FormRequest
 
             'items.*.tipo.required' => 'El campo tipo es obligatorio para cada item.',
             'items.*.tipo.in' => 'El campo tipo debe ser "original" o "equivalente".',
+            'items.*.observacion.string' => 'El campo observacion debe ser una cadena de texto.',
+            'items.*.observacion.max' => 'El campo observacion no debe exceder los 255 caracteres.',
         ];
     }
 }

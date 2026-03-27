@@ -235,7 +235,7 @@ tr { page-break-inside: avoid; }
         {{-- 🔥 OBSERVACIÓN AQUÍ --}}
         @if($item->observacion)
             <div style="color:#d9822b; font-size:7px;">
-                ⚠ {{ $item->observacion }}
+                 {{ $item->observacion }}
             </div>
         @endif
     </div>

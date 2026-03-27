@@ -119,6 +119,10 @@ public function crearAlistamientosMasivo(array $items)
 
             if ($registro) {
                 $registro->increment('cantidad', $item['cantidad']);
+                if (isset($item['observacion'])) {
+                    $registro->observacion = $item['observacion'];
+                    $registro->save();
+                }
             } else {
                 $registro = AlistamientoOt::create([
                     'orden_trabajo_id' => $item['orden_trabajo_id'],
@@ -127,6 +131,7 @@ public function crearAlistamientosMasivo(array $items)
                     'bodega_id' => $item['bodega_id'],
                     'cantidad' => $item['cantidad'],
                     'tipo' => $item['tipo'],
+                    'observacion' => $item['observacion'] ?? null,
                     'usuario_id' => auth()->id(),
                     'fecha_alistamiento' => now(),
                 ]);

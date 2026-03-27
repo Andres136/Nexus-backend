@@ -19,6 +19,7 @@ return new class extends Migration
             $table->foreignId('bodega_id')->constrained('bodegas')->onDelete('cascade');
             $table->decimal('cantidad', 10, 2);
             $table->enum('tipo',['original','equivalente']);
+            $table->text('observacion')->nullable();
             $table->foreignId('usuario_id')->constrained('users')->onDelete('cascade');
             $table->timestamp('fecha_alistamiento')->nullable();
             $table->timestamps();

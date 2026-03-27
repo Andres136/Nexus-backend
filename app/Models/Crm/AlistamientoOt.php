@@ -16,6 +16,7 @@ class AlistamientoOt extends Model
         'bodega_id',
         'cantidad',
         'tipo',
+        'observacion',
         'usuario_id',
         'fecha_alistamiento',
     ];
