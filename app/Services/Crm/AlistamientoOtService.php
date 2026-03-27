@@ -80,7 +80,8 @@ foreach ($agrupados as $key => $cantidadTotal) {
     if ($registroActual) {
         $totalGlobal -= $registroActual->cantidad;
     }
-
+// 🔥 calcular total final primero
+$totalFinal = $totalGlobal + $cantidadTotal;
    $stockDisponible = (float) number_format($inventario->stock, 2, '.', '');
 $totalFinal = (float) number_format($totalFinal, 2, '.', '');
 
