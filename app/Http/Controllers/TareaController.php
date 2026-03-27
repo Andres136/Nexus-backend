@@ -6,6 +6,7 @@ use App\Http\Requests\TareaRequest;
 use App\Models\Tareas;
 use App\Models\User;
 use App\Notifications\NuevaTareaAsignada;
+use App\Services\TareaVencidaService;
 use Illuminate\Http\Request;
 
 class TareaController extends Controller
@@ -13,8 +14,10 @@ class TareaController extends Controller
     /**
      * Display a listing of the resource.
      */
-public function index(Request $request)
+
+public function index(Request $request, TareaVencidaService $tareaVencidaService)
 {
+    $tareaVencidaService->notificarTareasVencidas(); // Ejecuta la lógica de notificación
     $user = auth()->user();
 
     $query = Tareas::with('usuario', 'departamentos');

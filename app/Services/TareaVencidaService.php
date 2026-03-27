@@ -24,7 +24,7 @@ class TareaVencidaService
     
         // Buscar tareas PENDIENTES (estado_id = 1) con fecha de vencimiento definida
         $tareas = Tareas::with('usuario')
-            ->where('estado_id', 1)
+            ->where('estado_id', [1,5])
             ->whereNotNull('fecha_fin')
             ->get();
     

@@ -52,7 +52,7 @@
 
           <tr>
             <td colspan="2" style="font-size:14px;padding-top:6px;color:#333;">
-              <strong>Fecha límite:</strong> {{ $v ? $v->format('d/m/Y H:i') : 'Sin fecha' }}
+              <strong>Fecha límite:</strong> {{ $v ? $v->format('d/m/Y') : 'Sin fecha' }}
               @if($v)<span style="color:#777;"> ({{ $v->diffForHumans() }})</span>@endif
             </td>
           </tr>
@@ -73,14 +73,7 @@
           </tr>
           @endif
 
-          <tr>
-            <td colspan="2" align="left" style="padding-top:10px;">
-              <a href="{{ $appUrl }}/auth/crm/tareas/{{ $tarea->id }}"
-                 style="display:inline-block;background:#208040;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:6px;font-weight:600;">
-                Abrir tarea
-              </a>
-            </td>
-          </tr>
+       
         </table>
       </td>
     </tr>

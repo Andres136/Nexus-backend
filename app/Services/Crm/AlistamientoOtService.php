@@ -27,16 +27,16 @@ public function crearAlistamientosMasivo(array $items)
             throw new \Exception("No hay items para procesar");
         }
 
-        // 🔥 1. Obtener OT
+        //  1. Obtener OT
         $ordenTrabajo = OrdenDeTrabajo::findOrFail($items[0]['orden_trabajo_id']);
 
-        // 🔥 2. Obtener Orden de Compra
+        //  2. Obtener Orden de Compra
         $ordenCompra = Orden_Compra::findOrFail($ordenTrabajo->orden_compra_id);
 
-        // 🔥 3. Obtener sede correcta
+        // 3. Obtener sede correcta
         $sedeId = $ordenCompra->sede_id;
 
-        // 🧪 DEBUG (opcional)
+        //  DEBUG (opcional)
         Log::info('DEBUG SEDE', [
             'orden_trabajo_id' => $ordenTrabajo->id,
             'orden_compra_id' => $ordenCompra->id,
@@ -53,8 +53,7 @@ public function crearAlistamientosMasivo(array $items)
 
             $agrupados[$key] = ($agrupados[$key] ?? 0) + $item['cantidad'];
         }
-
-        // 🔥 5. VALIDAR STOCK
+$errores = [];
         foreach ($agrupados as $key => $cantidadTotal) {
 
             [$productoId, $bodegaId, $sedeIdKey] = explode('-', $key);
@@ -68,24 +67,50 @@ public function crearAlistamientosMasivo(array $items)
             $bodega   = bodega::with('sede')->find($bodegaId);
 
             if (!$inventario) {
-                throw new \Exception(
-                    "No existe inventario para '{$producto->name}' en '{$bodega->nombre}' ({$bodega->sede->nombre})"
-                );
+             $errores[] = [
+    'producto_id' => $productoId,
+    'producto' => $producto->name,
+    'bodega_id' => $bodegaId,
+    'bodega' => $bodega->nombre,
+    'sede' => $bodega->sede->nombre,
+    'stock_disponible' => $inventario->stock,
+    'ya_alistado' => $totalYaAlistado,
+    'solicitado' => $cantidadTotal,
+    'mensaje' => "Stock insuficiente para '{$producto->name}' en '{$bodega->nombre}'"
+];
+                continue;
             }
 
             // 🔥 YA ALISTADO
-            $totalYaAlistado = AlistamientoOt::where('orden_trabajo_id', $ordenTrabajo->id)
-                ->where('producto_id', $productoId)
-                ->where('bodega_id', $bodegaId)
-                ->sum('cantidad');
+        $registroExistente = AlistamientoOt::where([
+    'orden_trabajo_id' => $ordenTrabajo->id,
+    'producto_id' => $productoId,
+    'bodega_id' => $bodegaId,
+])->first();
 
-            $totalFinal = $totalYaAlistado + $cantidadTotal;
+$totalYaAlistado = AlistamientoOt::where('orden_trabajo_id', $ordenTrabajo->id)
+    ->where('producto_id', $productoId)
+    ->where('bodega_id', $bodegaId)
+    ->sum('cantidad');
+
+if ($registroExistente) {
+    $totalYaAlistado -= $registroExistente->cantidad; // 🔥 quitar lo actual
+}
+
+$totalFinal = $totalYaAlistado + $cantidadTotal;
 
             if ($totalFinal > $inventario->stock) {
-                throw new \Exception(
-                    "Stock insuficiente para '{$producto->name}' en '{$bodega->nombre}' ({$bodega->sede->nombre}). 
-                    Disponible: {$inventario->stock}, ya alistado: {$totalYaAlistado}"
-                );
+                $errores[] = [
+                    'producto_id' => $productoId,
+                    'producto' => $producto->name,
+                    'bodega_id' => $bodegaId,
+                    'bodega' => $bodega->nombre,
+                    'sede' => $bodega->sede->nombre,
+                    'stock_disponible' => $inventario->stock,
+                    'ya_alistado' => $totalYaAlistado,
+                    'solicitado' => $cantidadTotal,
+                    'mensaje' => "Stock insuficiente para '{$producto->name}' en '{$bodega->nombre}'"
+                ];
             }
         }
 
@@ -104,6 +129,13 @@ public function crearAlistamientosMasivo(array $items)
                 throw new \Exception("Excede la cantidad requerida");
             }
         }
+
+        if (!empty($errores)) {
+    return response()->json([
+        'success' => false,
+        'errores' => $errores
+    ], 400);
+}
 
         // 🔥 7. GUARDAR (SUMAR)
         foreach ($items as $item) {
