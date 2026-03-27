@@ -81,9 +81,10 @@ foreach ($agrupados as $key => $cantidadTotal) {
         $totalGlobal -= $registroActual->cantidad;
     }
 
-    $totalFinal = $totalGlobal + $cantidadTotal;
+   $stockDisponible = (float) number_format($inventario->stock, 2, '.', '');
+$totalFinal = (float) number_format($totalFinal, 2, '.', '');
 
-    if ($totalFinal > $inventario->stock) {
+    if (($totalFinal - $stockDisponible) > 0.01) {
         $errores[] = [
             'producto' => $producto->name,
             'bodega' => $bodega->nombre,
