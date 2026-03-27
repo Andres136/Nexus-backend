@@ -51,7 +51,7 @@ foreach ($agrupados as $key => $cantidadTotal) {
     $inventario = Inventario::where('producto_id', $productoId)
         ->where('bodega_id', $bodegaId)
         ->where('sede_id', $sedeIdKey)
-        ->first();
+        ->sum('stock');
 
     $producto = product::find($productoId);
     $bodega   = bodega::with('sede')->find($bodegaId);
@@ -82,15 +82,13 @@ foreach ($agrupados as $key => $cantidadTotal) {
     }
 // 🔥 calcular total final primero
 $totalFinal = $totalGlobal + $cantidadTotal;
-   $stockDisponible = (float) number_format($inventario->stock, 2, '.', '');
-$totalFinal = (float) number_format($totalFinal, 2, '.', '');
 
-    if (($totalFinal - $stockDisponible) > 0.01) {
+    if ($totalFinal > $inventario) {
         $errores[] = [
             'producto' => $producto->name,
             'bodega' => $bodega->nombre,
             'sede' => $bodega->sede->nombre,
-            'stock' => $inventario->stock,
+            'stock' => $inventario,
             'ya_alistado_global' => $totalGlobal,
             'solicitado' => $cantidadTotal,
             'mensaje' => "Stock global insuficiente"
