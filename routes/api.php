@@ -41,6 +41,7 @@ use App\Http\Controllers\ErrorController;
 use App\Http\Controllers\EstadoController;
 use App\Http\Controllers\Hseq\ConsumoServicioController;
 use App\Http\Controllers\Hseq\HallazgoNovedadController;
+use App\Http\Controllers\Hseq\HseqDashboardController;
 use App\Http\Controllers\Hseq\InspeccionHseqController;
 use App\Http\Controllers\Hseq\PreguntaInspeccionController;
 use App\Http\Controllers\Hseq\ResiduoController;
@@ -123,7 +124,7 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
   Route::apiResource('registrar-documentacion', DocumentosAdministrativosController::class);
   Route::post('/documentos/mover-obseletos/{id}', [DocumentoController::class, 'moverAObseletos']);
 
-  Route::get('/notificar-ordenes', [NotificacionOrdenController::class, 'notificarOrdenes']);
+
 //Consumir api siigo
   Route::get('products-setas', [SiigoController::class, 'index']);
  Route::get('stock', [SiigoController::class, 'stock']);
@@ -410,6 +411,7 @@ Route::apiResource('inspecciones-hseq', InspeccionHseqController::class);
 Route::apiResource('respuestas-inspecciones', RespuestaInspeccionController::class);
 
 Route::apiResource('hallazgo-inspecciones', HallazgoNovedadController::class);
+Route::apiResource('hseq-dashboard', HseqDashboardController::class);
 
 
 });

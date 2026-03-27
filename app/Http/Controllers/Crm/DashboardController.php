@@ -9,6 +9,7 @@ use App\Models\Crm\Inventario;
 use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\OrdenDeTrabajo;
 use App\Services\Crm\KpiService;
+use App\Services\OrdenCompraService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use GuzzleHttp\Client;
@@ -21,14 +22,17 @@ class DashboardController extends Controller
 
 protected $kpiService;
 
+
 public function __construct(KpiService $kpiService)
 {
     $this->kpiService = $kpiService;
 }
 
 
-public function kpis(Request $request)
+public function kpis(Request $request, OrdenCompraService $ordenCompraService)
 {
+
+$ordenCompraService->notificarOrdenesPorVencer(); // Ejecuta la lógica de notificación
     $year = $request->get('year');
 
     return response()->json(

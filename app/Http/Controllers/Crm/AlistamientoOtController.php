@@ -29,15 +29,30 @@ class AlistamientoOtController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StoreAlistamientoOtRequest $request)
-    {
-        $alistamientos = $this->alistamientoOtService->crearAlistamientosMasivo($request->validated()['items']);
+  public function store(StoreAlistamientoOtRequest $request)
+{
+    try {
+
+        $alistamientos = $this->alistamientoOtService
+            ->crearAlistamientosMasivo($request->validated()['items']);
+
         return response()->json([
+            'success' => true,
             'message' => 'Alistamientos de OT creados exitosamente',
             'data' => $alistamientos
         ], 201);
-    }
 
+    } catch (\Exception $e) {
+
+        // 🔥 intentar decodificar errores por item
+        $errores = json_decode($e->getMessage(), true);
+
+        return response()->json([
+            'success' => false,
+            'errores' => $errores ?? [$e->getMessage()]
+        ], 400);
+    }
+}
     /**
      * Display the specified resource.
      */
