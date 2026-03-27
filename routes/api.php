@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\comunicaciones\PlantillaController;
+use App\Http\Controllers\Crm\AlistamientoOtController;
 use App\Http\Controllers\Crm\BodegaController;
 use App\Http\Controllers\Crm\CarpetaController;
 use App\Http\Controllers\Crm\CategoriaController;
@@ -168,6 +169,8 @@ Route::get('/orden-trabajo/{id}', [ordenTrabajoController::class, 'show']);
 Route::get('ordenes-trabajo', [OrdenCompraController::class, 'obtenerOrdenesTrabajo']);
 //Generar pdf de la orden de trabajo
 Route::get('/orden-trabajo/{id}/pdf', [ordenTrabajoController::class, 'generarPDF']);
+//Ruta de alistamiento ot
+Route::apiResource('alistamientos-ot', AlistamientoOtController::class);
 
 //Marcar orden de trabajo como revisada
 Route::post('/orden-trabajo/{id}/marcar-revisada', [ordenTrabajoController::class, 'marcarRevisada']);

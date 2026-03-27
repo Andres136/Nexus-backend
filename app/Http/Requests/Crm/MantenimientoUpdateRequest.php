@@ -31,6 +31,8 @@ class MantenimientoUpdateRequest extends FormRequest
             'costo' => 'required|numeric|min:0',
             'kilometro_programado' => 'required|numeric|min:0',
             'tipo_mantenimiento' => 'required|string|max:255',
+            'archivo' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240', // Validar el archivo
+            'kilometraje_actual' => 'required|integer|min:0', // Permitir
         ];
 
     }
@@ -47,6 +49,12 @@ class MantenimientoUpdateRequest extends FormRequest
             'costo.required' => 'El campo costo es obligatorio.',
             'kilometro_programado.required' => 'El campo kilometraje_programado es obligatorio.',
             'tipo_mantenimiento.required' => 'El campo tipo_mantenimiento es obligatorio.',
+            'archivo.file' => 'El campo archivo debe ser un archivo.',
+            'archivo.mimes' => 'El campo archivo debe ser un archivo de tipo: pdf   , jpg, jpeg, png.',
+            'archivo.max' => 'El tamaño máximo del archivo es de 10MB.',
+            'kilometraje_actual.required' => 'El campo kilometraje_actual es obligatorio.',
+            'kilometraje_actual.integer' => 'El campo kilometraje_actual debe ser un número entero.',
+            'kilometraje_actual.min' => 'El campo kilometraje_actual no puede ser menor a 0.',
         ];
     }
 }

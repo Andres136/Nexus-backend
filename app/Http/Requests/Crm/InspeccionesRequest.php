@@ -29,7 +29,7 @@ class InspeccionesRequest extends FormRequest
             'responsable' => 'required|string|max:255',
             'observaciones' => 'required|string|max:1000',
             'estado_general' => 'required|string|max:255',
-            'documento' => 'required|file|mimes:pdf,doc,docx,xlsx,xls|max:5120', // Tamaño máximo de 5MB
+            'documento' => 'required|file|mimes:pdf,doc,docx,xlsx,xls|max:10240', // Tamaño máximo de 10MB
         ];
     }
     public function messages()
@@ -50,7 +50,7 @@ class InspeccionesRequest extends FormRequest
             'documento.required' => 'El documento es obligatorio.',
             'documento.file' => 'El documento debe ser un archivo.',
             'documento.mimes' => 'El documento debe ser un archivo PDF, DOC o DOCX, XLS o XLSX',
-            'documento.max' => 'El documento no debe exceder los 5MB',
+            'documento.max' => 'El documento no debe exceder los 10MB de tamaño.',
 
       
         ];

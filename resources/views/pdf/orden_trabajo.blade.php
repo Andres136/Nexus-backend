@@ -7,12 +7,12 @@
 <style>
 @page {
     size: A4;
-    margin: 20mm;
+    margin: 10mm;
 }
 
 body {
     font-family: Arial, Helvetica, sans-serif;
-    font-size: 12px;
+    font-size: 10px;
     color: #333;
     margin: 0;
 }
@@ -22,17 +22,17 @@ body {
     display: flex;
     align-items: center;
     border-bottom: 2px solid #1f6fd2;
-    padding-bottom: 10px;
-    margin-bottom: 20px;
+    padding-bottom: 4px;
+    margin-bottom: 10px;
 }
 .header img {
-    height: 45px;
+    height: 32px;
 }
 .header h2 {
     flex: 1;
     text-align: center;
     margin: 0;
-    font-size: 18px;
+    font-size: 14px;
     color: #1f2d3d;
 }
 
@@ -40,20 +40,20 @@ body {
 .info {
     display: table;
     width: 100%;
-    margin-bottom: 15px;
+    margin-bottom: 8px;
 }
 .info div {
     display: table-cell;
-    padding: 6px 10px;
+    padding: 3px 5px;
     vertical-align: top;
 }
 .info strong {
     display: block;
-    font-size: 10px;
+    font-size: 9px;
     color: #6b7280;
 }
 .info span {
-    font-size: 12px;
+    font-size: 10px;
     font-weight: 600;
 }
 
@@ -61,12 +61,12 @@ body {
 .alert {
     border: 1px solid #f0ad4e;
     background: #fff7e6;
-    padding: 10px;
-    margin-bottom: 20px;
+    padding: 6px;
+    margin-bottom: 10px;
 }
 .alert h3 {
-    margin: 0 0 5px;
-    font-size: 13px;
+    margin: 0 0 3px;
+    font-size: 11px;
     color: #d9822b;
 }
 
@@ -75,46 +75,46 @@ table {
     width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
-    font-size: 10px;
+    font-size: 9px;
 }
 th {
     background: #1f6fd2;
     color: #fff;
-    padding: 6px;
+    padding: 3px;
     border: 1px solid #ddd;
 }
 td {
     border: 1px solid #ddd;
-    padding: 5px;
+    padding: 3px;
     text-align: center;
     word-wrap: break-word;
     overflow-wrap: break-word;
     white-space: normal;
 }
 
-td:first-child { max-width: 70px; }
-.descripcion { max-width: 160px; text-align: left; }
+td:first-child { max-width: 60px; }
+.descripcion { max-width: 120px; text-align: left; }
 
 tr { page-break-inside: avoid; }
 
 /* ENTREGAS */
 .entregas {
-    font-size: 9px;
+    font-size: 8px;
     background: #f9fafb;
     text-align: left;
-    padding: 6px;
+    padding: 3px;
 }
 
 /* TOTALES */
 .resumen {
-    margin-top: 20px;
+    margin-top: 10px;
     border: 1px solid #1f6fd2;
     background: #f4f9ff;
-    padding: 12px;
+    padding: 6px;
 }
 .resumen p {
-    margin: 4px 0;
-    font-size: 13px;
+    margin: 2px 0;
+    font-size: 10px;
 }
 .resumen strong {
     color: #1f2d3d;
@@ -122,8 +122,8 @@ tr { page-break-inside: avoid; }
 
 /* OBSERVACIONES FINALES */
 .obs-final {
-    margin-top: 20px;
-    padding-top: 10px;
+    margin-top: 10px;
+    padding-top: 5px;
     border-top: 1px dashed #ccc;
 }
 </style>
@@ -179,16 +179,16 @@ tr { page-break-inside: avoid; }
 <thead>
 <tr>
     <th>Producto</th>
-    <th>Ancho</th>
-    <th>Largo</th>
-    <th>Cal.</th>
-    <th>Cal. Cl</th>
+    <th>Referencia</th>
+
+    <th>Cl.Clb</th>
     <th>Descripción</th>
     <th>Emb.</th>
     <th>Kg Req</th>
     <th>Cant</th>
-    <th>Env</th>
-    <th>Falt</th>
+    <th>Alistamiento</th>
+  
+<th>Env / Falt</th>
     <th>V. Unit</th>
     <th>Total</th>
 </tr>
@@ -197,16 +197,62 @@ tr { page-break-inside: avoid; }
 @foreach($detalles as $d)
 <tr>
     <td>{{ $d->product->code ?? '-' }}</td>
-    <td>{{ $d->ancho_cm }}</td>
-    <td>{{ $d->largo_cm }}</td>
-    <td>{{ $d->calibre }}</td>
+  <td style="text-align:left;">
+    <div><strong>Ancho:</strong> {{ number_format($d->ancho_cm, 0) }}</div>
+    <div><strong>Largo:</strong> {{ number_format($d->largo_cm, 0) }}</div>
+    <div><strong>Calibre:</strong> {{ number_format($d->calibre, 0) }}</div>
+</td>
     <td>{{ $d->cliente_clb }}</td>
     <td class="descripcion">{{ $d->descripcion }}</td>
     <td>{{ ucfirst($d->tipo_embalaje) }}</td>
     <td>{{ number_format($d->cantidad_requerida_kg, 2) }}</td>
     <td>{{ $d->cantidad }}</td>
-    <td>{{ $d->cantidad_enviada }}</td>
-    <td>{{ $d->faltantes }}</td>
+   <td style="font-size:6px; line-height:1.2; text-align:left;">
+    @php
+        $alistamientosDetalle = $alistamientos
+            ->where('orden_compra_detalle_id', $d->id);
+
+        $agrupado = $alistamientosDetalle->groupBy(fn($i) => $i->producto_id . '-' . $i->bodega_id);
+    @endphp
+@foreach($agrupado as $grupo)
+    @php
+        $item = $grupo->first();
+        $total = $grupo->sum('cantidad');
+    @endphp
+
+    <div>
+        {{ $item->producto->name }}
+        ({{ $item->bodega->nombre }}
+        @if($item->bodega->sede)
+            - {{ $item->bodega->sede->nombre }}
+        @endif
+        )
+
+        <span style="float:right; color:green;">
+            {{ number_format($total, 2) }}
+        </span>
+
+        {{-- 🔥 OBSERVACIÓN AQUÍ --}}
+        @if($item->observacion)
+            <div style="color:#d9822b; font-size:7px;">
+                ⚠ {{ $item->observacion }}
+            </div>
+        @endif
+    </div>
+@endforeach
+</td>
+
+   <td style="font-size:9px;">
+    <div>
+        <span style="color:green;">
+            {{ $d->cantidad_enviada }}
+        </span>
+        /
+        <span style="color:{{ $d->faltantes > 0 ? 'red' : 'green' }};">
+            {{ $d->faltantes }}
+        </span>
+    </div>
+</td>
     <td>${{ number_format($d->valor_unitario, 2, ',', '.') }}</td>
     <td>${{ number_format($d->valor_total, 2, ',', '.') }}</td>
 </tr>

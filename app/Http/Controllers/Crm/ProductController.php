@@ -171,21 +171,28 @@ public function stock($productoId, Request $request)
 {
     $user     = $request->user();
     $bodegaId = $request->query('bodega_id'); 
-    $sedeId   = null; // por defecto null → usa la sede del auth
- 
+    $sedeId   = $request->query('sede_id'); //  CAMBIO CLAVE
 
-    // Solo algunos roles pueden consultar stock de otra sede
-    $rolesPermitidos = [1, 2,4]; // Ejemplo: 1=super_admin, 2=company_admin
+    $rolesPermitidos = [1, 2, 4,6]; // roles que pueden elegir sede
 
-    if (in_array($user->role_id, $rolesPermitidos)) {
-        $sedeId = $request->query('sede_id'); // opcional en el request
+    // SI NO TIENE PERMISO → fuerza sede del usuario
+    if (!in_array($user->role_id, $rolesPermitidos)) {
+        $sedeId = $user->sede_id;
     }
 
-    $stock = $this->productService->getStockByProduct($productoId, $user, $bodegaId, $sedeId);
+    //  SI VIENE SEDE → usarla, SI NO → fallback al usuario
+    $sedeId = $sedeId ?: $user->sede_id;
+
+    $stock = $this->productService->getStockByProduct(
+        $productoId,
+        $user,
+        $bodegaId,
+        $sedeId
+    );
 
     return response()->json([
         'producto_id' => (string) $productoId,
-        'sede_id'     => $sedeId ?: $user->sede_id,
+        'sede_id'     => $sedeId,
         'bodega_id'   => $bodegaId,
         'stock'       => $stock,
     ]);
@@ -859,7 +866,7 @@ public function importarExcelDescuento(StoreExcelProductRequest $request)
 public function stockProductoConSugerencias($productoId, Request $request)
 {
      $result = app(\App\Services\ProductService::class)
-        ->getStockConSugerencias($productoId, $request->user());
+        ->getStockConSugerencias($productoId, $request->user(),$request);
 
     return response()->json($result);
 }

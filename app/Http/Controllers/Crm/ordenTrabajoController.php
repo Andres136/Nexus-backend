@@ -17,6 +17,7 @@ class ordenTrabajoController extends Controller
             'user',
             'estado',
             'usuarioRevisor',
+            'ordenCompra.sede',
             'ordenCompra.detalles.product',
 
         ])->findOrFail($id);

@@ -30,7 +30,7 @@ class MantenimientoRequest extends FormRequest
             'costo' => 'required|numeric|min:0',
             'kilometro_programado' => 'required|string|max:255',
             'tipo_mantenimiento' => 'required|string|max:255',
-            'archivo' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10000', // Validar el archivo
+            'archivo' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10240', // Validar el archivo
             'kilometraje_actual' => 'required|integer|min:0', // Permitir que el kilometraje actual sea opcional
         ];
     }

@@ -3,6 +3,7 @@
 
 namespace App\Services\Crm;
 
+use App\Models\Crm\AlistamientoOt;
 use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\OrdenDeTrabajo;
 use App\Models\Crm\OrdenTrabajoEntrega;
@@ -256,6 +257,9 @@ class OrdenTrabajoService
     private function generarPDF($ordenTrabajo, $ordenCompra)
     {
         // GENERACIÓN EXACTA DEL CONTROLLER
+        $alistamientos =AlistamientoOt::with(['producto', 'bodega.sede'])
+            ->where('orden_trabajo_id', $ordenTrabajo->id)
+            ->get();
         $pdf = Pdf::loadView('pdf.orden_trabajo', [
             'orden' => $ordenTrabajo->load([
                 'ordenCompra.detalles.product',
@@ -265,6 +269,7 @@ class OrdenTrabajoService
                 'entregas.usuario'
             ]),
             'detalles' => $ordenCompra->detalles,
+            'alistamientos' => $alistamientos,
             'totalKg' => $ordenCompra->detalles->sum('cantidad_requerida_kg'),
             'valorTotal' => $ordenCompra->valor_total,
             'observaciones' => $ordenTrabajo->observaciones ?? 'Sin observaciones',
