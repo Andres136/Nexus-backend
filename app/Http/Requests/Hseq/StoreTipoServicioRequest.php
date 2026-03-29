@@ -22,7 +22,7 @@ class StoreTipoServicioRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nombre' => 'required|string|max:255|unique:tipo_servicios,nombre',
+            'nombre' => 'required|unique:tipo_servicios,nombre|max:255',
             'descripcion' => 'nullable|string',
             'unidad_medida' => 'nullable|string|max:50',
         ];

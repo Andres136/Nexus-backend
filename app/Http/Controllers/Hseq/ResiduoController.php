@@ -18,13 +18,12 @@ class ResiduoController extends Controller
     {
         $this->residuoService = $residuoService;
     }   
-    public function index(Request $request)
-    {
-        $filters = $request->all();
-        $timeline = $this->residuoService->timeline($filters);
-        return response()->json($timeline);
-    }
+public function index(Request $request)
+{
+    $data = $this->residuoService->getAll($request->all());
 
+    return response()->json($data);
+}
     /**
      * Store a newly created resource in storage.
      */
@@ -69,5 +68,18 @@ class ResiduoController extends Controller
         return response()->json([
             'message' => 'Residuo eliminado exitosamente'
         ]);
+    }
+
+    public function estadisticasAnuales(Request $request)
+    {
+         $filters = [
+        'anio' => $request->query('year', date('Y')),
+        'tipo_servicio_id' => $request->query('tipo_servicio_id'),
+        'sede_id' => $request->query('sede_id'),
+        'search' => $request->query('search'),
+    ];
+        $response = $this->residuoService->residuosTimeline($filters);
+
+        return response()->json($response, 200);
     }
 }

@@ -28,12 +28,12 @@ public function crearAlistamientosMasivo(array $items)
         $alistamientos = [];
         $errores = [];
 
-        // 🔥 OT y sede
+        //  OT y sede
         $ordenTrabajo = OrdenDeTrabajo::findOrFail($items[0]['orden_trabajo_id']);
         $ordenCompra  = Orden_Compra::findOrFail($ordenTrabajo->orden_compra_id);
         $sedeId       = $ordenCompra->sede_id;
 
-        // 🔥 AGRUPAR
+        //  AGRUPAR
         $agrupados = [];
         foreach ($items as $item) {
             if (($item['cantidad'] ?? 0) <= 0) continue;
@@ -42,8 +42,8 @@ public function crearAlistamientosMasivo(array $items)
             $agrupados[$key] = ($agrupados[$key] ?? 0) + $item['cantidad'];
         }
 
-        // 🔥 VALIDAR STOCK
-     // 🔥 VALIDAR STOCK GLOBAL (CORRECTO)
+        //  VALIDAR STOCK
+     //  VALIDAR STOCK GLOBAL (CORRECTO)
 foreach ($agrupados as $key => $cantidadTotal) {
 
     [$productoId, $bodegaId, $sedeIdKey] = explode('-', $key);
@@ -65,12 +65,12 @@ foreach ($agrupados as $key => $cantidadTotal) {
         continue;
     }
 
-    // 🔥 SUMAR TODO LO YA ALISTADO EN TODAS LAS OT
+    //  SUMAR TODO LO YA ALISTADO EN TODAS LAS OT
     $totalGlobal = AlistamientoOt::where('producto_id', $productoId)
         ->where('bodega_id', $bodegaId)
         ->sum('cantidad');
 
-    // 🔥 SI ESTÁS EDITANDO → RESTAR EL ACTUAL
+    //  SI ESTÁS EDITANDO → RESTAR EL ACTUAL
     $registroActual = AlistamientoOt::where([
         'orden_trabajo_id' => $ordenTrabajo->id,
         'producto_id' => $productoId,
@@ -80,7 +80,7 @@ foreach ($agrupados as $key => $cantidadTotal) {
     if ($registroActual) {
         $totalGlobal -= $registroActual->cantidad;
     }
-// 🔥 calcular total final primero
+//  calcular total final primero
 $totalFinal = $totalGlobal + $cantidadTotal;
 
     if ($totalFinal > $inventario) {
@@ -96,7 +96,7 @@ $totalFinal = $totalGlobal + $cantidadTotal;
     }
 }
 
-        // 🔥 VALIDAR DETALLE (BIEN HECHO)
+        //  VALIDAR DETALLE (BIEN HECHO)
         foreach ($items as $item) {
 
             if (($item['cantidad'] ?? 0) <= 0) continue;
@@ -112,7 +112,7 @@ $totalFinal = $totalGlobal + $cantidadTotal;
     throw new \Exception(json_encode($errores));
 }
 
-        // 🔥 GUARDAR (REEMPLAZAR, NO SUMAR)
+        //  GUARDAR (REEMPLAZAR, NO SUMAR)
         foreach ($items as $item) {
 
             if (($item['cantidad'] ?? 0) <= 0) continue;
@@ -125,7 +125,7 @@ $totalFinal = $totalGlobal + $cantidadTotal;
             ])->first();
 
             if ($registro) {
-                // 🔥 REEMPLAZAR
+                //  REEMPLAZAR
                 $registro->cantidad = $item['cantidad'];
                 $registro->observacion = $item['observacion'] ?? null;
                 $registro->save();

@@ -103,6 +103,7 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
   Route::get('/clientes-registro-user', [ClienteController::class, 'clientesUsuario']);
   Route::apiResource('clientes', ClienteController::class);
   Route::get('clientes-todos', [ClienteController::class, 'clientesTodos']);
+  
 
   //ordenes de compra
   Route::apiResource('orden-compras', OrdenCompraController::class);
@@ -398,10 +399,12 @@ Route::get('estadisticas-cartera', [GestionCarteraController::class, 'estadistic
 Route::get('recaudo-semanal', [GestionCarteraController::class, 'recaudoSemanal']);
 //RUTAS PARA HSEQ
 Route::apiResource('tipo-servicios', TipoServicioController::class);
+Route::get('estadisticas-anuales-consumo', [ConsumoServicioController::class, 'estadisticasAnuales']);
 Route::apiResource('consumo-servicios', ConsumoServicioController::class);
 //RUTAS PARA RESIDUOS
 Route::apiResource('tipo-residuos', TipoResiduoController::class);
-Route::apiResource('residuos', ResiduoController::class);
+Route::get('estadisticas-anuales-residuos', [ResiduoController::class, 'estadisticasAnuales']);
+Route::apiResource('generacion-residuos', ResiduoController::class);
 
 //RUTAS PARA TIPO DE INSPECCION
 Route::apiResource('tipo-inspecciones', TipoInspeccionController::class);

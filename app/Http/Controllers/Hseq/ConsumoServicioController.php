@@ -18,16 +18,12 @@ class ConsumoServicioController extends Controller
     {
         $this->consumoServicioService = $consumoServicioService;
     }
-    public function index(Request $request)
-    {
-        $year = $request->input('year', date('Y'));
-        $tipoServicioId = $request->input('tipo_servicio_id', null);
+ public function index(Request $request)
+{
+    $data = $this->consumoServicioService->getAll($request->all());
 
-        $response = $this->consumoServicioService->estadisticasAnuales($year, $tipoServicioId);
-        return response()->json([
-            'data' => $response
-        ], 200);
-    }
+    return response()->json($data);
+}
 
     /**
      * Store a newly created resource in storage.
@@ -74,4 +70,21 @@ class ConsumoServicioController extends Controller
             'message' => 'Consumo de servicio eliminado exitosamente'
         ], 200);
     }
+
+    /**
+     * Obtener estadísticas anuales de consumo por tipo de servicio
+     */
+public function estadisticasAnuales(Request $request)
+{
+    $filters = [
+        'anio' => $request->query('year', date('Y')),
+        'tipo_servicio_id' => $request->query('tipo_servicio_id'),
+        'sede_id' => $request->query('sede_id'),
+        'search' => $request->query('search'),
+    ];
+
+    $data = $this->consumoServicioService->consumoTimeline($filters);
+
+    return response()->json($data, 200);
+}
 }

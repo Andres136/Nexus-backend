@@ -56,7 +56,11 @@ class TipoServicioController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        //
+        $tipoServicio = $this->tipoServicioService->update($id, $request->all());
+        return response()->json([
+            'message' => 'Tipo de servicio actualizado exitosamente',
+            'data' => $tipoServicio
+        ], 200);
     }
 
     /**
@@ -64,6 +68,9 @@ class TipoServicioController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        $this->tipoServicioService->delete($id);
+        return response()->json([
+            'message' => 'Tipo de servicio eliminado exitosamente'
+        ], 200);
     }
 }

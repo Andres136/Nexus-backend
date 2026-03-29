@@ -29,10 +29,10 @@ public function __construct(KpiService $kpiService)
 }
 
 
-public function kpis(Request $request, OrdenCompraService $ordenCompraService)
+public function kpis(Request $request)
 {
 
-$ordenCompraService->notificarOrdenesPorVencer(); // Ejecuta la lógica de notificación
+
     $year = $request->get('year');
 
     return response()->json(

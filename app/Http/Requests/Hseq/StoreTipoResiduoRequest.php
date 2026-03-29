@@ -22,7 +22,7 @@ class StoreTipoResiduoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nombre' => 'required|string|max:255',
+            'nombre' => 'required|unique:tipo_residuos,nombre|max:255',
             'descripcion' => 'nullable|string|max:1000',
         ];
     }
