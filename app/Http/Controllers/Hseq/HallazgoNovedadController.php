@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Hseq;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Hseq\StoreHallazgoNovedadRequest;
 use App\Services\Hseq\HallazgoNovedadService;
+use App\Services\RegistroDiario\NovedadService;
 use Illuminate\Http\Request;
 
 class HallazgoNovedadController extends Controller
@@ -14,10 +15,12 @@ class HallazgoNovedadController extends Controller
      */
 
     protected $hallazgoNovedadService;
+    protected $novedadService;
 
-    public function __construct(HallazgoNovedadService $hallazgoNovedadService)
+    public function __construct(HallazgoNovedadService $hallazgoNovedadService, NovedadService $novedadService)
     {
         $this->hallazgoNovedadService = $hallazgoNovedadService;
+        $this->novedadService = $novedadService;
     }
     public function index()
     {
@@ -69,4 +72,13 @@ class HallazgoNovedadController extends Controller
     {
         //
     }
+    public function indicadorSemestral(Request $request)
+{
+    $fechaInicio = $request->fecha_inicio;
+    $fechaFin = $request->fecha_fin;
+
+    $data = $this->novedadService->getIndicadorSemestral($fechaInicio, $fechaFin);
+
+    return response()->json($data);
+}
 }

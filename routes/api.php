@@ -412,10 +412,11 @@ Route::apiResource('preguntas-inspecciones', PreguntaInspeccionController::class
 Route::get('preguntas-tipo-inspecciones', [PreguntaInspeccionController::class, 'preguntasPorTipoInspeccion']);
 Route::apiResource('inspecciones-hseq', InspeccionHseqController::class);
 Route::apiResource('respuestas-inspecciones', RespuestaInspeccionController::class);
+Route::get('indicador-semestral', [HallazgoNovedadController::class, 'indicadorSemestral']);
 
 Route::apiResource('hallazgo-inspecciones', HallazgoNovedadController::class);
 Route::apiResource('hseq-dashboard', HseqDashboardController::class);
-
+Route::apiResource('hallazgos', HallazgoNovedadController::class);
 
 });
 

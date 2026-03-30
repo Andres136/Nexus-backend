@@ -2,6 +2,7 @@
 
 namespace App\Models\RegistroDiario;
 
+use App\Models\Hseq\HallazgoNovedad;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
@@ -28,5 +29,10 @@ class Novedades extends Model
     public function responsable()
     {
         return $this->belongsTo(User::class, 'responsable_id');
+    }
+
+    public function hallazgos()
+    {
+        return $this->hasMany(HallazgoNovedad::class, 'novedad_id');
     }
 }
