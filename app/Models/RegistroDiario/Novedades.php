@@ -18,7 +18,8 @@ class Novedades extends Model
         'fecha_terminado',
         'soporte',
         'responsable_id',
-        'fuentes'
+        'fuentes',
+        'causa'
     ];
 
     public function registroDiario()

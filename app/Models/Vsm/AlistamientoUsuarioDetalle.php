@@ -4,21 +4,17 @@ namespace App\Models\Vsm;
 
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\Pivot;
 
-class AlistamientoUsuario extends Pivot
+class AlistamientoUsuarioDetalle extends Model
 {
-    protected $table = 'alistamiento_usuario';
+    protected $table = 'alistamiento_usuario_detalles';
+
     protected $fillable = [
         'alistamiento_id',
         'usuario_id',
-        'estado',
-        'inicio',
-        'pausado_en',
-        'tiempo_segundos',
-        'razon',
+        'detalle_id',
+        'cantidad_alistada',
     ];
-    public $timestamps = true;
 
     public function alistamiento()
     {
@@ -28,5 +24,10 @@ class AlistamientoUsuario extends Pivot
     public function usuario()
     {
         return $this->belongsTo(User::class, 'usuario_id');
+    }
+
+    public function detalle()
+    {
+        return $this->belongsTo(AlistamientoDetalle::class, 'detalle_id');
     }
 }

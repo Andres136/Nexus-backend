@@ -87,34 +87,6 @@ public function usuarios()
     // -------------------------------------------------
     // 🔥 TIEMPO EN VIVO (TEMPORIZADOR)
     // -------------------------------------------------
-public function getSegundosEnVivoAttribute()
-{
-    $eventos = $this->tiempos()->orderBy('fecha_hora')->get();
-
-    $total = 0;
-    $inicio = null;
-
-    foreach ($eventos as $ev) {
-
-        // Si comienza un intervalo
-        if ($ev->tipo === 'INICIO' || $ev->tipo === 'REANUDACION') {
-            $inicio = $ev->fecha_hora;
-        }
-
-        // Si termina un intervalo
-        if (($ev->tipo === 'PAUSA' || $ev->tipo === 'FINALIZACION') && $inicio) {
-            $total += $inicio->diffInSeconds($ev->fecha_hora);
-            $inicio = null;
-        }
-    }
-
-    // Si está en curso (INICIADO o REANUDADO)
-    if ($inicio && in_array($this->estado, ['INICIADO', 'REANUDADO'])) {
-        $total += $inicio->diffInSeconds(now());
-    }
-
-    return $total;
-}
 
 
 

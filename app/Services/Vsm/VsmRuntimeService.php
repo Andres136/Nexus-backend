@@ -6,6 +6,8 @@ namespace App\Services\Vsm;
 use App\Models\Crm\OrdenDeTrabajo;
 use App\Models\Vsm\Alistamiento;
 use App\Models\Vsm\AlistamientoDetalle;
+use App\Models\Vsm\AlistamientoUsuario;
+use App\Models\Vsm\AlistamientoUsuarioDetalle;
 use Illuminate\Support\Facades\DB;
 
 class VsmRuntimeService
@@ -60,5 +62,46 @@ class VsmRuntimeService
         $d->save();
     }
 }
+
+
+    public function getKpiProductividad($sedeId)
+    {
+        $usuarios = AlistamientoUsuario::with('usuario')
+            ->whereHas('alistamiento.ordenTrabajo.ordenCompra', function ($q) use ($sedeId) {
+                $q->where('sede_id', $sedeId);
+            })
+            ->get();
+
+        $data = $usuarios->map(function ($pivot) {
+
+            $produccion = AlistamientoUsuarioDetalle::where([
+                'alistamiento_id' => $pivot->alistamiento_id,
+                'usuario_id' => $pivot->usuario_id
+            ])->sum('cantidad_alistada');
+
+            $tiempo = $pivot->tiempo_segundos ?? 0;
+
+            $bolsasHora = $tiempo > 0 ? ($produccion / $tiempo) * 3600 : 0;
+
+            $metaHora = 705;
+
+            $rendimiento = $metaHora > 0 ? ($bolsasHora / $metaHora) * 100 : 0;
+
+            return [
+                'usuario_id' => $pivot->usuario_id,
+                'usuario' => $pivot->usuario->name,
+                'produccion' => $produccion,
+                'tiempo_segundos' => $tiempo,
+                'bolsas_hora' => round($bolsasHora, 2),
+                'rendimiento' => round($rendimiento, 1),
+            ];
+        });
+
+        return [
+            'usuarios' => $data,
+            'total_produccion' => $data->sum('produccion'),
+            'promedio_rendimiento' => round($data->avg('rendimiento'), 1),
+        ];
+    }
 
 }

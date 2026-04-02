@@ -24,7 +24,10 @@ class NovedadController extends Controller
     $filters = $request->only([
         'fecha_inicio',
         'fecha_fin',
-        'departamento_id'
+        'departamento_id',
+        'search',
+        'usuario',
+        'per_page'
     ]);
 
     $novedades = $this->novedadService->getNovedades($filters);

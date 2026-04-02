@@ -10,30 +10,64 @@ class NovedadService
 {
     //Retornar las novedades  con filtro por fecha proceso
 
-
-    public function getNovedades($filters = [])
+public function getNovedades($filters = [])
 {
-    return Novedades::with(['registroDiario.departamento', 'responsable', ])
-        ->whereHas('registroDiario', function ($query) use ($filters) {
+    return Novedades::with(['registroDiario.departamento', 'responsable'])
 
-            // 🔹 Filtro por rango de fechas
-            if (!empty($filters['fecha_inicio']) && !empty($filters['fecha_fin'])) {
-                $query->whereBetween('fecha_proceso', [
-                    $filters['fecha_inicio'],
-                    $filters['fecha_fin'],
-                    
-                ]);
+        ->where(function ($query) use ($filters) {
+
+            // 🔹 FILTROS DE RELACIÓN
+            $query->whereHas('registroDiario', function ($q) use ($filters) {
+
+                if (!empty($filters['fecha_inicio']) && !empty($filters['fecha_fin'])) {
+                    $q->whereBetween('fecha', [
+                        $filters['fecha_inicio'],
+                        $filters['fecha_fin'],
+                    ]);
+                }
+
+                if (!empty($filters['departamento_id'])) {
+                    $q->where('departamento_id', $filters['departamento_id']);
+                }
+            });
+
+            // 🔹 FILTRO POR USUARIO
+            if (!empty($filters['usuario'])) {
+                $query->whereHas('responsable', function ($q) use ($filters) {
+                    $q->where('name', 'LIKE', '%' . $filters['usuario'] . '%');
+                });
             }
 
-            // 🔹 Filtro por departamento
-            if (!empty($filters['departamento_id'])) {
-                $query->where('departamento_id', $filters['departamento_id']);
+            // 🔥 SEARCH GLOBAL BIEN AGRUPADO
+            if (!empty($filters['search'])) {
+                $query->where(function ($q) use ($filters) {
+
+                    $q->where('descripcion', 'LIKE', '%' . $filters['search'] . '%')
+                      ->orWhereHas('responsable', function ($q2) use ($filters) {
+                          $q2->where('name', 'LIKE', '%' . $filters['search'] . '%');
+                      })
+                      ->orWhereHas('registroDiario.departamento', function ($q3) use ($filters) {
+                          $q3->where('nombre', 'LIKE', '%' . $filters['search'] . '%');
+                      });
+
+                });
             }
 
         })
-        ->paginate(10); // Puedes ajustar el número de resultados por página
-}
 
+        ->orderByRaw("
+            CASE 
+                WHEN estado = 'ABIERTA' THEN 1
+                WHEN estado = 'EN_PROCESO' THEN 2
+                WHEN estado = 'CERRADA' THEN 3
+                ELSE 4
+            END
+        ")
+
+        ->orderByDesc('created_at')
+
+        ->paginate($filters['per_page'] ?? 10);
+}
     public function getNovedadesByFechaProceso($fechaProceso)
     {
         return Novedades::with(['registroDiario.departamento', 'responsable'])

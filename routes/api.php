@@ -316,7 +316,7 @@ Route::post('/vsm-alistamientos/{id}/pausar', [AlistamientoController::class, 'p
 Route::post('/vsm-alistamientos/{id}/reanudar', [AlistamientoController::class, 'reanudar']);
 Route::post('/vsm-alistamientos/{id}/finalizar', [AlistamientoController::class, 'finalizar']);
 Route::get('alistamientos/{id}/historial', [AlistamientoController::class, 'historial']);
-
+Route::post('/alistamiento/produccion', [AlistamientoController::class, 'registrarProduccion']);
 //Obtener alistamientos activos
 Route::get('alistamientos-activos', [AlistamientoController::class, 'alistamientosActivos']);
 
@@ -325,9 +325,10 @@ Route::post('/alistamientos/{alistamiento_id}/usuarios/{usuario_id}/reanudar', [
 //Traer ordenes de trabajo para alistamiento
 Route::get('ordenes-trabajo-alistamiento', [AlistamientoController::class, 'ordenesTrabajoAlistamiento']);
 //Tiempos por alistamiento
-
+Route::get('/kpi-productividad', [ForecastController::class, 'kpiProductividad']);
 Route::get('/vsm/pronostico', [ForecastController::class, 'pronostico']);
 Route::get('/vsm/pronostico/{id}', [ForecastController::class, 'pronosticoOT']);
+
 
 Route::get('/vsm/flujo', [ForecastController::class, 'flujo']);
 

@@ -30,6 +30,7 @@ class StoreUpdateNovedadesRequest extends FormRequest
             'responsable_revision' => 'nullable|string|max:255',
             'fecha_estado' => 'nullable|date',
             'fuentes' => 'nullable|string|max:255',
+          'causa' => 'nullable|string|max:10000',
         ];
 
     }
@@ -51,6 +52,8 @@ class StoreUpdateNovedadesRequest extends FormRequest
             'fecha_estado.date' => 'El campo fecha de estado debe ser una fecha válida.',
             'fuentes.string' => 'El campo fuentes debe ser una cadena de texto.',
             'fuentes.max' => 'El campo fuentes no debe exceder los 255 caracteres.',
+            'causa.string' => 'El campo causa debe ser una cadena de texto.',
+            'causa.max' => 'El campo causa no debe exceder los 10000 caracteres.',
         ];
     }
 }

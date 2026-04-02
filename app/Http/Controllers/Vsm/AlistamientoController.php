@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Vsm;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Vsm\AlistamientoCreateRequest;
+use App\Http\Requests\Vsm\StoreRegistrarProduccionRequest;
 use App\Models\Crm\OrdenDeTrabajo;
 use App\Models\Estados;
 use App\Models\User;
@@ -11,6 +12,7 @@ use App\Models\Vsm\Alistamiento;
 use App\Models\Vsm\AlistamientoDetalle;
 use App\Models\Vsm\AlistamientoTiempo;
 use App\Models\Vsm\AlistamientoUsuario;
+use App\Services\Vsm\AlistamientoService;
 use App\Services\Vsm\VsmRuntimeService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -23,9 +25,13 @@ class AlistamientoController extends Controller
 
 
     protected $service;
+    protected $runtimeService;
+    protected $alistamientoService;
    public function __construct()
     {
         $this->service = new VsmRuntimeService();
+        $this->runtimeService = new AlistamientoService();
+        $this->alistamientoService = new AlistamientoService();
     }
 
 
@@ -42,43 +48,7 @@ class AlistamientoController extends Controller
     // ------------------------------
 public function store(AlistamientoCreateRequest $request)
 {
-    // 1. Crear alistamiento principal
-    $alist = Alistamiento::create([
-        'orden_trabajo_id' => $request->orden_trabajo_id,
-        'producto_id'      => $request->producto_id, // puede venir null
-        'usuario_id'       => auth()->id(),          // usuario que inicia
-        'cantidad'         => $request->cantidad,
-        'estado'           => 'INICIADO',
-        'fecha'            => now()->toDateString(),
-    ]);
-
-    // 2. Registrar usuarios asignados (tabla pivot)
-    foreach ($request->usuarios as $usuarioId) {
-        AlistamientoUsuario::create([
-            'alistamiento_id' => $alist->id,
-            'usuario_id'      => $usuarioId,
-        ]);
-    }
-
-    // 3. Crear detalles de alistamiento (UNO POR CADA ITEM DE LA OT)
-    $ordenTrabajo = OrdenDeTrabajo::with('ordenCompra.detalles')->find($request->orden_trabajo_id);
-
-    foreach ($ordenTrabajo->ordenCompra->detalles as $item) {
-        AlistamientoDetalle::create([
-            'alistamiento_id'      => $alist->id,
-            'product_id'           => $item->product_id, // puede venir null
-            'cantidad_programada'  => $item->cantidad,
-            'cantidad_alistada'    => 0,
-            'cantidad_faltante'    => $item->faltantes ?? null,
-        ]);
-    }
-
-    // 4. Registrar evento de INICIO
-    AlistamientoTiempo::create([
-        'alistamiento_id' => $alist->id,
-        'tipo'            => 'INICIO',
-        'fecha_hora'      => now(),
-    ]);
+   $alist = $this->runtimeService->crearAlistamiento($request->validated(), auth()->id());
 
     return response()->json($alist, 201);
 }
@@ -123,31 +93,15 @@ public function store(AlistamientoCreateRequest $request)
     // ------------------------------
     // FINALIZAR
     // ------------------------------
-    public function finalizar($id)
-    {
-        $alist = Alistamiento::findOrFail($id);
-        $alist->estado = 'FINALIZADO';
-        $alist->save();
+public function finalizar($id)
+{
+    $result = $this->alistamientoService->finalizarAlistamiento($id);
 
-        AlistamientoTiempo::create([
-            'alistamiento_id' => $id,
-            'tipo'            => 'FINALIZACION',
-            'fecha_hora'      => now()
-        ]);
-
-        // Calcular tiempo total productivo
-        $alist->calcularDuracion();
-
-        // Distribuir tiempo entre detalles del service
-        $this->service->distribuirTiempoPorDetalles($alist);
-     
-
-        return response()->json([
-            'status' => 'FINALIZADO',
-            'tiempo_total' => $alist->duracion_formateada
-        ]);
-    }
-
+    return response()->json([
+        'status' => 'FINALIZADO',
+        'data' => $result
+    ]);
+}
 
 
 
@@ -162,86 +116,123 @@ public function store(AlistamientoCreateRequest $request)
 
 public function alistamientosActivos()
 {
-    // Estados que representan un alistamiento en curso
-    $estadosActivos = ['INICIADO', 'PAUSADO', 'REANUDADO'];
- 
+    $user = auth()->user();
+    $sedeIdFiltro = request('sede_id');
 
-    $alistamientos = Alistamiento::with([
+    // Estados activos
+    $estadosActivos = ['INICIADO', 'PAUSADO', 'REANUDADO'];
+
+    // 🔥 QUERY BASE
+    $query = Alistamiento::with([
         'ordenTrabajo.ordenCompra.cliente',
         'ordenTrabajo.ordenCompra.sede',
-        'usuarios',            // relación pivot user <-> alistamiento
-        'tiempos',             // historial de eventos
-        'detalles.product'     // si usas alistamiento_detalles
+        'usuarios',
+        'tiempos',
+        'detalles.product'
     ])
-    ->whereIn('estado', $estadosActivos)
-    ->orderBy('updated_at', 'desc')
-    ->get()
-    ->map(function ($alist) {
+    ->whereIn('estado', $estadosActivos);
 
-        // -------------------------------
-        // TIEMPO GENERAL DEL ALISTAMIENTO
-        // -------------------------------
-        $tiempoTotal = $alist->segundos_en_vivo;
+    // 🔥 FILTRO INTELIGENTE
+    $query->when(
+        $sedeIdFiltro,
+        function ($q) use ($sedeIdFiltro) {
+            $q->whereHas('ordenTrabajo.ordenCompra', function ($q2) use ($sedeIdFiltro) {
+                $q2->where('sede_id', $sedeIdFiltro);
+            });
+        },
+        function ($q) use ($user) {
+            $q->whereHas('ordenTrabajo.ordenCompra', function ($q2) use ($user) {
+                $q2->where('sede_id', $user->sede_id);
+            });
+        }
+    );
 
-        // -----------------------------------
-        // TIEMPO POR CADA USUARIO ASIGNADO
-        // -----------------------------------
-        $usuarios = $alist->usuarios->map(function ($u) {
+    
+    $alistamientos = $query
+        ->orderBy('updated_at', 'desc')
+        ->get()
+        ->map(function ($alist) {
 
-            // Pivot trae los datos de tiempo
-            $pivot = $u->pivot;
+          $tiempoTotal = 0;
+
+foreach ($alist->usuarios as $u) {
+
+    $pivot = $u->pivot;
+
+    $tiempo = max(0, (int) $pivot->tiempo_segundos);
+
+    if ($pivot->estado === 'EN_PROGRESO' && $pivot->inicio) {
+
+        $inicio = \Carbon\Carbon::parse($pivot->inicio);
+
+        $tiempo += now()->diffInSeconds($inicio);
+    }
+
+    $tiempoTotal += $tiempo;
+}
+
+$usuarios = $alist->usuarios->map(function ($u) {
+
+    $pivot = $u->pivot;
+
+    $tiempo = max(0, (int) $pivot->tiempo_segundos);
+
+      if ($pivot->estado === 'EN_PROGRESO' && $pivot->inicio) {
+                $inicio = \Carbon\Carbon::parse($pivot->inicio);
+             
+        $tiempoActual = $inicio->diffInSeconds(now());
+
+        $tiempo += max(0, $tiempoActual);
+            }
+
+    return [
+        'id' => $u->id,
+        'name' => $u->name,
+        'estado' => $pivot->estado,
+        'inicio_usuario' => $pivot->inicio,
+        'pausado_en' => $pivot->pausado_en,
+        'segundos_usuario' => $tiempo,
+    ];
+});
+$tiempoTotal = $usuarios->sum('segundos_usuario');
+
+            $detalles = $alist->detalles->map(function ($d) {
+                return [
+                    'id' => $d->id,
+                    'product_id' => $d->product_id,
+                    'product' => $d->product->name ?? null,
+                    'programada' => $d->cantidad_programada,
+                    'alistada' => $d->cantidad_alistada,
+                    'faltante' => $d->cantidad_faltante,
+                ];
+            });
 
             return [
-                'id' => $u->id,
-                'name' => $u->name,
-                'estado' => $pivot->estado,   // EN_PROGRESO o PAUSADO
-                'inicio_usuario' => $pivot->inicio,
-                'pausado_en' => $pivot->pausado_en,
-                'segundos_usuario' => $pivot->tiempo_segundos ?? 0,
-              
+                'id' => $alist->id,
+                'orden_trabajo_id' => $alist->orden_trabajo_id,
+                'estado' => $alist->estado,
+                'inicio' => $alist->inicio,
+                
+                'segundos_transcurridos' => $tiempoTotal,
+                'usuarios' => $usuarios,
+                'detalles' => $detalles,
+                'orden_trabajo' => $alist->ordenTrabajo,
+                'sede' => [
+                    'id' => $alist->ordenTrabajo->ordenCompra->sede->id,
+                    'nombre' => $alist->ordenTrabajo->ordenCompra->sede->nombre,
+                ],
+                'cliente' => [
+                    'id' => $alist->ordenTrabajo->ordenCompra->cliente->id,
+                    'nombre' => $alist->ordenTrabajo->ordenCompra->cliente->nombre,
+                ]
             ];
         });
 
-        // -------------------------------
-        // DETALLES POR PRODUCTO (opcional)
-        // -------------------------------
-        $detalles = $alist->detalles->map(function ($d) {
-            return [
-                'product_id' => $d->product_id,
-                'producto' => $d->product->name ?? null,
-                'programada' => $d->cantidad_programada,
-                'alistada' => $d->cantidad_alistada,
-                'faltante' => $d->cantidad_faltante,
-            ];
-        });
-
-        return [
-            'id' => $alist->id,
-            'orden_trabajo_id' => $alist->orden_trabajo_id,
-            'estado' => $alist->estado,
-            'inicio' => $alist->inicio,
-            'segundos_transcurridos' => $tiempoTotal,
-            'usuarios' => $usuarios,
-            'detalles' => $detalles,
-            'orden_trabajo' => $alist->ordenTrabajo,
-            'sede'=>[
-                'id'=>$alist->ordenTrabajo->ordenCompra->sede->id,
-                'nombre'=>$alist->ordenTrabajo->ordenCompra->sede->nombre,
-            ],
-            'cliente'=>[
-                'id'=>$alist->ordenTrabajo->ordenCompra->cliente->id,
-                'nombre'=>$alist->ordenTrabajo->ordenCompra->cliente->nombre,
-            ]
-        ];
-
-    });
-
-
-
-     //Ordenar por sede nombre ascendente
-    $alistamientos = $alistamientos->sortBy(function($alistamiento) {
-        return $alistamiento['sede']['nombre'];
-    })->values()->all();
+    // 🔥 ORDEN FINAL
+    $alistamientos = $alistamientos
+        ->sortBy(fn($a) => $a['sede']['nombre'])
+        ->values()
+        ->all();
 
     return response()->json($alistamientos);
 }
@@ -394,6 +385,19 @@ public function ordenesTrabajoAlistamiento(Request $request)
     return response()->json($ordenes, 200);
 }
 
+public function registrarProduccion(StoreRegistrarProduccionRequest $request)
+{
+  
+
+    $data = $this->alistamientoService->registrarProduccion(
+        $request->alistamiento_id,
+        $request->detalle_id,
+        $request->cantidad_alistada,
+        $request->usuario_id,
+    );
+
+    return response()->json($data);
+}
 
 
 public function usuariosDisponibles($alistamientoId)
@@ -434,37 +438,19 @@ public function agregarUsuario(Request $request, $alistamientoId)
 
 public function pausarUsuario($alistId, $userId, Request $request)
 {
-    $razon = $request->razon ?? null;
+    $this->alistamientoService->pausarUsuario(
+        $alistId,
+        $userId,
+        $request->razon
+    );
 
-    $pivot = AlistamientoUsuario::where('alistamiento_id', $alistId)
-        ->where('usuario_id', $userId)
-        ->firstOrFail();
-
-    // Guardar tiempo acumulado
-    if ($pivot->inicio) {
-        $pivot->tiempo_segundos += now()->diffInSeconds($pivot->inicio);
-    }
-
-    $pivot->estado = "PAUSADO";
-    $pivot->pausado_en = now();
-    $pivot->inicio = null;
-    $pivot->razon = $razon;  // <-- SE GUARDA SOLO AQUÍ, EN EL PIVOT
-    $pivot->save();
-
-    return response()->json(["message" => "Usuario pausado"]);
+    return response()->json(['message' => 'Usuario pausado']);
 }
 
 
 public function reanudarUsuario($alistId, $userId)
 {
-    $pivot = AlistamientoUsuario::where('alistamiento_id', $alistId)
-        ->where('usuario_id', $userId)
-        ->firstOrFail();
-
-    $pivot->estado = "EN_PROGRESO";
-    $pivot->inicio = now();
-    $pivot->pausado_en = null;
-    $pivot->save();
+    $this->alistamientoService->reanudarUsuario($alistId, $userId);
 
     return response()->json(['message' => 'Usuario reanudado']);
 }

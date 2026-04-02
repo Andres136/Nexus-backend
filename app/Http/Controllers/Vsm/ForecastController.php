@@ -7,16 +7,19 @@ use App\Models\Crm\OrdenDeTrabajo;
 use App\Models\Rutas\DeliveryEvent;
 use App\Models\Vsm\Alistamiento;
 use App\Services\Vsm\AlistamientoForecastService;
+use App\Services\Vsm\VsmRuntimeService;
 use Illuminate\Http\Request;
 use Mockery\Matcher\Any;
 
 class ForecastController extends Controller
 {
     protected $service;
+    protected $runtimeService;
 
     public function __construct(AlistamientoForecastService $service)
     {
         $this->service = $service;
+        $this->runtimeService = new VsmRuntimeService();
     }
 
 
@@ -49,6 +52,19 @@ class ForecastController extends Controller
             'estimacion' => $data,
             'usuarios_asignados' => $usuarios
         ], 200);
+    }
+
+
+
+    public function kpiProductividad()
+    {
+        $user = auth()->user();
+
+        $sedeId = request('sede_id') ?? $user->sede_id;
+
+        $data = $this->runtimeService->getKpiProductividad($sedeId);
+
+        return response()->json($data);
     }
 
 
