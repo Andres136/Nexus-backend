@@ -142,6 +142,7 @@ public function listarGestionCartera(array $filtros)
     ");
 
     $query->orderBy('fecha_vencimiento', 'asc');
+$query->orderByRaw("CAST(SUBSTRING(numero_factura, 4) AS UNSIGNED) ASC");
 
     $data = $query->paginate($filtros['per_page'] ?? 20);
 

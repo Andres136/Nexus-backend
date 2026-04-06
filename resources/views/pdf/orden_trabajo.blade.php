@@ -197,69 +197,70 @@ tr { page-break-inside: avoid; }
 @foreach($detalles as $d)
 <tr>
     <td>{{ $d->product->code ?? '-' }}</td>
-  <td style="text-align:left;">
-    <div><strong>Ancho:</strong> {{ number_format($d->ancho_cm, 0) }}</div>
-    <div><strong>Largo:</strong> {{ number_format($d->largo_cm, 0) }}</div>
-    <div><strong>Calibre:</strong> {{ number_format($d->calibre, 0) }}</div>
-</td>
+    <td style="text-align:left;">
+        <div><strong>Ancho:</strong> {{ number_format($d->ancho_cm, 0) }}</div>
+        <div><strong>Largo:</strong> {{ number_format($d->largo_cm, 0) }}</div>
+        <div><strong>Calibre:</strong> {{ number_format($d->calibre, 0) }}</div>
+    </td>
     <td>{{ $d->cliente_clb }}</td>
     <td class="descripcion">{{ $d->descripcion }}</td>
     <td>{{ ucfirst($d->tipo_embalaje) }}</td>
     <td>{{ number_format($d->cantidad_requerida_kg, 2) }}</td>
     <td>{{ $d->cantidad }}</td>
-   <td style="font-size:6px; line-height:1.2; text-align:left;">
-    @php
-        $alistamientosDetalle = $alistamientos
-            ->where('orden_compra_detalle_id', $d->id);
-
-        $agrupado = $alistamientosDetalle->groupBy(fn($i) => $i->producto_id . '-' . $i->bodega_id);
-    @endphp
-@foreach($agrupado as $grupo)
-    @php
-        $item = $grupo->first();
-        $total = $grupo->sum('cantidad');
-    @endphp
-
-    <div>
-        {{ $item->producto->name }}
-        ({{ $item->bodega->nombre }}
-        @if($item->bodega->sede)
-            - {{ $item->bodega->sede->nombre }}
-        @endif
-        )
-
-        <span style="float:right; color:green;">
-            {{ number_format($total, 2) }}
-        </span>
-
-        {{-- 🔥 OBSERVACIÓN AQUÍ --}}
-        @if($item->observacion)
-            <div style="color:#d9822b; font-size:7px;">
-                 {{ $item->observacion }}
-            </div>
-        @endif
-    </div>
-@endforeach
-</td>
-
-   <td style="font-size:9px;">
-    <div>
-        <span style="color:green;">
-            {{ $d->cantidad_enviada }}
-        </span>
-        /
-        <span style="color:{{ $d->faltantes > 0 ? 'red' : 'green' }};">
-            {{ $d->faltantes }}
-        </span>
-    </div>
-</td>
+    <td>
+        {{-- Aquí solo el número de alistamientos o un resumen --}}
+        {{ $alistamientos->where('orden_compra_detalle_id', $d->id)->count() }} alistamientos
+    </td>
+    <td>
+        <div>
+            <span style="color:green;">
+                {{ $d->cantidad_enviada }}
+            </span>
+            /
+            <span style="color:{{ $d->faltantes > 0 ? 'red' : 'green' }};">
+                {{ $d->faltantes }}
+            </span>
+        </div>
+    </td>
     <td>${{ number_format($d->valor_unitario, 2, ',', '.') }}</td>
     <td>${{ number_format($d->valor_total, 2, ',', '.') }}</td>
 </tr>
 
+{{-- FILA EXPANDIDA PARA ALISTAMIENTOS --}}
+@php
+    $alistamientosDetalle = $alistamientos->where('orden_compra_detalle_id', $d->id);
+    $agrupado = $alistamientosDetalle->groupBy(fn($i) => $i->producto_id . '-' . $i->bodega_id);
+@endphp
+@if($agrupado->count())
+<tr>
+    <td colspan="11" style="font-size:7px; text-align:left; background:#f9fafb;">
+        <strong>Alistamientos:</strong>
+        @foreach($agrupado as $grupo)
+            @php
+                $item = $grupo->first();
+                $total = $grupo->sum('cantidad');
+            @endphp
+            <div>
+                {{ $item->producto->name }}
+                ({{ $item->bodega->nombre }}
+                @if($item->bodega->sede)
+                    - {{ $item->bodega->sede->nombre }}
+                @endif
+                )
+                <span style="color:green;">{{ number_format($total, 2) }}</span>
+                @if($item->observacion)
+                    <span style="color:#d9822b;"> | {{ $item->observacion }}</span>
+                @endif
+            </div>
+        @endforeach
+    </td>
+</tr>
+@endif
+
+{{-- ENTREGAS --}}
 @if($d->entregas->count())
 <tr>
-    <td colspan="13" class="entregas">
+    <td colspan="11" class="entregas">
         <strong>Entregas:</strong><br>
         @foreach($d->entregas as $e)
             • {{ $e->cantidad }} — {{ \Carbon\Carbon::parse($e->fecha_entrega)->format('d/m/Y') }} — {{ $e->usuario->name }}<br>

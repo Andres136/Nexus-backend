@@ -101,6 +101,7 @@ public function pausarUsuario($alistId, $userId, $razon = null)
     $pivot->estado = 'PAUSADO';
     $pivot->pausado_en = now();
     $pivot->inicio = null;
+    $pivot->razon = $razon;
 
     $pivot->save();
 
@@ -138,52 +139,78 @@ public function finalizarAlistamiento($alistId)
 {
     return DB::transaction(function () use ($alistId) {
 
-        $alist = Alistamiento::with(['usuarios', 'detalles'])->findOrFail($alistId);
+        $alist = Alistamiento::with(['usuarios', 'detalles', 'tiempos'])->findOrFail($alistId);
 
-        // 🔥 1. Cerrar usuarios activos
-     foreach ($alist->usuarios as $usuario) {
+        //  1. Cerrar usuarios
+        foreach ($alist->usuarios as $usuario) {
 
-    $pivot = $usuario->pivot;
+            $pivot = $usuario->pivot;
 
-    if ($pivot->estado === 'EN_PROGRESO' && $pivot->inicio) {
+            if ($pivot->estado === 'EN_PROGRESO' && $pivot->inicio) {
 
-        $tiempoActual = now()->diffInSeconds($pivot->inicio);
+                $tiempoActual = now()->diffInSeconds($pivot->inicio);
 
-        $pivot->tiempo_segundos =
-            max(0, (int) $pivot->tiempo_segundos) + max(0, $tiempoActual);
+                $pivot->tiempo_segundos =
+                    max(0, (int) $pivot->tiempo_segundos) + max(0, $tiempoActual);
 
-        $pivot->inicio = null;
+                $pivot->inicio = null;
+            }
+
+            $pivot->tiempo_segundos = max(0, (int) $pivot->tiempo_segundos);
+            $pivot->estado = 'FINALIZADO';
+            $pivot->save();
+        }
+
+        //  2. CREAR EVENTO FINALIZACION (ANTES DEL CÁLCULO)
+        AlistamientoTiempo::create([
+            'alistamiento_id' => $alistId,
+            'tipo' => 'FINALIZACION',
+            'fecha_hora' => now(),
+        ]);
+
+        //  3. RECARGAR EVENTOS
+        $alist->load('tiempos');
+
+        //  4. CALCULAR TIEMPO
+        $tiempoTotal = $alist->calcularDuracion();
+
+        
+
+        //  5. PRODUCCIÓN
+        $totalAlistado = $alist->detalles->sum('cantidad_alistada');
+
+foreach ($alist->detalles as $detalle) {
+
+    if ($totalAlistado > 0) {
+
+        $proporcion = $detalle->cantidad_alistada / $totalAlistado;
+        $detalle->tiempo_parcial_segundos = (int) ($tiempoTotal * $proporcion);
+
+    } else {
+        //  REPARTIR EQUITATIVO
+        $detalle->tiempo_parcial_segundos = (int) ($tiempoTotal / max(1, $alist->detalles->count()));
     }
 
-    // 🔥 blindaje total
-    $pivot->tiempo_segundos = max(0, (int) $pivot->tiempo_segundos);
-
-    $pivot->estado = 'FINALIZADO';
-    $pivot->save();
+    $detalle->save();
 }
 
-        // 🔥 2. Tiempo total REAL
-        $tiempoTotal = $this->calcularTiempoTotal($alist);
+        //  6. KPI (forma correcta)
+        $bolsasPorHora = $tiempoTotal > 0
+            ? ($totalAlistado * 3600) / $tiempoTotal
+            : 0;
 
-        // 🔥 3. Producción
-        $totalAlistado = $alist->detalles->sum('cantidad_alistada');
-        $totalProgramado = $alist->detalles->sum('cantidad_programada');
+        $horas = $tiempoTotal / 3600;
 
-        // 🔥 4. KPI
-        $horas = $tiempoTotal > 0 ? ($tiempoTotal / 3600) : 0;
-        $bolsasPorHora = $horas > 0 ? ($totalAlistado / $horas) : 0;
-
-        // 🎯 META
+        // 🔥 7. META
         $metaDiaria = 6000;
         $horasTurno = 8.5;
-        $metaPorHora = $metaDiaria / $horasTurno; // 706
+        $metaPorHora = $metaDiaria / $horasTurno;
 
-        // 🔥 5. Cumplimiento
         $cumplimiento = $metaDiaria > 0
             ? ($totalAlistado / $metaDiaria) * 100
             : 0;
 
-        // 🔥 6. Estado rendimiento
+        //  8. ESTADO
         if ($bolsasPorHora >= $metaPorHora) {
             $estado = 'EFICIENTE';
         } elseif ($bolsasPorHora >= 600) {
@@ -192,17 +219,10 @@ public function finalizarAlistamiento($alistId)
             $estado = 'BAJO';
         }
 
-        // 🔥 7. Evento
-        AlistamientoTiempo::create([
-            'alistamiento_id' => $alistId,
-            'tipo' => 'FINALIZACION',
-            'fecha_hora' => now(),
-        ]);
-
-        // 🔥 8. Guardar en BD
+        //  9. GUARDAR
         $alist->update([
             'estado' => 'FINALIZADO',
-            'duracion_segundos' => $tiempoTotal,
+            'duracion_segundos' => (int) $tiempoTotal,
             'rendimiento_bolsas_hora' => round($bolsasPorHora, 2),
             'cumplimiento_porcentaje' => round($cumplimiento, 2),
         ]);
@@ -218,30 +238,113 @@ public function finalizarAlistamiento($alistId)
     });
 }
 
+public function obtenerAlistamientosActivos($user, $sedeIdFiltro)
+{
+    $estadosActivos = ['INICIADO', 'PAUSADO', 'REANUDADO'];
+
+    $query = Alistamiento::with([
+        'ordenTrabajo.ordenCompra.cliente',
+        'ordenTrabajo.ordenCompra.sede',
+        'usuarios',
+        'tiempos',
+        'detalles.product'
+    ])->whereIn('estado', $estadosActivos);
+
+    $query->when(
+        $sedeIdFiltro,
+        function ($q) use ($sedeIdFiltro) {
+            $q->whereHas('ordenTrabajo.ordenCompra', function ($q2) use ($sedeIdFiltro) {
+                $q2->where('sede_id', $sedeIdFiltro);
+            });
+        },
+        function ($q) use ($user) {
+            $q->whereHas('ordenTrabajo.ordenCompra', function ($q2) use ($user) {
+                $q2->where('sede_id', $user->sede_id);
+            });
+        }
+    );
+
+    $alistamientos = $query
+        ->orderBy('updated_at', 'desc')
+        ->get()
+        ->map(function ($alist) {
+            $usuarios = $alist->usuarios->map(function ($u) {
+                $pivot = $u->pivot;
+                $tiempo = max(0, (int) $pivot->tiempo_segundos);
+                if ($pivot->estado === 'EN_PROGRESO' && $pivot->inicio) {
+                    $inicio = \Carbon\Carbon::parse($pivot->inicio);
+                    $tiempoActual = $inicio->diffInSeconds(now());
+                    $tiempo += max(0, $tiempoActual);
+                }
+                return [
+                    'id' => $u->id,
+                    'name' => $u->name,
+                    'estado' => $pivot->estado,
+                    'inicio_usuario' => $pivot->inicio,
+                    'pausado_en' => $pivot->pausado_en,
+                    'segundos_usuario' => $tiempo,
+                ];
+            });
+            $tiempoTotal = $usuarios->max('segundos_usuario') ?? 0;
+            $detalles = $alist->detalles->map(function ($d) {
+                return [
+                    'id' => $d->id,
+                    'product_id' => $d->product_id,
+                    'product' => $d->product->name ?? null,
+                    'programada' => $d->cantidad_programada,
+                    'alistada' => $d->cantidad_alistada,
+                    'faltante' => $d->cantidad_faltante,
+                ];
+            });
+            return [
+                'id' => $alist->id,
+                'orden_trabajo_id' => $alist->orden_trabajo_id,
+                'estado' => $alist->estado,
+                'inicio' => $alist->inicio,
+                'segundos_transcurridos' => $tiempoTotal,
+                'usuarios' => $usuarios,
+                'detalles' => $detalles,
+                'orden_trabajo' => $alist->ordenTrabajo,
+                'sede' => [
+                    'id' => $alist->ordenTrabajo->ordenCompra->sede->id,
+                    'nombre' => $alist->ordenTrabajo->ordenCompra->sede->nombre,
+                ],
+                'cliente' => [
+                    'id' => $alist->ordenTrabajo->ordenCompra->cliente->id,
+                    'nombre' => $alist->ordenTrabajo->ordenCompra->cliente->nombre,
+                ]
+            ];
+        });
+
+    $alistamientos = $alistamientos
+        ->sortBy(fn($a) => $a['sede']['nombre'])
+        ->values()
+        ->all();
+
+    return $alistamientos;
+}
+
+
 
 public function calcularTiempoTotal($alist)
 {
-    $total = 0;
+    $tiempos = [];
 
     foreach ($alist->usuarios as $usuario) {
 
         $pivot = $usuario->pivot;
 
-        // 🔥 base limpio
         $tiempo = max(0, (int) $pivot->tiempo_segundos);
 
-        // 🔥 si sigue activo
         if ($pivot->estado === 'EN_PROGRESO' && $pivot->inicio) {
-
             $tiempoActual = now()->diffInSeconds($pivot->inicio);
-
             $tiempo += max(0, $tiempoActual);
         }
 
-        $total += $tiempo;
+        $tiempos[] = $tiempo;
     }
 
-    return max(0, $total);
+    return count($tiempos) ? max($tiempos) : 0;
 }
 
 public function registrarProduccion($alistId, $detalleId, $cantidad, $userId)

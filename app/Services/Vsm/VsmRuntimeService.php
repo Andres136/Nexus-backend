@@ -104,4 +104,100 @@ class VsmRuntimeService
         ];
     }
 
+
+    public function obtenerEficienciaPersonal($filtros)
+{
+    $user = auth()->user();
+
+// 👇 fallback automático
+$sedeId = $filtros['sede_id'] ?? $user->sede_id;
+
+    $fechaInicio = $filtros['fecha_inicio'] ?? null;
+    $fechaFin = $filtros['fecha_fin'] ?? null;
+
+    $query = Alistamiento::with([
+        'ordenTrabajo.ordenCompra.sede',
+        'usuarios',
+        'detalles',
+    ])->where('estado', 'FINALIZADO');
+
+    // filtro por sede
+    if ($sedeId) {
+        $query->whereHas('ordenTrabajo.ordenCompra', function ($q) use ($sedeId) {
+            $q->where('sede_id', $sedeId);
+        });
+    }
+
+    // filtro por rango de fechas
+    if ($fechaInicio && $fechaFin) {
+        $query->whereBetween('fecha', [$fechaInicio, $fechaFin]);
+    }
+
+    $alistamientos = $query->get();
+
+    $resultado = [];
+
+foreach ($alistamientos as $alist) {
+    foreach ($alist->usuarios as $usuario) {
+
+        // 👇 FILTRO CLAVE
+        if ($sedeId && $usuario->sede_id != $sedeId) {
+            continue;
+        }
+
+        $userId = $usuario->id;
+
+        if (!isset($resultado[$userId])) {
+            $resultado[$userId] = [
+                'usuario_id' => $usuario->id,
+                'nombre' => $usuario->name,
+                'produccion_total' => 0,
+                'tiempo_total_segundos' => 0,
+            ];
+        }
+
+        $resultado[$userId]['produccion_total'] += $this->obtenerProduccionUsuarioEnAlistamiento($alist->id, $userId);
+        $resultado[$userId]['tiempo_total_segundos'] += max(0, (int) $usuario->pivot->tiempo_segundos);
+    }
+}
+
+    $metaDiaria = 6000;
+    $horasTurno = 8.5;
+    $metaPorHora = $metaDiaria / $horasTurno;
+
+    foreach ($resultado as &$item) {
+        $horas = $item['tiempo_total_segundos'] > 0
+            ? $item['tiempo_total_segundos'] / 3600
+            : 0;
+
+        $bolsasPorHora = $item['tiempo_total_segundos'] > 0
+            ? ($item['produccion_total'] * 3600) / $item['tiempo_total_segundos']
+            : 0;
+
+        $eficiencia = $metaPorHora > 0
+            ? ($bolsasPorHora / $metaPorHora) * 100
+            : 0;
+
+        if ($eficiencia >= 100) {
+            $estado = 'EFICIENTE';
+        } elseif ($eficiencia >= 80) {
+            $estado = 'NORMAL';
+        } else {
+            $estado = 'BAJO';
+        }
+
+        $item['horas'] = round($horas, 2);
+        $item['bolsas_por_hora'] = round($bolsasPorHora, 2);
+        $item['eficiencia_porcentaje'] = round($eficiencia, 2);
+        $item['estado'] = $estado;
+    }
+
+    return array_values($resultado);
+}
+private function obtenerProduccionUsuarioEnAlistamiento($alistId, $userId)
+{
+    return AlistamientoUsuarioDetalle::where('alistamiento_id', $alistId)
+        ->where('usuario_id', $userId)
+        ->sum('cantidad_alistada');
+}
 }

@@ -55,18 +55,22 @@ class ForecastController extends Controller
     }
 
 
+public function kpiProductividad()
+{
+    $user = auth()->user();
 
-    public function kpiProductividad()
-    {
-        $user = auth()->user();
+    $sedeId = request('sede_id') ?? $user->sede_id;
+    $fechaInicio = request('fecha_inicio') ?? now()->subDays(7)->toDateString();
+    $fechaFin = request('fecha_fin') ?? now()->toDateString();
 
-        $sedeId = request('sede_id') ?? $user->sede_id;
+    $data = $this->runtimeService->obtenerEficienciaPersonal([
+        'sede_id' => $sedeId,
+        'fecha_inicio' => $fechaInicio,
+        'fecha_fin' => $fechaFin,
+    ]);
 
-        $data = $this->runtimeService->getKpiProductividad($sedeId);
-
-        return response()->json($data);
-    }
-
+    return response()->json($data);
+}
 
 
     public function flujo()

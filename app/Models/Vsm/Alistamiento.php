@@ -84,10 +84,7 @@ public function usuarios()
                 ->withTimestamps();
 }
 
-    // -------------------------------------------------
-    // 🔥 TIEMPO EN VIVO (TEMPORIZADOR)
-    // -------------------------------------------------
-
+   
 
 
 }

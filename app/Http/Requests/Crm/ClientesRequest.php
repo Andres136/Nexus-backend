@@ -23,7 +23,7 @@ class ClientesRequest extends FormRequest
     {
         return [
             'nombre'   => 'required|string|max:255|unique:clientes,nombre'.$this->route('clientes'),
-            'email'    => 'required|email|max:255|unique:clientes,email',
+            'email'    => 'required|email|max:255',
             'telefono' => 'required|string|max:255',
             'direccion' => 'required|string|max:255',
             'nit' => 'required|string|max:255',
