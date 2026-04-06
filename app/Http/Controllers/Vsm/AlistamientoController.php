@@ -56,21 +56,45 @@ public function store(AlistamientoCreateRequest $request)
     // ------------------------------
     // PAUSAR ALISTAMIENTO
     // ------------------------------
-    public function pausar($id)
-    {
-        $alist = Alistamiento::findOrFail($id);
-        $alist->estado = 'PAUSADO';
-        $alist->save();
+public function pausar($id, Request $request)
+{
+    $alist = Alistamiento::with('usuarios')->findOrFail($id);
 
-        AlistamientoTiempo::create([
-            'alistamiento_id' => $id,
-            'tipo'            => 'PAUSA',
-            'fecha_hora'      => now(),
-            'razon'           => request('razon')
+    // Pausar alistamiento principal
+    $alist->estado = 'PAUSADO';
+    $alist->save();
+
+    // Evento general
+    AlistamientoTiempo::create([
+        'alistamiento_id' => $alist->id,
+        'tipo'            => 'PAUSA',
+        'fecha_hora'      => now(),
+        'razon'           => $request->razon
+    ]);
+
+    // Pausar todos los usuarios asociados
+    foreach ($alist->usuarios as $usuario) {
+        // 1. Actualizar pivot
+        $alist->usuarios()->updateExistingPivot($usuario->id, [
+            'estado'     => 'PAUSADO',
+            'pausado_en' => now(),
         ]);
 
-        return response()->json(['status' => 'PAUSADO']);
+        // 2. Registrar evento individual
+        AlistamientoTiempo::create([
+            'alistamiento_id' => $alist->id,
+            'user_id'         => $usuario->id,
+            'tipo'            => 'PAUSA',
+            'fecha_hora'      => now(),
+            'razon'           => $request->razon
+        ]);
     }
+
+    return response()->json([
+        'status' => 'PAUSADO',
+        'message' => 'Alistamiento y usuarios pausados correctamente'
+    ]);
+}
 
     // ------------------------------
     // REANUDAR ALISTAMIENTO

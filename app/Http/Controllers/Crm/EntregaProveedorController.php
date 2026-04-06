@@ -104,61 +104,62 @@ class EntregaProveedorController extends Controller
     }
 
 
-   public function referenciasFaltantes()
+public function referenciasFaltantes()
 {
     $ordenes = \App\Models\Crm\OrdenCompraProveedor::with([
         'proveedor',
-        'detalles',
+        'detalles' => function ($q) {
+            // 🔥 SOLO TRAE DETALLES CON FALTANTES
+            $q->whereColumn('cantidad_entregada', '<', 'cantidad_solicitada');
+        },
         'detalles.observaciones.usuario',
         'detalles.observaciones.proceso',
         'detalles.entregas',
-    ])->get();
+    ])
+    // 🔥 SOLO TRAE ÓRDENES QUE TIENEN FALTANTES
+    ->whereHas('detalles', function ($q) {
+        $q->whereColumn('cantidad_entregada', '<', 'cantidad_solicitada');
+    })
+    ->get();
 
     $faltantes = collect();
 
     foreach ($ordenes as $orden) {
-        $faltantesOrden = $orden->detalles
-            ->filter(fn ($detalle) =>
-                $detalle->cantidad_entregada < $detalle->cantidad_solicitada
-            )
-            ->map(function ($detalle) use ($orden) {
 
-                //Calcular cantidad_faltante y total entregado para el detalle
-                 $cantidadFaltante = $detalle->cantidad_solicitada - $detalle->cantidad_entregada;
-                 $totalEntregado = $detalle->entregas->sum('cantidad_entregada');
+        foreach ($orden->detalles as $detalle) {
 
-                return [
-                    'orden_id' => $orden->id,
-                    'numero_orden' => $orden->numero_orden,
-                    'fecha_orden' => $orden->fecha,
-                    'proveedor' => $orden->proveedor->nombre ?? 'N/A',
-                    'descripcion' => $detalle->descripcion,
-                    'cantidad_solicitada' => $detalle->cantidad_solicitada,
-                    'cantidad_entregada' => $totalEntregado,
+            $cantidadFaltante = $detalle->cantidad_solicitada - $detalle->cantidad_entregada;
+            $totalEntregado = $detalle->entregas->sum('cantidad_entregada');
 
-                    'cantidad_faltante' => $cantidadFaltante,
-                    'item' => $detalle->item,
-                    'porcentaje_entregado' => $detalle->cantidad_solicitada > 0
-                        ? round(($totalEntregado / $detalle->cantidad_solicitada) * 100, 2)
-                        : 0,
-                    'observaciones' => $detalle->observaciones->map(fn ($obs) => [
-                        'id' => $obs->id,
-                        'observacion' => $obs->observacion,
-                        'estado' => $obs->estado,
-                        'fecha' => $obs->created_at,
-                        'proveedor' => $obs->proveedor->nombre ?? 'N/A',
-                        'usuario' => $obs->usuario->name ?? 'N/A',
-                        'proceso' => $obs->proceso
-                            ? [
-                                'id' => $obs->proceso->id,
-                                'nombre' => $obs->proceso->nombre,
-                              ]
-                            : null,
-                    ]),
-                ];
-            });
-
-        $faltantes = $faltantes->merge($faltantesOrden);
+            $faltantes->push([
+                'orden_id' => $orden->id,
+                'numero_orden' => $orden->numero_orden,
+                'fecha_orden' => $orden->fecha,
+                'proveedor' => $orden->proveedor->nombre ?? 'N/A',
+                'descripcion' => $detalle->descripcion,
+                'cantidad_solicitada' => $detalle->cantidad_solicitada,
+                'cantidad_entregada' => $totalEntregado,
+                'cantidad_faltante' => $cantidadFaltante,
+                'item' => $detalle->item,
+                'porcentaje_entregado' => $detalle->cantidad_solicitada > 0
+                    ? round(($totalEntregado / $detalle->cantidad_solicitada) * 100, 2)
+                    : 0,
+                'observaciones' => $detalle->observaciones->map(fn ($obs) => [
+                    'id' => $obs->id,
+                    'observacion' => $obs->observacion,
+                    'estado' => $obs->estado,
+                    'fecha' => $obs->created_at,
+                    'proveedor' => $obs->proveedor->nombre ?? 'N/A',
+                    'usuario' => $obs->usuario->name ?? 'N/A',
+                    'proceso' => $obs->proceso
+                        ? [
+                            'id' => $obs->proceso->id,
+                            'nombre' => $obs->proceso->nombre,
+                          ]
+                        : null,
+                ]),
+            ]);
+        }
     }
 
     return response()->json([
@@ -169,59 +170,64 @@ public function referenciasFaltantesbyId($ordenId)
 {
     $orden = \App\Models\Crm\OrdenCompraProveedor::with([
         'proveedor',
-        'detalles',
+        'detalles' => function ($q) {
+            // 🔥 SOLO TRAE DETALLES CON FALTANTES
+            $q->whereColumn('cantidad_entregada', '<', 'cantidad_solicitada');
+        },
         'detalles.observaciones.usuario',
         'detalles.observaciones.proceso',
         'detalles.entregas',
     ])->findOrFail($ordenId);
 
-    $faltantes = $orden->detalles
-        ->filter(fn ($detalle) =>
-            $detalle->entregas->sum('cantidad_entregada') < $detalle->cantidad_solicitada
-        )
-        ->map(function ($detalle) use ($orden) {
+    $faltantes = collect();
 
-            $totalEntregado = $detalle->entregas->sum('cantidad_entregada');
-            $cantidadFaltante = $detalle->cantidad_solicitada - $totalEntregado;
+    foreach ($orden->detalles as $detalle) {
 
-            return [
-                'orden_id' => $orden->id,
-                'numero_orden' => $orden->numero_orden,
-                'fecha_orden' => $orden->fecha,
-                'proveedor' => $orden->proveedor->nombre ?? 'N/A',
-                'descripcion' => $detalle->descripcion,
-                'cantidad_solicitada' => $detalle->cantidad_solicitada,
-                'cantidad_entregada' => $totalEntregado,
-                'cantidad_faltante' => $cantidadFaltante,
-                'item' => $detalle->item,
-                'detalle_id' => $detalle->id,
-                'porcentaje_entregado' => $detalle->cantidad_solicitada > 0
-                    ? round(($totalEntregado / $detalle->cantidad_solicitada) * 100, 2)
-                    : 0,
-                'observaciones' => $detalle->observaciones->map(fn ($obs) => [
-                    'id' => $obs->id,
-                    'observacion' => $obs->observacion,
-                    'estado' => $obs->estado,
-              'fecha' => $obs->updated_at != $obs->created_at 
-    ? $obs->updated_at 
-    : $obs->created_at,
-                    'proveedor' => $obs->proveedor->nombre ?? 'N/A',
-                    'usuario' => $obs->usuario->name ?? 'N/A',
-                    'proceso' => $obs->proceso
-                        ? [
-                            'id' => $obs->proceso->id,
-                            'nombre' => $obs->proceso->nombre,
-                        ]
-                        : null,
-                ]),
-            ];
-        });
+        $totalEntregado = $detalle->entregas->sum('cantidad_entregada');
+        $cantidadFaltante = $detalle->cantidad_solicitada - $totalEntregado;
+
+        // 🔥 SEGURIDAD EXTRA (por si hay inconsistencias)
+        if ($totalEntregado >= $detalle->cantidad_solicitada) {
+            continue;
+        }
+
+        $faltantes->push([
+            'orden_id' => $orden->id,
+            'numero_orden' => $orden->numero_orden,
+            'fecha_orden' => $orden->fecha,
+            'proveedor' => $orden->proveedor->nombre ?? 'N/A',
+            'descripcion' => $detalle->descripcion,
+            'cantidad_solicitada' => $detalle->cantidad_solicitada,
+            'cantidad_entregada' => $totalEntregado,
+            'cantidad_faltante' => $cantidadFaltante,
+            'item' => $detalle->item,
+            'detalle_id' => $detalle->id,
+            'porcentaje_entregado' => $detalle->cantidad_solicitada > 0
+                ? round(($totalEntregado / $detalle->cantidad_solicitada) * 100, 2)
+                : 0,
+            'observaciones' => $detalle->observaciones->map(fn ($obs) => [
+                'id' => $obs->id,
+                'observacion' => $obs->observacion,
+                'estado' => $obs->estado,
+                'fecha' => $obs->updated_at != $obs->created_at 
+                    ? $obs->updated_at 
+                    : $obs->created_at,
+                'proveedor' => $obs->proveedor->nombre ?? 'N/A',
+                'usuario' => $obs->usuario->name ?? 'N/A',
+                'proceso' => $obs->proceso
+                    ? [
+                        'id' => $obs->proceso->id,
+                        'nombre' => $obs->proceso->nombre,
+                    ]
+                    : null,
+            ]),
+        ]);
+    }
 
     return response()->json([
         'referencias_faltantes' => $faltantes->values(),
     ]);
 }
-
     
     public function updateDetalle(Request $request, $id)
 {

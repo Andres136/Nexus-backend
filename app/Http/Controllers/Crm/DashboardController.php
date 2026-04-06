@@ -255,83 +255,99 @@ public function descargarOrdenesCriticasHoy(Request $request)
         ? Carbon::parse($request->input('fecha'))->startOfDay()
         : now()->startOfDay();
 
-    $ordenes = Orden_Compra::with(['detalles.product', 'cliente'])->get();
+    // ===============================
+    // 1. VENCIDAS (NO ENVIADAS)
+    // ===============================
+    $vencidas = Orden_Compra::with(['detalles.product', 'cliente'])
+        ->whereDate('fecha_entrega', '<', $fecha)
+        ->whereHas('detalles', function ($q) {
+            $q->where('cantidad_enviada', 0);
+        })
+        ->get()
+        ->unique('id')
+        ->values();
 
-    // 1) Buckets iniciales
-    $vencidas = $ordenes->filter(function ($orden) use ($fecha) {
-        $enviados = $orden->detalles->sum('cantidad_enviada');
-        return $orden->fecha_entrega
-            && Carbon::parse($orden->fecha_entrega)->lt($fecha)
-            && $enviados == 0;
-    });
+    $idsUsados = $vencidas->pluck('id');
 
-    $hoy = $ordenes->filter(function ($orden) use ($fecha) {
-        return $orden->fecha_entrega
-            && Carbon::parse($orden->fecha_entrega)->startOfDay()->eq($fecha);
-    });
+    // ===============================
+    // 2. HOY (NO COMPLETADAS)
+    // ===============================
+    $hoy = Orden_Compra::with(['detalles.product', 'cliente'])
+        ->whereDate('fecha_entrega', $fecha)
+        ->where('estado_id', '!=', 2)
+        ->get()
+        ->reject(fn($o) => $idsUsados->contains($o->id))
+        ->unique('id')
+        ->values();
 
-    $conFaltantes = $ordenes->filter(function ($orden) use ($fecha) {
-        $tieneFaltantes = $orden->detalles->sum('faltantes') > 0;
-        $enviados = $orden->detalles->sum('cantidad_enviada');
-        $vencida = $orden->fecha_entrega
-            && Carbon::parse($orden->fecha_entrega)->lt($fecha)
-            && $enviados == 0;
-        // Solo incluye si la fecha_entrega es <= fecha consultada
-        return $tieneFaltantes
-            && !$vencida
-            && $orden->fecha_entrega
-            && Carbon::parse($orden->fecha_entrega)->lte($fecha);
-    });
+    $idsUsados = $idsUsados->merge($hoy->pluck('id'));
 
-    // 2) Exclusividad por prioridad: VENCIDAS > HOY > FALTANTES
-    $vencidas     = $vencidas->unique('id')->values();
-    $idsUsados    = $vencidas->pluck('id');
-$hoy = $ordenes->filter(function ($orden) use ($fecha) {
-    return $orden->fecha_entrega
-        && Carbon::parse($orden->fecha_entrega)->startOfDay()->eq($fecha)
-        && $orden->estado_id !== 2; // Excluye completadas
-});
-   
-    $idsUsados    = $idsUsados->merge($hoy->pluck('id'));
+    // ===============================
+    // 3. CON FALTANTES
+    // ===============================
+    $conFaltantes = Orden_Compra::with(['detalles.product', 'cliente'])
+        ->whereDate('fecha_entrega', '<=', $fecha)
+        ->whereHas('detalles', function ($q) {
+            $q->where('faltantes', '>', 0);
+        })
+        ->get()
+        ->reject(fn($o) => $idsUsados->contains($o->id))
+        ->unique('id')
+        ->values();
 
-    $conFaltantes = $conFaltantes->reject(fn($o) => $idsUsados->contains($o->id))
-        ->unique('id')->values();
-
-    // 3) Limpiar detalles SIN modificar la misma instancia usada en otros buckets
+    // ===============================
+    // 4. LIMPIAR DETALLES
+    // ===============================
     $vencidas->each(function ($orden) {
         $orden->setRelation(
             'detalles',
-            $orden->detalles->filter(fn($d) => (int)($d->cantidad_enviada ?? 0) === 0)->values()
+            $orden->detalles
+                ->filter(fn($d) => (int)($d->cantidad_enviada ?? 0) === 0)
+                ->values()
         );
     });
 
     $conFaltantes->each(function ($orden) {
         $orden->setRelation(
             'detalles',
-            $orden->detalles->filter(fn($d) => (int)($d->faltantes ?? 0) > 0)->values()
+            $orden->detalles
+                ->filter(fn($d) => (int)($d->faltantes ?? 0) > 0)
+                ->values()
         );
     });
 
+    // ===============================
+    // 5. VALIDACIÓN
+    // ===============================
     if ($vencidas->isEmpty() && $conFaltantes->isEmpty() && $hoy->isEmpty()) {
-        return response()->json(['mensaje' => 'No hay órdenes críticas para la fecha.'], 404);
+        return response()->json([
+            'mensaje' => 'No hay órdenes críticas para la fecha.'
+        ], 404);
     }
-    $productosIds = $ordenes
-    ->flatMap(fn($o) => $o->detalles->pluck('producto_id'))
-    ->unique();
 
-$inventarios = Inventario::with(['producto', 'empresa', 'sede', 'bodega'])
-    ->where('stock', '>', 0) 
-    ->get();
+    // ===============================
+    // 6. CONTROL DE CARGA (MUY IMPORTANTE)
+    // ===============================
+    $total = $vencidas->count() + $hoy->count() + $conFaltantes->count();
 
+    if ($total > 300) {
+        return response()->json([
+            'error' => 'Demasiadas órdenes para generar el PDF. Aplica filtros.'
+        ], 400);
+    }
+
+    // ===============================
+    // 7. GENERAR PDF
+    // ===============================
     $pdf = Pdf::loadView('pdf.ordenes_criticas', [
         'fecha'     => $fecha->toDateString(),
         'vencidas'  => $vencidas,
         'faltantes' => $conFaltantes,
         'hoy'       => $hoy,
-        'inventarios' => $inventarios
     ]);
 
     $filename = 'ordenes_criticas_' . $fecha->format('Ymd') . '.pdf';
+
     return response($pdf->output(), 200, [
         'Content-Type'        => 'application/pdf',
         'Content-Disposition' => 'attachment; filename="' . $filename . '"',
