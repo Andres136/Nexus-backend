@@ -265,30 +265,29 @@ public function descargarPendientes(Request $request)
 {
     $proveedorId = $request->query('proveedor_id');
 
-    $detalles = OrdenCompraProveedorDetalle::with(['orden.proveedor','observaciones.usuario', 'observaciones.proceso'])
-        ->whereColumn('cantidad_entregada', '<', 'cantidad_solicitada')
-        ->when($proveedorId, fn ($q) => $q->whereHas('orden', fn ($qq) =>
-            $qq->where('proveedor_id', $proveedorId)
-        ))
-        ->get();
+    $detalles = OrdenCompraProveedorDetalle::with([
+        'orden.proveedor',
+        'observaciones.usuario',
+        'observaciones.proceso'
+    ])
+    ->whereColumn('cantidad_entregada', '<', 'cantidad_solicitada')
+    ->when($proveedorId, function ($q) use ($proveedorId) {
+        $q->whereHas('orden', function ($qq) use ($proveedorId) {
+            $qq->where('proveedor_id', $proveedorId);
+        });
+    })
+    ->limit(300) // 🔥 CONTROL DE CARGA
+    ->get();
 
     if ($detalles->isEmpty()) {
         return response()->json(['mensaje' => 'No hay ítems pendientes.'], 404);
     }
 
     $itemsPendientes = $detalles->map(function ($d) {
-        return [
-            'orden_id'            => $d->orden->id,
-            'numero_orden'        => $d->orden->numero_orden,
-            'fecha_orden'         => $d->orden->fecha,
-            'proveedor'           => $d->orden->proveedor->nombre ?? 'N/A',
-            'item'                => $d->item,
-            'descripcion'         => $d->descripcion,
-            'cantidad_solicitada' => $d->cantidad_solicitada,
-            'cantidad_entregada'  => $d->cantidad_entregada,
-            'pendiente'           => $d->cantidad_solicitada - $d->cantidad_entregada,
-       'observaciones' => $d->observaciones
+
+        $observaciones = $d->observaciones
             ->sortByDesc('created_at')
+            ->take(5) // 🔥 SOLO LAS MÁS RECIENTES
             ->map(function ($obs) {
                 return [
                     'fecha'       => $obs->created_at->format('Y-m-d H:i'),
@@ -299,9 +298,28 @@ public function descargarPendientes(Request $request)
                     'proveedor'   => optional($obs->proveedor)->nombre ?? 'N/A',
                 ];
             })
-            ->values(),
+            ->values();
+
+        return [
+            'orden_id'            => $d->orden->id,
+            'numero_orden'        => $d->orden->numero_orden,
+            'fecha_orden'         => $d->orden->fecha,
+            'proveedor'           => $d->orden->proveedor->nombre ?? 'N/A',
+            'item'                => $d->item,
+            'descripcion'         => $d->descripcion,
+            'cantidad_solicitada' => $d->cantidad_solicitada,
+            'cantidad_entregada'  => $d->cantidad_entregada,
+            'pendiente'           => $d->cantidad_solicitada - $d->cantidad_entregada,
+            'observaciones'       => $observaciones,
         ];
     });
+
+    // 🔥 VALIDACIÓN DE SEGURIDAD
+    if ($itemsPendientes->count() > 300) {
+        return response()->json([
+            'error' => 'Demasiados datos para generar el PDF. Filtra por proveedor.'
+        ], 400);
+    }
 
     $pdf = Pdf::loadView('pdf.items_pendientes', [
         'items'    => $itemsPendientes,
