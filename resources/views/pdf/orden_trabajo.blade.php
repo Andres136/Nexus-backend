@@ -77,11 +77,18 @@ table {
     table-layout: fixed;
     font-size: 9px;
 }
+
+tbody {
+    page-break-inside: avoid;
+}
 th {
     background: #1f6fd2;
     color: #fff;
     padding: 3px;
     border: 1px solid #ddd;
+}
+tr{
+    page-break-inside: avoid;
 }
 td {
     border: 1px solid #ddd;
@@ -90,12 +97,13 @@ td {
     word-wrap: break-word;
     overflow-wrap: break-word;
     white-space: normal;
+    page-break-inside: avoid;
 }
 
 td:first-child { max-width: 60px; }
 .descripcion { max-width: 120px; text-align: left; }
 
-tr { page-break-inside: avoid; }
+
 
 /* ENTREGAS */
 .entregas {
