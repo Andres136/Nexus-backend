@@ -87,9 +87,7 @@ th {
     padding: 3px;
     border: 1px solid #ddd;
 }
-tr{
-    page-break-inside: avoid;
-}
+
 td {
     border: 1px solid #ddd;
     padding: 3px;
@@ -201,8 +199,9 @@ td:first-child { max-width: 60px; }
     <th>Total</th>
 </tr>
 </thead>
-<tbody>
 @foreach($detalles as $d)
+<tbody style="page-break-inside: avoid;">
+
 <tr>
     <td>{{ $d->product->code ?? '-' }}</td>
     <td style="text-align:left;">
@@ -216,7 +215,6 @@ td:first-child { max-width: 60px; }
     <td>{{ number_format($d->cantidad_requerida_kg, 2) }}</td>
     <td>{{ $d->cantidad }}</td>
     <td>
-        {{-- Aquí solo el número de alistamientos o un resumen --}}
         {{ $alistamientos->where('orden_compra_detalle_id', $d->id)->count() }} alistamientos
     </td>
     <td>
@@ -239,6 +237,7 @@ td:first-child { max-width: 60px; }
     $alistamientosDetalle = $alistamientos->where('orden_compra_detalle_id', $d->id);
     $agrupado = $alistamientosDetalle->groupBy(fn($i) => $i->producto_id . '-' . $i->bodega_id);
 @endphp
+
 @if($agrupado->count())
 <tr>
     <td colspan="11" style="font-size:7px; text-align:left; background:#f9fafb;">
@@ -276,8 +275,9 @@ td:first-child { max-width: 60px; }
     </td>
 </tr>
 @endif
-@endforeach
+
 </tbody>
+@endforeach
 </table>
 
 <!-- RESUMEN -->
