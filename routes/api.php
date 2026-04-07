@@ -16,6 +16,7 @@ use App\Http\Controllers\Crm\EmpresaController;
 use App\Http\Controllers\Crm\EntregaProveedorController;
 use App\Http\Controllers\Crm\EventoController;
 use App\Http\Controllers\Crm\GestionCarteraController;
+use App\Http\Controllers\Crm\GestionCarteraHistorialController;
 use App\Http\Controllers\Crm\GestionPivoteCarteraController;
 use App\Http\Controllers\Crm\InspeccionController;
 use App\Http\Controllers\Crm\InventorieController;
@@ -398,6 +399,8 @@ Route::apiResource('gestion-cartera', GestionCarteraController::class);
 Route::apiResource('abonos-cartera',GestionPivoteCarteraController::class);
 Route::get('estadisticas-cartera', [GestionCarteraController::class, 'estadisticasCartera']);
 Route::get('recaudo-semanal', [GestionCarteraController::class, 'recaudoSemanal']);
+Route::apiResource('gestion-facturas-cartera', GestionCarteraHistorialController::class);
+Route::delete('gestion-cartera-destroy/{id}', [GestionCarteraController::class, 'anularFactura']);
 //RUTAS PARA HSEQ
 Route::apiResource('tipo-servicios', TipoServicioController::class);
 Route::get('estadisticas-anuales-consumo', [ConsumoServicioController::class, 'estadisticasAnuales']);

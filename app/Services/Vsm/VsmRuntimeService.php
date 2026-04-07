@@ -113,8 +113,23 @@ class VsmRuntimeService
 $sedeId = $filtros['sede_id'] ?? $user->sede_id;
 
     $fechaInicio = $filtros['fecha_inicio'] ?? null;
-    $fechaFin = $filtros['fecha_fin'] ?? null;
+$fechaFin = $filtros['fecha_fin'] ?? null;
+$mes = $filtros['mes'] ?? null;
+$anio = $filtros['anio'] ?? now()->year;
 
+// 👉 SI NO VIENEN FECHAS, USAR MES
+if (!$fechaInicio && !$fechaFin) {
+
+    if ($mes) {
+        // mes enviado (1-12)
+        $fechaInicio = \Carbon\Carbon::now()->year($anio)->month($mes)->startOfMonth();
+        $fechaFin = \Carbon\Carbon::now()->year($anio)->month($mes)->endOfMonth();
+    } else {
+        // mes actual
+        $fechaInicio = now()->startOfMonth();
+        $fechaFin = now()->endOfMonth();
+    }
+}
     $query = Alistamiento::with([
         'ordenTrabajo.ordenCompra.sede',
         'usuarios',
@@ -193,7 +208,7 @@ foreach ($alistamientos as $alist) {
     }
 
     return array_values($resultado);
-}
+}         
 private function obtenerProduccionUsuarioEnAlistamiento($alistId, $userId)
 {
     return AlistamientoUsuarioDetalle::where('alistamiento_id', $alistId)

@@ -94,6 +94,21 @@ public function listarMantenimientos(array $filters = [])
     if (!empty($filters['estado'])) {
         $query->where('estado', $filters['estado']);
     }
+    if (!empty($filters['search'])) {
+    $search = $filters['search'];
+
+    $query->where(function ($q) use ($search) {
+        $q->whereHas('sede', function ($q2) use ($search) {
+            $q2->where('nombre', 'like', "%$search%");
+        })
+        ->orWhereHas('producto', function ($q2) use ($search) {
+            $q2->where('name', 'like', "%$search%");
+        })
+        ->orWhereHas('usuario', function ($q2) use ($search) {
+            $q2->where('name', 'like', "%$search%");
+        });
+    });
+}
 
        $query->orderByRaw("
         FIELD(estado, 'pendiente', 'en_proceso', 'completado')

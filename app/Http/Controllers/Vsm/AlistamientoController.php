@@ -75,10 +75,18 @@ public function pausar($id, Request $request)
     // Pausar todos los usuarios asociados
     foreach ($alist->usuarios as $usuario) {
         // 1. Actualizar pivot
+        $pivot = $usuario->pivot;
+
+    if ($pivot->inicio) {
+        $segundos = now()->timestamp - strtotime($pivot->inicio);
+
         $alist->usuarios()->updateExistingPivot($usuario->id, [
-            'estado'     => 'PAUSADO',
+            'estado' => 'PAUSADO',
             'pausado_en' => now(),
+            'inicio' => null, // 🔥 CLAVE
+            'tiempo_segundos' => $pivot->tiempo_segundos + $segundos // 🔥 CLAVE
         ]);
+    }
 
         // 2. Registrar evento individual
         AlistamientoTiempo::create([
@@ -99,21 +107,37 @@ public function pausar($id, Request $request)
     // ------------------------------
     // REANUDAR ALISTAMIENTO
     // ------------------------------
-    public function reanudar($id)
-    {
-        $alist = Alistamiento::findOrFail($id);
-        $alist->estado = 'REANUDADO';
-        $alist->save();
+public function reanudar($id)
+{
+    $alist = Alistamiento::with('usuarios')->findOrFail($id);
+
+    $alist->estado = 'REANUDADO';
+    $alist->save();
+
+    AlistamientoTiempo::create([
+        'alistamiento_id' => $alist->id,
+        'tipo'            => 'REANUDACION',
+        'fecha_hora'      => now()
+    ]);
+
+    foreach ($alist->usuarios as $usuario) {
+
+    $alist->usuarios()->updateExistingPivot($usuario->id, [
+        'estado' => 'EN_PROGRESO',
+        'inicio' => now(), // 🔥 CLAVE
+        'pausado_en' => null,
+    ]);
 
         AlistamientoTiempo::create([
-            'alistamiento_id' => $id,
+            'alistamiento_id' => $alist->id,
+            'user_id'         => $usuario->id,
             'tipo'            => 'REANUDACION',
             'fecha_hora'      => now()
         ]);
-
-        return response()->json(['status' => 'REANUDADO']);
     }
 
+    return response()->json(['status' => 'REANUDADO']);
+}
     // ------------------------------
     // FINALIZAR
     // ------------------------------

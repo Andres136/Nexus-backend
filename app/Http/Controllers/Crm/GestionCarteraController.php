@@ -74,8 +74,21 @@ class GestionCarteraController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-   public function destroy($id)
+ public function destroy($id)
 {
+    $user = auth()->user();
+
+    // validar si es responsable
+    $departamento = $user->departamento;
+
+    $esResponsable = $departamento && $departamento->responsable_id == $user->id;
+
+    if (!$esResponsable) {
+        return response()->json([
+            'error' => 'No tienes permiso para cancelar deudas'
+        ], 403);
+    }
+
     $cartera = $this->gestionCarteraService->cancelarDeuda($id);
 
     return response()->json([
@@ -83,7 +96,6 @@ class GestionCarteraController extends Controller
         'data' => $cartera
     ]);
 }
-
 
 public function estadisticasCartera(Request $request)
 {
@@ -103,6 +115,30 @@ public function estadisticasCartera(Request $request)
     return response()->json([
         'message' => 'Recaudo semanal obtenido exitosamente',
         'data' => $recaudoSemanal
+    ]);
+ }
+
+ // Nueva fUNCION ELIMINAR FACTURA DE CARTERA (ANULAR)
+ public function anularFactura($id)
+ {
+    $user = auth()->user();
+
+    // validar si es responsable
+    $departamento = $user->departamento;
+
+    $esResponsable = $departamento && $departamento->responsable_id == $user->id;
+
+    if (!$esResponsable) {
+        return response()->json([
+            'error' => 'No tienes permiso para anular facturas de cartera'
+        ], 403);
+    }
+
+    $cartera = $this->gestionCarteraService->anularFactura($id);
+
+    return response()->json([
+        'message' => 'Factura anulada correctamente',
+        'data' => $cartera
     ]);
  }
 

@@ -148,7 +148,7 @@ public function finalizarAlistamiento($alistId)
 
             if ($pivot->estado === 'EN_PROGRESO' && $pivot->inicio) {
 
-                $tiempoActual = now()->diffInSeconds($pivot->inicio);
+             $tiempoActual = now()->timestamp - strtotime($pivot->inicio);
 
                 $pivot->tiempo_segundos =
                     max(0, (int) $pivot->tiempo_segundos) + max(0, $tiempoActual);
@@ -172,7 +172,15 @@ public function finalizarAlistamiento($alistId)
         $alist->load('tiempos');
 
         //  4. CALCULAR TIEMPO
-        $tiempoTotal = $alist->calcularDuracion();
+$tiempoTotal = 0;
+
+foreach ($alist->usuarios as $usuario) {
+    $tiempoUsuario = max(0, (int) $usuario->pivot->tiempo_segundos);
+
+    if ($tiempoUsuario > $tiempoTotal) {
+        $tiempoTotal = $tiempoUsuario;
+    }
+}
 
         
 
@@ -240,51 +248,43 @@ foreach ($alist->detalles as $detalle) {
 
 public function obtenerAlistamientosActivos($user, $sedeIdFiltro)
 {
-    $estadosActivos = ['INICIADO', 'PAUSADO', 'REANUDADO'];
+    $sedeId = $sedeIdFiltro ?? $user->sede_id;
 
-    $query = Alistamiento::with([
-        'ordenTrabajo.ordenCompra.cliente',
-        'ordenTrabajo.ordenCompra.sede',
-        'usuarios',
-        'tiempos',
-        'detalles.product'
-    ])->whereIn('estado', $estadosActivos);
-
-    $query->when(
-        $sedeIdFiltro,
-        function ($q) use ($sedeIdFiltro) {
-            $q->whereHas('ordenTrabajo.ordenCompra', function ($q2) use ($sedeIdFiltro) {
-                $q2->where('sede_id', $sedeIdFiltro);
-            });
-        },
-        function ($q) use ($user) {
-            $q->whereHas('ordenTrabajo.ordenCompra', function ($q2) use ($user) {
-                $q2->where('sede_id', $user->sede_id);
-            });
-        }
-    );
-
+$query = Alistamiento::with([
+    'ordenTrabajo.ordenCompra.cliente',
+    'ordenTrabajo.ordenCompra.sede',
+    'usuarios' => function ($q) use ($sedeId) {
+        $q->where('sede_id', $sedeId);
+    },
+    'tiempos',
+    'detalles.product'
+])
+->whereIn('estado', ['INICIADO', 'PAUSADO', 'REANUDADO'])
+->whereHas('usuarios', function ($q) use ($sedeId) {
+    $q->where('sede_id', $sedeId);
+});
     $alistamientos = $query
         ->orderBy('updated_at', 'desc')
         ->get()
         ->map(function ($alist) {
-            $usuarios = $alist->usuarios->map(function ($u) {
-                $pivot = $u->pivot;
-                $tiempo = max(0, (int) $pivot->tiempo_segundos);
-                if ($pivot->estado === 'EN_PROGRESO' && $pivot->inicio) {
-                    $inicio = \Carbon\Carbon::parse($pivot->inicio);
-                    $tiempoActual = $inicio->diffInSeconds(now());
-                    $tiempo += max(0, $tiempoActual);
-                }
-                return [
-                    'id' => $u->id,
-                    'name' => $u->name,
-                    'estado' => $pivot->estado,
-                    'inicio_usuario' => $pivot->inicio,
-                    'pausado_en' => $pivot->pausado_en,
-                    'segundos_usuario' => $tiempo,
-                ];
-            });
+ $usuarios = $alist->usuarios->map(function ($u) {
+    $pivot = $u->pivot;
+    $tiempo = max(0, (int) $pivot->tiempo_segundos);
+
+   if (in_array($pivot->estado, ['EN_PROGRESO', 'REANUDADO']) && $pivot->inicio) {
+        $inicio = \Carbon\Carbon::parse($pivot->inicio);
+        $tiempo += max(0, $inicio->diffInSeconds(now()));
+    }
+
+    return [
+        'id' => $u->id,
+        'name' => $u->name,
+        'estado' => $pivot->estado,
+        'inicio_usuario' => $pivot->inicio,
+        'pausado_en' => $pivot->pausado_en,
+        'segundos_usuario' => $tiempo,
+    ];
+});
             $tiempoTotal = $usuarios->max('segundos_usuario') ?? 0;
             $detalles = $alist->detalles->map(function ($d) {
                 return [

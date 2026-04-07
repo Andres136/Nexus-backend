@@ -307,4 +307,13 @@ public function recaudoSemanal($year = null)
         'total_recaudo' => $totalRecaudo
     ];
 }
+//ELIMINAR  FACTURA (ANULAR)
+public function anularFactura($id)
+{
+   $cartera = GestionCartera::findOrFail($id);
+   // ELIMINAR
+   $cartera->delete();
+   return $cartera;  
+  
+}
 }

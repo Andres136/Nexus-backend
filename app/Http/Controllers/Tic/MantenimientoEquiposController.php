@@ -40,7 +40,8 @@ class MantenimientoEquiposController extends Controller
 
   public function obtenerMantenimientos()
     {
-        $filters = request()->only(['sede_id', 'producto_id', 'empresa_id', 'tipo', 'estado']);
+        $filters = request()->only(['sede_id', 'producto_id', 'empresa_id', 'tipo', 'estado','search','per_page']);
+         
         $mantenimientos = $this->mantenimientoEquiposService->listarMantenimientos($filters);
         return response()->json($mantenimientos);
     }

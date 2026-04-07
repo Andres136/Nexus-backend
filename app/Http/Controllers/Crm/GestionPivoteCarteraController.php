@@ -29,6 +29,21 @@ class GestionPivoteCarteraController extends Controller
      */
     public function store(StoreGestionAbonoCarteraRequest $request)
     {
+
+
+      $user = auth()->user();
+
+    // validar si es responsable
+    $departamento = $user->departamento;
+
+    $esResponsable = $departamento && $departamento->responsable_id == $user->id;
+
+    if (!$esResponsable) {
+        return response()->json([
+            'error' => 'No tienes permiso para realizar esta acción. Solo el responsable del departamento puede crear abonos de cartera.'
+        ], 403);
+    }
+
         $abonoCartera = $this->gestionCarteraPivoteService->crearAbono($request->validated()['gestion_cartera_id'], $request->validated());
         return response()->json([
             'message' => 'Abono de cartera creado exitosamente',

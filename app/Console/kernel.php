@@ -10,6 +10,7 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule)
     {
         $schedule->command('notificar:ordenesporvencer')->dailyAt('08:00');
+        $schedule->command('app:verificar-facturas-cartera')->dailyAt('09:00');
     }
 
     protected function commands()

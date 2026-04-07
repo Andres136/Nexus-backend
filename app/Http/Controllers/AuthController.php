@@ -21,7 +21,7 @@ class AuthController extends Controller
      */
     public function index(Request $request)
     {
-        $query = User::with('departamento', 'role', 'estado', 'sede'); // Solo usuarios activos por defecto
+        $query = User::with('departamento.responsable', 'role', 'estado', 'sede'); // Solo usuarios activos por defecto
 
         if ($request->has('search') && $request->search !== null) {
             $search = $request->search;
@@ -290,7 +290,7 @@ public function indexUsuarios(Request $request)
 
 public function userAll()
 {
-    $conductores = User::where('estado_id',3);
+    $conductores = User::where('estado_id',3)->get();
 
     if ($conductores->isEmpty()) {
         return response()->json(["Error" => "No hay conductores registrados"], 404);
