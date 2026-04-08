@@ -370,8 +370,8 @@ if ($ruta) {
 
                     $cantidadPedida = $detalle->cantidad_requerida_kg ?? 0;
 
-                  $cantidadAlistada = Alistamiento::where('orden_compra_detalle_id', $detalle->id)
-    ->sum('cantidad'); 
+                   $cantidadAlistada = Alistamiento::where('orden_trabajo_id', $detalle->id)
+    ->sum('cantidad');
 
                     return [
                         'detalle_id' => $detalle->id,
