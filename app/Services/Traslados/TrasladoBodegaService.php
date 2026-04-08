@@ -51,7 +51,7 @@ public function listar(array $filters = [])
         $query->orderBy($orderBy, $order);
 
         // Paginación
-        $perPage = $filters['per_page'] ?? 5;
+        $perPage = $filters['per_page'] ?? 10;
         return $query->paginate($perPage);
     }
     /**

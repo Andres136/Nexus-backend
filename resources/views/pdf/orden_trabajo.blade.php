@@ -184,6 +184,7 @@ td:first-child { max-width: 60px; }
 <table>
 <thead>
 <tr>
+    <th style="width: 15px;">#</th>
     <th>Producto</th>
     <th>Referencia</th>
 
@@ -203,6 +204,7 @@ td:first-child { max-width: 60px; }
 <tbody style="page-break-inside: avoid;">
 
 <tr>
+    <td>{{ $loop->iteration }}</td>
     <td>{{ $d->product->code ?? '-' }}</td>
     <td style="text-align:left;">
         <div><strong>Ancho:</strong> {{ number_format($d->ancho_cm, 0) }}</div>

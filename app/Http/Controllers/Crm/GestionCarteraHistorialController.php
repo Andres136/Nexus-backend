@@ -19,10 +19,16 @@ class GestionCarteraHistorialController extends Controller
     {
         $this->service = $service;
     }
-    public function index()
-    {
-        //
-    }
+  public function index(Request $request)
+{
+    $filters = $request->only(['numero_factura', 'cliente']);
+    $perPage = $request->get('per_page', 10);
+
+    $data = $this->service->listarGestiones($filters, $perPage);
+
+
+    return response()->json($data);
+}
 
     /**
      * Store a newly created resource in storage.

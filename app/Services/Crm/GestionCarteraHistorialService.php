@@ -90,4 +90,31 @@ $gestion->soportes()->delete();
 $gestion->delete();
     return $gestion->delete();
 }
+
+
+public function listarGestiones($filters = [], $perPage = 10)
+{
+    $query = GestionCarteraHistorial::with([
+        'soportes',
+        'gestionCartera.cliente'
+    ]);
+
+    // 🔍 FILTRO POR NÚMERO DE FACTURA
+    if (!empty($filters['numero_factura'])) {
+        $query->whereHas('gestionCartera', function ($q) use ($filters) {
+            $q->where('numero_factura', 'like', '%' . $filters['numero_factura'] . '%');
+        });
+    }
+
+    // 🔍 FILTRO POR CLIENTE
+    if (!empty($filters['cliente'])) {
+        $query->whereHas('gestionCartera.cliente', function ($q) use ($filters) {
+            $q->where('nombre', 'like', '%' . $filters['cliente'] . '%');
+        });
+    }
+
+    return $query
+        ->orderBy('created_at', 'desc')
+        ->paginate($perPage);
+}
 }

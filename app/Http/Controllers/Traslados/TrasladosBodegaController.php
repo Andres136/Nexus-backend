@@ -21,12 +21,20 @@ class TrasladosBodegaController extends Controller
         protected TrasladoBodegaService $trasladoBodegaService
     ){}
   
-    public function index()
-    {
-        return response()->json([
-            'data' => $this->trasladoBodegaService->listar()
-        ]);
-    }
+ public function index(Request $request)
+{
+    $filters = $request->only([
+        'search',
+        'order_by',
+        'order',
+        'per_page',
+        'page'
+    ]);
+
+    return response()->json([
+        'data' => $this->trasladoBodegaService->listar($filters)
+    ]);
+}
 
     /**
      * Store a newly created resource in storage.

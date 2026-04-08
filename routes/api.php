@@ -36,6 +36,7 @@ use App\Http\Controllers\Crm\SiigoController;
 use App\Http\Controllers\Crm\SiigoGlobalController;
 use App\Http\Controllers\Crm\VehiculoController;
 use App\Http\Controllers\Crm\VehiculoFotoController;
+use App\Http\Controllers\DashboardOperativoController;
 use App\Http\Controllers\DepartamentoController;
 use App\Http\Controllers\DocumentoController;
 use App\Http\Controllers\ErrorController;
@@ -421,6 +422,8 @@ Route::get('indicador-semestral', [HallazgoNovedadController::class, 'indicadorS
 Route::apiResource('hallazgo-inspecciones', HallazgoNovedadController::class);
 Route::apiResource('hseq-dashboard', HseqDashboardController::class);
 Route::apiResource('hallazgos', HallazgoNovedadController::class);
+
+Route::apiResource('control-operativo', DashboardOperativoController::class);
 
 });
 
