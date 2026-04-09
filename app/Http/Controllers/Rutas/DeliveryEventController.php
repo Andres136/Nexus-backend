@@ -33,7 +33,7 @@ public function store(StoreDeliveryEventRequest $request)
     $user = auth()->user();
 
     // Roles permitidos para crear planeación
-    $rolesPermitidos = [1, 2, 4, 7]; // admin, logística, coordinador
+    $rolesPermitidos = [1, 2, 4, 7,6]; // admin, logística, coordinador
 
     if (!in_array($user->role_id, $rolesPermitidos)) {
         return response()->json([
