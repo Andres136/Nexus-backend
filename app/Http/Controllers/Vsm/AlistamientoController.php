@@ -287,7 +287,7 @@ public function ordenesTrabajoAlistamiento(Request $request)
         });
     })
     ->orderBy('updated_at', 'desc')
-    ->limit(50)
+    ->limit(300)
     ->get();
 
     // ---------------------------------------------
