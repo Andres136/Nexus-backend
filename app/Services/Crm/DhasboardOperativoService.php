@@ -231,11 +231,12 @@ private function calcularEstadosPorOrden($productoId, $filters = [], $sedeId = n
 
         $ordenes->push([
             'orden_compra_id' => $oc->id,
-            'cantidad_progranada' => 0,
+            'cantidad_programada' => 0,
             'numero_orden' => $oc->numero ?? null,
             'cliente_id' => $oc->cliente_id ?? null,
             'cliente' => optional($oc->cliente)->nombre ?? null,
             'cantidad_pedida' => $cantidadCompra,
+            'cantidad_alistada' => 0,
             'cantidad_recibida' => $cantidadRecibida,
             'faltante' => $faltanteCompra,
             'alerta' => $faltanteCompra > 0 ? 'PENDIENTE' : 'OK',
