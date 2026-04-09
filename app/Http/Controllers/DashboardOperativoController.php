@@ -23,8 +23,15 @@ class DashboardOperativoController extends Controller
 
 public function index(Request $request)
 {
+    $filters = $request->all();
+
+    $sedeId = $request->get('sede_id') 
+        ?? auth()->user()->sede_id;
+
+    $perPage = $request->get('per_page', 10);
+
     return response()->json(
-        $this->service->obtenerTrazabilidadGeneral($request->all())
+        $this->service->obtenerTrazabilidadGeneral($filters, $sedeId, $perPage)
     );
 }
 
