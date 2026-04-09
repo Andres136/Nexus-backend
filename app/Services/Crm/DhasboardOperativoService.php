@@ -424,7 +424,7 @@ private function construirOrdenesCompletas($productoId, $filters = [])
         return [
             // BASE
             'orden_compra_id' => $orden['orden_compra_id'],
-            'orden_trabajo_id' => $orden['orden_trabajo_id'],
+            'orden_trabajo_id' => $orden['orden_trabajo_id'] ?? null,
             'cliente_id' => $orden['cliente_id'],
             'cliente' => $orden['cliente'],
             'numero_orden' => $orden['numero_orden'] ?? null,
