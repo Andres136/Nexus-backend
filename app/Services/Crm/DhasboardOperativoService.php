@@ -436,7 +436,7 @@ $enAlistamiento = $ordenTrabajoId
             // ESTADO
             'estado' => $orden['estado'],
             'alerta' => $orden['alerta'],
-            'atrasado' => $orden['atrasado'],
+            'atrasado' => $orden['atrasado']?? false,
 
             // CANTIDADES
             'cantidad_pedida' => $orden['cantidad_pedida'],
