@@ -397,7 +397,11 @@ private function construirOrdenesCompletas($productoId, $filters = [])
 
         // Estados
         $enProduccion = isset($produccion[$orden['orden_compra_id']]);
-        $enAlistamiento = isset($alistamientos[$orden['orden_trabajo_id']]);
+$ordenTrabajoId = $orden['orden_trabajo_id'] ?? null;
+
+$enAlistamiento = $ordenTrabajoId
+    ? isset($alistamientos[$ordenTrabajoId])
+    : false;
         $enRuta = isset($rutas[$orden['orden_compra_id']]);
 
         // Productos detallados
@@ -424,7 +428,7 @@ private function construirOrdenesCompletas($productoId, $filters = [])
         return [
             // BASE
             'orden_compra_id' => $orden['orden_compra_id'],
-            'orden_trabajo_id' => $orden['orden_trabajo_id'] ?? null,
+            'orden_trabajo_id' => $orden['orden_trabajo_id'],
             'cliente_id' => $orden['cliente_id'],
             'cliente' => $orden['cliente'],
             'numero_orden' => $orden['numero_orden'] ?? null,
