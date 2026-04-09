@@ -121,19 +121,7 @@ public function estadisticasCartera(Request $request)
  // Nueva fUNCION ELIMINAR FACTURA DE CARTERA (ANULAR)
  public function anularFactura($id)
  {
-    $user = auth()->user();
-
-    // validar si es responsable
-    $departamento = $user->departamento;
-
-    $esResponsable = $departamento && $departamento->responsable_id == $user->id;
-
-    if (!$esResponsable) {
-        return response()->json([
-            'error' => 'No tienes permiso para anular facturas de cartera'
-        ], 403);
-    }
-
+    
     $cartera = $this->gestionCarteraService->anularFactura($id);
 
     return response()->json([

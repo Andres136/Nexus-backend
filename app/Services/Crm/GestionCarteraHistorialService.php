@@ -87,7 +87,6 @@ foreach ($gestion->soportes as $soporte) {
 }
 
 $gestion->soportes()->delete();
-$gestion->delete();
     return $gestion->delete();
 }
 

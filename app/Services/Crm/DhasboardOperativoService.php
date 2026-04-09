@@ -409,21 +409,19 @@ $enAlistamiento = $ordenTrabajoId
         $productos = [];
         $ordenModel = $ordenesCompra[$orden['orden_compra_id']] ?? null;
         if ($ordenModel && $ordenModel->detalles) {
-            $productos = $ordenModel->detalles->map(function ($detalle) use ($alistamientosPorDetalle) {
-                $cantidadPedida = $detalle->cantidad_requerida_kg ?? 0;
-                $cantidadAlistada = $alistamientosPorDetalle[$detalle->id] ?? 0;
-                return [
-                    'detalle_id' => $detalle->id,
-                    'producto_id' => $detalle->product_id,
-                    'nombre' => optional($detalle->product)->name,
-                    'cantidad_pedida' => $cantidadPedida,
-                    'cantidad_alistada' => $cantidadAlistada,
-                    'faltante' => max($cantidadPedida - $cantidadAlistada, 0),
-                    'porcentaje' => $cantidadPedida > 0
-                        ? round(($cantidadAlistada / $cantidadPedida) * 100, 2)
-                        : 0,
-                ];
-            })->values();
+   $productos = $ordenModel->detalles->map(function ($detalle) {
+    $cantidadPedida = $detalle->cantidad_requerida_kg ?? 0;
+
+    return [
+        'detalle_id' => $detalle->id,
+        'producto_id' => $detalle->product_id,
+        'nombre' => optional($detalle->product)->name,
+        'cantidad_pedida' => $cantidadPedida,
+        'cantidad_alistada' => 0, // 👈 correcto para compra
+        'faltante' => $cantidadPedida,
+        'porcentaje' => 0,
+    ];
+});
         }
 
         return [
