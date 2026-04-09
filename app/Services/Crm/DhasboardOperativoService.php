@@ -101,7 +101,9 @@ private function calcularEstadosPorOrden($productoId, $filters = [], $sedeId = n
     // Alistamientos y Alistamientos OT agrupados por OT
     $alistamientos = Alistamiento::whereIn('orden_trabajo_id', $otIds)
         ->when($productoId, function ($q) use ($productoId) {
-            $q->where('producto_id', $productoId);
+            $q->whereHas('ordenTrabajo.ordenCompra.detalles', function ($q2) use ($productoId) {
+                $q2->where('product_id', $productoId);
+            });
         })
         ->select('orden_trabajo_id', DB::raw('SUM(cantidad) as cantidad'))
         ->groupBy('orden_trabajo_id')
@@ -117,9 +119,11 @@ private function calcularEstadosPorOrden($productoId, $filters = [], $sedeId = n
 
     // Alistamiento en proceso y listo (existe)
     $alistamientoProceso = Alistamiento::whereIn('orden_trabajo_id', $otIds)
-        ->when($productoId, function ($q) use ($productoId) {
-            $q->where('producto_id', $productoId);
-        })
+            ->when($productoId, function ($q) use ($productoId) {
+                $q->whereHas('ordenTrabajo.ordenCompra.detalles', function ($q2) use ($productoId) {
+                    $q2->where('product_id', $productoId);
+                });
+            })
         ->select('orden_trabajo_id')
         ->get()
         ->pluck('orden_trabajo_id')
