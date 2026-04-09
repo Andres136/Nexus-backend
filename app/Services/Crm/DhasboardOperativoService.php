@@ -373,10 +373,10 @@ private function construirOrdenesCompletas($productoId, $filters = [])
         return $oc->detalles->pluck('id');
     })->unique()->values();
 
-    $alistamientosPorDetalle = Alistamiento::whereIn('orden_trabajo_id', $detalleIds)
-        ->select('orden_trabajo_id', DB::raw('SUM(cantidad) as cantidad'))
-        ->groupBy('orden_trabajo_id')
-        ->pluck('cantidad', 'orden_trabajo_id');
+    $alistamientosPorDetalle = Alistamiento::whereIn('detalle_id', $detalleIds)
+        ->select('detalle_id', DB::raw('SUM(cantidad) as cantidad'))
+        ->groupBy('detalle_id')
+        ->pluck('cantidad', 'detalle_id');
 
     return $ordenesBase->map(function ($orden) use (
         $productoId, $inventarios, $comprasProveedor, $produccion, $alistamientos, $rutas, $ordenesCompra, $alistamientosPorDetalle
@@ -428,7 +428,7 @@ $enAlistamiento = $ordenTrabajoId
         return [
             // BASE
             'orden_compra_id' => $orden['orden_compra_id'],
-            'orden_trabajo_id' => $orden['orden_trabajo_id'],
+            'orden_trabajo_id' => $orden['orden_trabajo_id'] ?? null,
             'cliente_id' => $orden['cliente_id'],
             'cliente' => $orden['cliente'],
             'numero_orden' => $orden['numero_orden'] ?? null,
