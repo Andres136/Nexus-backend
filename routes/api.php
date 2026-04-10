@@ -423,7 +423,7 @@ Route::apiResource('hallazgo-inspecciones', HallazgoNovedadController::class);
 Route::apiResource('hseq-dashboard', HseqDashboardController::class);
 Route::apiResource('hallazgos', HallazgoNovedadController::class);
 
-Route::apiResource('control-operativo', DashboardOperativoController::class);
+Route::apiResource('/vsm/ordenes', DashboardOperativoController::class);
 
 });
 

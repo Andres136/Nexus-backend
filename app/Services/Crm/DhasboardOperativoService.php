@@ -39,491 +39,197 @@ class DhasboardOperativoService
             // Agrega más datos según sea necesario
         ];
     }
-    public function obtenerTrazabilidad($productoId, $filters = []): array
-    {
-        $producto = product::find($productoId);
 
-        if (!$producto) {
-            abort(404, 'Producto no encontrado');
-        }
-
-        $stock = $this->obtenerStock($productoId);
-        $comprasProveedor = $this->obtenerComprasProveedor($productoId);
-        $ordenesTrabajo = $this->obtenerOrdenesTrabajo($productoId);
-        $alistamientosOt = $this->obtenerAlistamientosOt($productoId);
-        $rutas = $this->obtenerRutas($productoId);
-
-        //  NUEVO: estados por orden
-        $estadosPorOrden = $this->calcularEstadosPorOrden($productoId, $filters);
-        $ordenesCompletas = $this->construirOrdenesCompletas($productoId, $filters);
-        //  NUEVO: estado general del producto
-
-        return [
-            'producto' => [
-                'id' => $producto->id,
-                'nombre' => $producto->nombre ?? $producto->name ?? null,
-            ],
-            'ordenes' => $ordenesCompletas,
-            'stock' => $stock,
-            'compras_proveedor' => $comprasProveedor,
-            'ordenes_trabajo' => $ordenesTrabajo,
-            'alistamientos_ot' => $alistamientosOt,
-            'ruta' => $rutas,
-
-
-        ];
-    }
-   
-private function calcularEstadosPorOrden($productoId, $filters = [], $sedeId = null)
+public function obtenerOrdenesCompraVSM($filters = [])
 {
-    $ordenes = collect();
+    $sedeId = $filters['sede_id'] ?? 1;
 
-    // 1. Trae todas las OTs y sus relaciones de una vez
-  $ots = OrdenDeTrabajo::with([
-        'ordenCompra.cliente',
-        'ordenCompra.detalles'
-    ])
-    ->whereIn('estado_id', [1, 5]) // 👈 AQUÍ
-    ->when($productoId, function ($query) use ($productoId) {
-        $query->whereHas('ordenCompra.detalles', function ($q) use ($productoId) {
-            $q->where('product_id', $productoId);
-        });
-    })->when($sedeId, function ($query) use ($sedeId) {
-    $query->whereHas('ordenCompra', function ($q) use ($sedeId) {
-        $q->where('sede_id', $sedeId);
-    });
-})
-    ->get();
-
-    $otIds = $ots->pluck('id')->all();
-    $ordenCompraIds = $ots->pluck('orden_compra_id')->all();
-
-    // Alistamientos y Alistamientos OT agrupados por OT
-    $alistamientos = Alistamiento::whereIn('orden_trabajo_id', $otIds)
-        ->when($productoId, function ($q) use ($productoId) {
-            $q->whereHas('ordenTrabajo.ordenCompra.detalles', function ($q2) use ($productoId) {
-                $q2->where('product_id', $productoId);
+    // 🔹 1. CARGA BASE CON RELACIONES (Evitamos N+1)
+    $ordenes = Orden_Compra::with([
+            'cliente',
+            'detalles.product'
+        ])
+        ->whereIn('estado_id', [1, 5])
+        ->when(!empty($filters['producto_id']), function ($query) use ($filters) {
+            $query->whereHas('detalles', function ($q) use ($filters) {
+                $q->where('product_id', $filters['producto_id']);
             });
         })
-        ->select('orden_trabajo_id', DB::raw('SUM(cantidad) as cantidad'))
-        ->groupBy('orden_trabajo_id')
-        ->pluck('cantidad', 'orden_trabajo_id');
-
-    $alistamientosOt = AlistamientoOt::whereIn('orden_trabajo_id', $otIds)
-        ->when($productoId, function ($q) use ($productoId) {
-            $q->where('producto_id', $productoId);
+          ->when(!empty($filters['sede_id']), function ($q) use ($filters) {
+            $q->where('sede_id', $filters['sede_id']);
         })
-        ->select('orden_trabajo_id', DB::raw('SUM(cantidad) as cantidad'))
-        ->groupBy('orden_trabajo_id')
-        ->pluck('cantidad', 'orden_trabajo_id');
+        ->get();
 
-    // Alistamiento en proceso y listo (existe)
-    $alistamientoProceso = Alistamiento::whereIn('orden_trabajo_id', $otIds)
-            ->when($productoId, function ($q) use ($productoId) {
-                $q->whereHas('ordenTrabajo.ordenCompra.detalles', function ($q2) use ($productoId) {
-                    $q2->where('product_id', $productoId);
-                });
-            })
-        ->select('orden_trabajo_id')
-        ->get()
-        ->pluck('orden_trabajo_id')
-        ->unique()
-        ->flip();
+    $ordenIds = $ordenes->pluck('id');
+    $detalleIds = $ordenes->flatMap(fn($oc) => $oc->detalles->pluck('id'))->unique();
 
-    $alistamientoListo = AlistamientoOt::whereIn('orden_trabajo_id', $otIds)
-        ->when($productoId, function ($q) use ($productoId) {
-            $q->where('producto_id', $productoId);
+    // 🔹 2. RECOPILACIÓN DE DATOS EXTERNOS (Bulk Queries)
+    
+    // Compras
+    $compras = OrdenCompraProveedorDetalle::whereIn('orden_id', $ordenIds)
+        ->when(!empty($filters['producto_id']), function ($q) use ($filters) {
+            $q->where('producto_id', $filters['producto_id']);
         })
-        ->select('orden_trabajo_id')
-        ->get()
-        ->pluck('orden_trabajo_id')
-        ->unique()
-        ->flip();
+        ->select('orden_id', DB::raw('SUM(cantidad_solicitada) as total_solicitado'), DB::raw('SUM(cantidad_entregada) as total_recibido'))
+        ->groupBy('orden_id')->get()->keyBy('orden_id');
 
-    // Rutas activas
-    $rutas = DeliveryEvent::whereIn('orden_id', $ordenCompraIds)
-        ->whereIn('estado', ['pendiente', 'en_ruta'])
-        ->pluck('orden_id')
-        ->unique()
-        ->flip();
+    // Inventario
+    $productoIds = $ordenes->flatMap(fn($oc) => $oc->detalles->pluck('product_id'))->unique();
+    $inventario = Inventario::whereIn('producto_id', $productoIds)
+        ->where('sede_id', $sedeId)
+        ->select('producto_id', DB::raw('SUM(stock) as stock_total'))
+        ->groupBy('producto_id')->get()->keyBy('producto_id');
 
-    // Procesa OTs en memoria
-    foreach ($ots as $ot) {
-        $ordenCompraId = $ot->orden_compra_id;
+    // Equivalentes
+    $equivalentes = AlistamientoOt::whereIn('orden_compra_detalle_id', $detalleIds)
+        ->where('tipo', 'equivalente')->get()->groupBy('orden_compra_detalle_id');
 
-        $cantidadTotal = 0;
-        foreach ($ot->ordenCompra->detalles as $detalle) {
-            if (!$productoId || $detalle->product_id == $productoId) {
-                $cantidadTotal += $detalle->cantidad_requerida_kg ?? 0;
-            }
-        }
+    // Flujo de Trabajo (OT -> Alistamiento -> Detalles)
+    $ordenesTrabajo = DB::table('orden_de_trabajos')->whereIn('orden_compra_id', $ordenIds)->get()->keyBy('orden_compra_id');
+    $alistamientos = DB::table('alistamiento')->whereIn('orden_trabajo_id', $ordenesTrabajo->pluck('id'))->get()->keyBy('orden_trabajo_id');
+    $alistamientoDetalles = DB::table('alistamiento_detalles')->whereIn('alistamiento_id', $alistamientos->pluck('id'))->get()->groupBy('alistamiento_id');
 
-        $cantidadAlistada = $alistamientos[$ot->id] ?? 0;
-        $cantidadProgramada = $alistamientosOt[$ot->id] ?? 0;
-        $enProceso = isset($alistamientoProceso[$ot->id]);
-        $listo = isset($alistamientoListo[$ot->id]);
-        $enRuta = isset($rutas[$ordenCompraId]);
+    // Despachos
+    $despachos = DB::table('delivery_events')
+        ->whereIn('orden_id', $ordenIds)
+        ->where(fn($q) => $q->where('estado', '!=', 'completado')->orWhere('updated_at', '>=', now()->subDays(2)))
+        ->get()->groupBy('orden_id');
 
-        $estado = 'EN_PRODUCCION';
-        if ($enRuta) {
-            $estado = 'EN_RUTA';
-        } elseif ($cantidadAlistada >= $cantidadTotal && $cantidadTotal > 0) {
-            $estado = 'ALISTAMIENTO_LISTO';
-        } elseif ($enProceso || $cantidadAlistada > 0) {
-            $estado = 'ALISTAMIENTO_EN_PROCESO';
-        } elseif ($listo) {
-            $estado = 'ALISTAMIENTO_PROGRAMADO';
-        }
-
-        $ordenes->push([
-            'orden_compra_id' => $ordenCompraId,
-            'orden_trabajo_id' => $ot->id,
-            'cliente_id' => $ot->ordenCompra->cliente_id ?? null,
-            'cliente' => optional($ot->ordenCompra->cliente)->nombre ?? null,
-            'cantidad_pedida' => $cantidadTotal,
-            'cantidad_alistada' => $cantidadAlistada,
-            'faltante' => max($cantidadTotal - $cantidadAlistada, 0),
-            'alerta' => ($cantidadTotal - $cantidadAlistada) > 0 ? 'PENDIENTE' : 'OK',
-            'porcentaje_avance' => $cantidadTotal > 0
-                ? round(($cantidadAlistada / $cantidadTotal) * 100, 2)
-                : 0,
-            'atrasado' => $ot->fecha_entrega
-                ? now()->gt($ot->fecha_entrega)
-                : false,
-            'numero_orden' => $ot->ordenCompra->numero ?? null,
-            'estado' => $estado,
-        ]);
-    }
-
-    // 2. Órdenes de compra sin OT
-    $ordenesCompra = Orden_Compra::when($productoId, function ($query) use ($productoId) {
-        $query->whereHas('detalles', function ($q) use ($productoId) {
-            $q->where('product_id', $productoId);
-        });
-    })->get();
-
-    $ordenesConOT = $ordenes->pluck('orden_compra_id')->all();
-
-    // Trae todos los detalles de proveedor de una vez
-    $detallesProveedor = OrdenCompraProveedorDetalle::whereIn('orden_id', $ordenesCompra->pluck('id'))
-        ->when($productoId, function ($q) use ($productoId) {
-            $q->where('producto_id', $productoId);
-        })
-        ->get()
-        ->groupBy('orden_id');
-
-    foreach ($ordenesCompra as $oc) {
-        if (in_array($oc->id, $ordenesConOT)) {
-            continue;
-        }
-
-        $detalles = $detallesProveedor[$oc->id] ?? collect();
-        $cantidadCompra = $detalles->sum('cantidad_solicitada');
-        $cantidadRecibida = $detalles->sum('cantidad_entregada');
-        $faltanteCompra = max($cantidadCompra - $cantidadRecibida, 0);
-        $estadoCompra = 'EN_COMPRA';
-
-        if ($faltanteCompra == 0) {
-            $estadoCompra = 'COMPRA_COMPLETADA';
-        } elseif ($cantidadRecibida > 0) {
-            $estadoCompra = 'COMPRA_PARCIAL';
-        }
-
-        $ordenes->push([
-            'orden_compra_id' => $oc->id,
-            'cantidad_programada' => 0,
-            'numero_orden' => $oc->numero ?? null,
-            'cliente_id' => $oc->cliente_id ?? null,
-            'cliente' => optional($oc->cliente)->nombre ?? null,
-            'cantidad_pedida' => $cantidadCompra,
-            'cantidad_alistada' => 0,
-            'cantidad_recibida' => $cantidadRecibida,
-            'faltante' => $faltanteCompra,
-            'alerta' => $faltanteCompra > 0 ? 'PENDIENTE' : 'OK',
-            'porcentaje_avance' => $cantidadCompra > 0
-                ? round(($cantidadRecibida / $cantidadCompra) * 100, 2)
-                : 0,
-            'estado' => $estadoCompra,
-        ]);
-    }
-
-    // Filtros finales en memoria
-    if (!empty($filters['estado'])) {
-        $ordenes = $ordenes->where('estado', $filters['estado']);
-    }
-    if (!empty($filters['cliente_id'])) {
-        $ordenes = $ordenes->where('cliente_id', $filters['cliente_id']);
-    }
-    if (!empty($filters['pendientes'])) {
-        $ordenes = $ordenes->where('faltante', '>', 0);
-    }
-    if (!empty($filters['atrasados'])) {
-        $ordenes = $ordenes->where('atrasado', true);
-    }
-    if (!empty($filters['avance_min'])) {
-        $ordenes = $ordenes->where('porcentaje_avance', '>=', $filters['avance_min']);
-    }
-
-    return $ordenes->values();
-}
-
-    private function obtenerStock($productoId)
-    {
-        return Inventario::with('bodega')
-            ->where('producto_id', $productoId)
-            ->selectRaw('bodega_id, SUM(stock) as stock')
-            ->groupBy('bodega_id')
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'bodega_id' => $item->bodega_id,
-                    'bodega' => $item->bodega->nombre ?? null,
-                    'stock' => (float) $item->stock,
-                ];
-            })
-            ->values();
-    }
-    private function obtenerComprasProveedor($productoId)
-    {
-        return OrdenCompraProveedorDetalle::with(['orden', 'orden.proveedor'])
-           ->when($productoId, function ($q) use ($productoId) {
-    $q->where('producto_id', $productoId);
-})
-            ->whereColumn('cantidad_entregada', '<', 'cantidad_solicitada')
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'detalle_id' => $item->id,
-                    'orden_id' => $item->orden_id,
-                    'proveedor_id' => $item->proveedor_id,
-                    'proveedor' => optional($item->orden->proveedor ?? null)->nombre,
-                    'cantidad_solicitada' => $item->cantidad_solicitada,
-                    'cantidad_entregada' => $item->cantidad_entregada,
-                    'pendiente' => max(($item->cantidad_solicitada ?? 0) - ($item->cantidad_entregada ?? 0), 0),
-                ];
-            })
-            ->values();
-    }
-
-    private function obtenerOrdenesTrabajo($productoId)
-    {
-        return OrdenDeTrabajo::with('ordenCompra')
-            ->whereHas('ordenCompra.detalles', function ($q) use ($productoId) {
-                $q->where('product_id', $productoId);
-            })
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'orden_trabajo_id' => $item->id,
-                    'orden_compra_id' => $item->orden_compra_id,
-                    'estado_id' => $item->estado_id,
-                    'fecha_entrega' => $item->fecha_entrega,
-
-                ];
-            })
-            ->values();
-    }
-
-private function construirOrdenesCompletas($productoId, $filters = [])
-{
-    $ordenesBase = $this->calcularEstadosPorOrden($productoId, $filters);
-
-    // IDs de órdenes de compra y trabajo
-    $ordenCompraIds = $ordenesBase->pluck('orden_compra_id')->unique()->filter()->values();
-    $ordenTrabajoIds = $ordenesBase->pluck('orden_trabajo_id')->unique()->filter()->values();
-
-    // Inventarios por bodega
-    $inventarios = Inventario::with('bodega')
-        ->when($productoId, function ($q) use ($productoId) {
-            $q->where('producto_id', $productoId);
-        })
-        ->selectRaw('bodega_id, SUM(stock) as stock')
-        ->groupBy('bodega_id')
-        ->get()
-        ->mapWithKeys(function ($item) {
-            return [$item->bodega_id => [
-                'bodega' => $item->bodega->nombre ?? 'N/A',
-                'stock' => (float) $item->stock,
-            ]];
-        });
-
-    // Compras proveedor por orden
-    $comprasProveedor = OrdenCompraProveedorDetalle::with('orden.proveedor')
-        ->whereIn('orden_id', $ordenCompraIds)
-        ->when($productoId, function ($q) use ($productoId) {
-            $q->where('producto_id', $productoId);
-        })
-        ->get()
-        ->groupBy('orden_id');
-
-    // Producción, alistamiento y ruta
-    $produccion = OrdenDeTrabajo::whereIn('orden_compra_id', $ordenCompraIds)->pluck('orden_compra_id')->unique()->flip();
-    $alistamientos = Alistamiento::whereIn('orden_trabajo_id', $ordenTrabajoIds)->pluck('orden_trabajo_id')->unique()->flip();
-    $rutas = DeliveryEvent::whereIn('orden_id', $ordenCompraIds)
-        ->whereIn('estado', ['pendiente', 'en_ruta'])
-        ->pluck('orden_id')->unique()->flip();
-
-    // Detalles de orden de compra y productos
-    $ordenesCompra = Orden_Compra::with('detalles.product')
-        ->whereIn('id', $ordenCompraIds)
-        ->get()
-        ->keyBy('id');
-
-    // Alistamientos por detalle de orden
-    $detalleIds = $ordenesCompra->flatMap(function ($oc) {
-        return $oc->detalles->pluck('id');
-    })->unique()->values();
-
-    $alistamientosPorDetalle = Alistamiento::whereIn('orden_trabajo_id', $detalleIds)
-        ->select('orden_trabajo_id', DB::raw('SUM(cantidad) as cantidad'))
-        ->groupBy('orden_trabajo_id')
-        ->pluck('cantidad', 'orden_trabajo_id');
-
-    return $ordenesBase->map(function ($orden) use (
-        $productoId, $inventarios, $comprasProveedor, $produccion, $alistamientos, $rutas, $ordenesCompra, $alistamientosPorDetalle
+    // 🔹 3. PROCESAMIENTO DE LA COLECCIÓN
+    return $ordenes->map(function ($oc) use ($filters,
+     $compras,
+      $inventario,
+       $equivalentes, $ordenesTrabajo, $alistamientos, $alistamientoDetalles, $despachos
     ) {
-        // Bodegas
-        $bodegas = $inventarios->values();
+        
+        $detalles = !empty($filters['producto_id']) 
+            ? $oc->detalles->where('product_id', $filters['producto_id']) 
+            : $oc->detalles;
 
-        // Compras
-        $compras = ($comprasProveedor[$orden['orden_compra_id']] ?? collect())->map(function ($item) {
-            return [
-                'proveedor' => optional($item->orden->proveedor)->nombre,
-                'fecha_oc' => $item->orden->created_at,
-                'cantidad_solicitada' => $item->cantidad_solicitada,
-                'cantidad_entregada' => $item->cantidad_entregada,
-                'pendiente' => max(($item->cantidad_solicitada ?? 0) - ($item->cantidad_entregada ?? 0), 0),
-            ];
-        })->values();
+        $totalRequerido = $detalles->sum('cantidad_requerida_kg');
 
-        // Estados
-        $enProduccion = isset($produccion[$orden['orden_compra_id']]);
-$ordenTrabajoId = $orden['orden_trabajo_id'] ?? null;
+        // --- LÓGICA DE COMPRA ---
+        $compra = $compras[$oc->id] ?? null;
+        $totalSolicitado = $compra->total_solicitado ?? 0;
+        $totalRecibido = $compra->total_recibido ?? 0;
+        $faltanteCompra = max($totalSolicitado - $totalRecibido, 0);
 
-$enAlistamiento = $ordenTrabajoId
-    ? isset($alistamientos[$ordenTrabajoId])
-    : false;
-        $enRuta = isset($rutas[$orden['orden_compra_id']]);
+        $estadoCompra = match(true) {
+            ($faltanteCompra == 0 && $totalSolicitado > 0) => 'COMPRA_COMPLETA',
+            ($totalRecibido > 0) => 'COMPRA_PARCIAL',
+            ($totalSolicitado > 0) => 'PENDIENTE_COMPRA',
+            default => 'SIN_COMPRA'
+        };
 
-        // Productos detallados
-        $productos = [];
-        $ordenModel = $ordenesCompra[$orden['orden_compra_id']] ?? null;
-        if ($ordenModel && $ordenModel->detalles) {
-   $productos = $ordenModel->detalles->map(function ($detalle) {
-    $cantidadPedida = $detalle->cantidad_requerida_kg ?? 0;
+        // --- LÓGICA DE ALISTAMIENTO ---
+        $ot = $ordenesTrabajo[$oc->id] ?? null;
+        $alistamiento = $ot ? ($alistamientos[$ot->id] ?? null) : null;
+        $detAlist = $alistamiento ? ($alistamientoDetalles[$alistamiento->id] ?? collect()) : collect();
 
-    return [
-        'detalle_id' => $detalle->id,
-        'producto_id' => $detalle->product_id,
-        'nombre' => optional($detalle->product)->name,
-        'cantidad_pedida' => $cantidadPedida,
-        'cantidad_alistada' => 0, // 👈 correcto para compra
-        'faltante' => $cantidadPedida,
-        'porcentaje' => 0,
-    ];
-});
+        $totalProg = $detAlist->sum('cantidad_programada');
+        $totalAlis = $detAlist->sum('cantidad_alistada');
+        $totalFalt = $detAlist->sum('cantidad_faltante');
+
+        $estadoAlistamiento = match(true) {
+            (!$alistamiento) => 'NO_INICIADO',
+            ($totalFalt == 0 && $totalProg > 0) => 'ALISTADO',
+            default => 'EN_ALISTAMIENTO'
+        };
+
+        // --- LÓGICA DE DESPACHO ---
+        $despachoOrden = $despachos[$oc->id] ?? collect();
+        $tieneDespacho = $despachoOrden->isNotEmpty();
+        $estadoDespacho = 'NO_DESPACHADO';
+
+        if ($tieneDespacho) {
+            $todoCompletado = $despachoOrden->every(fn($d) => $d->estado === 'completado');
+            $tienePendiente = $despachoOrden->contains(fn($d) => $d->estado === 'pendiente');
+            $estadoDespacho = $todoCompletado ? 'ENTREGADO' : ($tienePendiente ? 'EN_RUTA' : 'NO_DESPACHADO');
         }
 
+        // --- LÓGICA DE INVENTARIO Y PRODUCTOS ---
+        $stockDisponible = 0;
+        $productosData = $detalles->map(function ($d) use ($inventario, $equivalentes, &$stockDisponible) {
+            $stock = $inventario[$d->product_id]->stock_total ?? 0;
+            $stockDisponible += $stock;
+            $tieneEquivalente = isset($equivalentes[$d->id]);
+
+            $estadoItem = match(true) {
+                ($stock >= $d->cantidad_requerida_kg) => 'OK',
+                ($tieneEquivalente) => 'HOMOLOGABLE',
+                default => 'SIN_STOCK'
+            };
+
+            return [
+                'detalle_id' => $d->id,
+                'producto_id' => $d->product_id,
+                'producto' => optional($d->product)->name,
+                
+                'requerido' => $d->cantidad_requerida_kg,
+                'stock' => $stock,
+                'estado' => $estadoItem,
+                'tiene_equivalente' => $tieneEquivalente
+            ];
+        });
+
+        $estadoInventario = match(true) {
+            ($stockDisponible <= 0) => 'SIN_STOCK',
+            ($stockDisponible < $totalRequerido) => 'STOCK_PARCIAL',
+            default => 'STOCK_OK'
+        };
+
+        // --- DETERMINACIÓN DEL ESTADO VSM (JERARQUÍA OPERATIVA) ---
+        $tieneSinStock = $productosData->contains('estado', 'SIN_STOCK');
+        $tieneHomologable = $productosData->contains('estado', 'HOMOLOGABLE');
+
+        $estadoVSM = match(true) {
+            ($estadoDespacho === 'ENTREGADO') => 'ENTREGADO',
+            ($estadoDespacho === 'EN_RUTA') => 'EN_RUTA',
+            ($estadoAlistamiento === 'ALISTADO') => 'LISTO_PARA_DESPACHO',
+            ($estadoAlistamiento === 'EN_ALISTAMIENTO') => 'EN_ALISTAMIENTO',
+            (!$tieneSinStock && $estadoInventario === 'STOCK_OK') => 'LISTO_PARA_ALISTAR',
+            ($tieneHomologable) => 'REQUIERE_HOMOLOGACION',
+            ($estadoInventario === 'STOCK_PARCIAL') => 'STOCK_INSUFICIENTE',
+            ($estadoCompra === 'PENDIENTE_COMPRA') => 'ESPERANDO_PROVEEDOR',
+            default => 'SIN_STOCK'
+        };
+
+        // Filtro de salida: si ya se recibió todo, no es necesario en el VSM activo
+        if ($totalRecibido >= $totalRequerido && $totalRequerido > 0) return null;
+
         return [
-            // BASE
-            'orden_compra_id' => $orden['orden_compra_id'],
-            'orden_trabajo_id' => $orden['orden_trabajo_id'] ?? null,
-            'cliente_id' => $orden['cliente_id'],
-            'cliente' => $orden['cliente'],
-            'numero_orden' => $orden['numero_orden'] ?? null,
-
-            // ESTADO
-            'estado' => $orden['estado'],
-            'alerta' => $orden['alerta'],
-            'atrasado' => $orden['atrasado']?? false,
-
-            // CANTIDADES
-            'cantidad_pedida' => $orden['cantidad_pedida'],
-            'cantidad_alistada' => $orden['cantidad_alistada'],
-            'faltante' => $orden['faltante'],
-            'porcentaje_avance' => $orden['porcentaje_avance'],
-
-            // INDICADORES
-            'stock_disponible' => $bodegas->sum('stock'),
-            'bodegas' => $bodegas,
-            'compras' => $compras,
-
-            'en_produccion' => $enProduccion,
-            'en_alistamiento' => $enAlistamiento,
-            'en_ruta' => $enRuta,
-
-            // PRODUCTOS DETALLADOS
-            'productos' => $productos,
+            'orden_id'        => $oc->id,
+            'orden_trabajo_id'   => $ot->id ?? null,
+            'numero'          => $oc->numero,
+            'cliente'         => optional($oc->cliente)->nombre,
+            'estado_id'       => $oc->estado_id,
+            'estado'          => $oc->estado_id == 1 ? 'PENDIENTE' : ($oc->estado_id == 5 ? 'ENTREGA_PARCIAL' : 'OTRO'),
+            'estado_vsm'      => $estadoVSM,
+            'total_requerido' => $totalRequerido,
+            'total_recibido'  => $totalRecibido,
+            'faltante'        => max($totalRequerido - $totalRecibido, 0),
+            'inventario'      => [
+                'stock_disponible' => $stockDisponible,
+                'estado'           => $estadoInventario
+            ],
+            'compra'          => [
+                'total_solicitado' => $totalSolicitado,
+                'total_recibido'   => $totalRecibido,
+                'faltante'         => $faltanteCompra,
+                'estado'           => $estadoCompra
+            ],
+            'alistamiento'    => [
+                'estado'           => $estadoAlistamiento,
+                'total_programado' => $totalProg,
+                'total_alistado'   => $totalAlis,
+                'faltante'         => $totalFalt
+            ],
+            'productos'       => $productosData,
+            'despacho'        => [
+                'estado'         => $estadoDespacho,
+                'tiene_despacho' => $tieneDespacho
+            ]
         ];
-    })->values();
+    })->filter()->values();
 }
-
-    public function obtenerTrazabilidadGeneral($filters = [], $sedeId = null, $perPage = 10)
-    {
-        $ordenesCompletas = $this->construirOrdenesCompletas(null, $filters);
-
-        return [
-            'ordenes' => $ordenesCompletas
-        ];
-    }
-
-    private function obtenerAlistamientosOt($productoId)
-    {
-        return AlistamientoOt::with(['bodega', 'ordenTrabajo'])
-            ->where('producto_id', $productoId)
-            ->get()
-            ->map(function ($item) {
-
-                $estado = 'PENDIENTE';
-
-                if ($item->ordenTrabajo) {
-                    switch ($item->ordenTrabajo->estado_id) {
-                        case 1:
-                            $estado = 'PENDIENTE';
-                            break;
-                        case 2:
-                            $estado = 'COMPLETADO';
-                            break;
-                        case 5:
-                            $estado = 'ENTREGA_PARCIAL';
-                            break;
-                    }
-                }
-
-                //  lógica adicional por cantidad
-                if ($item->cantidad > 0 && $estado === 'PENDIENTE') {
-                    $estado = 'EN_PROCESO';
-                }
-
-                return [
-                    'id' => $item->id,
-                    'orden_trabajo_id' => $item->orden_trabajo_id,
-                    'bodega' => $item->bodega->nombre ?? null,
-                    'cantidad' => $item->cantidad,
-                    'estado' => $estado,
-                    'estado_id' => $item->ordenTrabajo->estado_id ?? null,
-                    'fecha_alistamiento' => $item->fecha_alistamiento,
-                ];
-            })
-            ->values();
-    }
-
-    private function obtenerRutas($productoId)
-    {
-        return DeliveryEvent::with('orden')
-            ->whereHas('orden.detalles', function ($q) use ($productoId) {
-                $q->where('product_id', $productoId);
-            })
-            ->whereIn('estado', ['pendiente', 'en_proceso']) // 👈 SOLO ACTIVAS
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'id' => $item->id,
-                    'orden_id' => $item->orden_id,
-                    'estado' => $item->estado,
-                    'fecha_entrega' => $item->fecha_entrega,
-                ];
-            })
-            ->values();
-    }
 }

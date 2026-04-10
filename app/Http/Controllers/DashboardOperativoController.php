@@ -23,16 +23,16 @@ class DashboardOperativoController extends Controller
 
 public function index(Request $request)
 {
-    $filters = $request->all();
+    $user = auth()->user();
 
-    $sedeId = $request->get('sede_id') 
-        ?? auth()->user()->sede_id;
+$filters = $request->all();
 
-    $perPage = $request->get('per_page', 10);
-
-    return response()->json(
-        $this->service->obtenerTrazabilidadGeneral($filters, $sedeId, $perPage)
-    );
+// 🔥 SI NO VIENE SEDE → USAR LA DEL USUARIO
+if (empty($filters['sede_id'])) {
+    $filters['sede_id'] = $user->sede_id ?? null;
+}
+    $data = $this->service->obtenerOrdenesCompraVSM( $filters);
+    return response()->json($data, 200, [], JSON_PRETTY_PRINT);
 }
 
     /**
@@ -49,7 +49,7 @@ public function index(Request $request)
     public function show($productoId, Request $request)
     {
         $filters = $request->all();
-        $data = $this->service->obtenerTrazabilidad($productoId, $filters);
+        $data = $this->service->obtenerOrdenesCompraVSM($productoId, null, $filters);
 
         return response()->json($data);
     }
