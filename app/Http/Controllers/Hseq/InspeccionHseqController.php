@@ -52,7 +52,12 @@ class InspeccionHseqController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        //
+        $data = $request->all();
+        $inspeccion = $this->inspeccionService->update($id, $data);
+        return response()->json([
+            'message' => 'Inspección actualizada exitosamente',
+            'data' => $inspeccion
+        ]);
     }
 
     /**
@@ -60,6 +65,10 @@ class InspeccionHseqController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        $data = $this->inspeccionService->delete($id);
+        return response()->json([
+            'message' => 'Inspección eliminada exitosamente',
+            'data' => $data
+        ]);
     }
 }
