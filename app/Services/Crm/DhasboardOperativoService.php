@@ -230,6 +230,12 @@ public function obtenerOrdenesCompraVSM($filters = [])
                 'tiene_despacho' => $tieneDespacho
             ]
         ];
-    })->filter()->values();
+    })->filter()
+->when(!empty($filters['estado_vsm']), function ($collection) use ($filters) {
+    return $collection->where('estado_vsm', $filters['estado_vsm']);
+})
+->values();
+
+    
 }
 }
