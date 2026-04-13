@@ -260,7 +260,7 @@ $query = Alistamiento::with([
     'detalles.product'
 ])
 ->whereIn('estado', ['INICIADO', 'PAUSADO', 'REANUDADO'])
-->whereHas('usuarios', function ($q) use ($sedeId) {
+->whereHas('ordenTrabajo.ordenCompra', function ($q) use ($sedeId) {
     $q->where('sede_id', $sedeId);
 });
     $alistamientos = $query
@@ -399,6 +399,105 @@ public function registrarProduccion($alistId, $detalleId, $cantidad, $userId)
             'total_producto' => $detalle->cantidad_alistada,
             'faltante' => $detalle->cantidad_faltante
         ];
+    });
+}
+
+public function pausarPorSede($sedeId, $razon = null)
+{
+    return DB::transaction(function () use ($sedeId, $razon) {
+
+    $alistamientos = Alistamiento::whereHas('ordenTrabajo.ordenCompra', function ($q) use ($sedeId) {
+        $q->where('sede_id', $sedeId);
+    })
+    ->whereIn('estado', ['INICIADO', 'REANUDADO'])
+    ->with('usuarios')
+    ->get();
+
+        foreach ($alistamientos as $alist) {
+
+            $alist->update([
+                'estado' => 'PAUSADO'
+            ]);
+
+            AlistamientoTiempo::create([
+                'alistamiento_id' => $alist->id,
+                'tipo'            => 'PAUSA',
+                'fecha_hora'      => now(),
+                'razon'           => $razon ?? 'Pausa masiva por sede'
+            ]);
+
+            foreach ($alist->usuarios as $usuario) {
+
+                $pivot = $usuario->pivot;
+
+                if ($pivot->inicio) {
+                    $segundos = now()->timestamp - strtotime($pivot->inicio);
+
+                    $alist->usuarios()->updateExistingPivot($usuario->id, [
+                        'estado'           => 'PAUSADO',
+                        'pausado_en'       => now(),
+                        'inicio'           => null,
+                        'tiempo_segundos'  => $pivot->tiempo_segundos + $segundos
+                    ]);
+                }
+
+                AlistamientoTiempo::create([
+                    'alistamiento_id' => $alist->id,
+                    'user_id'         => $usuario->id,
+                    'tipo'            => 'PAUSA',
+                    'fecha_hora'      => now(),
+                    'razon'           => $razon ?? 'Pausa por sede'
+                ]);
+            }
+        }
+
+        return count($alistamientos);
+    });
+}
+public function reanudarPorSede($sedeId)
+{
+    return DB::transaction(function () use ($sedeId) {
+
+        $alistamientos = Alistamiento::whereHas('ordenTrabajo.ordenCompra', function ($q) use ($sedeId) {
+                $q->where('sede_id', $sedeId);
+            })
+            ->where('estado', 'PAUSADO') //  SOLO los pausados
+            ->with('usuarios')
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($alistamientos as $alist) {
+
+            //  Reanudar alistamiento
+            $alist->update([
+                'estado' => 'REANUDADO'
+            ]);
+
+            AlistamientoTiempo::create([
+                'alistamiento_id' => $alist->id,
+                'tipo'            => 'REANUDACION',
+                'fecha_hora'      => now()
+            ]);
+
+            //  Reanudar usuarios
+            foreach ($alist->usuarios as $usuario) {
+
+                $alist->usuarios()->updateExistingPivot($usuario->id, [
+                    'estado'     => 'EN_PROGRESO', // 👈 importante
+                    'inicio'     => now(),
+                    'pausado_en' => null,
+                ]);
+
+                AlistamientoTiempo::create([
+                    'alistamiento_id' => $alist->id,
+                    'user_id'         => $usuario->id,
+                    'tipo'            => 'REANUDACION',
+                    'fecha_hora'      => now()
+                ]);
+            }
+        }
+
+        return count($alistamientos);
     });
 }
 }

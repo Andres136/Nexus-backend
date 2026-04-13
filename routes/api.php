@@ -321,6 +321,8 @@ Route::get('alistamientos/{id}/historial', [AlistamientoController::class, 'hist
 Route::post('/alistamiento/produccion', [AlistamientoController::class, 'registrarProduccion']);
 //Obtener alistamientos activos
 Route::get('alistamientos-activos', [AlistamientoController::class, 'alistamientosActivos']);
+Route::post('pausar-ordenes-sedes', [AlistamientoController::class, 'pausarPorSede']);
+Route::post('reanudar-ordenes-sedes', [AlistamientoController::class, 'reanudarPorSede']);
 
 Route::post('/alistamientos/{alistamiento_id}/usuarios/{usuario_id}/pausar', [AlistamientoController::class, 'pausarUsuario']);
 Route::post('/alistamientos/{alistamiento_id}/usuarios/{usuario_id}/reanudar', [AlistamientoController::class, 'reanudarUsuario']);

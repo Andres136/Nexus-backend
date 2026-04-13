@@ -412,4 +412,47 @@ public function reanudarUsuario($alistId, $userId)
     {
         //
     }
+
+    public function pausarPorSede(Request $request)
+{
+    $user = auth()->user();
+
+    // SIEMPRE desde el usuario
+    $sedeId = $user->sede_id;
+
+    if (!$sedeId) {
+        return response()->json([
+            'message' => 'El usuario no tiene sede asignada'
+        ], 422);
+    }
+
+    $total = $this->alistamientoService->pausarPorSede(
+        $sedeId,
+        $request->razon
+    );
+
+    return response()->json([
+        'message' => 'Órdenes pausadas correctamente',
+        'total_afectadas' => $total
+    ]);
+}
+
+
+public function reanudarPorSede()
+{
+    $sedeId = auth()->user()->sede_id;
+
+    if (!$sedeId) {
+        return response()->json([
+            'message' => 'Usuario sin sede'
+        ], 422);
+    }
+
+    $total = $this->alistamientoService->reanudarPorSede($sedeId);
+
+    return response()->json([
+        'message' => 'Órdenes reanudadas correctamente',
+        'total_afectadas' => $total
+    ]);
+}
 }
