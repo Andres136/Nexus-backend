@@ -42,12 +42,17 @@ class DhasboardOperativoService
 
 public function obtenerOrdenesCompraVSM($filters = [])
 {
-    $sedeId = $filters['sede_id'] ?? 1;
+
+$user = auth()->user();
+$sedeId = in_array($user->role_id, [1,2]) 
+    ? ($filters['sede_id'] ?? null)
+    : ($filters['sede_id'] ?? $user->sede_id);
 
     // 🔹 1. CARGA BASE CON RELACIONES (Evitamos N+1)
     $ordenes = Orden_Compra::with([
             'cliente',
-            'detalles.product'
+            'detalles.product',
+            'sede'
         ])
         ->whereIn('estado_id', [1, 5])
         ->when(!empty($filters['producto_id']), function ($query) use ($filters) {
@@ -55,9 +60,12 @@ public function obtenerOrdenesCompraVSM($filters = [])
                 $q->where('product_id', $filters['producto_id']);
             });
         })
-          ->when(!empty($filters['sede_id']), function ($q) use ($filters) {
-            $q->where('sede_id', $filters['sede_id']);
-        })
+ ->when(
+    !in_array($user->role_id, [1, 2]),
+    function ($q) use ($filters, $user) {
+        $q->where('sede_id', $filters['sede_id'] ?? $user->sede_id);
+    }
+)
         ->get();
 
     $ordenIds = $ordenes->pluck('id');
@@ -203,10 +211,12 @@ public function obtenerOrdenesCompraVSM($filters = [])
         };
 
         // Filtro de salida: si ya se recibió todo, no es necesario en el VSM activo
-        if ($totalRecibido >= $totalRequerido && $totalRequerido > 0) return null;
+       // if ($totalRecibido >= $totalRequerido && $totalRequerido > 0) return null;
 
         return [
             'orden_id'        => $oc->id,
+            'sede_id' => $oc->sede_id,
+'sede' => optional($oc->sede)->nombre,
             'orden_trabajo_id'   => $ot->id ?? null,
             'numero'          => $oc->numero,
             'fecha_entrega'     => $oc->fecha_entrega,
