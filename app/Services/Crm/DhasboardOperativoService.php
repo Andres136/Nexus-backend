@@ -152,20 +152,28 @@ public function obtenerOrdenesCompraVSM($filters = [])
         $productosData = $detalles->map(function ($d) use ($inventario, $equivalentes, &$stockDisponible) {
             $stock = $inventario[$d->product_id]->stock_total ?? 0;
             $stockDisponible += $stock;
+
+                $requerido = $d->cantidad_requerida_kg ?? 0;
+    $entregado = $d->cantidad_enviada ?? 0;
+    $faltante = $d->faltantes ?? max($requerido - $entregado, 0);
             $tieneEquivalente = isset($equivalentes[$d->id]);
 
             $estadoItem = match(true) {
-                ($stock >= $d->cantidad_requerida_kg) => 'OK',
-                ($tieneEquivalente) => 'HOMOLOGABLE',
-                default => 'SIN_STOCK'
-            };
+        ($entregado >= $requerido) => 'ENTREGADO',
+        ($entregado > 0) => 'PARCIAL',
+        ($stock >= $requerido) => 'OK',
+        ($tieneEquivalente) => 'HOMOLOGABLE',
+        default => 'SIN_STOCK'
+    };
 
             return [
                 'detalle_id' => $d->id,
                 'producto_id' => $d->product_id,
                 'producto' => optional($d->product)->name,
                 
-                'requerido' => $d->cantidad_requerida_kg,
+                'requerido' => $d->cantidad,
+                  'entregado' => $entregado, // 
+                   'faltante' => $faltante,   // 
                 'stock' => $stock,
                 'estado' => $estadoItem,
                 'tiene_equivalente' => $tieneEquivalente
