@@ -306,10 +306,11 @@ $funnelCompraToFiel = $compradoresMes > 0
 
         $fechaPago = \Carbon\Carbon::parse($item->fecha_pago);
 
-        $dias = round(
-            \Carbon\Carbon::parse($item->ultima_gestion)
-                ->diffInHours($fechaPago) / 24
-        );
+  $dias = round(
+    \Carbon\Carbon::parse($item->ultima_gestion)
+        ->floatDiffInDays($fechaPago),
+    2
+);
 
         return [
             'mes' => $fechaPago->month,

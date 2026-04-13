@@ -201,6 +201,7 @@ public function obtenerOrdenesCompraVSM($filters = [])
             'orden_id'        => $oc->id,
             'orden_trabajo_id'   => $ot->id ?? null,
             'numero'          => $oc->numero,
+            'fecha_entrega'     => $oc->fecha_entrega,
             'cliente'         => optional($oc->cliente)->nombre,
             'estado_id'       => $oc->estado_id,
             'estado'          => $oc->estado_id == 1 ? 'PENDIENTE' : ($oc->estado_id == 5 ? 'ENTREGA_PARCIAL' : 'OTRO'),

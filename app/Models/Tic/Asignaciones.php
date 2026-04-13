@@ -24,7 +24,7 @@ class Asignaciones extends Model
         'observaciones',
         'activo',
     ];
-
+    public $timestamps = true;
     public function usuario()
     {
         return $this->belongsTo(User::class, 'id_usuario');
