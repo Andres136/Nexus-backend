@@ -374,9 +374,7 @@ public function registrarProduccion($alistId, $detalleId, $cantidad, $userId)
 
         $detalle = AlistamientoDetalle::findOrFail($detalleId);
 
-        if ($detalle->cantidad_alistada + $cantidad > $detalle->cantidad_programada) {
-            throw new \Exception("Excede la cantidad programada");
-        }
+     
 
         // 🔥 UPDATE USUARIO
         AlistamientoUsuarioDetalle::where('id', $registro->id)

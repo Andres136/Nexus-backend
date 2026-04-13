@@ -7,7 +7,7 @@ use App\Models\Crm\Cotizacion;
 use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\SeguimientoCliente;
 use Illuminate\Support\Carbon;
-
+use Illuminate\Support\Facades\DB;
 
 class KpiService
 {
@@ -274,7 +274,66 @@ $funnelCompraToFiel = $compradoresMes > 0
                     : 0,
             ],
 
+            'cartera'=> $this->getKpiGestionCarteraMensual(),
+
             'series_mensual' => $series,
         ];
     }
+
+
+  public function getKpiGestionCarteraMensual($year = null)
+{
+    $year = $year ?? now()->year;
+
+    $carteras = DB::table('gestion_cartera as gc')
+        ->leftJoin('gestion_cartera_historial as gh', 'gc.id', '=', 'gh.gestion_cartera_id')
+        ->select(
+            'gc.id',
+            'gc.estado',
+            'gc.updated_at as fecha_pago',
+            DB::raw('MAX(gh.created_at) as ultima_gestion')
+        )
+        ->whereYear('gc.updated_at', $year)
+        ->groupBy('gc.id', 'gc.estado', 'gc.updated_at')
+        ->get();
+
+    // 🔥 agrupar por mes
+    $porMes = $carteras->map(function ($item) {
+
+        if ($item->estado !== 'cancelado' || !$item->ultima_gestion) {
+            return null;
+        }
+
+        $fechaPago = \Carbon\Carbon::parse($item->fecha_pago);
+
+        $dias = round(
+            \Carbon\Carbon::parse($item->ultima_gestion)
+                ->diffInHours($fechaPago) / 24
+        );
+
+        return [
+            'mes' => $fechaPago->month,
+            'dias' => $dias
+        ];
+
+    })->filter()->groupBy('mes');
+
+    // 🔥 construir serie completa (12 meses)
+    $series = collect(range(1, 12))->map(function ($mes) use ($porMes) {
+
+        $dataMes = $porMes[$mes] ?? collect();
+
+        return [
+            'month' => $mes,
+            'label' => \Carbon\Carbon::create()->month($mes)->format('M'),
+
+            'promedio_dias_post_gestion' => round($dataMes->avg('dias') ?? 0, 2),
+            'max_dias' => $dataMes->max('dias') ?? 0,
+            'min_dias' => $dataMes->min('dias') ?? 0,
+            'total_casos' => $dataMes->count()
+        ];
+    });
+
+    return $series->values();
+}
 }
