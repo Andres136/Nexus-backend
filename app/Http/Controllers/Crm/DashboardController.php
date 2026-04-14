@@ -40,85 +40,101 @@ public function kpis(Request $request)
     );
 }
     public function getDashboardData()
-    {
-        $ordenes = Orden_Compra::with('ordenTrabajo', 'detalles', 'cliente', 'creador')->get();
-        // Defino "hoy" a las 00:00:00
-        $hoy = now()->startOfDay();
+{
+    // 🔥 Carga optimizada (menos columnas)
+    $ordenes = Orden_Compra::with([
+        'ordenTrabajo:id,orden_compra_id,updated_at',
+        'detalles:orden_compra_id,faltantes,cantidad_enviada',
+        'cliente:id,nombre',
+        'creador:id,name'
+    ])
+    ->select('id', 'cliente_id', 'user_id', 'fecha_entrega', 'estado_id')
+    ->get();
 
-        $ordenesConEstado = $ordenes->map(function ($orden) use ($hoy) {
-            // Parseo fecha de entrega y la pongo también al inicio del día
-            $fechaEntrega = Carbon::parse($orden->fecha_entrega)->startOfDay();
+    // 🔥 INDEXACIÓN (CLAVE DE PERFORMANCE)
+    $ordenesIndexadas = $ordenes->keyBy('id');
 
-            $tieneFaltantes = $orden->detalles->sum('faltantes') > 0;
-            $tieneEnviados  = $orden->detalles->sum('cantidad_enviada') > 0;
-            $tieneOT        = $orden->ordenTrabajo !== null;
+    $hoy = now()->startOfDay();
 
-            // Solo se considera vencida si la fecha_entrega es ANTERIOR a hoy
-            // y no se ha enviado nada
-            $fechaVencida = $fechaEntrega->lt($hoy) && ! $tieneEnviados && $orden->estado_id !== 5;
+    $ordenesConEstado = $ordenes->map(function ($orden) use ($hoy) {
 
-            // ✅ Clasificación considerando "Entrega Parcial"
-            if ($orden->estado_id === 5) {
-                $estado = 'Entrega Parcial';
-                
-            } elseif ($fechaVencida) {
-                $estado = 'Vencida';
-            } elseif ($tieneFaltantes && $tieneEnviados) {
-                $estado = 'Con faltantes';
-            } elseif ($tieneEnviados) {
-                $estado = 'Lista';
-            } elseif ($tieneOT) {
-                $estado = 'En orden trabajo';
-            } else {
-                $estado = 'Registrada';
-            }
+        // 🔥 Optimización: calcular una sola vez
+        $fechaEntrega = $orden->fecha_entrega
+            ? Carbon::parse($orden->fecha_entrega)->startOfDay()
+            : null;
 
-            return [
-                'id'             => $orden->id,
-                'estado'         => $estado,
-                'cliente'        => optional($orden->cliente)->nombre,
-                'usuario'        => optional($orden->creador)->name,
-                'fecha_entrega'  => $orden->fecha_entrega,
-            ];
+        $faltantes = $orden->detalles->sum('faltantes');
+        $enviados  = $orden->detalles->sum('cantidad_enviada');
+
+        $tieneFaltantes = $faltantes > 0;
+        $tieneEnviados  = $enviados > 0;
+        $tieneOT        = $orden->ordenTrabajo !== null;
+
+        $fechaVencida = $fechaEntrega && $fechaEntrega->lt($hoy) && !$tieneEnviados && $orden->estado_id !== 5;
+
+        // 🔥 Clasificación optimizada
+        if ($orden->estado_id === 5) {
+            $estado = 'Entrega Parcial';
+        } elseif ($fechaVencida) {
+            $estado = 'Vencida';
+        } elseif ($tieneFaltantes && $tieneEnviados) {
+            $estado = 'Con faltantes';
+        } elseif ($tieneEnviados) {
+            $estado = 'Lista';
+        } elseif ($tieneOT) {
+            $estado = 'En orden trabajo';
+        } else {
+            $estado = 'Registrada';
+        }
+
+        return [
+            'id'            => $orden->id,
+            'estado'        => $estado,
+            'cliente'       => optional($orden->cliente)->nombre,
+            'usuario'       => optional($orden->creador)->name,
+            'fecha_entrega' => $orden->fecha_entrega,
+        ];
+    });
+
+    // 🔥 Agrupaciones (se mantienen)
+    $agrupadoPorEstado = $ordenesConEstado->groupBy('estado');
+    $porCliente = $ordenesConEstado->groupBy('cliente')->map->count();
+    $porUsuario = $ordenesConEstado->groupBy('usuario')->map->count();
+
+    // 🔥 OPTIMIZACIÓN CRÍTICA (sin firstWhere)
+    $listasRecientes = $agrupadoPorEstado->get('Lista', collect())
+        ->filter(function ($o) use ($ordenesIndexadas) {
+            $orden = $ordenesIndexadas[$o['id']] ?? null;
+            return optional($orden?->ordenTrabajo)->updated_at > now()->subDays(5);
         });
 
-        $agrupadoPorEstado = $ordenesConEstado->groupBy('estado');
-        $porCliente = $ordenesConEstado->groupBy('cliente')->map->count();
-        $porUsuario = $ordenesConEstado->groupBy('usuario')->map->count();
+    return response()->json([
+        'total'              => $ordenes->count(),
+        'registradas'        => $agrupadoPorEstado->get('Registrada', collect())->count(),
+        'en_orden_trabajo'   => $agrupadoPorEstado->get('En orden trabajo', collect())->count(),
+        'registradas_detalle'=> $agrupadoPorEstado->get('Registrada', collect())->pluck('cliente')->values(),
+        'listas'             => $listasRecientes->count(),
+        'faltantes'          => $agrupadoPorEstado->get('Con faltantes', collect())->count(),
+        'vencidas'           => $agrupadoPorEstado->get('Vencida', collect())->count(),
+        'hoy' => $ordenesConEstado
+            ->filter(fn($o) =>
+                Carbon::parse($o['fecha_entrega'])
+                    ->startOfDay()
+                    ->eq($hoy)
+            )->count(),
 
-        $listasRecientes = $agrupadoPorEstado->get('Lista', collect())
-            ->filter(fn($o) => optional(
-                $ordenes->firstWhere('id', $o['id'])
-            )->ordenTrabajo->updated_at > now()->subDays(5));
+        'en_orden_trabajo_detalle' => $agrupadoPorEstado->get('En orden trabajo', collect())->pluck('cliente')->values(),
+        'listas_detalle'           => $listasRecientes->pluck('cliente')->values(),
+        'faltantes_detalle'        => $agrupadoPorEstado->get('Con faltantes', collect())->pluck('cliente')->values(),
+        'vencidas_detalle'         => $agrupadoPorEstado->get('Vencida', collect())->pluck('cliente')->values(),
 
-        return response()->json([
-            'total'              => $ordenes->count(),
-            'registradas'        => $agrupadoPorEstado->get('Registrada', collect())->count(),
-            'en_orden_trabajo'   => $agrupadoPorEstado->get('En orden trabajo', collect())->count(),
-            'registradas_detalle'=> $agrupadoPorEstado->get('Registrada', collect())->pluck('cliente')->values(),
-            'listas'             => $listasRecientes->count(),
-            'faltantes'          => $agrupadoPorEstado->get('Con faltantes', collect())->count(),
-            'vencidas'           => $agrupadoPorEstado->get('Vencida', collect())->count(),
-            'hoy'                => $ordenesConEstado
-                ->filter(
-                    fn($o) =>
-                    Carbon::parse($o['fecha_entrega'])
-                        ->startOfDay()
-                        ->eq($hoy)
-                )->count(),
-            'en_orden_trabajo_detalle' => $agrupadoPorEstado->get('En orden trabajo', collect())->pluck('cliente')->values(),
-            'listas_detalle'           => $listasRecientes->pluck('cliente')->values(),
-            'faltantes_detalle'        => $agrupadoPorEstado->get('Con faltantes', collect())->pluck('cliente')->values(),
-            'vencidas_detalle'         => $agrupadoPorEstado->get('Vencida', collect())->pluck('cliente')->values(),
-            'por_cliente' => $porCliente,
-            'por_usuario' => $porUsuario,
-            'entrega_parcial'        => $agrupadoPorEstado->get('Entrega Parcial', collect())->count(),
-            'entrega_parcial_detalle' => $agrupadoPorEstado->get('Entrega Parcial', collect())->pluck('cliente')->values(),
+        'por_cliente' => $porCliente,
+        'por_usuario' => $porUsuario,
 
-        ]);
-    }
-
-
+        'entrega_parcial'        => $agrupadoPorEstado->get('Entrega Parcial', collect())->count(),
+        'entrega_parcial_detalle'=> $agrupadoPorEstado->get('Entrega Parcial', collect())->pluck('cliente')->values(),
+    ]);
+}
 
     // en App\Http\Controllers\Crm\DashboardController.php
 

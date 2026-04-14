@@ -23,6 +23,9 @@ class OrdenDeTrabajo extends Model
         'user_id',
         'documento_revisado_at',
         'documento_revisado_por',
+        'revisada',
+        'revisada_por',
+        'revisada_at'
 
     ];
 
@@ -51,6 +54,11 @@ class OrdenDeTrabajo extends Model
 
 
 
+    //Relacion con la tabla usuarios que revisaron la orden de trabajo
+    public function usuarioReviso()
+    {
+        return $this->belongsTo(User::class, 'revisada_por');
+    }
 
     //Relacion con la tabla orden_trabajo_entregas
 

@@ -15,6 +15,7 @@ use App\Models\Rutas\DeliveryEvent;
 use App\Models\Vsm\Alistamiento;
 use Illuminate\Support\Facades\DB;
 
+
 class DhasboardOperativoService
 {
     public function getDatosDashboard()
@@ -49,25 +50,31 @@ $sedeId = in_array($user->role_id, [1,2])
     : ($filters['sede_id'] ?? $user->sede_id);
 
     // 🔹 1. CARGA BASE CON RELACIONES (Evitamos N+1)
-    $ordenes = Orden_Compra::with([
-            'cliente',
-            'detalles.product',
-            'sede'
-        ])
-        ->whereIn('estado_id', [1, 5])
-        ->when(!empty($filters['producto_id']), function ($query) use ($filters) {
-            $query->whereHas('detalles', function ($q) use ($filters) {
-                $q->where('product_id', $filters['producto_id']);
-            });
-        })
- ->when(
-    !in_array($user->role_id, [1, 2]),
-    function ($q) use ($filters, $user) {
-        $q->where('sede_id', $filters['sede_id'] ?? $user->sede_id);
-    }
-)
-        ->get();
+$ordenes = Orden_Compra::with([
+        'cliente',
+        'detalles.product',
+        'sede'
+    ])
+    ->whereIn('estado_id', [1, 5])
 
+    ->when(!empty($filters['producto_id']), function ($query) use ($filters) {
+        $query->whereHas('detalles', function ($q) use ($filters) {
+            $q->where('product_id', $filters['producto_id']);
+        });
+    })
+
+    ->when(!empty($filters['sede_id']), function ($q) use ($filters) {
+        $q->where('sede_id', $filters['sede_id']);
+    })
+
+    // 🔥 AQUÍ VA EL CLIENTE
+    ->when(!empty($filters['cliente']), function ($query) use ($filters) {
+        $query->where('cliente_id', $filters['cliente']);
+    })
+
+    ->get(); // 🔥 SIEMPRE AL FINAL     
+
+    
     $ordenIds = $ordenes->pluck('id');
     $detalleIds = $ordenes->flatMap(fn($oc) => $oc->detalles->pluck('id'))->unique();
 
@@ -218,6 +225,7 @@ $sedeId = in_array($user->role_id, [1,2])
             'sede_id' => $oc->sede_id,
 'sede' => optional($oc->sede)->nombre,
             'orden_trabajo_id'   => $ot->id ?? null,
+            'revisada' => $ot ? ($ot->revisada ==1 ? true : false) : null,
             'numero'          => $oc->numero,
             'fecha_entrega'     => $oc->fecha_entrega,
             'cliente'         => optional($oc->cliente)->nombre,
@@ -251,7 +259,14 @@ $sedeId = in_array($user->role_id, [1,2])
         ];
     })->filter()
 ->when(!empty($filters['estado_vsm']), function ($collection) use ($filters) {
-    return $collection->where('estado_vsm', $filters['estado_vsm']);
+    return $collection->filter(function ($item) use ($filters) {
+        return $item['estado_vsm'] === $filters['estado_vsm'];
+    });
+})
+->when(isset($filters['revisada']), function ($collection) use ($filters) {
+    return $collection->filter(function ($item) use ($filters) {
+        return $item['revisada'] == $filters['revisada'];
+    });
 })
 ->values();
 

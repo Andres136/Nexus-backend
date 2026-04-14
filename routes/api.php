@@ -178,6 +178,8 @@ Route::apiResource('alistamientos-ot', AlistamientoOtController::class);
 
 //Marcar orden de trabajo como revisada
 Route::post('/orden-trabajo/{id}/marcar-revisada', [ordenTrabajoController::class, 'marcarRevisada']);
+//Revisar orden de trabajo
+Route::post('/orden-trabajo/{id}/revisar', [ordenTrabajoController::class, 'revisarOrdenTrabajo']);
 
 Route::get('pqrs', [PqrController::class, 'index']);
 Route::delete('/pqrs/{id}', [PqrController::class, 'destroy']);

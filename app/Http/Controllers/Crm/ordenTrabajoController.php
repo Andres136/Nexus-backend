@@ -84,6 +84,25 @@ public function marcarRevisada($id)
     ]);
 }
 
+//Funcion revisar orden de trabajo 
+public function revisarOrdenTrabajo($id)
+{
+    $orden = OrdenDeTrabajo::findOrFail($id);
+
+    if (!$orden->revisada) {
+        $orden->update([
+            'revisada' => true,
+            'revisada_por' => auth()->id(),
+            'revisada_at' => now(),
+        ]);
+    }
+
+    return response()->json([
+        'message' => 'Orden de trabajo marcada como revisada',
+        'orden'   => $orden
+    ]);
+}
+
 
     }
 
