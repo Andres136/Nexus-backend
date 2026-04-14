@@ -266,9 +266,11 @@ $ordenes = Orden_Compra::with([
         return $item['estado_vsm'] === $filters['estado_vsm'];
     });
 })
+
 ->when(isset($filters['revisada']), function ($collection) use ($filters) {
-    return $collection->filter(function ($item) use ($filters) {
-        return $item['revisada'] == $filters['revisada'];
+    $valor = filter_var($filters['revisada'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+    return $collection->filter(function ($item) use ($valor) {
+        return $item['revisada'] === $valor;
     });
 })
 ->values();
