@@ -73,33 +73,52 @@ public function kpiProductividad()
 }
 
 
-    public function flujo()
+
+public function flujo()
 {
-    // 1️⃣ PENDIENTES
+    // 🔴 SUBQUERY: órdenes ya entregadas (NO deben aparecer en el flujo)
+    $entregadasSubquery = function ($q) {
+        $q->select('orden_id')
+          ->from('delivery_events')
+          ->where('estado', 'completado');
+    };
+
+    // 🟡 SUBQUERY: órdenes que ya entraron a alistamiento
+    $alistamientoSubquery = function ($q) {
+        $q->select('orden_trabajo_id')
+          ->from('alistamiento');
+    };
+
+    // 🔴 1️⃣ PENDIENTES (incluye estado 1 y 5, pero que NO hayan avanzado)
     $pendientes = OrdenDeTrabajo::whereIn('estado_id', [1, 5])
-        ->with('cliente')
+        ->whereNotIn('id', $alistamientoSubquery) // ❌ ya no debe estar en pendientes si está en alistamiento
+        ->whereNotIn('id', $entregadasSubquery)   // ❌ excluir entregadas
+        ->with('cliente:id,nombre')
         ->get();
 
-    // 2️⃣ ALISTANDO
+    // 🟡 2️⃣ ALISTANDO
     $alistando = Alistamiento::whereIn('estado', [
             'INICIADO',
             'EN_PROGRESO',
             'PAUSADO'
         ])
-        ->with(['ordenTrabajo.cliente', 'detalles'])
+        ->whereNotIn('orden_trabajo_id', $entregadasSubquery) // ❌ excluir entregadas
+        ->with(['ordenTrabajo.cliente:id,nombre', 'detalles'])
         ->get();
 
-    // 3️⃣ FINALIZADAS (SIN DELIVERY)
-    $ordenesConDelivery = DeliveryEvent::pluck('orden_id');
-
-    $finalizadas = Alistamiento::where('estado', 'FINALIZADO')
-        ->whereNotIn('orden_trabajo_id', $ordenesConDelivery)
-        ->with(['ordenTrabajo.cliente'])
-        ->get();
-
-    // 4️⃣ EN RUTA
+    // 🔵 3️⃣ FINALIZADAS (listas para despacho)
+$finalizadas = Alistamiento::where('estado', 'FINALIZADO')
+    ->whereNotIn('orden_trabajo_id', function ($q) {
+        $q->select('orden_id')->from('delivery_events');
+    })
+    ->select('orden_trabajo_id')
+    ->distinct()
+    ->with(['ordenTrabajo.cliente:id,nombre'])
+    ->get();
+    // 🟢 4️⃣ EN RUTA
     $delivery = DeliveryEvent::whereIn('estado', ['pendiente', 'en_ruta'])
-        ->with(['orden.cliente'])
+        ->whereNotIn('orden_id', $entregadasSubquery) // ❌ excluir entregadas
+        ->with(['orden.cliente:id,nombre'])
         ->get();
 
     return response()->json([

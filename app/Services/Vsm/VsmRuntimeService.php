@@ -207,6 +207,11 @@ foreach ($alistamientos as $alist) {
         $item['estado'] = $estado;
     }
 
+$resultado = array_filter($resultado, function ($item) {
+    return $item['produccion_total'] > 0 
+        && $item['tiempo_total_segundos'] > 600;
+});
+
     return array_values($resultado);
 }         
 private function obtenerProduccionUsuarioEnAlistamiento($alistId, $userId)
