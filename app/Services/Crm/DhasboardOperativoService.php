@@ -63,9 +63,12 @@ $ordenes = Orden_Compra::with([
         });
     })
 
-    ->when(!empty($filters['sede_id']), function ($q) use ($filters) {
-        $q->where('sede_id', $filters['sede_id']);
-    })
+->when(!in_array($user->role_id, [1, 2]), function ($q) use ($user) {
+    $q->where(function ($sub) use ($user) {
+        $sub->where('sede_id', $user->sede_id)
+            ->orWhereNull('sede_id'); // incluye sin sede
+    });
+})
 
     // 🔥 AQUÍ VA EL CLIENTE
     ->when(!empty($filters['cliente']), function ($query) use ($filters) {
