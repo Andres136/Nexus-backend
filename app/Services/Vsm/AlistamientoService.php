@@ -357,6 +357,7 @@ public function registrarProduccion($alistId, $detalleId, $cantidad, $userId)
 
         $cantidad = (int) $cantidad;
 
+        // ✅ Validar que el usuario está en el alistamiento
         $pivot = AlistamientoUsuario::where([
             'alistamiento_id' => $alistId,
             'usuario_id'      => $userId
@@ -366,23 +367,25 @@ public function registrarProduccion($alistId, $detalleId, $cantidad, $userId)
             throw new \Exception("No puedes registrar producción si estás en pausa");
         }
 
-        $registro = AlistamientoUsuarioDetalle::where([
-            'alistamiento_id' => $alistId,
-            'usuario_id'      => $userId,
-            'detalle_id'      => $detalleId,
-        ])->firstOrFail();
+        // 🔥 AQUÍ ESTÁ LA CORRECCIÓN
+        $registro = AlistamientoUsuarioDetalle::firstOrCreate(
+            [
+                'alistamiento_id' => $alistId,
+                'usuario_id'      => $userId,
+                'detalle_id'      => $detalleId,
+            ],
+            [
+                'cantidad_alistada' => 0
+            ]
+        );
 
         $detalle = AlistamientoDetalle::findOrFail($detalleId);
 
-     
-
         // 🔥 UPDATE USUARIO
-        AlistamientoUsuarioDetalle::where('id', $registro->id)
-            ->increment('cantidad_alistada', $cantidad);
+        $registro->increment('cantidad_alistada', $cantidad);
 
         // 🔥 UPDATE GLOBAL
-        AlistamientoDetalle::where('id', $detalleId)
-            ->increment('cantidad_alistada', $cantidad);
+        $detalle->increment('cantidad_alistada', $cantidad);
 
         $detalle->refresh();
 
@@ -395,13 +398,12 @@ public function registrarProduccion($alistId, $detalleId, $cantidad, $userId)
 
         return [
             'usuario_id' => $userId,
-            'produccion_usuario' => $registro->cantidad_alistada + $cantidad,
+            'produccion_usuario' => $registro->cantidad_alistada,
             'total_producto' => $detalle->cantidad_alistada,
             'faltante' => $detalle->cantidad_faltante
         ];
     });
 }
-
 public function pausarPorSede($sedeId, $razon = null)
 {
     return DB::transaction(function () use ($sedeId, $razon) {
