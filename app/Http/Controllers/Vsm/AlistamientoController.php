@@ -339,7 +339,7 @@ public function usuariosDisponibles($alistamientoId)
 
     $usuariosAsignados = $alist->usuarios->pluck('id');
 return User::whereNotIn('id', $usuariosAsignados)
-    ->whereNot('estado_id', 3)
+    ->whereNot('estado_id', 4)
     ->orderBy('name')
     ->get(['id', 'name']);
 }
