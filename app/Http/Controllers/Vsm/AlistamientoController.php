@@ -338,11 +338,10 @@ public function usuariosDisponibles($alistamientoId)
     $alist = Alistamiento::with('usuarios')->findOrFail($alistamientoId);
 
     $usuariosAsignados = $alist->usuarios->pluck('id');
-
-    return User::whereNotIn('id', $usuariosAsignados)
-        ->where('estado_id', '!=', 3) // Excluir usuarios con estado_id 3
-        ->orderBy('name')
-        ->get(['id', 'name']);
+return User::whereNotIn('id', $usuariosAsignados)
+    ->whereNot('estado_id', 3)
+    ->orderBy('name')
+    ->get(['id', 'name']);
 }
 
 
