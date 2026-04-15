@@ -17,6 +17,7 @@ class ordenTrabajoController extends Controller
             'user',
             'estado',
             'usuarioRevisor',
+            'ordenCompra.cliente',
             'ordenCompra.sede',
             'ordenCompra.detalles.product',
 

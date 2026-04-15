@@ -148,7 +148,7 @@ td:first-child { max-width: 60px; }
 <div class="info">
     <div>
         <strong>Cliente</strong>
-        <span>{{ $orden->cliente->nombre ?? 'N/A' }}</span>
+        <span>{{ $orden->ordenCompra->cliente->nombre ?? 'N/A' }}</span>
     </div>
     <div>
         <strong>Fecha Entrega</strong>

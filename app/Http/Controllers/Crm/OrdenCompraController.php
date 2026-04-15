@@ -226,7 +226,7 @@ public function obtenerOrdenesTrabajo(Request $request)
     $ordenesTrabajo = OrdenDeTrabajo::with([
         'ordenCompra.sede',
         'ordenCompra.usuario',
-        'ordenCompra',
+        'ordenCompra.cliente',
         'cliente',
         'estado',
         'user',
