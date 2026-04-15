@@ -340,6 +340,7 @@ public function usuariosDisponibles($alistamientoId)
     $usuariosAsignados = $alist->usuarios->pluck('id');
 
     return User::whereNotIn('id', $usuariosAsignados)
+        ->where('estado_id', '!=', 3) // Excluir usuarios con estado_id 3
         ->orderBy('name')
         ->get(['id', 'name']);
 }
@@ -380,6 +381,17 @@ public function pausarUsuario($alistId, $userId, Request $request)
     return response()->json(['message' => 'Usuario pausado']);
 }
 
+//Eliminar usuario del alistamiento
+public function eliminarUsuario($alistId, $userId)
+{    $alistamientoUsuario = AlistamientoUsuario::where('alistamiento_id', $alistId)
+        ->where('usuario_id', $userId)
+        ->first();  
+    if (!$alistamientoUsuario) {
+        return response()->json(['message' => 'Usuario no encontrado en el alistamiento'], 404);
+    }
+    $alistamientoUsuario->delete();
+    return response()->json(['message' => 'Usuario eliminado del alistamiento']);
+}
 
 public function reanudarUsuario($alistId, $userId)
 {

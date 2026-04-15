@@ -328,6 +328,7 @@ Route::post('reanudar-ordenes-sedes', [AlistamientoController::class, 'reanudarP
 
 Route::post('/alistamientos/{alistamiento_id}/usuarios/{usuario_id}/pausar', [AlistamientoController::class, 'pausarUsuario']);
 Route::post('/alistamientos/{alistamiento_id}/usuarios/{usuario_id}/reanudar', [AlistamientoController::class, 'reanudarUsuario']);
+Route::delete('/alistamientos/{alistamiento_id}/usuarios/{usuario_id}', [AlistamientoController::class, 'eliminarUsuario']);
 //Traer ordenes de trabajo para alistamiento
 Route::get('ordenes-trabajo-alistamiento', [AlistamientoController::class, 'ordenesTrabajoAlistamiento']);
 //Tiempos por alistamiento
