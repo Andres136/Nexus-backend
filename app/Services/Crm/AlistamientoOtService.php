@@ -96,7 +96,7 @@ $totalFinal = $totalGlobal + $cantidadTotal;
     }
 }
 
-        //  VALIDAR DETALLE (BIEN HECHO)
+        /* VALIDAR DETALLE (BIEN HECHO)
         foreach ($items as $item) {
 
             if (($item['cantidad'] ?? 0) <= 0) continue;
@@ -107,7 +107,7 @@ $totalFinal = $totalGlobal + $cantidadTotal;
                 throw new \Exception("Excede la cantidad requerida");
             }
         }
-
+*/
       if (!empty($errores)) {
     throw new \Exception(json_encode($errores));
 }

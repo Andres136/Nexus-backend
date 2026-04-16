@@ -11,7 +11,7 @@ class SiigoGlobalService
 {
     /**
      * Obtiene el token de Siigo Global y lo cachea con la duración adecuada.
-     */
+     */        
     private function getSiigoToken(bool $forzarRenovacion = false)
     {
         if (!$forzarRenovacion && Cache::has('siigo2_token')) {
