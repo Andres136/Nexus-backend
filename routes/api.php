@@ -433,6 +433,8 @@ Route::get('indicador-semestral', [HallazgoNovedadController::class, 'indicadorS
 
 Route::apiResource('hallazgo-inspecciones', HallazgoNovedadController::class);
 Route::apiResource('hseq-dashboard', HseqDashboardController::class);
+Route::get('hseq-descargar-hallazgos-pdf', [HseqDashboardController::class, 'descargarHallazgosPdf']);
+Route::get('hseq-dashboard/inspecciones/finalizadas', [HseqDashboardController::class, 'inspeccionesFinalizadas']);
 Route::apiResource('hallazgos', HallazgoNovedadController::class);
 
 Route::apiResource('/vsm/ordenes', DashboardOperativoController::class);
@@ -444,7 +446,7 @@ Route::apiResource('impuestos', ImpuestoController::class);
 //RUTAS FORMAS DE PAGO
 Route::apiResource('formas-pago', FormaPagoController::class);
 //RUTAS PUCk
-Route::apiResource('puck', PuckController::class);
+Route::apiResource('cuentas-contables', PuckController::class);
 Route::apiResource('costeo', CosteoController::class);
 
 });

@@ -25,7 +25,8 @@ class Orden_Compra_Detalle extends Model
         'valor_total',
         'descripcion',
         'observaciones',
-        'tipo_embalaje'
+        'tipo_embalaje',
+        'cantidad_ejecutada_kg'
     ];
 
 

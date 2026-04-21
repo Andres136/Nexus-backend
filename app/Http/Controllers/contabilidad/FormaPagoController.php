@@ -56,16 +56,15 @@ class FormaPagoController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(StoreFormaPagoRequest $request, string $id)
-    {
-        $formaPago = $this->formaPagoService->actualizar($id, $request->all());
+public function update(Request $request, $id)
+{
+    $formaPago = $this->formaPagoService->actualizar((int) $id, $request->all());
 
-        return response()->json([
-            'message' => 'Forma de pago actualizada correctamente',
-            'data' => $formaPago
-        ], 200);
-    }
-
+    return response()->json([
+        'message' => 'Forma de pago actualizada correctamente',
+        'data' => $formaPago
+    ], 200);
+}
     /**
      * Remove the specified resource from storage.
      */

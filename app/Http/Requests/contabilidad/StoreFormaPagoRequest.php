@@ -22,7 +22,7 @@ class StoreFormaPagoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nombre' => 'required|string|max:255',
+            'nombre' => 'required|unique:formas_pago,nombre|max:255',
             'descripcion' => 'nullable|string|max:500',
         ];
     }
@@ -30,6 +30,7 @@ class StoreFormaPagoRequest extends FormRequest
     public function messages()
     {
         return [
+            'nombre.unique' => 'El nombre de la forma de pago ya existe.',
             'nombre.required' => 'El nombre de la forma de pago es obligatorio.',
             'nombre.string' => 'El nombre debe ser una cadena de texto.',
             'nombre.max' => 'El nombre no puede exceder los 255 caracteres.',

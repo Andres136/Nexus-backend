@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Hseq;
 
 use App\Http\Controllers\Controller;
 use App\Services\Hseq\HseqDashboardService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 
 class HseqDashboardController extends Controller
@@ -57,4 +58,33 @@ class HseqDashboardController extends Controller
     {
         //
     }
+
+    //Hallazgos recientes
+public function hallazgos(Request $request)
+{
+    return $this->dashboardService->hallazgos(
+        $request->all(),
+        $request->search
+    );
+}
+public function descargarHallazgosPdf(Request $request)
+{
+    $filters = $request->all();
+
+    $hallazgos = $this->dashboardService->hallazgosParaPdf($filters);
+
+    $pdf = Pdf::loadView('pdf.hallazgos_hseq', [
+        'hallazgos' => $hallazgos,
+        'filters' => $filters
+    ]);
+
+    return $pdf->stream('hallazgos_hseq.pdf');
+}
+
+public function inspeccionesFinalizadas()
+{
+    return response()->json(
+        $this->dashboardService->getInspeccionesFinalizadas()
+    );
+}
 }

@@ -27,11 +27,11 @@ class CostoeService
                 ocd.product_id,
                 p.name,
                 p.description,
-                SUM(ocd.cantidad_requerida_kg) as total_kg_vendidos,
+                SUM(ocd.cantidad_ejecutada_kg) as total_kg_vendidos,
                 SUM(ocd.valor_total) as ingreso,
                 cp.costo_promedio,
-                SUM(ocd.cantidad_requerida_kg * cp.costo_promedio) as costo,
-                SUM(ocd.valor_total - (ocd.cantidad_requerida_kg * cp.costo_promedio)) as utilidad
+                SUM(ocd.cantidad_ejecutada_kg * cp.costo_promedio) as costo,
+                SUM(ocd.valor_total - (ocd.cantidad_ejecutada_kg * cp.costo_promedio)) as utilidad
             ')
             ->groupBy('ocd.product_id', 'p.name', 'p.description', 'cp.costo_promedio');
 

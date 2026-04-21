@@ -19,10 +19,10 @@ class HseqDashboardService
             'por_sede' => $this->getPorSede($filters),
             'por_responsable' => $this->getPorResponsable($filters),
             'cumplimiento_inspecciones' => $this->getCumplimientoPorInspeccion($filters),
-            'hallazgos' => $this->getHallazgos($filters),
             'tendencia' => $this->getTendencia($filters),
         ];
     }
+    
 
     /**
      * 🔹 Aplicar filtros reutilizables
@@ -161,7 +161,7 @@ private function getPorSede($filters)
     /**
      * 🔹 Hallazgos (fallas)
      */
-   private function getHallazgos($filters)
+   public function hallazgos($filters, $search = null)
 {
     $query = DB::table('respuesta_inspecciones as r')
         ->join('inspecciones_hseq as i', 'i.id', '=', 'r.inspeccion_id')
@@ -172,6 +172,15 @@ private function getPorSede($filters)
         ->where('r.respuesta', 0);
 
     $query = $this->applyFilters($query, $filters);
+        // 🔍 SEARCH
+    if (!empty($search)) {
+        $query->where(function ($q) use ($search) {
+            $q->where('p.pregunta', 'like', "%{$search}%")
+              ->orWhere('ti.nombre', 'like', "%{$search}%")
+              ->orWhere('s.nombre', 'like', "%{$search}%")
+              ->orWhere('u.name', 'like', "%{$search}%");
+        });
+    }
 
     return $query->select(
         'r.id',
@@ -182,7 +191,8 @@ private function getPorSede($filters)
         's.nombre as sede',             // nombre de la sede
         'u.name as responsable',        // nombre del responsable
         'i.fecha'
-    )->get();
+    )->orderByDesc('i.fecha')
+    ->paginate(10);
 }
 
     /**
@@ -202,6 +212,50 @@ private function getPorSede($filters)
         )
         ->groupBy('i.fecha')
         ->orderBy('i.fecha')
+        ->get();
+}
+
+public function hallazgosParaPdf($filters)
+{
+    $query = DB::table('respuesta_inspecciones as r')
+        ->join('inspecciones_hseq as i', 'i.id', '=', 'r.inspeccion_id')
+        ->join('tipo_inspecciones as ti', 'ti.id', '=', 'i.tipo_inspeccion_id')
+        ->join('preguntas_inspecciones as p', 'p.id', '=', 'r.pregunta_inspeccion_id')
+        ->join('sedes as s', 's.id', '=', 'i.sede_id')
+        ->join('users as u', 'u.id', '=', 'i.responsable_id')
+        ->where('r.respuesta', 0);
+
+    // 🔥 SOLO ESTE FILTRO
+    if (!empty($filters['inspeccion_id'])) {
+        $query->where('i.id', $filters['inspeccion_id']);
+    }
+
+    return $query->select(
+        'ti.nombre as tipo_inspeccion',
+        'p.pregunta',
+        'r.observaciones',
+        's.nombre as sede',
+        'u.name as responsable',
+        'i.fecha'
+    )
+    ->orderByDesc('i.fecha')
+    ->get();
+}
+public function getInspeccionesFinalizadas()
+{
+    return DB::table('inspecciones_hseq as i')
+        ->join('tipo_inspecciones as ti', 'ti.id', '=', 'i.tipo_inspeccion_id')
+        ->join('respuesta_inspecciones as r', 'r.inspeccion_id', '=', 'i.id')
+        ->where('i.estado', 'finalizada')
+        ->where('r.respuesta', 0) // 🔥 SOLO LAS QUE TIENEN FALLAS
+        ->select(
+            'i.id',
+            'ti.nombre as tipo',
+            'i.fecha'
+        )
+        ->distinct()
+        ->orderByDesc('i.fecha')
+        ->limit(50)
         ->get();
 }
 }
