@@ -27,7 +27,8 @@ class NovedadController extends Controller
         'departamento_id',
         'search',
         'usuario',
-        'per_page'
+        'per_page',
+        'page'
     ]);
 
     $novedades = $this->novedadService->getNovedades($filters);

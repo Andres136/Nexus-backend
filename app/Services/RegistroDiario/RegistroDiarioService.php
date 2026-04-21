@@ -157,168 +157,185 @@ class RegistroDiarioService
         ];
     }
 
-    public function estadisticasAnualesDepartamentos(int $anio)
-    {
-        $departamentos = Departamentos::all();
+ public function estadisticasAnualesDepartamentos(int $anio)
+{
+    $departamentos = Departamentos::all();
 
-        // 🔹 Registros diarios
-        $registros = RegistroDiarios::select(
-            'departamento_id',
-            DB::raw('MONTH(fecha) as mes'),
-            DB::raw('COUNT(*) as total_registros'),
-            DB::raw("SUM(CASE WHEN tipo = 'si' THEN 1 ELSE 0 END) as si"),
-            DB::raw("SUM(CASE WHEN tipo = 'no' THEN 1 ELSE 0 END) as no"),
-            DB::raw('SUM(respuesta) as total_respuesta'),
-            DB::raw('AVG(respuesta) as promedio_respuesta')
-        )
-            ->whereYear('fecha', $anio)
-            ->groupBy('departamento_id', DB::raw('MONTH(fecha)'))
-            ->get()
-            ->groupBy(['departamento_id', 'mes']);
+    // 🔹 REGISTROS
+    $registros = RegistroDiarios::select(
+        'departamento_id',
+        DB::raw('MONTH(fecha) as mes'),
+        DB::raw('COUNT(*) as total_registros'),
+        DB::raw("SUM(CASE WHEN tipo = 'si' THEN 1 ELSE 0 END) as si"),
+        DB::raw("SUM(CASE WHEN tipo = 'no' THEN 1 ELSE 0 END) as no"),
+        DB::raw('SUM(respuesta) as total_respuesta'),
+        DB::raw('AVG(respuesta) as promedio_respuesta')
+    )
+        ->whereYear('fecha', $anio)
+        ->groupBy('departamento_id', DB::raw('MONTH(fecha)'))
+        ->get()
+        ->groupBy(['departamento_id', 'mes']);
 
+    // 🔥 TAREAS (1 SOLA QUERY)
+  $tareas = DB::table('tareas')
+    ->select(
+        'departamento_id',
+        DB::raw('MONTH(fecha_fin) as mes'),
 
-       $tareasPorMes = [];
+        DB::raw("
+            COUNT(
+                CASE 
+                    WHEN estado_id IN (2,5) THEN 1
+                END
+            ) as completadas_mes
+        "),
 
-for ($mes = 1; $mes <= 12; $mes++) {
+        DB::raw("
+            COUNT(
+                CASE 
+                    WHEN estado_id IN (2,5)
+                    AND updated_at <= fecha_fin
+                    THEN 1 
+                END
+            ) as a_tiempo
+        "),
 
-    $inicioMes = Carbon::create($anio, $mes, 1)->startOfMonth();
-    $finMes    = Carbon::create($anio, $mes, 1)->endOfMonth();
+        DB::raw("
+            COUNT(
+                CASE 
+                    WHEN estado_id IN (2,5)
+                    AND updated_at > fecha_fin
+                    THEN 1 
+                END
+            ) as tarde
+        ")
+    )
+    ->whereYear('fecha_fin', $anio)
+    ->groupBy('departamento_id', DB::raw('MONTH(fecha_fin)'))
+    ->get()
+    ->groupBy(['departamento_id', 'mes']);
 
-    $data = DB::table('tareas')
+    // 🔹 PLANIFICADAS
+    $planificadas = DB::table('tareas')
         ->select(
             'departamento_id',
-
-            // 🔹 Tareas activas en el mes (backlog)
-            DB::raw("
-                COUNT(*) as total_activas
-            "),
-
-            // 🔹 Completadas en ese mes
-            DB::raw("
-                SUM(
-                    CASE 
-                        WHEN estado_id = 2 
-                        AND fecha_fin BETWEEN '$inicioMes' AND '$finMes'
-                        THEN 1 ELSE 0 
-                    END
-                ) as completadas_mes
-            ")
+            DB::raw('MONTH(fecha_fin) as mes'),
+            DB::raw('COUNT(*) as total_planificadas')
         )
-        ->where('created_at', '<=', $finMes)
-        ->where(function ($q) use ($inicioMes) {
-            $q->whereNull('fecha_fin')
-              ->orWhere('fecha_fin', '>=', $inicioMes);
-        })
-        ->groupBy('departamento_id')
+        ->whereYear('fecha_fin', $anio)
+        ->groupBy('departamento_id', DB::raw('MONTH(fecha_fin)'))
         ->get()
-        ->keyBy('departamento_id');
+        ->groupBy(['departamento_id', 'mes']);
 
-    $tareasPorMes[$mes] = $data;
-}
+    // 🔹 NOVEDADES (1 SOLO LOOP)
+    $novedadesPorMes = [];
+    $novedadesEstabilidadPorMes = [];
 
-        // 🔹 Novedades
-        // 🔹 Novedades ACTIVAS por mes (arrastre)
-        $novedadesPorMes = [];
+    for ($mes = 1; $mes <= 12; $mes++) {
+
+        $inicioMes = Carbon::create($anio, $mes, 1)->startOfMonth();
+        $finMes    = Carbon::create($anio, $mes, 1)->endOfMonth();
+
+        $novedadesPorMes[$mes] = DB::table('novedad_diaria')
+            ->join('registro_diario', 'registro_diario.id', '=', 'novedad_diaria.registro_diario_id')
+            ->select(
+                'registro_diario.departamento_id',
+                DB::raw('COUNT(novedad_diaria.id) as total_novedades')
+            )
+            ->where('novedad_diaria.created_at', '<=', $finMes)
+            ->whereIn('novedad_diaria.estado', ['ABIERTA', 'EN_PROCESO'])
+            ->groupBy('registro_diario.departamento_id')
+            ->get()
+            ->keyBy('departamento_id');
+
+        $novedadesEstabilidadPorMes[$mes] = DB::table('novedad_diaria')
+            ->join('registro_diario', 'registro_diario.id', '=', 'novedad_diaria.registro_diario_id')
+            ->select(
+                'registro_diario.departamento_id',
+                DB::raw('COUNT(DISTINCT registro_diario.id) as registros_con_novedad_mes')
+            )
+            ->whereBetween('novedad_diaria.created_at', [$inicioMes, $finMes])
+            ->groupBy('registro_diario.departamento_id')
+            ->get()
+            ->keyBy('departamento_id');
+    }
+
+    // 🔥 RESULTADO FINAL
+    $resultado = [];
+
+    foreach ($departamentos as $dep) {
+
+        $meses = [];
 
         for ($mes = 1; $mes <= 12; $mes++) {
 
-            $inicioMes = Carbon::create($anio, $mes, 1)->startOfMonth();
-            $finMes    = Carbon::create($anio, $mes, 1)->endOfMonth();
+            $r = $registros[$dep->id][$mes][0] ?? null;
+            $t = $tareas[$dep->id][$mes][0] ?? null;
+            $p = $planificadas[$dep->id][$mes][0] ?? null;
+            $n = $novedadesPorMes[$mes][$dep->id] ?? null;
+            $nEstabilidad = $novedadesEstabilidadPorMes[$mes][$dep->id] ?? null;
 
-            $data = DB::table('novedad_diaria')
-                ->join('registro_diario', 'registro_diario.id', '=', 'novedad_diaria.registro_diario_id')
-         ->select(
-    'registro_diario.departamento_id',
-    DB::raw('COUNT(novedad_diaria.id) as total_novedades'),
-    DB::raw('COUNT(DISTINCT registro_diario.id) as registros_con_novedad')
-)
-->where(function ($q) use ($inicioMes, $finMes) {
-    $q->where('novedad_diaria.created_at', '<=', $finMes)
-      ->whereIn('novedad_diaria.estado', ['ABIERTA', 'EN_PROCESO']);
-})
+            $totalRegistros = $r->total_registros ?? 0;
+            $si = $r->si ?? 0;
+            $no = $r->no ?? 0;
 
-                ->groupBy('registro_diario.departamento_id')
-                ->get()
-                ->keyBy('departamento_id');
+            $totalPlanificadas = $p->total_planificadas ?? 0;
+            $completadas = $t->completadas_mes ?? 0;
+            $aTiempo = $t->a_tiempo ?? 0;
+            $tarde = $t->tarde ?? 0;
 
-                $dataEstabilidad = DB::table('novedad_diaria')
-    ->join('registro_diario', 'registro_diario.id', '=', 'novedad_diaria.registro_diario_id')
-    ->select(
-        'registro_diario.departamento_id',
-        DB::raw('COUNT(DISTINCT registro_diario.id) as registros_con_novedad_mes')
-    )
-    ->whereBetween('novedad_diaria.created_at', [$inicioMes, $finMes])
-    ->groupBy('registro_diario.departamento_id')
-    ->get()
-    ->keyBy('departamento_id');
-    $novedadesEstabilidadPorMes[$mes] = $dataEstabilidad; 
+            $totalNovedades = $n->total_novedades ?? 0;
+            $registrosConNovedadMes = $nEstabilidad->registros_con_novedad_mes ?? 0;
 
-            $novedadesPorMes[$mes] = $data;
-        }
+            // 🔹 MÉTRICAS
+            $rendimiento = $totalPlanificadas > 0
+                ? round(($completadas / $totalPlanificadas) * 100, 2)
+                : 0;
 
-        $resultado = [];
+            $eficienciaTiempo = $completadas > 0
+                ? round(($aTiempo / $completadas) * 100, 2)
+                : 0;
 
-        foreach ($departamentos as $dep) {
-            $meses = [];
+            $meses[] = [
+                'mes' => $mes,
+                'nombre_mes' => Carbon::create()->month($mes)->translatedFormat('F'),
 
-            for ($mes = 1; $mes <= 12; $mes++) {
-                $r = $registros[$dep->id][$mes][0] ?? null;
-                $n = $novedadesPorMes[$mes][$dep->id] ?? null;
-                $totalNovedades = $n->total_novedades ?? 0;
+                'total_registros' => $totalRegistros,
+                'si' => $si,
+                'no' => $no,
 
-$totalRegistros = $r->total_registros ?? 0;
-$nEstabilidad = $novedadesEstabilidadPorMes[$mes][$dep->id] ?? null;
+                'cumplimiento' => $totalRegistros > 0
+                    ? round(($si / $totalRegistros) * 100, 2)
+                    : 0,
 
-$registrosConNovedadMes = $nEstabilidad->registros_con_novedad_mes ?? 0;
-$si = $r->si ?? 0;
-$no = $r->no ?? 0;
+                'respuestas' => [
+                    'total' => (int) ($r->total_respuesta ?? 0),
+                    'promedio' => round($r->promedio_respuesta ?? 0, 2),
+                ],
 
-$t = $tareasPorMes[$mes][$dep->id] ?? null;
+                'novedades' => $totalNovedades,
 
-$totalTareas = $t->total_activas ?? 0;
-$completadas = $t->completadas_mes ?? 0;
+                'estabilidad' => $totalRegistros > 0
+                    ? round((($totalRegistros - $registrosConNovedadMes) / $totalRegistros) * 100, 2)
+                    : 100,
 
-$rendimiento = $totalTareas > 0
-    ? round(($completadas / $totalTareas) * 100, 2)
-    : 0;
-
-$meses[] = [
-    'mes' => $mes,
-    'nombre_mes' => Carbon::create()->month($mes)->translatedFormat('F'),
-
-    'total_registros' => $totalRegistros,
-    'si' => $si,
-    'no' => $no,
-
-    'cumplimiento' => $totalRegistros > 0
-        ? round(($si / $totalRegistros) * 100, 2)
-        : 0,
-
-    'respuestas' => [
-        'total' => (int) ($r->total_respuesta ?? 0),
-        'promedio' => round($r->promedio_respuesta ?? 0, 2),
-    ],
-
-    'novedades' => $totalNovedades,
-
-  'estabilidad' => $totalRegistros > 0
-    ? round((($totalRegistros - $registrosConNovedadMes) / $totalRegistros) * 100, 2)
-    : 100,
-
-    'rendimiento' => $rendimiento,
-];
-            }
-
-            $resultado[] = [
-                'departamento_id' => $dep->id,
-                'departamento' => $dep->nombre,
-                'meses' => $meses,
+                'rendimiento' => $rendimiento,
+                'eficiencia_tiempo' => $eficienciaTiempo,
+                'a_tiempo' => $aTiempo,
+                'tarde' => $tarde,
             ];
         }
 
-        return [
-            'anio' => $anio,
-            'departamentos' => $resultado,
+        $resultado[] = [
+            'departamento_id' => $dep->id,
+            'departamento' => $dep->nombre,
+            'meses' => $meses,
         ];
     }
+
+    return [
+        'anio' => $anio,
+        'departamentos' => $resultado,
+    ];
+}
 }

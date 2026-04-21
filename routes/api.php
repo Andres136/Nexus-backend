@@ -2,6 +2,11 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\comunicaciones\PlantillaController;
+use App\Http\Controllers\contabilidad\CosteoController;
+use App\Http\Controllers\contabilidad\FacturaCompraController;
+use App\Http\Controllers\contabilidad\FormaPagoController;
+use App\Http\Controllers\contabilidad\ImpuestoController;
+use App\Http\Controllers\contabilidad\PuckController;
 use App\Http\Controllers\Crm\AlistamientoOtController;
 use App\Http\Controllers\Crm\BodegaController;
 use App\Http\Controllers\Crm\CarpetaController;
@@ -134,6 +139,8 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
    //Consumir api siigo global
   Route::get('products-global', [SiigoGlobalController::class, 'index']);
   Route::get('stock-global', [SiigoGlobalController::class, 'stock']);
+  //Siigo facturas de compra
+
   Route::patch('tareas/estado/{id}/', [TareaController::class, 'update']);
   Route::apiResource('tareas', TareaController::class);
   Route::put('/tareas/update/{id}', [TareaController::class, 'actualizarTarea']);
@@ -429,6 +436,16 @@ Route::apiResource('hseq-dashboard', HseqDashboardController::class);
 Route::apiResource('hallazgos', HallazgoNovedadController::class);
 
 Route::apiResource('/vsm/ordenes', DashboardOperativoController::class);
+
+//RUTAS  PARA CONTABILIDAD
+Route::apiResource('facturas-compra', FacturaCompraController::class);
+//RUTAS PARA IMPUESTOS
+Route::apiResource('impuestos', ImpuestoController::class);
+//RUTAS FORMAS DE PAGO
+Route::apiResource('formas-pago', FormaPagoController::class);
+//RUTAS PUCk
+Route::apiResource('puck', PuckController::class);
+Route::apiResource('costeo', CosteoController::class);
 
 });
 

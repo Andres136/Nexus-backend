@@ -6,6 +6,7 @@ use App\Models\Crm\bodega;
 use App\Models\Crm\categoria;
 use App\Models\Crm\Inventario;
 use App\Models\Crm\MovimientoStock;
+use App\Models\Crm\Orden_Compra_Detalle;
 use App\Models\Crm\OrdenDeTrabajo;
 use App\Models\Crm\Sede;
 use App\Models\Traslados\Detalles_envio_internos;
@@ -558,6 +559,7 @@ public function descontarStockMasivo(array $items, $user)
             $equivalentes    = $item['producto_equivalentes'] ?? [];
             $ordenTrabajoId  = $item['orden_trabajo_id'] ?? null;
             $ordenCompraId   = $item['orden_compra_id'] ?? null;
+            $detalleId = $item['detalle_id'] ?? null;
             $sedeId          = $user->sede_id;
 
             $cantidadCubierta = 0;
@@ -747,6 +749,10 @@ if (!$movimiento) {
             ]);
 
             $faltante = max(0, $cantidadTotal - $cantidadCubierta);
+if ($detalleId && $cantidadCubierta > 0) {
+    Orden_Compra_Detalle::where('id', $detalleId)
+        ->increment('cantidad_requerida_kg', $cantidadCubierta);
+}
 
             $resultados[] = [
                 'producto_id'        => $productoId,

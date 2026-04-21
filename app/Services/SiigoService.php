@@ -20,6 +20,11 @@ class SiigoService
                 'username'   => config('services.siigo.username'),
                 'access_key' => config('services.siigo.access_key'),
             ]);
+          return response()->json([
+    'status' => $response->status(),
+    'body' => $response->json(),
+    'raw' => $response->body()
+]);
         } catch (\Exception $e) {
             Log::error('Excepción al autenticar con Siigo', ['message' => $e->getMessage()]);
             return null;
@@ -40,8 +45,11 @@ class SiigoService
         }
 
         Cache::put('siigo_token', $token, now()->addSeconds($expiresIn - 60));
+$data = $response->json();
 
-        return $token;
+$token = $data['access_token'] ?? null;
+
+return $token;
     }
 
     public function renovarTokenManualmente()
@@ -63,8 +71,7 @@ class SiigoService
             'Authorization' => 'Bearer ' . $token,
             'Partner-Id'    => config('services.siigo.partner_id'),
             'Content-Type'  => 'application/json',
-        ])->get('https://api.siigo.com/v1/products', $params);
-
+        ])->get('https://api.siigo.com/v1/purchases?' . http_build_query($params));
         if ($response->status() === 401) {
             Log::warning('Token expirado, intentando renovar...');
 
@@ -79,7 +86,7 @@ class SiigoService
                 'Authorization' => 'Bearer ' . $token,
                 'Partner-Id'    => config('services.siigo.partner_id'),
                 'Content-Type'  => 'application/json',
-            ])->get('https://api.siigo.com/v1/products', $params);
+            ])->get('https://api.siigo.com/v1/purchases?' . http_build_query($params));
         }
 
         Log::info('Siigo API status: ' . $response->status());
@@ -224,4 +231,46 @@ if ($codigo !== '' && str_starts_with($codigo, 'T')) {
             'detalle'               => $detalleProcesados
         ];
     }
+
+
+
+    public function getPurchaseInvoices($params = [])
+{
+    $token = $this->getSiigoToken();
+
+    if (!$token) {
+        Log::error('No se pudo obtener el token de Siigo');
+        return null;
+    }
+
+    $response = Http::withHeaders([
+        'Authorization' => 'Bearer ' . $token,
+        'Partner-Id'    => config('services.siigo.partner_id'),
+        'Content-Type'  => 'application/json',
+    ])->get('https://api.siigo.com/v1/purchases', $params);
+
+    if ($response->status() === 401) {
+        $token = $this->getSiigoToken(true);
+
+        if (!$token) {
+            Log::error('No se pudo renovar el token');
+            return null;
+        }
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $token,
+            'Partner-Id'    => config('services.siigo.partner_id'),
+            'Content-Type'  => 'application/json',
+        ])->get('https://api.siigo.com/v1/purchases', $params);
+    }
+ if ($response->failed()) {
+    Log::error('Error al obtener facturas de compra de Siigo', [
+        'status' => $response->status(),
+        'body' => $response->body(),
+        'params' => $params
+    ]);
+    return null;
+}
+return $response->json();
+}
 }

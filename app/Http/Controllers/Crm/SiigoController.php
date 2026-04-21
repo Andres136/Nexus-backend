@@ -40,8 +40,31 @@ class SiigoController extends Controller
         return response()->json($response);
     }
 
+public function obtenerFacturas(Request $request)
+{
+    try {
+        $params = [
+            'created_start' => $request->get('start', '2024-01-01'),
+            'created_end'   => $request->get('end', now()->format('Y-m-d')),
+            'supplier_identification' => $request->get('supplier', '9001234568'), // ✔ correcto
+            'page' => $request->get('page', 1),
+            'page_size' => 50,
+        ];
 
+        $data = $this->siigoService->getPurchaseInvoices($params);
 
+        if (!$data) {
+            return response()->json(['error' => 'Error al obtener facturas de compra desde Siigo'], 500);
+        }
+        return response()->json($data);
+    } catch (\Throwable $e) {
+        Log::error('Error en obtenerFacturas: ' . $e->getMessage(), ['exception' => $e]);
+        return response()->json([
+            'error' => 'Excepción al obtener facturas de compra desde Siigo',
+            'message' => $e->getMessage(),
+        ], 500);
+    }
+}
 
 public function stock(Request $request)
 {

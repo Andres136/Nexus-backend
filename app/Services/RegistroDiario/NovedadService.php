@@ -66,7 +66,7 @@ public function getNovedades($filters = [])
 
         ->orderByDesc('created_at')
 
-        ->paginate($filters['per_page'] ?? 10);
+        ->paginate($filters['per_page'] ?? 3);
 }
     public function getNovedadesByFechaProceso($fechaProceso)
     {
