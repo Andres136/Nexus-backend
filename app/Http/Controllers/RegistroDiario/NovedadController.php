@@ -74,6 +74,14 @@ class NovedadController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        $deleted = $this->novedadService->deleteNovedad($id);
+        if (!$deleted) {
+            return response()->json([
+                'message' => 'Novedad no encontrada'
+            ], 404);
+        }
+        return response()->json([
+            'message' => 'Novedad eliminada exitosamente'
+        ]);
     }
 }

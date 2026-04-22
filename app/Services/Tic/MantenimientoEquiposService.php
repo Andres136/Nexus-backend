@@ -3,6 +3,7 @@
 namespace App\Services\Tic;
 
 use App\Models\Tic\MantenimientoEquipos;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class MantenimientoEquiposService
@@ -126,11 +127,22 @@ public function cambiarEstado($id, array $data, $archivos = null)
 {
     $mantenimiento = MantenimientoEquipos::findOrFail($id);
 
-    if ($data['estado'] === 'completado' && empty($archivos)) {
-        throw new \Exception('Debe adjuntar al menos un archivo para completar el mantenimiento.');
-    }
-
+    // 🚨 VALIDACIÓN DE FECHA
     if ($data['estado'] === 'completado') {
+
+        $hoy = Carbon::now()->toDateString();
+        $fechaProgramada = Carbon::parse($mantenimiento->fecha_programada)->toDateString();
+
+        if ($hoy !== $fechaProgramada) {
+            throw new \Exception('No puede completar el mantenimiento en una fecha diferente a la programada');
+        }
+
+        // 🚨 VALIDACIÓN DE ARCHIVOS
+        if (empty($archivos)) {
+            throw new \Exception('Debe adjuntar al menos un archivo para completar el mantenimiento.');
+        }
+
+        // ✅ Fecha ejecución automática
         $mantenimiento->fecha_ejecucion = now();
     }
 
@@ -154,7 +166,6 @@ public function cambiarEstado($id, array $data, $archivos = null)
 
     return $mantenimiento->load('archivos');
 }
-
 //Actualizar mantenimiento
 public function actualizarMantenimiento($id, array $data)
 {

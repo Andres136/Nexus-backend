@@ -383,6 +383,22 @@ public function obtenerOrdenesTrabajo(Request $request)
                     'error' => 'La Orden de Trabajo ya fue generada; esta OC no puede modificarse.'
                 ], 422);
             }*/
+                // 📁 Manejo del archivo (ACTUALIZAR DOCUMENTO)
+if ($request->hasFile('cliente_documento')) {
+
+    // Eliminar archivo anterior (opcional pero recomendado)
+    if ($oc->cliente_documento_path) {
+        Storage::delete($oc->cliente_documento_path);
+    }
+
+    // Guardar nuevo archivo
+$path = $request->file('cliente_documento')->store('documentos_clientes', 'public');
+
+    // Actualizar en BD
+    $oc->update([
+        'cliente_documento' => $path
+    ]);
+}
 
             // 1. Actualizar cabecera
             $oc->update([

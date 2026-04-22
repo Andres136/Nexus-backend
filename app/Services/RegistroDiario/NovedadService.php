@@ -176,4 +176,20 @@ public function getIndicadorSemestral($fechaInicio = null, $fechaFin = null)
         'porcentaje' => $porcentaje
     ];
 }
+
+
+// Método para eliminar una novedad
+public function deleteNovedad($id)
+{
+    $novedad = Novedades::find($id);
+    if (!$novedad) {
+        return false;
+    }
+    // Eliminar soporte si existe
+    if ($novedad->soporte) {
+        Storage::disk('public')->delete($novedad->soporte);
+    }
+    $novedad->delete();
+    return true;
+}
 }
