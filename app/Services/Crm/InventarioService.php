@@ -750,11 +750,11 @@ if (!$movimiento) {
 
             $faltante = max(0, $cantidadTotal - $cantidadCubierta);
 
-/*if ($detalleId && $cantidadCubierta > 0) {
+if ($detalleId && $cantidadCubierta > 0) {
     Orden_Compra_Detalle::where('id', $detalleId)
         ->increment('cantidad_ejecutada_kg', $cantidadCubierta);
 }
-*/
+
             $resultados[] = [
                 'producto_id'        => $productoId,
                 'cantidad_requerida' => $cantidadTotal,
