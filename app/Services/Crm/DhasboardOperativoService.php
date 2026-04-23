@@ -43,11 +43,7 @@ class DhasboardOperativoService
 
 public function obtenerOrdenesCompraVSM($filters = [])
 {
-
-$user = auth()->user();
-$sedeId = in_array($user->role_id, [1,2]) 
-    ? ($filters['sede_id'] ?? null)
-    : ($filters['sede_id'] ?? $user->sede_id);
+$sedeId = $filters['sede_id'] ?? null;
 
     // 🔹 1. CARGA BASE CON RELACIONES (Evitamos N+1)
 $ordenes = Orden_Compra::with([
@@ -63,10 +59,10 @@ $ordenes = Orden_Compra::with([
         });
     })
 
-->when(!in_array($user->role_id, [1, 2]), function ($q) use ($user) {
-    $q->where(function ($sub) use ($user) {
-        $sub->where('sede_id', $user->sede_id)
-            ->orWhereNull('sede_id'); // incluye sin sede
+->when(isset($filters['sede_id']), function ($q) use ($filters) {
+    $q->where(function ($sub) use ($filters) {
+        $sub->where('sede_id', $filters['sede_id'])
+            ->orWhereNull('sede_id'); // 🔥 incluye las que no tienen sede
     });
 })
 
