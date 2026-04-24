@@ -61,6 +61,13 @@
 function sinCeros($valor) {
     return rtrim(rtrim(number_format($valor, 2, '.', ''), '0'), '.');
 }
+@php
+function money($valor) {
+    return is_numeric($valor)
+        ? number_format((float)$valor, 2, ',', '.')
+        : '0';
+}
+@endphp
 @endphp
 
 <div class="header">
@@ -121,9 +128,9 @@ function sinCeros($valor) {
 
             </td>
             <td>{{ $item->cantidad }}</td>
-       <td class="text-right">$ {{ number_format($item->valor_unitario, 2, ',', '.') }}</td>
-<td class="text-right">$ {{ number_format($item->valor_paquete, 2, ',', '.') }}</td>
-<td class="text-right">$ {{ number_format($item->valor_total, 2, ',', '.') }}</td>
+       <td class="text-right">$ {{ money($item->valor_unitario) }}</td>
+<td class="text-right">$ {{ money($item->valor_paquete) }}</td>
+<td class="text-right">$ {{ money($item->valor_total) }}</td>
 
         </tr>
         @endforeach

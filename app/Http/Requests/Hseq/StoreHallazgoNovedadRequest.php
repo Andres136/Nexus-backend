@@ -26,8 +26,8 @@ class StoreHallazgoNovedadRequest extends FormRequest
             'causa' => 'required|string',
             'plan_accion' => 'required|string',
             'responsable_id' => 'required|exists:users,id',
-            'fecha_cierre' => 'nullable|date',
-            'fecha_revision' => 'nullable|date',
+            'fecha_cierre' => 'required|date',
+            'fecha_revision' => 'required|date',
             'estado' => 'nullable|string',
             'observaciones' => 'nullable|string',
         ];
@@ -43,7 +43,9 @@ class StoreHallazgoNovedadRequest extends FormRequest
             'plan_accion.required' => 'El campo plan de acción es obligatorio.',
             'responsable_id.required' => 'El campo responsable es obligatorio.',
             'responsable_id.exists' => 'El responsable seleccionado no existe.',
+            'fecha_cierre.required' => 'El campo fecha de cierre es obligatorio.',
             'fecha_cierre.date' => 'El campo fecha de cierre debe ser una fecha válida.',
+            'fecha_revision.required' => 'El campo fecha de revisión es obligatorio.',
             'fecha_revision.date' => 'El campo fecha de revisión debe ser una fecha válida.',
         ];
     }   

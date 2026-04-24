@@ -2,16 +2,47 @@
 
 namespace App\Services\Hseq;
 
+
 use App\Models\Hseq\HallazgoNovedad;
+use App\Models\RegistroDiario\Novedades;
+use App\Models\Tareas;
+use App\Models\User;
+use App\Notifications\NuevaTareaAsignada;
+use Illuminate\Support\Facades\DB;
 
 class HallazgoNovedadService
 {
    //crud para hallazgo novedad
+public function create(array $data)
+{
+    return DB::transaction(function () use ($data) {
 
-   public function create(array $data)
-    {
-        return HallazgoNovedad::create($data);
-    }
+        //  Crear hallazgo
+        $hallazgo = HallazgoNovedad::create($data);
+
+        // Crear tarea automáticamente
+      $usuario = User::find($data['responsable_id']);
+      $novedad = Novedades::find($data['novedad_id']);
+
+
+$tarea = Tareas::create([
+     'nombre' => $novedad->descripcion ?? 'Tarea sin descripción', // 🔥 AQUÍ
+    'descripcion' => $data['plan_accion'] ?? null,
+    'fecha_fin' => $data['fecha_cierre'] ?? null,
+    'estado_id' => 1,
+    'departamento_id' => $usuario->departamento_id ?? 1,
+    'user_id' => $usuario->id ?? null,
+    'user_id_creo' => auth()->id()
+]);
+
+// Notificación
+if ($usuario) {
+    $usuario->notify(new NuevaTareaAsignada($tarea));
+}
+
+        return $hallazgo;
+    });
+}
 
     public function find($id)
     {
