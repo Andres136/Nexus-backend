@@ -59,15 +59,15 @@
 
 @php
 function sinCeros($valor) {
-    return rtrim(rtrim(number_format($valor, 2, '.', ''), '0'), '.');
+    if (!is_numeric($valor)) return '0';
+    return rtrim(rtrim(number_format((float)$valor, 2, '.', ''), '0'), '.');
 }
-@php
+
 function money($valor) {
     return is_numeric($valor)
         ? number_format((float)$valor, 2, ',', '.')
         : '0';
 }
-@endphp
 @endphp
 
 <div class="header">
@@ -138,7 +138,7 @@ function money($valor) {
 </table>
 
 <div class="text-right" style="margin-top: 20px;">
-    <strong>Valor Total: $ {{ number_format($cotizacion->valor_total, 0, ',', '.') }} COP</strong>
+    <strong>Valor Total: $ {{ money($cotizacion->valor_total) }} COP</strong>
 </div>
 
 <div class="section-title">Observaciones:</div>
