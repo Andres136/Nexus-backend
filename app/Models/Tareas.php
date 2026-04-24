@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Tareas extends Model
 {
     protected $fillable = [
-      'nombre', 'descripcion', 'fecha_fin',  'departamento_id', 'user_id', 'estado_id'
+      'nombre', 'descripcion', 'fecha_fin',  'departamento_id', 'user_id', 'estado_id', 'fecha_cerrado', 'user_id_creo'
     ];
 
     //relacion con el modelo User

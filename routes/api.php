@@ -30,6 +30,7 @@ use App\Http\Controllers\Crm\Orden_servicio\OrdenesServicioController;
 use App\Http\Controllers\Crm\OrdenCompraController;
 use App\Http\Controllers\Crm\OrdenCompraDetallesController;
 use App\Http\Controllers\Crm\OrdenCompraProveedorController;
+use App\Http\Controllers\Crm\OrdenComprasHistorialController;
 use App\Http\Controllers\Crm\ordenTrabajoController;
 use App\Http\Controllers\Crm\procesoBolsasController;
 use App\Http\Controllers\Crm\ProductController as CrmProductController;
@@ -168,6 +169,7 @@ Route::get('mis-ordenes', [OrdenCompraController::class, 'misOrdenes']);
 Route::get("/mis-cotizaciones", [CotizacionController::class, 'misCotizaciones']);
 Route::get('ordenes-compra/{id}', [OrdenCompraController::class, 'show']);
 Route::get('orden-compras/{id}/edit', [OrdenCompraController::class, 'edit']);
+Route::apiResource('ordenes-compras-historial', OrdenComprasHistorialController::class);
 Route::get('/ordenes-compra/faltantes/pendientes', [OrdenCompraController::class, 'verificarFaltantesPendientes']);
 //KPIS DASHBOARD CLIENTES
 Route::get('/dashboard/kpis', [DashboardController::class, 'kpis']);
