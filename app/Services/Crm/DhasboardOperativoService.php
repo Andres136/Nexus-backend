@@ -60,7 +60,7 @@ $ordenes = Orden_Compra::with([
         });
     })
 
-->when(isset($filters['sede_id']), function ($q) use ($filters) {
+->when(!empty($filters['sede_id']), function ($q) use ($filters) {
     $q->where(function ($sub) use ($filters) {
         $sub->where('sede_id', $filters['sede_id'])
             ->orWhereNull('sede_id'); // 🔥 incluye las que no tienen sede

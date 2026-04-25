@@ -105,7 +105,7 @@ class OrdenesServicioController extends Controller
         $pdf->output()
     );
     return response()->json([
-        'message' => 'Orden de servicio actualizada correctamente',
+        'message' => 'Orden de servicio actualizada correctamente...',
         'data' => $orden,
         'pdf_url' => asset("storage/ordenes_servicio/{$fileName}")
     ]);
