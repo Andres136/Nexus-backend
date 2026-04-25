@@ -46,6 +46,8 @@ public function obtenerOrdenesCompraVSM($filters = [])
 {
 $sedeId = $filters['sede_id'] ?? null;
 
+
+
     // 🔹 1. CARGA BASE CON RELACIONES (Evitamos N+1)
 $ordenes = Orden_Compra::with([
         'cliente',
@@ -71,6 +73,7 @@ $ordenes = Orden_Compra::with([
     ->when(!empty($filters['cliente']), function ($query) use ($filters) {
         $query->where('cliente_id', $filters['cliente']);
     })
+    
 
     ->get(); // 🔥 SIEMPRE AL FINAL     
 

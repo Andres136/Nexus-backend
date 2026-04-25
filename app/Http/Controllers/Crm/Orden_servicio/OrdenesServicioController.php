@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Crm\Orden_servicio;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Crm\Orden_servicio\StoreOrdenServicioRequest;
+use App\Http\Requests\Crm\Orden_servicio\UpdateOrdenServicioRequest;
 use App\Http\Requests\Crm\Orden_servicio\UpdateProcesosOrdenServicioRequest;
 use App\Http\Requests\Crm\UpdateBodegaRequest;
 use App\Models\Crm\Orden_servicio\OrdenServicio;
@@ -91,9 +92,10 @@ class OrdenesServicioController extends Controller
     /**
      * Update the specified resource in storage.
      */
-  public function update($id, UpdateProcesosOrdenServicioRequest $request)
+  public function update($id, UpdateOrdenServicioRequest $request)
 {
-    $orden = $this->ordenServicioService->actualizarOrdenServicio($id, $request->all());
+    $orden = $this->ordenServicioService->actualizarOrdenServicio($id, $request->validated());
+
   $pdf = $this->ordenServicioService->generarPdf($orden);
 
     // Nombre único
