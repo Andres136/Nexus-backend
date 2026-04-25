@@ -9,6 +9,7 @@ use App\Models\Crm\OrdenCompraProveedorDetalle;
 use App\Models\Crm\OrdenDetalleObservaciones;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class OrdenesServicioService
 {
@@ -99,35 +100,68 @@ public function actualizarOrdenServicio(int $id, array $data)
 
         $os = OrdenServicio::findOrFail($id);
 
-        // actualizar cabecera
         $os->update([
             'empresa_id' => $data['empresa_id'] ?? $os->empresa_id,
-            'fecha' => now('America/Bogota'), // actualizar fecha a la fecha actual de Bogota
+            'fecha' => now('America/Bogota'),
             'proveedor_id' => $data['proveedor_id'] ?? $os->proveedor_id,
             'observaciones' => $data['observaciones'] ?? $os->observaciones,
         ]);
 
-        foreach ($data['detalles'] as $detalle) {
 
-            // actualizar proceso y observación
-            OrdenDetalleObservaciones::where('id', $detalle['observacion_id'])
-                ->update([
-                    'proceso_bolsas_id' => $detalle['proceso_bolsas_id'],
-                    'observacion' => $detalle['observacion'] ?? null,
+        $detallesPayload = collect($data['detalles'] ?? []);
+
+        // 1) Crear o actualizar cada detalle recibido
+        foreach ($detallesPayload as $detalle) {
+            $detalleOs = OrdenServicioDetalle::updateOrCreate(
+                [
+                    'orden_servicio_id' => $id,
+                    'orden_compra_detalle_id' => $detalle['orden_compra_detalle_id'],
+                ],
+                [
+                    'cantidad' => $detalle['cantidad'],
+                ]
+            );
+
+
+$detalleOs->cantidad = $detalle['cantidad'];
+$detalleOs->save();
+
+            // 2) Observación: actualizar si viene id, crear si no viene
+            if (!empty($detalle['observacion_id'])) {
+          $obs = OrdenDetalleObservaciones::find($detalle['observacion_id']);
+
+
+
+$obs->proceso_bolsas_id = $detalle['proceso_bolsas_id'];
+$obs->observacion = $detalle['observacion'] ?? 'Sin observación';
+$obs->estado = $detalle['estado'] ?? 'en_proceso';
+$obs->usuario_id = auth()->id();
+
+$obs->save();
+
+
+            } else {
+                OrdenDetalleObservaciones::create([
+                    'orden_detalle_id' => $detalle['orden_compra_detalle_id'],
+                    'proceso_bolsas_id' => $detalle['proceso_bolsas_id'] ?? null,
+                    'observacion' => $detalle['observacion'] ?? 'Proceso registrado sin observación',
                     'estado' => $detalle['estado'] ?? 'en_proceso',
                     'usuario_id' => auth()->id(),
+                    'proveedor_id' => $os->proveedor_id,
                 ]);
-
-            // actualizar cantidad en detalle OS
-            OrdenServicioDetalle::where('orden_compra_detalle_id', $detalle['orden_compra_detalle_id'])
-                ->where('orden_servicio_id', $id)
-                ->update([
-                    'cantidad' => $detalle['cantidad']
-                ]);
+            }
         }
 
-        return $os;
+        // 3) Eliminar detalles que ya no vienen en payload (sincronización real)
+        $idsPayload = $detallesPayload->pluck('orden_compra_detalle_id')->filter()->values()->all();
+
+        OrdenServicioDetalle::where('orden_servicio_id', $id)
+            ->whereNotIn('orden_compra_detalle_id', $idsPayload)
+            ->delete();
+
+        return $os->fresh('detalles.ordenCompraDetalle.observaciones');
     });
+ 
 }
 
 }

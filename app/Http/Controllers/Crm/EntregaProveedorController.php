@@ -372,7 +372,19 @@ public function dashboardOrdenesMensual(Request $request)
 
 public function dashboardOrdenesAnual(Request $request)
 {
+    $user = auth()->user();
     $anio = $request->query('anio', now()->year);
+
+    // 🔐 Resolver sede correctamente
+    $sedeId = $request->query('sede_id');
+
+    if (!$sedeId) {
+        if ($user && $user->sede_id) {
+            $sedeId = $user->sede_id;
+        } else {
+            $sedeId = null; // 🔥 no filtra
+        }
+    }
 
     $resultado = collect();
 
@@ -381,10 +393,17 @@ public function dashboardOrdenesAnual(Request $request)
         $inicio = \Carbon\Carbon::create($anio, $mes, 1)->startOfMonth();
         $fin    = \Carbon\Carbon::create($anio, $mes, 1)->endOfMonth();
 
-        $totales = OrdenCompraProveedor::whereBetween('created_at', [$inicio, $fin])->count();
+        // 🔹 QUERY BASE
+        $baseQuery = OrdenCompraProveedor::whereBetween('created_at', [$inicio, $fin]);
 
-        $completadas = OrdenCompraProveedor::where('estado_id', 2)
-            ->whereBetween('created_at', [$inicio, $fin])
+        if ($sedeId) {
+            $baseQuery->where('sede_id', $sedeId);
+        }
+
+        $totales = (clone $baseQuery)->count();
+
+        $completadas = (clone $baseQuery)
+            ->where('estado_id', 2)
             ->count();
 
         $pendientes = $totales - $completadas;
@@ -405,6 +424,7 @@ public function dashboardOrdenesAnual(Request $request)
 
     return response()->json([
         'anio' => $anio,
+        'sede_aplicada' => $sedeId, // 🔥 debug
         'resumen_mensual' => $resultado,
     ]);
 }

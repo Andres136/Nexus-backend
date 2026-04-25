@@ -16,11 +16,7 @@ class Cotizacion extends Model
         'valor_total',
     ];
 
-protected $casts = [
-    'valor_unitario' => 'float',
-    'valor_paquete' => 'float',
-    'valor_total' => 'float',
-];
+
     
     public function cliente()
     {

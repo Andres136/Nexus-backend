@@ -23,14 +23,9 @@ class DashboardOperativoController extends Controller
 
 public function index(Request $request)
 {
-    $user = auth()->user();
-
 $filters = $request->all();
 
-// 🔥 SI NO VIENE SEDE → USAR LA DEL USUARIO
-if (empty($filters['sede_id'])) {
-    $filters['sede_id'] = $user->sede_id ?? null;
-}
+
     $data = $this->service->obtenerOrdenesCompraVSM( $filters);
     return response()->json($data, 200, [], JSON_PRETTY_PRINT);
 }
