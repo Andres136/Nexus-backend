@@ -59,7 +59,14 @@
 
 @php
 function sinCeros($valor) {
-    return rtrim(rtrim(number_format($valor, 2, '.', ''), '0'), '.');
+    if (!is_numeric($valor)) return '0';
+    return rtrim(rtrim(number_format((float)$valor, 2, '.', ''), '0'), '.');
+}
+
+function money($valor) {
+    return is_numeric($valor)
+        ? number_format((float)$valor, 2, ',', '.')
+        : '0';
 }
 @endphp
 
@@ -121,9 +128,9 @@ function sinCeros($valor) {
 
             </td>
             <td>{{ $item->cantidad }}</td>
-       <td class="text-right">$ {{ number_format($item->valor_unitario, 2, ',', '.') }}</td>
-<td class="text-right">$ {{ number_format($item->valor_paquete, 2, ',', '.') }}</td>
-<td class="text-right">$ {{ number_format($item->valor_total, 2, ',', '.') }}</td>
+       <td class="text-right">$ {{ money($item->valor_unitario) }}</td>
+<td class="text-right">$ {{ money($item->valor_paquete) }}</td>
+<td class="text-right">$ {{ money($item->valor_total) }}</td>
 
         </tr>
         @endforeach
@@ -131,7 +138,7 @@ function sinCeros($valor) {
 </table>
 
 <div class="text-right" style="margin-top: 20px;">
-    <strong>Valor Total: $ {{ number_format($cotizacion->valor_total, 0, ',', '.') }} COP</strong>
+    <strong>Valor Total: $ {{ money($cotizacion->valor_total) }} COP</strong>
 </div>
 
 <div class="section-title">Observaciones:</div>

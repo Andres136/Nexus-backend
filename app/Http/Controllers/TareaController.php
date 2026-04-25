@@ -61,7 +61,8 @@ public function index(Request $request, TareaVencidaService $tareaVencidaService
             'fecha_fin' => $request->fecha_fin,
             'estado_id' => 1,
             'departamento_id' => $request->departamento_id,
-            'user_id' => $request->user_id
+            'user_id' => $request->user_id,
+            'user_id_creo' => auth()->id()
         ]);
 
         $usuario =User::find($request->user_id);
@@ -108,7 +109,7 @@ public function index(Request $request, TareaVencidaService $tareaVencidaService
     elseif ($estadoActual == 5) {
         $tarea->estado_id = 2; // Completada
     }
-
+  $tarea->fecha_cerrado = now();
     $tarea->save();
 
     return response()->json([

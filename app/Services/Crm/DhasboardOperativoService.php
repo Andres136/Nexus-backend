@@ -9,6 +9,7 @@ use App\Models\Crm\Orden_servicio\OrdenServicio;
 use App\Models\Crm\OrdenCompraProveedor;
 
 use App\Models\Crm\OrdenCompraProveedorDetalle;
+use App\Models\Crm\OrdenComprasHistorial;
 use App\Models\Crm\OrdenDeTrabajo;
 use App\Models\Crm\product;
 use App\Models\Rutas\DeliveryEvent;
@@ -43,11 +44,7 @@ class DhasboardOperativoService
 
 public function obtenerOrdenesCompraVSM($filters = [])
 {
-
-$user = auth()->user();
-$sedeId = in_array($user->role_id, [1,2]) 
-    ? ($filters['sede_id'] ?? null)
-    : ($filters['sede_id'] ?? $user->sede_id);
+$sedeId = $filters['sede_id'] ?? null;
 
     // 🔹 1. CARGA BASE CON RELACIONES (Evitamos N+1)
 $ordenes = Orden_Compra::with([
@@ -63,10 +60,10 @@ $ordenes = Orden_Compra::with([
         });
     })
 
-->when(!in_array($user->role_id, [1, 2]), function ($q) use ($user) {
-    $q->where(function ($sub) use ($user) {
-        $sub->where('sede_id', $user->sede_id)
-            ->orWhereNull('sede_id'); // incluye sin sede
+->when(isset($filters['sede_id']), function ($q) use ($filters) {
+    $q->where(function ($sub) use ($filters) {
+        $sub->where('sede_id', $filters['sede_id'])
+            ->orWhereNull('sede_id'); // 🔥 incluye las que no tienen sede
     });
 })
 
@@ -80,6 +77,12 @@ $ordenes = Orden_Compra::with([
     
     $ordenIds = $ordenes->pluck('id');
     $detalleIds = $ordenes->flatMap(fn($oc) => $oc->detalles->pluck('id'))->unique();
+
+    // 🔥 HISTORIAL (BULK - SIN N+1)
+$historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
+    ->orderBy('created_at', 'desc')
+    ->get()
+    ->groupBy('orden_compra_id');
 
     // 🔹 2. RECOPILACIÓN DE DATOS EXTERNOS (Bulk Queries)
     
@@ -117,7 +120,7 @@ $ordenes = Orden_Compra::with([
     return $ordenes->map(function ($oc) use ($filters,
      $compras,
       $inventario,
-       $equivalentes, $ordenesTrabajo, $alistamientos, $alistamientoDetalles, $despachos
+       $equivalentes, $ordenesTrabajo, $alistamientos, $alistamientoDetalles, $despachos, $historial
     ) {
         
         $detalles = !empty($filters['producto_id']) 
@@ -138,7 +141,8 @@ $ordenes = Orden_Compra::with([
             ($totalSolicitado > 0) => 'PENDIENTE_COMPRA',
             default => 'SIN_COMPRA'
         };
-
+//Historial de fechas de ordenes de compra
+        $historialOrden = $historial[$oc->id] ?? collect();
         // --- LÓGICA DE ALISTAMIENTO ---
         $ot = $ordenesTrabajo[$oc->id] ?? null;
         $alistamiento = $ot ? ($alistamientos[$ot->id] ?? null) : null;
@@ -258,7 +262,13 @@ $ordenes = Orden_Compra::with([
             'despacho'        => [
                 'estado'         => $estadoDespacho,
                 'tiene_despacho' => $tieneDespacho
-            ]
+            ],
+            'historial' => $historialOrden->map(fn($h) => [
+                'fecha_cambio' => $h->created_at,
+                'fecha_anterior' => $h->fecha_anterior,
+                'fecha_nueva' => $h->fecha_nueva,
+                'observacion' => $h->observacion
+            ]),
         ];
     })->filter()
 ->when(!empty($filters['estado_vsm']), function ($collection) use ($filters) {
