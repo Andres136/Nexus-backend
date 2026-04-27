@@ -35,6 +35,7 @@ class FacturaCompraResource extends JsonResource
                     'monto' => $i->pivot->monto
                 ];
             }),
+         'pdf_url' => $this->pdf_url ? asset($this->pdf_url) : null,
         ];
     }
 }

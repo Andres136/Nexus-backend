@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\contabilidad;
 
+use App\Models\contabilidad\Impuesto;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreFacturaCompreRequest extends FormRequest
@@ -26,17 +27,22 @@ class StoreFacturaCompreRequest extends FormRequest
             // 🔹 FACTURA
             'factura' => 'required|array',
             'factura.proveedor_id' => 'required|exists:proveedores,id',
+            'factura.empresa_id' => 'required|exists:empresas,id',
             'factura.fecha_emision' => 'required|date',
             'factura.fecha_vencimiento' => 'nullable|date',
-            'factura.numero_factura_proveedor' => 'nullable|string|max:100',
+            'factura.numero_factura_proveedor' => 'required|string|max:100',
             'factura.sede_id' => 'required|exists:sedes,id',
 
             // 🔹 DETALLES (PRODUCTOS)
             'detalles' => 'required|array|min:1',
             'detalles.*.producto_id' => 'required|exists:products,id',
+            'detalles.*.puck_id' => 'required|exists:puck,id',
+
             'detalles.*.cantidad' => 'required|numeric|min:0.01',
             'detalles.*.precio_unitario' => 'required|numeric|min:0',
-            'detalles.*.bodega_id' => 'required|exists:bodegas,id',
+            'detalles.*.bodega_id' => 'nullable|exists:bodegas,id',
+            'detalles.*.impuestos' => 'nullable|array',
+'detalles.*.impuestos.*.impuesto_id' => 'required|exists:impuestos,id',
 
             // 🔹 PAGOS
             'pagos' => 'nullable|array',
@@ -51,7 +57,8 @@ class StoreFacturaCompreRequest extends FormRequest
             // 🔹 IMPUESTOS
             'impuestos' => 'nullable|array',
             'impuestos.*.impuesto_id' => 'required|exists:impuestos,id',
-            'impuestos.*.monto' => 'required|numeric|min:0',
+            'impuestos' => 'nullable|array',
+'impuestos.*.impuesto_id' => 'required|exists:impuestos,id',
         ];
     }
 
@@ -68,7 +75,32 @@ $totalFactura = $detalles->sum(function ($d) {
 });
 
 $totalGastos = collect($this->gastos ?? [])->sum('monto');
-$totalImpuestos = collect($this->impuestos ?? [])->sum('monto');
+$totalImpuestos = 0;
+
+// 🔹 impuestos por detalle
+foreach ($this->detalles ?? [] as $detalle) {
+
+    $base = $detalle['cantidad'] * $detalle['precio_unitario'];
+
+    if (!empty($detalle['impuestos'])) {
+        foreach ($detalle['impuestos'] as $imp) {
+
+            $impuesto = Impuesto::find($imp['impuesto_id']);
+            if (!$impuesto) continue;
+
+            $totalImpuestos += $base * ($impuesto->porcentaje / 100);
+        }
+    }
+}
+
+// 🔹 impuesto general
+foreach ($this->impuestos ?? [] as $imp) {
+
+    $impuesto = Impuesto::find($imp['impuesto_id']);
+    if (!$impuesto) continue;
+
+    $totalImpuestos += $totalFactura * ($impuesto->porcentaje / 100);
+}
 
 $totalReal = $totalFactura + $totalGastos + $totalImpuestos;
 
@@ -84,9 +116,12 @@ if ($pagos->count() > 0 && $totalPagos > $totalReal) {
         return [
             'factura.proveedor_id.required' => 'El campo proveedor es obligatorio.',
             'factura.proveedor_id.exists' => 'El proveedor seleccionado no existe.',
+            'factura.empresa_id.required' => 'El campo empresa es obligatorio.',
+            'factura.empresa_id.exists' => 'La empresa seleccionada no existe.',
             'factura.fecha_emision.required' => 'El campo fecha de emisión es obligatorio.',
             'factura.fecha_emision.date' => 'El campo fecha de emisión debe ser una fecha válida.',
             'factura.fecha_vencimiento.date' => 'El campo fecha de vencimiento debe ser una fecha válida.',
+            'factura.numero_factura_proveedor.required' => 'El campo número de factura del proveedor es obligatorio.',
             'factura.numero_factura_proveedor.string' => 'El número de factura del proveedor debe ser una cadena de texto.',
             'factura.numero_factura_proveedor.max' => 'El número de factura del proveedor no puede exceder los 100 caracteres.',
             'factura.sede_id.required' => 'El campo sede es obligatorio.',
@@ -95,6 +130,8 @@ if ($pagos->count() > 0 && $totalPagos > $totalReal) {
             'detalles.required' => 'Debe agregar al menos un detalle de producto.',
             'detalles.*.producto_id.required' => 'El campo producto es obligatorio en cada detalle.',
             'detalles.*.producto_id.exists' => 'El producto seleccionado en el detalle no existe.',
+                'detalles.*.puck_id.exists' => 'El puck seleccionado en el detalle no existe.',
+                'detalles.*.puck_id.required' => 'El campo puck es obligatorio en cada detalle.',
             'detalles.*.cantidad.required' => 'El campo cantidad es obligatorio en cada detalle.',
             'detalles.*.cantidad.numeric' => 'El campo cantidad debe ser un número.',
             'detalles.*.cantidad.min' => 'La cantidad debe ser al menos 0.01.',
