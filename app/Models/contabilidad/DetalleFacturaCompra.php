@@ -12,6 +12,7 @@ class DetalleFacturaCompra extends Model
         'factura_compras_id',
         'bodega_id',
         'producto_id',
+        'puck_id',
         'cantidad',
         'precio_unitario',
         'total',
