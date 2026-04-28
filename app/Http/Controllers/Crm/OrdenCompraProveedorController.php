@@ -67,20 +67,28 @@ public function index(Request $request,OrdenCompraService $estadoService)
         });
     }
     // 🔍 FILTRO POR SEMANA (formato: 2025-W48)
-if ($request->filled('week')) {
-    try {
-        [$year, $week] = explode('-W', $request->week);
 
-        $startDate = Carbon::now()->setISODate($year, $week)->startOfWeek();
-        $endDate   = Carbon::now()->setISODate($year, $week)->endOfWeek();
 
-        $query->whereBetween('fecha', [$startDate, $endDate]);
+if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
 
-    } catch (\Exception $e) {
-        // Si llega un formato inválido, no romper el endpoint
-    }
+    $fechaInicio = $request->filled('fecha_inicio') 
+        ? Carbon::parse($request->fecha_inicio)->startOfDay()
+        : null;
+
+    $fechaFin = $request->filled('fecha_fin') 
+        ? Carbon::parse($request->fecha_fin)->endOfDay()
+        : null;
+
+    $query->when($fechaInicio && $fechaFin, function ($q) use ($fechaInicio, $fechaFin) {
+        $q->whereBetween('fecha', [$fechaInicio, $fechaFin]);
+    })
+    ->when($fechaInicio && !$fechaFin, function ($q) use ($fechaInicio) {
+        $q->where('fecha', '>=', $fechaInicio);
+    })
+    ->when(!$fechaInicio && $fechaFin, function ($q) use ($fechaFin) {
+        $q->where('fecha', '<=', $fechaFin);
+    });
 }
-
 
     $ordenes = $query->paginate(10);
 
