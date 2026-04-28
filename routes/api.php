@@ -49,6 +49,7 @@ use App\Http\Controllers\ErrorController;
 use App\Http\Controllers\EstadoController;
 use App\Http\Controllers\Hseq\ConsumoServicioController;
 use App\Http\Controllers\Hseq\HallazgoNovedadController;
+use App\Http\Controllers\Hseq\HallazgoSeguimientoController;
 use App\Http\Controllers\Hseq\HseqDashboardController;
 use App\Http\Controllers\Hseq\InspeccionHseqController;
 use App\Http\Controllers\Hseq\PreguntaInspeccionController;
@@ -438,6 +439,7 @@ Route::apiResource('hseq-dashboard', HseqDashboardController::class);
 Route::get('hseq-descargar-hallazgos-pdf', [HseqDashboardController::class, 'descargarHallazgosPdf']);
 Route::get('hseq-dashboard/inspecciones/finalizadas', [HseqDashboardController::class, 'inspeccionesFinalizadas']);
 Route::apiResource('hallazgos', HallazgoNovedadController::class);
+Route::apiResource('seguimiento-hallazgos', HallazgoSeguimientoController::class);
 
 Route::apiResource('/vsm/ordenes', DashboardOperativoController::class);
 
