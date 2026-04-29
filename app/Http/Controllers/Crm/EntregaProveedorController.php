@@ -11,7 +11,7 @@ use App\Models\Crm\OrdenCompraProveedorDetalle;
 use App\Services\Crm\EntregasProveedor\EntregasService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
-
+use Illuminate\Support\Carbon;
 use PgSql\Lob;
 
 class EntregaProveedorController extends Controller
@@ -375,28 +375,26 @@ public function dashboardOrdenesAnual(Request $request)
     $user = auth()->user();
     $anio = $request->query('anio', now()->year);
 
-    // 🔐 Resolver sede correctamente
     $sedeId = $request->query('sede_id');
 
-    if (!$sedeId) {
-        if ($user && $user->sede_id) {
-            $sedeId = $user->sede_id;
-        } else {
-            $sedeId = null; // 🔥 no filtra
-        }
+    if (!$sedeId && $user?->sede_id) {
+        $sedeId = $user->sede_id;
     }
 
     $resultado = collect();
 
     for ($mes = 1; $mes <= 12; $mes++) {
 
-        $inicio = \Carbon\Carbon::create($anio, $mes, 1)->startOfMonth();
-        $fin    = \Carbon\Carbon::create($anio, $mes, 1)->endOfMonth();
+        $inicio = Carbon::create($anio, $mes, 1)->startOfMonth();
+        $fin    = Carbon::create($anio, $mes, 1)->endOfMonth();
 
-        // 🔹 QUERY BASE
-        $baseQuery = OrdenCompraProveedor::whereBetween('created_at', [$inicio, $fin]);
+        $baseQuery = OrdenCompraProveedor::query()
+            ->whereBetween('fecha', [
+                $inicio->toDateString(),
+                $fin->toDateString()
+            ]);
 
-        if ($sedeId) {
+        if (!empty($sedeId)) {
             $baseQuery->where('sede_id', $sedeId);
         }
 
@@ -406,7 +404,7 @@ public function dashboardOrdenesAnual(Request $request)
             ->where('estado_id', 2)
             ->count();
 
-        $pendientes = $totales - $completadas;
+        $pendientes = max($totales - $completadas, 0);
 
         $porcentaje = $totales > 0
             ? round(($completadas / $totales) * 100, 2)
@@ -414,20 +412,19 @@ public function dashboardOrdenesAnual(Request $request)
 
         $resultado->push([
             'mes' => $mes,
-            'mes_nombre' => $inicio->translatedFormat('F'),
+            'mes_nombre' => ucfirst($inicio->translatedFormat('F')),
             'ordenes_totales' => $totales,
             'ordenes_completadas' => $completadas,
-            'ordenes_pendientes' => max($pendientes, 0),
+            'ordenes_pendientes' => $pendientes,
             'porcentaje_cumplimiento' => $porcentaje,
         ]);
     }
 
     return response()->json([
         'anio' => $anio,
-        'sede_aplicada' => $sedeId, // 🔥 debug
+        'sede_aplicada' => $sedeId,
         'resumen_mensual' => $resultado,
     ]);
 }
-
 
 }

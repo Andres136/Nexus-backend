@@ -194,7 +194,7 @@ class RegistroDiarioService
             COUNT(
                 CASE 
                     WHEN estado_id IN (2,5)
-                    AND updated_at <= fecha_fin
+                    AND fecha_cerrado <= fecha_fin
                     THEN 1 
                 END
             ) as a_tiempo
@@ -204,7 +204,7 @@ class RegistroDiarioService
             COUNT(
                 CASE 
                     WHEN estado_id IN (2,5)
-                    AND updated_at > fecha_fin
+                    AND fecha_cerrado > fecha_fin
                     THEN 1 
                 END
             ) as tarde
