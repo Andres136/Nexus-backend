@@ -27,6 +27,8 @@ class FacturaCompra extends Model
         'observaciones',
         'subtotal',
         'total',
+        'total_impuestos',
+        'total_gastos',
         'numero_factura_proveedor',
         'pdf_url'
     ];

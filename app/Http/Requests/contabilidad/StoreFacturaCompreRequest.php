@@ -32,6 +32,7 @@ class StoreFacturaCompreRequest extends FormRequest
             'factura.fecha_vencimiento' => 'nullable|date',
             'factura.numero_factura_proveedor' => 'required|string|max:100',
             'factura.sede_id' => 'required|exists:sedes,id',
+            'factura.forma_pago_id' => 'required|exists:formas_pago,id',
 
             // 🔹 DETALLES (PRODUCTOS)
             'detalles' => 'required|array|min:1',
@@ -39,7 +40,7 @@ class StoreFacturaCompreRequest extends FormRequest
             'detalles.*.puck_id' => 'required|exists:puck,id',
 
             'detalles.*.cantidad' => 'required|numeric|min:0.01',
-            'detalles.*.precio_unitario' => 'required|numeric|min:0',
+            'detalles.*.precio_unitario' => 'required|numeric|min:0.01',
             'detalles.*.bodega_id' => 'nullable|exists:bodegas,id',
             'detalles.*.impuestos' => 'nullable|array',
 'detalles.*.impuestos.*.impuesto_id' => 'required|exists:impuestos,id',
@@ -126,6 +127,8 @@ if ($pagos->count() > 0 && $totalPagos > $totalReal) {
             'factura.numero_factura_proveedor.max' => 'El número de factura del proveedor no puede exceder los 100 caracteres.',
             'factura.sede_id.required' => 'El campo sede es obligatorio.',
             'factura.sede_id.exists' => 'La sede seleccionada no existe.',
+            'factura.forma_pago_id.required' => 'La forma de pago es obligatoria.',
+'factura.forma_pago_id.exists' => 'La forma de pago seleccionada no existe.',
 
             'detalles.required' => 'Debe agregar al menos un detalle de producto.',
             'detalles.*.producto_id.required' => 'El campo producto es obligatorio en cada detalle.',

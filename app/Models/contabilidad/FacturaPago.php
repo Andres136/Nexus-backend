@@ -11,6 +11,9 @@ class FacturaPago extends Model
         'factura_compras_id',
         'forma_pago_id',
         'monto',
+        'fecha_pago',
+        'observaciones',
+        'user_id'
     ];
 
     public function facturaCompra()

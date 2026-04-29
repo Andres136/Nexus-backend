@@ -4,6 +4,7 @@ namespace App\Services\contabilidad;
 
 use App\Http\Resources\contabilidad\FacturaCompraResource;
 use App\Models\contabilidad\FacturaCompra;
+use App\Models\contabilidad\FormaPago;
 use App\Models\contabilidad\Impuesto;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
@@ -27,17 +28,17 @@ class FacturaCompraService
         $totalGastos = collect($data['gastos'] ?? [])->sum('monto');
         $totalImpuestos = 0;
 
-        // 🔹 2. Crear factura (SIN total aún)
+        // 🔹 2. Crear factura
         $factura = FacturaCompra::create([
             ...$data['factura'],
             'subtotal' => $subtotal,
-            'total' => 0, // provisional
+            'total' => 0,
             'numero_factura' => $numeroFactura,
             'estado_id' => 1,
             'user_id' => auth()->id(),
         ]);
 
-        // 🔹 3. DETALLES + IMPUESTOS POR DETALLE
+        // 🔹 3. Detalles + impuestos por detalle
         foreach ($data['detalles'] as $detalle) {
 
             $base = $detalle['cantidad'] * $detalle['precio_unitario'];
@@ -71,7 +72,7 @@ class FacturaCompraService
             ]);
         }
 
-        // 🔹 4. IMPUESTO GENERAL (UNA SOLA VEZ)
+        // 🔹 4. Impuestos generales
         if (!empty($data['impuestos'])) {
             foreach ($data['impuestos'] as $imp) {
 
@@ -88,22 +89,76 @@ class FacturaCompraService
             }
         }
 
-        // 🔹 5. TOTAL FINAL (YA CON TODO)
+        // 🔹 5. Total final
         $total = $subtotal + $totalGastos + $totalImpuestos;
 
         $factura->update([
-            'total' => $total
+            'total' => $total,
+            'total_impuestos' => $totalImpuestos,
+            'total_gastos' => $totalGastos
         ]);
 
-        // 🔹 6. PAGOS
-        $totalPagos = 0;
+        //  6. PAGOS
+       
+$totalPagos = 0;
 
-        if (!empty($data['pagos'])) {
-            foreach ($data['pagos'] as $pago) {
-                $factura->pagos()->create($pago);
-                $totalPagos += $pago['monto'];
+$formaPagoId = $data['factura']['forma_pago_id'] ?? null;
+
+if (!empty($data['pagos'])) {
+
+    // 👉 Si vienen pagos manuales
+    foreach ($data['pagos'] as $pago) {
+
+        $montoPago = $pago['monto'] > 0 ? $pago['monto'] : $total;
+
+        $factura->pagos()->create([
+            'forma_pago_id' => $pago['forma_pago_id'] ?? $formaPagoId,
+            'monto' => $montoPago,
+            'fecha_pago' => $pago['fecha_pago'] ?? now(),
+            'observaciones' => $pago['observaciones'] ?? null,
+            'user_id' => auth()->id(),
+        ]);
+
+        $totalPagos += $montoPago;    
+    }
+
+} else {
+
+    //  Si NO vienen pagos, igual registrar forma de pago inicial
+    if ($formaPagoId) {
+
+        $formaPago = FormaPago::find($formaPagoId);
+
+        if ($formaPago) {
+
+            $nombreFormaPago = strtolower(
+                trim(
+                    iconv('UTF-8', 'ASCII//TRANSLIT', $formaPago->nombre)
+                )
+            );
+
+            // 🔹 CONTADO = paga total
+            if (str_contains($nombreFormaPago, 'contado')) {
+
+                $montoInicial = $total;
+                $totalPagos = $total;
+
+            } else {
+
+                // 🔹 CRÉDITO / TRANSFERENCIA / OTRO
+                $montoInicial = 0;
             }
+
+            $factura->pagos()->create([
+                'forma_pago_id' => $formaPagoId,
+                'monto' => $montoInicial,
+                'fecha_pago' => now(),
+                'observaciones' => 'Registro inicial automático',
+                'user_id' => auth()->id(),
+            ]);
         }
+    }
+}
 
         // 🔹 7. GASTOS
         if (!empty($data['gastos'])) {
@@ -112,59 +167,61 @@ class FacturaCompraService
             }
         }
 
-        // 🔹 8. VALIDACIÓN
+        // 🔹 8. Validación
         if ($totalPagos > 0 && $totalPagos > $total) {
             throw new \Exception('Los pagos no pueden ser mayores al total');
         }
 
-        // 🔹 9. ESTADO
+        // 🔹 9. Estado
         if ($totalPagos == 0) {
-            $estado = 1;
+            $estado = 1; // Pendiente
         } elseif ($totalPagos < $total) {
-            $estado = 5;
+            $estado = 5; // Parcial
         } else {
-            $estado = 4;
+            $estado = 4; // Pagado
         }
 
         $factura->update([
             'estado_id' => $estado
         ]);
 
-
+        // 🔹 10. PDF
         $logoPath = null;
 
-if ($factura->empresa->logo) {
-    $possiblePath = public_path('storage/' . $factura->empresa->logo);
+        $factura->load('empresa');
 
-    if (file_exists($possiblePath) && !is_dir($possiblePath)) {
-        $logoPath = $possiblePath;
-    }
-}
-$pdf = Pdf::loadView('pdf.factura_compra', [
-    'factura' => $factura->load([
-        'detalles.producto',
-        'detalles.impuestos',
-        'impuestos',
-        'proveedor',
-        'empresa'
-    ]),
+        if ($factura->empresa && $factura->empresa->logo) {
+            $possiblePath = public_path('storage/' . $factura->empresa->logo);
 
-    'logoPath' => $logoPath
-]);
+            if (file_exists($possiblePath) && !is_dir($possiblePath)) {
+                $logoPath = $possiblePath;
+            }
+        }
 
-$fileName = 'factura_compra_' . $factura->numero_factura . '.pdf';
+        $pdf = Pdf::loadView('pdf.factura_compra', [
+            'factura' => $factura->load([
+                'detalles.producto',
+                'detalles.impuestos',
+                'impuestos',
+                'proveedor',
+                'empresa'
+            ]),
+            'logoPath' => $logoPath
+        ]);
 
-Storage::disk('public')->put('facturas/' . $fileName, $pdf->output());
+        $fileName = 'factura_compra_' . $factura->numero_factura . '.pdf';
 
-$factura->update([
-    'pdf_url' => 'storage/facturas/' . $fileName
-]);
+        Storage::disk('public')->put('facturas/' . $fileName, $pdf->output());
+
+        $factura->update([
+            'pdf_url' => 'storage/facturas/' . $fileName
+        ]);
+
         return new FacturaCompraResource(
             $factura->load(['detalles', 'pagos', 'gastos', 'impuestos'])
         );
     });
 }
-
 
     // Otros métodos como actualizar, eliminar, etc.
 public function actualizar(FacturaCompra $factura, array $data)
@@ -221,17 +278,29 @@ public function actualizar(FacturaCompra $factura, array $data)
         // 🔹 4. PAGOS
         // =====================================================
 
-        $totalPagos = 0;
+$totalPagos = 0;
+$formaPagoId = $data['factura']['forma_pago_id'] ?? null;
 
-        if (isset($data['pagos'])) {
+if (isset($data['pagos'])) {
 
-            $factura->pagos()->delete(); // aquí sí es aceptable
+    $factura->pagos()->delete();
 
-            foreach ($data['pagos'] as $pago) {
-                $factura->pagos()->create($pago);
-                $totalPagos += $pago['monto'];
-            }
-        }
+foreach ($data['pagos'] as $pago) {
+
+    $montoPago = $pago['monto'] > 0 ? $pago['monto'] : $total;
+    $formaPagoId = $data['factura']['forma_pago_id'] ?? null;
+
+    $factura->pagos()->create([
+        'forma_pago_id' => $formaPagoId,
+        'monto' => $montoPago,
+        'fecha_pago' => $pago['fecha_pago'] ?? now(),
+        'observaciones' => $pago['observaciones'] ?? null,
+        'user_id' => auth()->id(),
+    ]);
+
+    $totalPagos += $montoPago;
+}
+}
 
         // =====================================================
         // 🔹 5. GASTOS
@@ -286,6 +355,8 @@ public function actualizar(FacturaCompra $factura, array $data)
         return new FacturaCompraResource($factura->load(['detalles', 'pagos', 'gastos', 'impuestos']));
     });
 }
+
+
    public function listar(array $filtros = [], $perPage = 15)
 {
     $query = FacturaCompra::query()
