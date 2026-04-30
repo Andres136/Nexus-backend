@@ -289,13 +289,13 @@ $novedadesEstabilidadPorMes[$mes] = DB::table('novedad_diaria')
             $registrosConNovedadMes = $nEstabilidad->registros_con_novedad_mes ?? 0;
 
             // 🔹 MÉTRICAS
-            $rendimiento = $totalPlanificadas > 0
-                ? round(($completadas / $totalPlanificadas) * 100, 2)
-                : 0;
+           $rendimiento = $totalPlanificadas > 0
+    ? round(($completadas / $totalPlanificadas) * 100, 2)
+    : 100;
 
             $eficienciaTiempo = $completadas > 0
-                ? round(($aTiempo / $completadas) * 100, 2)
-                : 0;
+    ? round(($aTiempo / $completadas) * 100, 2)
+    : 0;
 
             $meses[] = [
                 'mes' => $mes,
@@ -304,10 +304,9 @@ $novedadesEstabilidadPorMes[$mes] = DB::table('novedad_diaria')
                 'total_registros' => $totalRegistros,
                 'si' => $si,
                 'no' => $no,
-
-                'cumplimiento' => $totalRegistros > 0
-                    ? round(($si / $totalRegistros) * 100, 2)
-                    : 0,
+'cumplimiento' => $totalRegistros > 0
+    ? round(($si / $totalRegistros) * 100, 2)
+    : 100,
 
                 'respuestas' => [
                     'total' => (int) ($r->total_respuesta ?? 0),
