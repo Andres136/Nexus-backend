@@ -73,7 +73,11 @@ $ordenes = Orden_Compra::with([
     ->when(!empty($filters['cliente']), function ($query) use ($filters) {
         $query->where('cliente_id', $filters['cliente']);
     })
-    
+    ->when(!empty($filters['search']), function ($query) use ($filters) {
+    $query->whereHas('ordenTrabajo', function ($q) use ($filters) {
+        $q->where('id', 'LIKE', "%{$filters['search']}%");
+    });
+})
 
     ->get(); // 🔥 SIEMPRE AL FINAL     
 
@@ -286,6 +290,8 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
         return $item['revisada'] === $valor;
     });
 })
+
+
 ->values();
 
     

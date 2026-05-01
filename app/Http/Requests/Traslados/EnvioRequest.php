@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Traslados;
 
+use App\Models\Crm\Inventario;
 use Illuminate\Foundation\Http\FormRequest;
 
 class EnvioRequest extends FormRequest
@@ -34,12 +35,37 @@ class EnvioRequest extends FormRequest
             'detalles.*.cantidad' => 'sometimes|numeric|min:0.01',
 
             //  Estructura nueva (varias bodegas)
-            'detalles.*.bodegas' => 'sometimes|array|min:1',
+            'detalles.*.bodegas' => 'required|array|min:1',
             'detalles.*.bodegas.*.bodega_id' => 'required_with:detalles.*.bodegas|exists:bodegas,id',
             'detalles.*.bodegas.*.cantidad' => 'required_with:detalles.*.bodegas|numeric|min:0.01',
         ];
     }
+public function withValidator($validator)
+{
+    $validator->after(function ($validator) {
+        foreach ($this->detalles as $detalleIndex => $detalle) {
 
+            if (!empty($detalle['bodegas'])) {
+                foreach ($detalle['bodegas'] as $bodegaIndex => $bodega) {
+
+                    $stockDisponible = Inventario::where(
+                        'producto_id',
+                        $detalle['product_id']
+                    )
+                    ->where('bodega_id', $bodega['bodega_id'])
+                    ->sum('stock');
+
+                    if ($bodega['cantidad'] > $stockDisponible) {
+                        $validator->errors()->add(
+                            "detalles.$detalleIndex.bodegas.$bodegaIndex.cantidad",
+                            "Stock insuficiente en bodega {$bodega['bodega_id']} ({$stockDisponible} disponibles)."
+                        );
+                    }
+                }
+            }
+        }
+    });
+}
     public function messages(): array
     {
         return [

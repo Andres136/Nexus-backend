@@ -8,6 +8,7 @@ use App\Models\Crm\Inventario;
 use App\Models\Crm\MovimientoStock;
 use App\Models\Crm\Orden_Compra_Detalle;
 use App\Models\Crm\OrdenDeTrabajo;
+use App\Models\Crm\product;
 use App\Models\Crm\Sede;
 use App\Models\Traslados\Detalles_envio_internos;
 use App\Models\Traslados\Envio_internos;
@@ -418,10 +419,19 @@ public function registrarEnvioConDescuento($data, $user)
                 }
 
                 //  Validación consolidada
-                $stockTotal = (float) $inventariosOrigen->sum('stock');
-                if ($stockTotal < $cantidad) {
-                    throw new \Exception("Stock insuficiente en bodega {$bodegaId} ({$stockTotal} disponibles).");
-                }
+      $productoModel = product::find($productoId);
+$nombreProducto = $productoModel?->name ?? "Producto {$productoId}";
+
+$bodegaModel = Bodega::find($bodega['bodega_id']);
+$nombreBodega = $bodegaModel?->nombre ?? "Bodega {$bodega['bodega_id']}";
+
+$stockTotal = (float) $inventariosOrigen->sum('stock');
+
+if ($stockTotal < $cantidad) {
+    throw new \Exception(
+        "Stock insuficiente para {$nombreProducto} en {$nombreBodega} ({$stockTotal} disponibles)."
+    );
+}
 
                 //  Descontar Opción A: del primero que pueda cubrir, sino ir agotando
                 $restante = $cantidad;

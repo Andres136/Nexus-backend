@@ -194,7 +194,7 @@ class RegistroDiarioService
             COUNT(
                 CASE 
                     WHEN estado_id IN (2,5)
-                    AND updated_at <= fecha_fin
+                    AND fecha_cerrado <= fecha_fin
                     THEN 1 
                 END
             ) as a_tiempo
@@ -204,7 +204,7 @@ class RegistroDiarioService
             COUNT(
                 CASE 
                     WHEN estado_id IN (2,5)
-                    AND updated_at > fecha_fin
+                    AND fecha_cerrado > fecha_fin
                     THEN 1 
                 END
             ) as tarde
@@ -237,27 +237,28 @@ class RegistroDiarioService
         $finMes    = Carbon::create($anio, $mes, 1)->endOfMonth();
 
         $novedadesPorMes[$mes] = DB::table('novedad_diaria')
-            ->join('registro_diario', 'registro_diario.id', '=', 'novedad_diaria.registro_diario_id')
-            ->select(
-                'registro_diario.departamento_id',
-                DB::raw('COUNT(novedad_diaria.id) as total_novedades')
-            )
-            ->where('novedad_diaria.created_at', '<=', $finMes)
-            ->whereIn('novedad_diaria.estado', ['ABIERTA', 'EN_PROCESO'])
-            ->groupBy('registro_diario.departamento_id')
-            ->get()
-            ->keyBy('departamento_id');
+    ->join('registro_diario', 'registro_diario.id', '=', 'novedad_diaria.registro_diario_id')
+    ->select(
+        'registro_diario.departamento_id',
+        DB::raw('COUNT(novedad_diaria.id) as total_novedades')
+    )
+    ->where('novedad_diaria.created_at', '<=', $finMes)
+    ->whereIn('novedad_diaria.estado', ['ABIERTA', 'EN_PROCESO'])
+    ->groupBy('registro_diario.departamento_id')
+    ->get()
+    ->keyBy('departamento_id');
 
-        $novedadesEstabilidadPorMes[$mes] = DB::table('novedad_diaria')
-            ->join('registro_diario', 'registro_diario.id', '=', 'novedad_diaria.registro_diario_id')
-            ->select(
-                'registro_diario.departamento_id',
-                DB::raw('COUNT(DISTINCT registro_diario.id) as registros_con_novedad_mes')
-            )
-            ->whereBetween('novedad_diaria.created_at', [$inicioMes, $finMes])
-            ->groupBy('registro_diario.departamento_id')
-            ->get()
-            ->keyBy('departamento_id');
+$novedadesEstabilidadPorMes[$mes] = DB::table('novedad_diaria')
+    ->join('registro_diario', 'registro_diario.id', '=', 'novedad_diaria.registro_diario_id')
+    ->select(
+        'registro_diario.departamento_id',
+        DB::raw('COUNT(DISTINCT novedad_diaria.registro_diario_id) as registros_con_novedad_mes')
+    )
+    ->where('novedad_diaria.created_at', '<=', $finMes)
+    ->whereIn('novedad_diaria.estado', ['ABIERTA', 'EN_PROCESO'])
+    ->groupBy('registro_diario.departamento_id')
+    ->get()
+    ->keyBy('departamento_id');
     }
 
     // 🔥 RESULTADO FINAL
@@ -288,13 +289,13 @@ class RegistroDiarioService
             $registrosConNovedadMes = $nEstabilidad->registros_con_novedad_mes ?? 0;
 
             // 🔹 MÉTRICAS
-            $rendimiento = $totalPlanificadas > 0
-                ? round(($completadas / $totalPlanificadas) * 100, 2)
-                : 0;
+           $rendimiento = $totalPlanificadas > 0
+    ? round(($completadas / $totalPlanificadas) * 100, 2)
+    : 100;
 
             $eficienciaTiempo = $completadas > 0
-                ? round(($aTiempo / $completadas) * 100, 2)
-                : 0;
+    ? round(($aTiempo / $completadas) * 100, 2)
+    : 0;
 
             $meses[] = [
                 'mes' => $mes,
@@ -303,10 +304,9 @@ class RegistroDiarioService
                 'total_registros' => $totalRegistros,
                 'si' => $si,
                 'no' => $no,
-
-                'cumplimiento' => $totalRegistros > 0
-                    ? round(($si / $totalRegistros) * 100, 2)
-                    : 0,
+'cumplimiento' => $totalRegistros > 0
+    ? round(($si / $totalRegistros) * 100, 2)
+    : 100,
 
                 'respuestas' => [
                     'total' => (int) ($r->total_respuesta ?? 0),
