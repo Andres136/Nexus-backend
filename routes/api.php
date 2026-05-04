@@ -60,6 +60,7 @@ use App\Http\Controllers\Hseq\TipoResiduoController;
 use App\Http\Controllers\Hseq\TipoServicioController;
 use App\Http\Controllers\IndicadoresProcesosController;
 use App\Http\Controllers\MacroProcesoController;
+use App\Http\Controllers\Nomina\TipoContratoController;
 use App\Http\Controllers\NotificacionOrdenController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PqrController;
@@ -563,3 +564,8 @@ Route::post('/eventos/crear-qr', [EventoController::class, 'crearQr']);
 Route::post('/qrs/productos/pdf', [EventoController::class, 'crearQrMasivoConPdf']);
 
 Route::get('/orden-compras/{orden}/preview-documento', [OrdenCompraController::class, 'previewDocumento']);
+
+//Rutas tipos de contratos nomina
+Route::prefix('nomina')->group(function () {
+    Route::apiResource('tipo-contratos', TipoContratoController::class);
+});
