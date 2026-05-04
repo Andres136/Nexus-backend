@@ -98,4 +98,10 @@ public function impuestos()
             }
         });
     }
+
+    //Relacion con estados
+    public function estados()
+    {
+        return $this->belongsTo(Estados::class, 'estado_id');
+    }    
 }

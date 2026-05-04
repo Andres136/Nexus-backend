@@ -19,9 +19,15 @@ class FacturaCompraController extends Controller
     {
         $this->facturaCompraService = $facturaCompraService;
     }
-    public function index()
+    public function index( Request $request)
     {
-        //
+        $filters = $request->only(['proveedor_id', 'fecha_inicio', 'fecha_fin', 'estado_id', 'search']);
+        $facturas = $this->facturaCompraService->listar($filters);
+
+        return response()->json([
+            'message' => 'Facturas obtenidas correctamente',
+            'data' => $facturas
+        ], 200);
     }
 
     /**

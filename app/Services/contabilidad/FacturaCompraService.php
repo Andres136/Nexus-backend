@@ -360,7 +360,7 @@ foreach ($data['pagos'] as $pago) {
    public function listar(array $filtros = [], $perPage = 15)
 {
     $query = FacturaCompra::query()
-        ->with(['proveedor', 'detalles', 'pagos']); // 🔥 eager loading
+        ->with(['proveedor', 'detalles', 'pagos', 'gastos', 'impuestos', 'estados']); // 🔥 eager loading
 
     // 🔹 Filtro por proveedor
     if (!empty($filtros['proveedor_id'])) {
@@ -376,7 +376,7 @@ foreach ($data['pagos'] as $pago) {
     }
 
     // 🔹 Filtro por estado
-    if (!empty($filtros['estado_id'])) {
+    if (isset($filtros['estado_id']) && $filtros['estado_id'] !== '') {
         $query->where('estado_id', $filtros['estado_id']);
     }
 
@@ -393,10 +393,13 @@ foreach ($data['pagos'] as $pago) {
     }
 
     // 🔹 Ordenamiento
-    $query->orderBy('fecha_compra', 'desc');
+    $query->orderBy('fecha_emision', 'desc');
 
     return $query->paginate($perPage);
 }
+
+
+
    public function anular(FacturaCompra $factura)
 {
     return DB::transaction(function () use ($factura) {
