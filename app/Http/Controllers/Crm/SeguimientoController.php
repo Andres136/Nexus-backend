@@ -89,146 +89,32 @@ class SeguimientoController extends Controller
     {
         //
     }
-    public function resumenMensualPorUsuario(Request $request)
+ public function resumenMensualPorUsuario(Request $request)
 {
-    $inicio = Carbon::now()->subMonths(6)->startOfMonth();
- $userFiltro = $request->query('user_id');
+    $user      = auth()->user();
+    $rolNombre = $user->role->nombre; // ajusta si es ->name
+
+    $inicio = Carbon::now()->subMonths(6)->startOfMonth()->toDateTimeString();
+
+    // Control de acceso
+    $userId = in_array($rolNombre, ['Ejecutivo Comercial', 'Comercial'])
+        ? $user->id
+        : $request->query('user_id');
+
+    // ✅ Consumir el service
+    $data = (new \App\Services\Crm\ComercialDashboardService())
+        ->getMesAMes($userId, $inicio);
+
+    // Filtros opcionales (igual que antes)
+    $userFiltro = $request->query('user_id');
     $mesFiltro  = $request->query('mes');
-    // 1. Obtener gestiones
-    $gestiones = DB::table('seguimiento_clientes')
-        ->join('users', 'seguimiento_clientes.user_id', '=', 'users.id')
-        ->select(
-            'users.id as user_id',
-            'users.name as usuario',
-            DB::raw('DATE_FORMAT(seguimiento_clientes.created_at, "%Y-%m") as mes'),
-            DB::raw('COUNT(seguimiento_clientes.id) as total_gestiones')
-        )
-        ->where('seguimiento_clientes.created_at', '>=', $inicio)
-        ->groupBy('users.id', 'users.name', 'mes')
-        ->get();
 
-    // 2. Cotizaciones
-    $cotizaciones = DB::table('cotizaciones')
-        ->join('users', 'cotizaciones.user_id', '=', 'users.id')
-        ->select(
-            'users.id as user_id',
-            'users.name as usuario',
-            DB::raw('DATE_FORMAT(cotizaciones.created_at, "%Y-%m") as mes'),
-            DB::raw('COUNT(cotizaciones.id) as total_cotizaciones')
-        )
-        ->where('cotizaciones.created_at', '>=', $inicio)
-        ->groupBy('users.id', 'users.name', 'mes')
-        ->get();
-
-    // 3. Ordenes de compra
-    $ordenes = DB::table('orden__compras')
-        ->join('users', 'orden__compras.user_id', '=', 'users.id')
-        ->select(
-            'users.id as user_id',
-            'users.name as usuario',
-            DB::raw('DATE_FORMAT(orden__compras.created_at, "%Y-%m") as mes'),
-            DB::raw('COUNT(orden__compras.id) as total_ordenes'),
-            DB::raw('SUM(orden__compras.valor_total) as total_valor_ordenes')
-        )
-        ->where('orden__compras.created_at', '>=', $inicio)
-        ->groupBy('users.id', 'users.name', 'mes')
-        ->get();
-
-    // 4. Nuevos clientes
-    $clientes = DB::table('clientes')
-        ->join('users', 'clientes.user_id', '=', 'users.id')
-        ->select(
-            'users.id as user_id',
-            'users.name as usuario',
-            DB::raw('DATE_FORMAT(clientes.created_at, "%Y-%m") as mes'),
-            DB::raw('COUNT(clientes.id) as total_clientes')
-        )
-        ->where('clientes.created_at', '>=', $inicio)
-        ->groupBy('users.id', 'users.name', 'mes')
-        ->get();
-
-    // 5. Metas por mes
-$metas = DB::table('meta_mensuals')
-    ->select(
-        DB::raw("CONCAT(anio, '-', LPAD(mes,2,'0')) as periodo"),
-        'valor_meta'
-    )
-    ->get()
-    ->keyBy('periodo');
-
-
-    // 6. Consolidar resultados
-    $resultado = [];
-
-    foreach ([$gestiones, $cotizaciones, $ordenes, $clientes] as $collection) {
-        foreach ($collection as $registro) {
-            $key = $registro->user_id . '_' . $registro->mes;
-
-            if (!isset($resultado[$key])) {
-                $resultado[$key] = [
-                      'user_id'            => $registro->user_id,
-                    'usuario'             => $registro->usuario,
-                    'mes'                 => $registro->mes,
-                    'total_gestiones'     => 0,
-                    'total_cotizaciones'  => 0,
-                    'total_ordenes'       => 0,
-                    'total_valor_ordenes' => 0,
-                    'total_clientes'      => 0,
-                    'meta'                => 0,
-                    'meta_individual'     => 0,
-                    'cumplimiento'        => 0
-                ];
-            }
-
-            // Asignación segura
-            if (isset($registro->total_gestiones)) {
-                $resultado[$key]['total_gestiones'] = (int) $registro->total_gestiones;
-            }
-            if (isset($registro->total_cotizaciones)) {
-                $resultado[$key]['total_cotizaciones'] = (int) $registro->total_cotizaciones;
-            }
-            if (isset($registro->total_ordenes)) {
-                $resultado[$key]['total_ordenes'] = (int) $registro->total_ordenes;
-            }
-            if (isset($registro->total_valor_ordenes)) {
-                $resultado[$key]['total_valor_ordenes'] = (float) $registro->total_valor_ordenes;
-            }
-            if (isset($registro->total_clientes)) {
-                $resultado[$key]['total_clientes'] = (int) $registro->total_clientes;
-            }
-        }
+    if ($mesFiltro !== null) {
+        $data = array_filter($data, fn($r) => $r['mes'] == $mesFiltro);
     }
 
-    // 7. Agrupar por mes para contar usuarios únicos
-    $usuariosPorMes = [];
-    foreach ($resultado as $key => $registro) {
-        $usuariosPorMes[$registro['mes']][] = $registro['usuario'];
-    }
-
-    // 8. Cálculo de metas individuales y cumplimiento
-    foreach ($resultado as $key => &$registro) {
-        $mes = $registro['mes'];
-        $metaMes = $metas[$mes]->valor_meta ?? 0;
-        $usuariosActivos = count(array_unique($usuariosPorMes[$mes] ?? []));
-        $metaIndividual = $usuariosActivos > 0 ? round($metaMes / $usuariosActivos, 2) : 0;
-        $cumplimiento = $metaIndividual > 0 ? round(($registro['total_valor_ordenes'] / $metaIndividual) * 100, 2) : 0;
-
-        $registro['meta'] = (float) $metaMes;
-        $registro['meta_individual'] = $metaIndividual;
-        $registro['cumplimiento'] = $cumplimiento;
-    }
- // --- FILTRADO OPCIONAL ---
-if ($userFiltro !== null) {
-    $resultado = array_filter($resultado, fn($r) => $r['user_id'] == (int)$userFiltro);
-}
-if ($mesFiltro !== null) {
-    $resultado = array_filter($resultado, fn($r) => $r['mes'] == $mesFiltro);
-}
-// --- FIN FILTRADO ---
-
-    // 9. Retornar respuesta ordenada
     return response()->json(
-        collect($resultado)->sortBy(['mes', 'usuario'])->values()
+        collect($data)->sortBy(['mes', 'usuario'])->values()
     );
 }
 

@@ -174,7 +174,7 @@ Route::apiResource('ordenes-compras-historial', OrdenComprasHistorialController:
 Route::get('/ordenes-compra/faltantes/pendientes', [OrdenCompraController::class, 'verificarFaltantesPendientes']);
 //KPIS DASHBOARD CLIENTES
 Route::get('/dashboard/kpis', [DashboardController::class, 'kpis']);
-
+Route::get('estadisticas-comerciales',[SeguimientoController::class, 'resumenMensualPorUsuario']);
 Route::post('/ordenes-compra-proveedor/{id}/dividir', [OrdenCompraProveedorController::class, 'dividirOrden']);
 Route::post('/ordenes-compra-proveedor/observaciones', [procesoBolsasController::class, 'storeObservacion']);
 Route::put('/observaciones/{id}/estado', [procesoBolsasController::class, 'updateEstado']);
@@ -503,7 +503,7 @@ Route::get('/sedes', [SedeController::class, 'index']);
 
 
 Route::delete('orden-compras/{id}', [OrdenCompraController::class, 'destroy']);
-Route::get('estadisticas-comerciales',[SeguimientoController::class, 'resumenMensualPorUsuario']);
+
 Route::put('/pqrs/{id}/asignar', [PqrController::class, 'asignarArea']);
 
 

@@ -119,6 +119,23 @@ class KpiService
             ->get()
             ->groupBy('mes');
 
+
+            $carteraVencidas = (int) DB::table('gestion_cartera')
+    ->where('estado', '!=', 'cancelado')
+    ->whereDate('fecha_vencimiento', '<', now())
+    ->count();
+
+$carteraGestionadas = (int) DB::table('gestion_cartera as gc')
+    ->join('gestion_cartera_historial as gh', 'gc.id', '=', 'gh.gestion_cartera_id')
+    ->where('gc.estado', '!=', 'cancelado')
+    ->whereDate('gc.fecha_vencimiento', '<', now())
+    ->distinct('gc.id')
+    ->count('gc.id');
+
+$carteraPctGestion = $carteraVencidas > 0
+    ? round(($carteraGestionadas / $carteraVencidas) * 100, 2)
+    : 0;
+
         // =========================
         // Totales anuales “CRM”
         // =========================
@@ -264,6 +281,9 @@ $funnelCompraToFiel = $compradoresMes > 0
                 'gestion_clientes_pct'      => round($gestionPct, 2),
                 'conversion_clientes_pct'   => round($conversionClientesPct, 2),
                 'fidelizacion_clientes_pct' => round($fidelizacionPct, 2),
+                'cartera_vencidas'    => $carteraVencidas,
+'cartera_gestionadas' => $carteraGestionadas,
+'cartera_pct_gestion' => $carteraPctGestion,
 
                 // KPI financiero
                 'ticket_promedio' => round($ticketPromedio, 2),
