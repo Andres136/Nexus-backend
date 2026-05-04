@@ -60,6 +60,7 @@ use App\Http\Controllers\Hseq\TipoResiduoController;
 use App\Http\Controllers\Hseq\TipoServicioController;
 use App\Http\Controllers\IndicadoresProcesosController;
 use App\Http\Controllers\MacroProcesoController;
+use App\Http\Controllers\Nomina\ContratacionController;
 use App\Http\Controllers\Nomina\TipoContratoController;
 use App\Http\Controllers\NotificacionOrdenController;
 use App\Http\Controllers\PermissionController;
@@ -454,6 +455,13 @@ Route::apiResource('formas-pago', FormaPagoController::class);
 Route::apiResource('cuentas-contables', PuckController::class);
 Route::apiResource('costeo', CosteoController::class);
 
+
+//Rutas tipos de contratos nomina
+Route::prefix('nomina')->group(function () {
+    Route::apiResource('tipo-contratos', TipoContratoController::class);
+     Route::apiResource('contratacion', ContratacionController::class);
+});
+
 });
 
 //**RUTAS MIDDLEWARE PARA RESPONSABLES DE CADA PROCESOS O DEPARTAMENTO */
@@ -565,7 +573,4 @@ Route::post('/qrs/productos/pdf', [EventoController::class, 'crearQrMasivoConPdf
 
 Route::get('/orden-compras/{orden}/preview-documento', [OrdenCompraController::class, 'previewDocumento']);
 
-//Rutas tipos de contratos nomina
-Route::prefix('nomina')->group(function () {
-    Route::apiResource('tipo-contratos', TipoContratoController::class);
-});
+
