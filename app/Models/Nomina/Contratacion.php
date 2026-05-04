@@ -10,7 +10,7 @@ class Contratacion extends Model
 {
     use SoftDeletes;
 
-    protected $table = 'contratacion';
+    protected $table = 'contrataciones';
 
     protected $fillable = [
         'uuid',
@@ -23,10 +23,10 @@ class Contratacion extends Model
         'inicio_contratacion',
         'fin_contrato',
         'status',
-        'eps',
+        'eps_id',
         'arl_id',
-        'fondo_pensiones',
-        'caja_penciones_id',
+        'fondo_pensiones_id',
+        'caja_pensiones_id',
     ];
 
     protected $casts = [

@@ -10,7 +10,7 @@ class SeguridadSocial extends Model
 {
     use SoftDeletes;
 
-    protected $table = 'seguridad_social';
+    protected $table = 'seguridad_socials';
 
     protected $fillable = [
         'uuid',

@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-       Schema::create('contratacion', function (Blueprint $table) {
+       Schema::create('contrataciones', function (Blueprint $table) {
        $table->id();
        $table->uuid('uuid')->unique();
        $table->foreignId('id_contrato')->constrained('tipo_contratos');
@@ -23,10 +23,10 @@ return new class extends Migration
        $table->date('inicio_contratacion');
        $table->datetime('fin_contrato')->nullable();
        $table->tinyInteger('status')->default(1);
-       $table->integer('eps');
-       $table->integer('arl_id');
-       $table->integer('fondo_pensiones');
-       $table->integer('caja_penciones_id');
+       $table->foreignId('eps_id')->constrained('seguridad_socials');
+       $table->foreignId('arl_id')->constrained('seguridad_socials');
+       $table->foreignId('fondo_pensiones_id')->constrained('seguridad_socials');
+       $table->foreignId('caja_penciones_id')->constrained('seguridad_socials');
        $table->timestamps();
        $table->softDeletes();
 });
@@ -37,6 +37,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('contratacion');
+        Schema::dropIfExists('contrataciones');
     }
 };

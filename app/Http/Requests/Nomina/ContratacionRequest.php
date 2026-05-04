@@ -25,10 +25,10 @@ class ContratacionRequest extends FormRequest
             'inicio_contratacion' => 'required|date',
             'fin_contrato'        => 'nullable|date|after:inicio_contratacion',
             'status'              => 'boolean',
-            'eps'                 => 'required|integer',
-            'arl_id'              => 'required|integer',
-            'fondo_pensiones'     => 'required|integer',
-            'caja_penciones_id'   => 'required|integer',
+            'eps_id'              => 'required|integer|exists:seguridad_socials,id',
+            'arl_id'              => 'required|integer|exists:seguridad_socials,id',
+            'fondo_pensiones_id'  => 'required|integer|exists:seguridad_socials,id',
+            'caja_pensiones_id'   => 'required|integer|exists:seguridad_socials,id',
         ];
     }
 
@@ -44,10 +44,10 @@ class ContratacionRequest extends FormRequest
             'pago_frecuencia.required'     => 'La frecuencia de pago es obligatoria.',
             'inicio_contratacion.required' => 'La fecha de inicio es obligatoria.',
             'fin_contrato.after'           => 'La fecha de fin debe ser mayor a la de inicio.',
-            'eps.required'                 => 'La EPS es obligatoria.',
+            'eps_id.required'              => 'La EPS es obligatoria.',
             'arl_id.required'              => 'La ARL es obligatoria.',
-            'fondo_pensiones.required'     => 'El fondo de pensiones es obligatorio.',
-            'caja_penciones_id.required'   => 'La caja de compensación es obligatoria.',
+            'fondo_pensiones_id.required'  => 'El fondo de pensiones es obligatorio.',
+            'caja_pensiones_id.required'   => 'La caja de compensación es obligatoria.',
         ];
     }
 }

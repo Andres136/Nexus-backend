@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-    Schema::create('seguridad_social', function (Blueprint $table) {
+    Schema::create('seguridad_socials', function (Blueprint $table) {
         $table->id();
         $table->uuid('uuid')->unique();
         $table->string('nombre', 45);
@@ -30,6 +30,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('seguridad_social');
+        Schema::dropIfExists('seguridad_socials');
     }
 };
