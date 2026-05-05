@@ -176,7 +176,7 @@ foreach ($resultado as &$r) {
     $metaMes        = (float) ($metas[$r['mes']]->valor_meta ?? 0);
     $totalUsuarios  = max(1, (int) ($usuariosConVentasPorMes[$r['mes']]->total_usuarios ?? 1));
     $metaIndividual = round($metaMes / $totalUsuarios, 2);
-
+    $r['meta_mes']       = $metaMes;
     $r['meta_individual']  = $metaIndividual;
     $r['cumplimiento_pct'] = $metaIndividual > 0
         ? round(($r['valor_ventas'] / $metaIndividual) * 100, 2)

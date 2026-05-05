@@ -132,6 +132,30 @@ $carteraGestionadas = (int) DB::table('gestion_cartera as gc')
     ->distinct('gc.id')
     ->count('gc.id');
 
+    // =========================
+// CARTERA: vencidas y gestionadas por mes de vencimiento
+// =========================
+// Vencidas: agrupadas por mes en que venció
+$carteraVencidasByMonth = DB::table('gestion_cartera')
+    ->selectRaw('MONTH(fecha_vencimiento) as mes, COUNT(*) as vencidas')
+    ->where('estado', '!=', 'cancelado')
+    ->where('saldo_pendiente', '>', 0)        // ✅ solo con saldo real
+    ->whereYear('fecha_vencimiento', $year)
+    ->whereDate('fecha_vencimiento', '<', now())
+    ->groupBy('mes')
+    ->pluck('vencidas', 'mes');
+
+// Gestionadas: de esas vencidas, cuántas tienen historial
+$carteraGestionadasByMonth = DB::table('gestion_cartera as gc')
+    ->join('gestion_cartera_historial as gh', 'gc.id', '=', 'gh.gestion_cartera_id')
+    ->selectRaw('MONTH(gc.fecha_vencimiento) as mes, COUNT(DISTINCT gc.id) as gestionadas')
+    ->where('gc.estado', '!=', 'cancelado')
+    ->where('gc.saldo_pendiente', '>', 0)     // ✅ solo con saldo real
+    ->whereYear('gc.fecha_vencimiento', $year)
+    ->whereDate('gc.fecha_vencimiento', '<', now())
+    ->groupBy('mes')
+    ->pluck('gestionadas', 'mes');
+
 $carteraPctGestion = $carteraVencidas > 0
     ? round(($carteraGestionadas / $carteraVencidas) * 100, 2)
     : 0;
@@ -170,7 +194,10 @@ $carteraPctGestion = $carteraVencidas > 0
             $gestionByMonth,
             $perdidosByMonth,
             $fielesPorMes,
-            $ventasPorUsuarioMensual
+            $ventasPorUsuarioMensual,
+            $carteraVencidasByMonth,
+            $carteraGestionadasByMonth
+
         ) {
             $mes = $m['month'];
 
@@ -216,6 +243,12 @@ $funnelCompraToFiel = $compradoresMes > 0
     ? ($clientesFielesMes / $compradoresMes) * 100
     : 0;
 
+    $carteraVencidasMes   = (int) ($carteraVencidasByMonth[$mes] ?? 0);
+$carteraGestionadasMes = (int) ($carteraGestionadasByMonth[$mes] ?? 0);
+$carteraPctMes = $carteraVencidasMes > 0
+    ? round(($carteraGestionadasMes / $carteraVencidasMes) * 100, 2)
+    : 0;
+
             return [
                 'month' => $mes,
                 'label' => $m['label'],
@@ -244,6 +277,11 @@ $funnelCompraToFiel = $compradoresMes > 0
                 'ventas_por_usuario' => ($ventasPorUsuarioMensual[$mes] ?? collect())->values(),
                 'funnel_gestion_to_compra' => round($funnelGestionToCompra, 2),
                 'funnel_compra_to_fiel' => round($funnelCompraToFiel, 2),
+
+                // Cartera
+                'cartera_vencidas' => $carteraVencidasMes,
+                'cartera_gestionadas' => $carteraGestionadasMes,
+                'cartera_pct_gestion' => $carteraPctMes,
             ];
         })->values();
 
