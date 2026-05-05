@@ -3,7 +3,8 @@
 namespace App\Http\Controllers\Nomina;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Nomina\SeguridadSocialRequest;
+use App\Http\Requests\Nomina\StoreSeguridadSocialRequest;
+use App\Http\Requests\Nomina\UpdateSeguridadSocialRequest;
 use App\Services\Nomina\SeguridadSocialService;
 use Illuminate\Http\JsonResponse;
 
@@ -31,7 +32,7 @@ class SeguridadSocialController extends Controller
         ]);
     }
 
-    public function store(SeguridadSocialRequest $request): JsonResponse
+    public function store(StoreSeguridadSocialRequest $request): JsonResponse
     {
         $data = $this->seguridadSocialService->create($request->validated());
         return response()->json([
@@ -41,7 +42,7 @@ class SeguridadSocialController extends Controller
         ], 201);
     }
 
-    public function update(SeguridadSocialRequest $request, int $id): JsonResponse
+    public function update(UpdateSeguridadSocialRequest $request, int $id): JsonResponse
     {
         $data = $this->seguridadSocialService->update($id, $request->validated());
         return response()->json([

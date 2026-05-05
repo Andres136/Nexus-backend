@@ -4,24 +4,19 @@ namespace App\Http\Requests\Nomina;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class SeguridadSocialRequest extends FormRequest
+class StoreSeguridadSocialRequest extends FormRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
+    public function authorize(): bool { return true; }
 
     public function rules(): array
     {
-        $id = $this->route('seguridad_socials');
-
         return [
-            'nombre'      => 'required|string|max:45',
-            'nit'         => 'required|string|max:45|unique:seguridad_socials,nit,' . $id,
-            'direccion'   => 'required|string|max:45',
-            'fecha_inicio'=> 'required|string|max:45',
-            'fecha_fin'   => 'nullable|string|max:45',
-            'status'      => 'nullable|string|max:45',
+            'nombre'       => 'required|string|max:45',
+            'nit'          => 'required|string|max:45|unique:seguridad_socials,nit',
+            'direccion'    => 'required|string|max:45',
+            'fecha_inicio' => 'required|string|max:45',
+            'fecha_fin'    => 'nullable|string|max:45',
+            'status'       => 'nullable|string|max:45',
         ];
     }
 
@@ -37,3 +32,5 @@ class SeguridadSocialRequest extends FormRequest
         ];
     }
 }
+
+

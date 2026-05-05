@@ -3,7 +3,8 @@
 namespace App\Http\Controllers\Nomina;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Nomina\TipoContratoRequest;
+use App\Http\Requests\Nomina\StoreTipoContratoRequest;
+use App\Http\Requests\Nomina\UpdateTipoContratoRequest;
 use App\Services\Nomina\TipoContratoService;
 use Illuminate\Http\JsonResponse;
 
@@ -31,7 +32,7 @@ class TipoContratoController extends Controller
         ]);
     }
 
-    public function store(TipoContratoRequest $request): JsonResponse
+    public function store(StoreTipoContratoRequest $request): JsonResponse
     {
         $data = $this->tipoContratoService->create($request->validated());
         return response()->json([
@@ -41,7 +42,7 @@ class TipoContratoController extends Controller
         ], 201);
     }
 
-    public function update(TipoContratoRequest $request, int $id): JsonResponse
+    public function update(UpdateTipoContratoRequest $request, int $id): JsonResponse
     {
         $data = $this->tipoContratoService->update($id, $request->validated());
         return response()->json([
