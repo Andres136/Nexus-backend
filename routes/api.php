@@ -61,6 +61,7 @@ use App\Http\Controllers\Hseq\TipoServicioController;
 use App\Http\Controllers\IndicadoresProcesosController;
 use App\Http\Controllers\MacroProcesoController;
 use App\Http\Controllers\Nomina\ContratacionController;
+use App\Http\Controllers\Nomina\IncapacidadController;
 use App\Http\Controllers\Nomina\SeguridadSocialController;
 use App\Http\Controllers\Nomina\TipoContratoController;
 use App\Http\Controllers\NotificacionOrdenController;
@@ -462,6 +463,7 @@ Route::prefix('nomina')->group(function () {
     Route::apiResource('tipo-contratos', TipoContratoController::class);
     Route::apiResource('contratacion', ContratacionController::class);
     Route::apiResource('seguridad-social', SeguridadSocialController::class);
+    Route::apiResource('incapacidades', IncapacidadController::class);
 });
 
 });
