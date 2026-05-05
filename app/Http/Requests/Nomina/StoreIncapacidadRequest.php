@@ -6,10 +6,9 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class StoreIncapacidadRequest extends FormRequest
 {
-    // ¿Quién puede hacer esta petición?
     public function authorize(): bool
     {
-        return true; // luego aquí va la lógica de permisos
+        return true;
     }
 
     public function rules(): array
@@ -17,18 +16,14 @@ class StoreIncapacidadRequest extends FormRequest
         return [
             'tipo_incapacidad'    => 'required|string|max:45',
             'identidad_medica_id' => 'required|exists:seguridad_socials,id',
-            // exists: verifica que el id exista en la BD
             'inicio'              => 'required|date',
             'fin'                 => 'required|date|after:inicio',
-            // after: fin debe ser después de inicio
-            'soporte'             => 'required|string|max:45',
+            'soporte'             => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
             'status'              => 'boolean',
-            'user_id'             => 'required|exists:users,id',
-            'user_reviso_id'      => 'required|exists:users,id',
+         
         ];
     }
 
-    // Mensajes personalizados en español
     public function messages(): array
     {
         return [
@@ -38,10 +33,8 @@ class StoreIncapacidadRequest extends FormRequest
             'inicio.required'              => 'La fecha de inicio es obligatoria',
             'fin.required'                 => 'La fecha de fin es obligatoria',
             'fin.after'                    => 'La fecha fin debe ser después del inicio',
-            'soporte.required'             => 'El número de soporte es obligatorio',
-            'user_id.required'             => 'El empleado es obligatorio',
-            'user_id.exists'               => 'El empleado no existe',
-            'user_reviso_id.exists'        => 'El revisor no existe',
+            'soporte.file'                 => 'El soporte debe ser un archivo',
+            'soporte.mimes'                => 'El soporte debe ser PDF o imagen',
         ];
     }
 }

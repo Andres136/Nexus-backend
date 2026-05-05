@@ -4,17 +4,12 @@ namespace App\Http\Requests\Nomina;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class ContratacionRequest extends FormRequest
+class StoreContratacionRequest extends FormRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
+    public function authorize(): bool { return true; }
 
     public function rules(): array
     {
-        $id = $this->route('contratacion');
-
         return [
             'id_contrato'         => 'required|integer|exists:tipo_contratos,id',
             'users_id'            => 'required|integer|exists:users,id',
@@ -45,9 +40,13 @@ class ContratacionRequest extends FormRequest
             'inicio_contratacion.required' => 'La fecha de inicio es obligatoria.',
             'fin_contrato.after'           => 'La fecha de fin debe ser mayor a la de inicio.',
             'eps_id.required'              => 'La EPS es obligatoria.',
+            'eps_id.exists'               => 'La EPS no existe.',
             'arl_id.required'              => 'La ARL es obligatoria.',
+            'arl_id.exists'               => 'La ARL no existe.',
             'fondo_pensiones_id.required'  => 'El fondo de pensiones es obligatorio.',
+            'fondo_pensiones_id.exists'   => 'El fondo de pensiones no existe.',
             'caja_pensiones_id.required'   => 'La caja de compensación es obligatoria.',
+            'caja_pensiones_id.exists'    => 'La caja de compensación no existe.',
         ];
     }
 }

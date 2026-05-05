@@ -7,6 +7,7 @@ use App\Http\Requests\Nomina\StoreIncapacidadRequest;
 use App\Http\Requests\Nomina\UpdateIncapacidadRequest;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class IncapacidadService
 {
@@ -19,7 +20,7 @@ class IncapacidadService
             'empleado',       // trae los datos del empleado
             'revisor',        // trae los datos del revisor
             'entidadMedica',  // trae los datos de la EPS
-        ])->get();
+        ])->paginate(20);
     }
 
     // =====================
@@ -39,24 +40,32 @@ class IncapacidadService
     // CREAR
     // =====================
     public function store(StoreIncapacidadRequest $request): Incapacidad
-    {
-        // DB::transaction: si algo falla, revierte TODO
-        // así nunca quedan datos a medias en la BD
-        return DB::transaction(function () use ($request) {
+{
+    return DB::transaction(function () use ($request) {
 
-            $incapacidad = Incapacidad::create(
-                $request->validated()
-                // validated(): solo toma los campos que pasaron las reglas del Request
-            );
+        $data = $request->validated();
 
-            Log::info('Incapacidad creada', [
-                'id'      => $incapacidad->id,
-                'user_id' => $incapacidad->user_id,
-            ]);
+        // ✅ user_id del usuario autenticado
+       $data['user_id'] = Auth::id(); 
+        // ✅ user_reviso_id null — se llena después en otro endpoint
+        $data['user_reviso_id'] = null;
 
-            return $incapacidad;
-        });
-    }
+        // ✅ Si viene archivo lo guarda
+        if ($request->hasFile('soporte')) {
+            $data['soporte'] = $request->file('soporte')
+                ->store('nomina/incapacidades', 'public');
+        }
+
+        $incapacidad = Incapacidad::create($data);
+
+        Log::info('Incapacidad creada', [
+            'id'      => $incapacidad->id,
+            'user_id' => $incapacidad->user_id,
+        ]);
+
+        return $incapacidad;
+    });
+}
 
     // =====================
     // ACTUALIZAR

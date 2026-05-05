@@ -6,9 +6,6 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('incapacidades', function (Blueprint $table) {
@@ -18,18 +15,15 @@ return new class extends Migration
             $table->foreignId('identidad_medica_id')->constrained('seguridad_socials');
             $table->date('inicio');
             $table->date('fin');
-            $table->string('soporte', 45);
+            $table->string('soporte', 500)->nullable(); // ✅ sin change(), 500 chars
             $table->boolean('status')->default(true);
             $table->foreignId('user_id')->constrained('users');
-            $table->foreignId('user_reviso_id')->constrained('users');
+            $table->foreignId('user_reviso_id')->nullable()->constrained('users'); // ✅ nullable
             $table->timestamps();
-            $table->softDeletes(); 
+            $table->softDeletes();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('incapacidades');

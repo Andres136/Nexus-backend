@@ -3,7 +3,8 @@
 namespace App\Http\Controllers\Nomina;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Nomina\ContratacionRequest;
+use App\Http\Requests\Nomina\StoreContratacionRequest;
+use App\Http\Requests\Nomina\UpdateContratacionRequest;
 use App\Services\Nomina\ContratacionService;
 use Illuminate\Http\JsonResponse;
 
@@ -31,7 +32,7 @@ class ContratacionController extends Controller
         ]);
     }
 
-    public function store(ContratacionRequest $request): JsonResponse
+    public function store(StoreContratacionRequest $request): JsonResponse
     {
         $data = $this->contratacionService->create($request->validated());
         return response()->json([
@@ -41,7 +42,7 @@ class ContratacionController extends Controller
         ], 201);
     }
 
-    public function update(ContratacionRequest $request, int $id): JsonResponse
+    public function update(UpdateContratacionRequest $request, int $id): JsonResponse
     {
         $data = $this->contratacionService->update($id, $request->validated());
         return response()->json([
