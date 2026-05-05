@@ -79,20 +79,32 @@ class ComercialDashboardService
 
         // 5️⃣ Cartera: totales globales por usuario (no por mes de vencimiento)
         //    Se adjunta a todos los meses del usuario como dato de estado actual
-        $carteraPorUsuario = DB::table('gestion_cartera as gc')
-            ->join('users', 'gc.user_comercial_id', '=', 'users.id')
-            ->leftJoin('gestion_cartera_historial as gh', 'gc.id', '=', 'gh.gestion_cartera_id')
-            ->select(
-                'users.id as user_id',
-                DB::raw('COUNT(DISTINCT gc.id) as cartera_vencidas'),
-                DB::raw('COUNT(DISTINCT gh.gestion_cartera_id) as cartera_gestionadas')
-            )
-            ->where('gc.estado', '!=', 'cancelado')
-            ->whereDate('gc.fecha_vencimiento', '<', now())
-            ->when($userId, fn ($q) => $q->where('gc.user_comercial_id', $userId))
-            ->groupBy('users.id')
-            ->get()
-            ->keyBy('user_id');
+   // 5️⃣ Cartera por usuario
+// Denominador FIJO — vencidas por usuario hasta hoy
+$carteraPorUsuario = DB::table('gestion_cartera as gc')
+    ->join('users', 'gc.user_comercial_id', '=', 'users.id')
+    ->select(
+        'users.id as user_id',
+        DB::raw('COUNT(DISTINCT gc.id) as cartera_vencidas')
+    )
+    ->where('gc.estado', '!=', 'cancelado')
+    ->whereDate('gc.fecha_vencimiento', '<', now())
+    ->when($userId, fn ($q) => $q->where('gc.user_comercial_id', $userId))
+    ->groupBy('users.id')
+    ->get()
+    ->keyBy('user_id');
+
+// Gestionadas POR MES por usuario — cuándo gestionó cada uno
+$carteraGestionadasPorUsuarioMes = DB::table('gestion_cartera as gc')
+    ->join('gestion_cartera_historial as gh', 'gc.id', '=', 'gh.gestion_cartera_id')
+    ->join('users', 'gc.user_comercial_id', '=', 'users.id')
+    ->selectRaw('users.id as user_id, DATE_FORMAT(gh.created_at, "%Y-%m") as mes, COUNT(DISTINCT gc.id) as gestionadas')
+    ->where('gc.estado', '!=', 'cancelado')
+    ->whereDate('gc.fecha_vencimiento', '<', now()) // solo sobre vencidas
+    ->when($userId, fn ($q) => $q->where('gc.user_comercial_id', $userId))
+    ->groupBy('users.id', 'mes')
+    ->get()
+    ->groupBy('user_id');
 
         // 6️⃣ Metas mensuales
         $metas = DB::table('meta_mensuals')
@@ -165,12 +177,21 @@ $usuariosConVentasPorMes = DB::table('orden__compras')
         // 9️⃣ Adjuntar cartera + meta + KPIs a cada entrada
 foreach ($resultado as &$r) {
     // Cartera
+
+        // Vencidas fijas del usuario
     $c = $carteraPorUsuario[$r['user_id']] ?? null;
-    $r['cartera_vencidas']    = $c ? (int)   $c->cartera_vencidas    : 0;
-    $r['cartera_gestionadas'] = $c ? (int)   $c->cartera_gestionadas : 0;
-    $r['cartera_pct_gestion'] = $r['cartera_vencidas'] > 0
-        ? round(($r['cartera_gestionadas'] / $r['cartera_vencidas']) * 100, 2)
+    $vencidas = $c ? (int) $c->cartera_vencidas : 0;
+
+    // Gestionadas de ese usuario en ese mes específico
+    $gestionadasMes = collect($carteraGestionadasPorUsuarioMes[$r['user_id']] ?? [])
+        ->firstWhere('mes', $r['mes']);
+    $gestionadas = $gestionadasMes ? (int) $gestionadasMes->gestionadas : 0;
+   $r['cartera_vencidas']    = $vencidas;
+    $r['cartera_gestionadas'] = $gestionadas;
+    $r['cartera_pct_gestion'] = $vencidas > 0
+        ? round(($gestionadas / $vencidas) * 100, 2)
         : 0;
+
 
     // ✅ Meta dividida entre TODOS los que vendieron ese mes
     $metaMes        = (float) ($metas[$r['mes']]->valor_meta ?? 0);
