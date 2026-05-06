@@ -12,7 +12,7 @@ class StoreUsersFacePhotoRequest extends FormRequest
     {
         return [
             'users_id' => 'required|exists:users,id',
-            'photo'    => 'required|integer',
+            'photo'    => 'required|image|mimes:jpg,jpeg,png|max:5120',
         ];
     }
 
@@ -22,7 +22,9 @@ class StoreUsersFacePhotoRequest extends FormRequest
             'users_id.required' => 'El empleado es obligatorio.',
             'users_id.exists'   => 'El empleado no existe.',
             'photo.required'    => 'La foto es obligatoria.',
-            'photo.integer'     => 'La foto debe ser un valor entero.',
+            'photo.image'       => 'El archivo debe ser una imagen.',
+            'photo.mimes'       => 'La imagen debe ser jpg, jpeg o png.',
+            'photo.max'         => 'La imagen no puede superar 5MB.',
         ];
     }
 }

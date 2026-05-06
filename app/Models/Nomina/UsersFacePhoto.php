@@ -19,7 +19,7 @@ class UsersFacePhoto extends Model
     ];
 
     protected $casts = [
-        'photo' => 'integer',
+        'photo' => 'string',
     ];
 
     protected static function booted(): void
