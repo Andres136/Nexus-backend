@@ -66,6 +66,10 @@ use App\Http\Controllers\Nomina\IncapacidadController;
 use App\Http\Controllers\Nomina\JornadaLaboralController;
 use App\Http\Controllers\Nomina\SeguridadSocialController;
 use App\Http\Controllers\Nomina\TipoContratoController;
+use App\Http\Controllers\Nomina\HorarioLaboralController;
+use App\Http\Controllers\Nomina\KioskoDeviceController;
+use App\Http\Controllers\Nomina\TipoRegistroController;
+use App\Http\Controllers\Nomina\UsersFacePhotoController;
 use App\Http\Controllers\Nomina\ValorController;
 use App\Http\Controllers\NotificacionOrdenController;
 use App\Http\Controllers\PermissionController;
@@ -469,7 +473,11 @@ Route::prefix('nomina')->group(function () {
     Route::apiResource('incapacidades', IncapacidadController::class);
     Route::apiResource('descuentos', DescuentoController::class);
     Route::apiResource('jornada-laborals', JornadaLaboralController::class);
-    Route::apiResource('valores',         ValorController::class); 
+    Route::apiResource('valores',         ValorController::class);
+    Route::apiResource('tipo-registros',      TipoRegistroController::class);
+    Route::apiResource('users-face-photos',   UsersFacePhotoController::class);
+    Route::apiResource('kiosko-devices',      KioskoDeviceController::class);
+    Route::apiResource('horario-laboral',     HorarioLaboralController::class);
 
 });
 

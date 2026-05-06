@@ -38,9 +38,9 @@ class DescuentoService
             $data = $request->validated();
 
             // user_id del usuario autenticado
-            $data['user_id'] = Auth::id();
+          
 
-            $descuento = Descuento::create($data);
+            $descuento = Descuento::create($request->validated());
 
             Log::info('Descuento creado', [
                 'id'      => $descuento->id,
