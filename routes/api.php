@@ -61,9 +61,12 @@ use App\Http\Controllers\Hseq\TipoServicioController;
 use App\Http\Controllers\IndicadoresProcesosController;
 use App\Http\Controllers\MacroProcesoController;
 use App\Http\Controllers\Nomina\ContratacionController;
+use App\Http\Controllers\Nomina\DescuentoController;
 use App\Http\Controllers\Nomina\IncapacidadController;
+use App\Http\Controllers\Nomina\JornadaLaboralController;
 use App\Http\Controllers\Nomina\SeguridadSocialController;
 use App\Http\Controllers\Nomina\TipoContratoController;
+use App\Http\Controllers\Nomina\ValorController;
 use App\Http\Controllers\NotificacionOrdenController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PqrController;
@@ -464,6 +467,10 @@ Route::prefix('nomina')->group(function () {
     Route::apiResource('contratacion', ContratacionController::class);
     Route::apiResource('seguridad-social', SeguridadSocialController::class);
     Route::apiResource('incapacidades', IncapacidadController::class);
+    Route::apiResource('descuentos', DescuentoController::class);
+    Route::apiResource('jornada-laborals', JornadaLaboralController::class);
+    Route::apiResource('valores',         ValorController::class); 
+
 });
 
 });
