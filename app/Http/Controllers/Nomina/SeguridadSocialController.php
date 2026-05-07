@@ -7,6 +7,7 @@ use App\Http\Requests\Nomina\StoreSeguridadSocialRequest;
 use App\Http\Requests\Nomina\UpdateSeguridadSocialRequest;
 use App\Services\Nomina\SeguridadSocialService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class SeguridadSocialController extends Controller
 {
@@ -14,18 +15,26 @@ class SeguridadSocialController extends Controller
         private SeguridadSocialService $seguridadSocialService
     ) {}
 
-    public function index(): JsonResponse
-    {
-        $data = $this->seguridadSocialService->getAll();
-        return response()->json([
-            'success' => true,
-            'data'    => $data,
-        ]);
-    }
+public function index(Request $request): JsonResponse
+{
+    $filters = [
+        'search'       => $request->get('search'),
+        'fecha_inicio' => $request->get('fecha_inicio'),
+        'fecha_fin'    => $request->get('fecha_fin'),
+        'per_page'     => $request->get('per_page', 10),
+    ];
 
-    public function show(int $id): JsonResponse
+    $data = $this->seguridadSocialService->getAll($filters);
+
+    return response()->json([
+        'success' => true,
+        'data'    => $data,
+    ]);
+}
+
+    public function show(string $uuid): JsonResponse
     {
-        $data = $this->seguridadSocialService->getById($id);
+        $data = $this->seguridadSocialService->getById($uuid);
         return response()->json([
             'success' => true,
             'data'    => $data,
@@ -42,9 +51,9 @@ class SeguridadSocialController extends Controller
         ], 201);
     }
 
-    public function update(UpdateSeguridadSocialRequest $request, int $id): JsonResponse
+    public function update(UpdateSeguridadSocialRequest $request, string $uuid): JsonResponse
     {
-        $data = $this->seguridadSocialService->update($id, $request->validated());
+        $data = $this->seguridadSocialService->update($uuid, $request->validated());
         return response()->json([
             'success' => true,
             'message' => 'Seguridad social actualizada correctamente.',
@@ -52,9 +61,9 @@ class SeguridadSocialController extends Controller
         ]);
     }
 
-    public function destroy(int $id): JsonResponse
+    public function destroy(string $uuid): JsonResponse
     {
-        $this->seguridadSocialService->delete($id);
+        $this->seguridadSocialService->delete($uuid);
         return response()->json([
             'success' => true,
             'message' => 'Seguridad social eliminada correctamente.',

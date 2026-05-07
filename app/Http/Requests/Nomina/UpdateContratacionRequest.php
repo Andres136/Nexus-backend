@@ -18,7 +18,8 @@ class UpdateContratacionRequest extends FormRequest
             'auxilio_transporte'  => 'nullable|numeric|min:0',
             'pago_frecuencia'     => 'sometimes|integer',
             'inicio_contratacion' => 'sometimes|date',
-            'fin_contrato'        => 'nullable|date|after:inicio_contratacion',
+            'fin_contrato'        => 'required|date|after:inicio_contratacion',
+        
             'status'              => 'boolean',
             'eps_id'              => 'sometimes|integer|exists:seguridad_socials,id',
             'arl_id'              => 'sometimes|integer|exists:seguridad_socials,id',
@@ -32,6 +33,7 @@ class UpdateContratacionRequest extends FormRequest
         return [
             'id_contrato.exists'           => 'El tipo de contrato no existe.',
             'users_id.exists'              => 'El usuario no existe.',
+            'fin_contrato.required'=> 'La fecha fin  del contrato es obligatoria.',
             'fin_contrato.after'           => 'La fecha de fin debe ser mayor a la de inicio.',
             'eps_id.exists'                => 'La EPS no existe.',
             'arl_id.exists'                => 'La ARL no existe.',

@@ -30,4 +30,9 @@ class TipoContrato extends Model
             $model->uuid = Str::uuid();
         });
     }
+
+    public function contrataciones()
+    {
+        return $this->hasMany(Contratacion::class, 'id_contrato');
+    }
 }

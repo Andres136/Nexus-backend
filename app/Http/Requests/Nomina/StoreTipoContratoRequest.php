@@ -11,8 +11,7 @@ class StoreTipoContratoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nombre'      => 'required|string|max:100',
-            'codigo'      => 'required|string|max:20|unique:tipo_contratos,codigo',
+            'nombre'      => 'required|unique:tipo_contratos,nombre|max:100',
             'descripcion' => 'nullable|string',
             'activo'      => 'boolean',
         ];
@@ -21,11 +20,10 @@ class StoreTipoContratoRequest extends FormRequest
     public function messages(): array
     {
         return [
+     
             'nombre.required' => 'El nombre es obligatorio.',
+            'nombre.unique'   => 'Este nombre ya existe.',
             'nombre.max'      => 'El nombre no puede superar 100 caracteres.',
-            'codigo.required' => 'El código es obligatorio.',
-            'codigo.unique'   => 'Este código ya existe.',
-            'codigo.max'      => 'El código no puede superar 20 caracteres.',
         ];
     }
 }

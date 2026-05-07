@@ -2,6 +2,7 @@
 
 namespace App\Models\Nomina;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
@@ -53,6 +54,37 @@ class Contratacion extends Model
 
     public function usuario()
     {
-        return $this->belongsTo(\App\Models\User::class, 'users_id');
+        return $this->belongsTo(User::class, 'users_id');
+    }
+
+    public function eps()
+    {
+        return $this->belongsTo(SeguridadSocial::class, 'eps_id');
+    }
+      // ARL
+    public function arl()
+    {
+        return $this->belongsTo(
+            \App\Models\Nomina\SeguridadSocial::class,
+            'arl_id'
+        )->withTrashed();
+    }
+
+    // 🔥 Fondo pensión
+    public function fondoPensiones()
+    {
+        return $this->belongsTo(
+            \App\Models\Nomina\SeguridadSocial::class,
+            'fondo_pensiones_id'
+        )->withTrashed();
+    }
+
+    // 🔥 Caja pensión
+    public function cajaPensiones()
+    {
+        return $this->belongsTo(
+            \App\Models\Nomina\SeguridadSocial::class,
+            'caja_pensiones_id'
+        )->withTrashed();
     }
 }

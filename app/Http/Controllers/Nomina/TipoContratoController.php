@@ -23,9 +23,9 @@ class TipoContratoController extends Controller
         ]);
     }
 
-    public function show(int $id): JsonResponse
+    public function show(string $uuid): JsonResponse
     {
-        $data = $this->tipoContratoService->getById($id);
+        $data = $this->tipoContratoService->getById($uuid);
         return response()->json([
             'success' => true,
             'data'    => $data,
@@ -42,9 +42,9 @@ class TipoContratoController extends Controller
         ], 201);
     }
 
-    public function update(UpdateTipoContratoRequest $request, int $id): JsonResponse
+    public function update(UpdateTipoContratoRequest $request, string $uuid): JsonResponse
     {
-        $data = $this->tipoContratoService->update($id, $request->validated());
+        $data = $this->tipoContratoService->update($uuid, $request->validated());
         return response()->json([
             'success' => true,
             'message' => 'Tipo de contrato actualizado correctamente.',
@@ -52,9 +52,9 @@ class TipoContratoController extends Controller
         ]);
     }
 
-    public function destroy(int $id): JsonResponse
+    public function destroy(string $uuid): JsonResponse
     {
-        $this->tipoContratoService->delete($id);
+        $this->tipoContratoService->delete($uuid);
         return response()->json([
             'success' => true,
             'message' => 'Tipo de contrato eliminado correctamente.',

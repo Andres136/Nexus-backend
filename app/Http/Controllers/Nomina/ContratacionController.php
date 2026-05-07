@@ -7,6 +7,7 @@ use App\Http\Requests\Nomina\StoreContratacionRequest;
 use App\Http\Requests\Nomina\UpdateContratacionRequest;
 use App\Services\Nomina\ContratacionService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class ContratacionController extends Controller
 {
@@ -14,18 +15,26 @@ class ContratacionController extends Controller
         private ContratacionService $contratacionService
     ) {}
 
-    public function index(): JsonResponse
-    {
-        $data = $this->contratacionService->getAll();
-        return response()->json([
-            'success' => true,
-            'data'    => $data,
-        ]);
-    }
+public function index(Request $request): JsonResponse
+{
+    $filters = [
+        'search'       => $request->query('search'),
+        'fecha_inicio' => $request->query('fecha_inicio'),
+        'fecha_fin'    => $request->query('fecha_fin'),
+        'per_page'     => $request->query('per_page', 10),
+    ];
 
-    public function show(int $id): JsonResponse
+    $data = $this->contratacionService->getAll($filters);
+
+    return response()->json([
+        'success' => true,
+        'data'    => $data,
+    ]);
+}
+
+    public function show(string $uuid): JsonResponse
     {
-        $data = $this->contratacionService->getById($id);
+        $data = $this->contratacionService->getByUuid($uuid);
         return response()->json([
             'success' => true,
             'data'    => $data,
@@ -42,9 +51,9 @@ class ContratacionController extends Controller
         ], 201);
     }
 
-    public function update(UpdateContratacionRequest $request, int $id): JsonResponse
+    public function update(UpdateContratacionRequest $request, string $uuid): JsonResponse
     {
-        $data = $this->contratacionService->update($id, $request->validated());
+        $data = $this->contratacionService->update($uuid, $request->validated());
         return response()->json([
             'success' => true,
             'message' => 'Contratación actualizada correctamente.',
@@ -52,9 +61,9 @@ class ContratacionController extends Controller
         ]);
     }
 
-    public function destroy(int $id): JsonResponse
+    public function destroy(string $uuid): JsonResponse
     {
-        $this->contratacionService->delete($id);
+        $this->contratacionService->delete($uuid);
         return response()->json([
             'success' => true,
             'message' => 'Contratación eliminada correctamente.',

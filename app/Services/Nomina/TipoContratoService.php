@@ -4,6 +4,7 @@ namespace App\Services\Nomina;
 
 use App\Models\Nomina\TipoContrato;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 class TipoContratoService
 {
@@ -12,26 +13,50 @@ class TipoContratoService
         return TipoContrato::where('activo', true)->get();
     }
 
-    public function getById(int $id): TipoContrato
+    public function getById(string $uuid): TipoContrato
     {
-        return TipoContrato::findOrFail($id);
+        return TipoContrato::where('uuid', $uuid)->firstOrFail();
     }
 
-    public function create(array $data): TipoContrato
-    {
-        return TipoContrato::create($data);
-    }
+ public function create(array $data): TipoContrato
+{
+    $codigo = strtoupper(
+        $data['codigo'] ??
+        Str::slug(substr($data['nombre'], 0, 3), '')
+    );
 
-    public function update(int $id, array $data): TipoContrato
-    {
-        $tipoContrato = TipoContrato::findOrFail($id);
-        $tipoContrato->update($data);
-        return $tipoContrato;
-    }
+    return TipoContrato::create([
+        'nombre'      => $data['nombre'],
+        'codigo'      => $codigo,
+        'descripcion' => $data['descripcion'] ?? null,
+        'activo'      => $data['activo'] ?? true,
+    ]);
+}
 
-    public function delete(int $id): void
+public function update(string $uuid, array $data): TipoContrato
+{
+    $tipoContrato = TipoContrato::where('uuid', $uuid)
+        ->firstOrFail();
+
+    $codigo = strtoupper(
+        $data['codigo'] ??
+        $tipoContrato->codigo ??
+        Str::slug(substr($data['nombre'], 0, 3), '')
+    );
+
+    $tipoContrato->update([
+        'nombre'      => $data['nombre'] ?? $tipoContrato->nombre,
+        'codigo'      => $codigo,
+        'descripcion' => $data['descripcion'] ?? $tipoContrato->descripcion,
+        'activo'      => $data['activo'] ?? $tipoContrato->activo,
+    ]);
+
+    return $tipoContrato->fresh();
+}
+
+    public function delete(string $uuid): void
     {
-        $tipoContrato = TipoContrato::findOrFail($id);
+        $tipoContrato = TipoContrato::where('uuid', $uuid)->firstOrFail();
         $tipoContrato->delete();
     }
 }
