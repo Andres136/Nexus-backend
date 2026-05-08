@@ -72,6 +72,7 @@ use App\Http\Controllers\Nomina\KioskoDeviceController;
 use App\Http\Controllers\Nomina\TipoRegistroController;
 use App\Http\Controllers\Nomina\UsersFacePhotoController;
 use App\Http\Controllers\Nomina\ValorController;
+use App\Http\Controllers\Nomina\WorkSessionController;
 use App\Http\Controllers\NotificacionOrdenController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PqrController;
@@ -481,6 +482,7 @@ Route::prefix('nomina')->group(function () {
     Route::apiResource('horario-laboral',          HorarioLaboralController::class);
     Route::apiResource('transacional-registros',   TransacionalRegistroController::class);
     Route::get('transacional-registros/user/{userId}', [TransacionalRegistroController::class, 'byUser']);
+     Route::apiResource('work-sessions',    WorkSessionController::class);
 
 });
 
