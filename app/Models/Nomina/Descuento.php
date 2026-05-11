@@ -21,6 +21,9 @@ class Descuento extends Model
         'fin',
         'status',
         'concepto_descuento',
+        'numero_cuotas',
+        'valor_cuota',
+        'frecuencia_pago',
     ];
 
     protected $casts = [
@@ -28,6 +31,7 @@ class Descuento extends Model
         'fin'     => 'date',
         'status'  => 'boolean',
         'monto'   => 'decimal:2',
+        'valor_cuota' => 'decimal:2',
         'uuid'    => 'string',
     ];
 
@@ -44,4 +48,7 @@ class Descuento extends Model
     {
         return $this->belongsTo(\App\Models\User::class, 'user_id');
     }
+
+
+  
 }

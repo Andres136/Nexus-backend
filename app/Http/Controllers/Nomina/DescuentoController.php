@@ -7,6 +7,7 @@ use App\Http\Requests\Nomina\StoreDescuentoRequest;
 use App\Http\Requests\Nomina\UpdateDescuentoRequest;
 use App\Services\Nomina\DescuentoService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class DescuentoController extends Controller
@@ -16,20 +17,32 @@ class DescuentoController extends Controller
     ) {}
 
     // GET /descuentos
-    public function index(): JsonResponse
-    {
-        try {
-            $descuentos = $this->descuentoService->getAll();
 
-            return response()->json([
-                'success' => true,
-                'data'    => $descuentos,
-            ], 200);
+public function index(Request $request): JsonResponse
+{
+    try {
 
-        } catch (\Exception $e) {
-            return $this->errorResponse($e);
-        }
+        $filters = [
+            'search'            => $request->get('search'),
+            'user_id'           => $request->get('user_id'),
+            'tipo_descuento_id' => $request->get('tipo_descuento_id'),
+            'status'            => $request->get('status'),
+            'fecha_inicio'      => $request->get('fecha_inicio'),
+            'fecha_fin'         => $request->get('fecha_fin'),
+            'per_page'          => $request->get('per_page', 20),
+        ];
+
+        $descuentos = $this->descuentoService->getAll($filters);
+
+        return response()->json([
+            'success' => true,
+            'data'    => $descuentos,
+        ], 200);
+
+    } catch (\Exception $e) {
+        return $this->errorResponse($e);
     }
+}
 
     // GET /descuentos/{uuid}
     public function show(string $uuid): JsonResponse       // ← int $id → string $uuid
@@ -48,21 +61,24 @@ class DescuentoController extends Controller
     }
 
     // POST /descuentos
-    public function store(StoreDescuentoRequest $request): JsonResponse
-    {
-        try {
-            $descuento = $this->descuentoService->store($request);
+ // CONTROLLER
+public function store(StoreDescuentoRequest $request): JsonResponse
+{
+    try {
+        $descuento = $this->descuentoService->store(
+            $request->validated()
+        );
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Descuento creado exitosamente',
-                'data'    => $descuento,
-            ], 201);
+        return response()->json([
+            'success' => true,
+            'message' => 'Descuento creado exitosamente',
+          //  'data' => $descuento,
+        ], 201);
 
-        } catch (\Exception $e) {
-            return $this->errorResponse($e);
-        }
+    } catch (\Exception $e) {
+        return $this->errorResponse($e);
     }
+}
 
     // PUT /descuentos/{uuid}
     public function update(UpdateDescuentoRequest $request, string $uuid): JsonResponse  

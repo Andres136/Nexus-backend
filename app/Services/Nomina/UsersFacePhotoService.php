@@ -42,7 +42,7 @@ class UsersFacePhotoService
             $facePhoto = UsersFacePhoto::create($data);
 
             Log::info('Foto facial registrada', [
-                'uuid'     => $facePhoto->uuid,                    // ← 'id' → 'uuid'
+                'uuid'     => $facePhoto->uuid,                    
                 'users_id' => $facePhoto->users_id,
             ]);
 
@@ -50,11 +50,10 @@ class UsersFacePhotoService
         });
     }
 
-    public function update(UpdateUsersFacePhotoRequest $request, string $uuid): UsersFacePhoto  // ← int $id → string $uuid
+    public function update(UpdateUsersFacePhotoRequest $request, string $uuid): UsersFacePhoto  
     {
         return DB::transaction(function () use ($request, $uuid) {
-            $facePhoto = $this->getByUuid($uuid);                  // ← getById($id) → getByUuid($uuid)
-            $data      = $request->validated();
+            $facePhoto = $this->getByUuid($uuid);                  
 
             if ($request->hasFile('photo')) {
                 if ($facePhoto->photo) {
@@ -66,16 +65,16 @@ class UsersFacePhotoService
 
             $facePhoto->update($data);
 
-            Log::info('Foto facial actualizada', ['uuid' => $facePhoto->uuid]);  // ← 'id' → 'uuid'
+            Log::info('Foto facial actualizada', ['uuid' => $facePhoto->uuid]);  
 
-            return $facePhoto->fresh('empleado');                  // ← agregado fresh() con relación
+            return $facePhoto->fresh('empleado');                  
         });
     }
 
-    public function delete(string $uuid): void                     // ← int $id → string $uuid
+    public function delete(string $uuid): void                 
     {
         DB::transaction(function () use ($uuid) {
-            $facePhoto = $this->getByUuid($uuid);                  // ← getById($id) → getByUuid($uuid)
+            $facePhoto = $this->getByUuid($uuid);                  
 
             if ($facePhoto->photo) {
                 Storage::disk('public')->delete($facePhoto->photo);
@@ -83,7 +82,7 @@ class UsersFacePhotoService
 
             $facePhoto->delete();
 
-            Log::info('Foto facial eliminada', ['uuid' => $facePhoto->uuid]);  // ← 'id' → 'uuid'
+            Log::info('Foto facial eliminada', ['uuid' => $facePhoto->uuid]); 
         });
     }
 }

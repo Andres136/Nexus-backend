@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Nomina;
 
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\Exceptions\HttpResponseException;
 
 class UpdateDescuentoRequest extends FormRequest
 {
@@ -30,5 +32,16 @@ class UpdateDescuentoRequest extends FormRequest
             'fin.after'              => 'La fecha fin debe ser después del inicio',
             'concepto_descuento.max' => 'El concepto no puede superar 45 caracteres',
         ];
+    }
+
+    protected function failedValidation(Validator $validator): void
+    {
+        throw new HttpResponseException(
+            response()->json([
+                'success' => false,
+                'message' => 'Error de validación',
+                'errors'  => $validator->errors(),
+            ], 422)
+        );
     }
 }

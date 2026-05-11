@@ -5,84 +5,243 @@ namespace App\Services\Nomina;
 use App\Models\Nomina\Incapacidad;
 use App\Http\Requests\Nomina\StoreIncapacidadRequest;
 use App\Http\Requests\Nomina\UpdateIncapacidadRequest;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class IncapacidadService
 {
     // =====================
     // TRAER TODAS
     // =====================
-    public function getAll()
-    {
-        return Incapacidad::with([
-            'empleado',
-            'revisor',
-            'entidadMedica',
-        ])->paginate(20);
+public function getAll(array $filters = [])
+{
+    $query = Incapacidad::with([
+        'empleado.sede',
+        'revisor',
+        'entidadMedica',
+     
+    ]);
+
+    // Search
+    if (!empty($filters['search'])) {
+        $search = $filters['search'];
+
+        $query->where(function ($q) use ($search) {
+            $q->where('tipo_incapacidad', 'like', "%{$search}%")
+              ->orWhereHas('empleado', function ($empleado) use ($search) {
+                  $empleado->where('name', 'like', "%{$search}%");
+              });
+        });
     }
 
-    // =====================
+    // Usuario
+    if (!empty($filters['user_id'])) {
+        $query->where('user_id', $filters['user_id']);
+    }
+
+    // Estado
+    if (isset($filters['status']) && $filters['status'] !== '') {
+        $query->where('status', $filters['status']);
+    }
+
+    $query->orderByDesc('created_at');
+
+    $perPage = $filters['per_page'] ?? 20;
+
+    $incapacidades = $query->paginate($perPage);
+
+    // Transformar resultados
+    $incapacidades->getCollection()->transform(function ($item) {
+
+        // URL completa PDF
+        $item->soporte_url = $item->soporte
+            ? asset('storage/' . $item->soporte)
+            : null;
+
+        // Estado automático según fecha fin
+        $item->estado_actual = now()->gt($item->fin)
+            ? 'finalizada'
+            : 'activa';
+
+        // Opcional: actualizar campo status en memoria
+        $item->status = now()->gt($item->fin)
+            ? false
+            : true;
+
+        return $item;
+    });
+
+    return $incapacidades;
+} // =====================
     // TRAER UNA
     // =====================
-    public function getByUuid(string $uuid): Incapacidad  
-    {
-        return Incapacidad::with([
-            'empleado',
-            'revisor',
-            'entidadMedica',
-        ])
-        ->where('uuid', $uuid)   
-        ->firstOrFail();
-    }
+public function getByUuid(string $uuid): Incapacidad
+{
+    $incapacidad = Incapacidad::with([
+        'empleado',
+        'revisor',
+        'entidadMedica',
+    ])
+    ->where('uuid', $uuid)
+    ->firstOrFail();
+
+    // URL pública del PDF
+    $incapacidad->soporte_url = $incapacidad->soporte
+        ? asset('storage/' . $incapacidad->soporte)
+        : null;
+
+    // Estado automático
+    $incapacidad->estado_actual = now()->gt($incapacidad->fin)
+        ? 'finalizada'
+        : 'activa';
+
+    // Estado booleano sincronizado
+    $incapacidad->status = now()->gt($incapacidad->fin)
+        ? false
+        : true;
+
+    return $incapacidad;
+}
 
     // =====================
     // CREAR
     // =====================
-    public function store(StoreIncapacidadRequest $request): Incapacidad
-    {
-        return DB::transaction(function () use ($request) {
+ // SERVICE
+public function store(array $data, $soporte = null): Incapacidad
+{
+    return DB::transaction(function () use ($data, $soporte) {
 
-            $data = $request->validated();
+        $data['user_id'] = Auth::id();
+        $data['user_reviso_id'] = null;
 
-            $data['user_id']       = Auth::id();
-            $data['user_reviso_id'] = null;
+        // Estado automático
+        $data['status'] = Carbon::parse($data['fin'])->isFuture();
 
-            if ($request->hasFile('soporte')) {
-                $data['soporte'] = $request->file('soporte')
-                    ->store('nomina/incapacidades', 'public');
-            }
+        // Guardar PDF
+        if ($soporte instanceof \Illuminate\Http\UploadedFile) {
+            $data['soporte'] = $soporte->store(
+                'nomina/incapacidades',
+                'public'
+            );
+        }
 
-            $incapacidad = Incapacidad::create($data);
+        $incapacidad = Incapacidad::create($data);
 
-            Log::info('Incapacidad creada', [
-                'uuid'    => $incapacidad->uuid,   
-                'user_id' => $incapacidad->user_id,
-            ]);
+        Log::info('Incapacidad creada', [
+            'uuid'    => $incapacidad->uuid,
+            'user_id' => $incapacidad->user_id,
+        ]);
 
-            return $incapacidad;
-        });
-    }
+        $incapacidad = $incapacidad->fresh([
+            'empleado.sede',
+            'revisor',
+            'entidadMedica',
+        ]);
+
+        // URL pública
+        $incapacidad->soporte_url = $incapacidad->soporte
+            ? asset('storage/' . $incapacidad->soporte)
+            : null;
+
+        // Estado visual
+        $incapacidad->estado_actual = now()->gt($incapacidad->fin)
+            ? 'finalizada'
+            : 'activa';
+
+        return $incapacidad;
+    });
+}
 
     // =====================
     // ACTUALIZAR
     // =====================
-    public function update(UpdateIncapacidadRequest $request, string $uuid): Incapacidad  
+    public function update(string $uuid, array $data): Incapacidad
+{
+    return DB::transaction(function () use ($uuid, $data) {
+
+        // Buscar limpio SIN mutaciones extras
+        $incapacidad = Incapacidad::where('uuid', $uuid)->firstOrFail();
+
+        // Eliminar campos virtuales
+        unset($data['soporte_url']);
+
+        // Si llega nuevo PDF
+        if (
+            isset($data['soporte']) &&
+            $data['soporte'] instanceof \Illuminate\Http\UploadedFile
+        ) {
+
+            // Borrar PDF anterior
+            if (
+                $incapacidad->soporte &&
+                Storage::disk('public')->exists($incapacidad->soporte)
+            ) {
+                Storage::disk('public')->delete($incapacidad->soporte);
+            }
+
+            // Guardar nuevo
+            $data['soporte'] = $data['soporte']->store(
+                'nomina/incapacidades',
+                'public'
+            );
+        } else {
+            // Si no suben nuevo archivo, no tocar soporte
+            unset($data['soporte']);
+        }
+
+        // Estado automático según fecha fin
+        if (isset($data['fin'])) {
+            $data['status'] = Carbon::parse($data['fin'])->isFuture();
+        }
+
+        Log::info('Datos update incapacidad', $data);
+
+        // Actualizar
+        $incapacidad->fill($data);
+        $incapacidad->save();
+
+        // Recargar relaciones
+        $incapacidad = $incapacidad->fresh([
+            'empleado',
+            'revisor',
+            'entidadMedica',
+        ]);
+
+        // URL pública
+        $incapacidad->soporte_url = $incapacidad->soporte
+            ? asset('storage/' . $incapacidad->soporte)
+            : null;
+
+        return $incapacidad;
+    });
+}
+    // =====================
+    // REVISAR DOCUMENTO
+    // =====================
+    public function revisar(string $uuid): Incapacidad
     {
-        return DB::transaction(function () use ($request, $uuid) {
+        return DB::transaction(function () use ($uuid) {
 
-            $incapacidad = $this->getByUuid($uuid);   
+            $incapacidad = Incapacidad::where('uuid', $uuid)->firstOrFail();
 
-            $incapacidad->update($request->validated());
+            $incapacidad->user_reviso_id = Auth::id();
+            $incapacidad->save();
 
-            Log::info('Incapacidad actualizada', ['uuid' => $incapacidad->uuid]);  
-
-            return $incapacidad->fresh([   
-                'empleado',
-                'revisor',
-                'entidadMedica',
+            Log::info('Incapacidad revisada', [
+                'uuid'           => $incapacidad->uuid,
+                'revisado_por'   => Auth::id(),
             ]);
+
+            $incapacidad = $incapacidad->fresh(['empleado', 'revisor', 'entidadMedica']);
+
+            $incapacidad->soporte_url = $incapacidad->soporte
+                ? asset('storage/' . $incapacidad->soporte)
+                : null;
+
+            return $incapacidad;
         });
     }
 

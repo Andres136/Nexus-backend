@@ -2,6 +2,7 @@
 
 namespace App\Models\Nomina;
 
+use App\Models\Hseq\TipoResiduo;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
@@ -65,4 +66,6 @@ class Nomina extends Model
     {
         return $this->belongsTo(JornadaLaboral::class, 'jornada_laboral_id');
     }
+
+   
 }

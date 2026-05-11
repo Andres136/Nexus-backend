@@ -5,6 +5,7 @@ namespace App\Services\Nomina;
 use App\Models\Nomina\Descuento;
 use App\Http\Requests\Nomina\StoreDescuentoRequest;
 use App\Http\Requests\Nomina\UpdateDescuentoRequest;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -14,10 +15,55 @@ class DescuentoService
     // =====================
     // TRAER TODOS
     // =====================
-    public function getAll()
-    {
-        return Descuento::with(['empleado'])->get();
+ public function getAll(array $filters = [])
+{
+    $query = Descuento::with([
+        'empleado',
+   
+    ]);
+
+    // Search por concepto o empleado
+    if (!empty($filters['search'])) {
+        $search = trim($filters['search']);
+
+        $query->where(function ($q) use ($search) {
+            $q->where('concepto', 'like', "%{$search}%")
+              ->orWhereHas('empleado', function ($empleado) use ($search) {
+                  $empleado->where('name', 'like', "%{$search}%");
+              });
+        });
     }
+
+    // Filtrar por usuario
+    if (!empty($filters['user_id'])) {
+        $query->where('user_id', $filters['user_id']);
+    }
+
+    // Filtrar por tipo descuento
+    if (!empty($filters['tipo_descuento_id'])) {
+        $query->where('tipo_descuento_id', $filters['tipo_descuento_id']);
+    }
+
+    // Filtrar por estado
+    if (isset($filters['status']) && $filters['status'] !== '') {
+        $query->where('status', $filters['status']);
+    }
+
+    // Filtrar por fecha
+    if (!empty($filters['fecha_inicio'])) {
+        $query->whereDate('fecha', '>=', $filters['fecha_inicio']);
+    }
+
+    if (!empty($filters['fecha_fin'])) {
+        $query->whereDate('fecha', '<=', $filters['fecha_fin']);
+    }
+
+    $query->orderByDesc('created_at');
+
+    $perPage = $filters['per_page'] ?? 20;
+
+    return $query->paginate($perPage);
+}
 
     // =====================
     // TRAER UNO
@@ -32,24 +78,56 @@ class DescuentoService
     // =====================
     // CREAR
     // =====================
-    public function store(StoreDescuentoRequest $request): Descuento
-    {
-        return DB::transaction(function () use ($request) {
+// SERVICE
+// SERVICE
+public function store(array $data): Descuento
+{
+    return DB::transaction(function () use ($data) {
 
-            $data = $request->validated();
+        $data['user_id'] = $data['user_id'] ?? Auth::id();
 
-            $descuento = Descuento::create($data);
+        // Estado por defecto
+        $data['status'] = $data['status'] ?? true;
 
-            Log::info('Descuento creado', [
-                'uuid'    => $descuento->uuid,  
-                'user_id' => $descuento->user_id,
-                'monto'   => $descuento->monto,
-            ]);
+        // Valor por cuota
+        $data['valor_cuota'] = round(
+            $data['monto'] / $data['numero_cuotas'],
+            2
+        );
 
-            return $descuento;
-        });
-    }
+        $inicio = Carbon::parse($data['inicio']);
 
+        // Calcular fecha fin automática
+        if ($data['frecuencia_pago'] === 'quincenal') {
+            $data['fin'] = $inicio
+                ->copy()
+                ->addDays(($data['numero_cuotas'] - 1) * 15)
+                ->format('Y-m-d');
+        }
+
+        if ($data['frecuencia_pago'] === 'mensual') {
+            $data['fin'] = $inicio
+                ->copy()
+                ->addMonths($data['numero_cuotas'] - 1)
+                ->format('Y-m-d');
+        }
+
+        $descuento = Descuento::create($data);
+
+        Log::info('Descuento creado', [
+            'uuid'            => $descuento->uuid,
+            'user_id'         => $descuento->user_id,
+            'monto'           => $descuento->monto,
+            'numero_cuotas'   => $descuento->numero_cuotas,
+            'valor_cuota'     => $descuento->valor_cuota,
+            'frecuencia_pago' => $descuento->frecuencia_pago,
+        ]);
+
+        return $descuento->fresh([
+            'empleado',
+        ]);
+    });
+}
     // =====================
     // ACTUALIZAR
     // =====================

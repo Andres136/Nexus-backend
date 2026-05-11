@@ -21,9 +21,9 @@ class ValorService
     // =====================
     // TRAER UNO
     // =====================
-    public function getByUuid(string $uuid): Valor                 // ← getById(int $id) → getByUuid(string $uuid)
+    public function getByUuid(string $uuid): Valor                 
     {
-        return Valor::where('uuid', $uuid)                         // ← findOrFail($id) → where + firstOrFail
+        return Valor::where('uuid', $uuid)                       
             ->firstOrFail();
     }
 
@@ -37,7 +37,7 @@ class ValorService
             $valor = Valor::create($request->validated());
 
             Log::info('Valores creados', [
-                'uuid'               => $valor->uuid,              // ← 'id' → 'uuid'
+                'uuid'               => $valor->uuid,              
                 'valor_hora_normal'  => $valor->valor_hora_normal,
             ]);
 
@@ -48,32 +48,32 @@ class ValorService
     // =====================
     // ACTUALIZAR
     // =====================
-    public function update(UpdateValorRequest $request, string $uuid): Valor  // ← int $id → string $uuid
+    public function update(UpdateValorRequest $request, string $uuid): Valor  
     {
         return DB::transaction(function () use ($request, $uuid) {
 
-            $valor = $this->getByUuid($uuid);                      // ← getById($id) → getByUuid($uuid)
+            $valor = $this->getByUuid($uuid);                   
 
             $valor->update($request->validated());
 
-            Log::info('Valores actualizados', ['uuid' => $valor->uuid]);  // ← 'id' → 'uuid'
+            Log::info('Valores actualizados', ['uuid' => $valor->uuid]);  
 
-            return $valor->fresh();                                // ← agregado fresh() para datos actualizados
+            return $valor->fresh();                               
         });
     }
 
     // =====================
     // ELIMINAR (soft delete)
     // =====================
-    public function destroy(string $uuid): bool                    // ← int $id → string $uuid
+    public function destroy(string $uuid): bool                    
     {
         return DB::transaction(function () use ($uuid) {
 
-            $valor = $this->getByUuid($uuid);                      // ← getById($id) → getByUuid($uuid)
+            $valor = $this->getByUuid($uuid);                      
 
             $valor->delete();
 
-            Log::info('Valores eliminados', ['uuid' => $valor->uuid]);  // ← 'id' → 'uuid'
+            Log::info('Valores eliminados', ['uuid' => $valor->uuid]);  
 
             return true;
         });

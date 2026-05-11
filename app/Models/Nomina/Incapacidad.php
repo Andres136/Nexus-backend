@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Models\Nomina;  // 👈 namespace cambia con la carpeta
+namespace App\Models\Nomina;
 
+use App\Models\Crm\Sede;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
@@ -50,8 +51,16 @@ class Incapacidad extends Model
         return $this->belongsTo(\App\Models\User::class, 'user_reviso_id');
     }
 
-    public function entidadMedica()
-    {
-        return $this->belongsTo(\App\Models\Nomina\SeguridadSocial::class, 'identidad_medica_id');
-    }
+// App\Models\Nomina\Incapacidad.php
+
+public function entidadMedica()
+{
+    return $this->belongsTo(
+        \App\Models\Nomina\SeguridadSocial::class,
+        'identidad_medica_id',
+        'id'
+    )->withTrashed(); // si seguridad social usa soft delete
+}
+
+
 }

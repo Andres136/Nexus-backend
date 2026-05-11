@@ -47,7 +47,7 @@ public function index(Request $request): JsonResponse
         return response()->json([
             'success' => true,
             'message' => 'Contratación creada correctamente.',
-            'data'    => $data,
+          //  'data'    => $data,
         ], 201);
     }
 

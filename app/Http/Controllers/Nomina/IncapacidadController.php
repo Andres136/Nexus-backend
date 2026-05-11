@@ -48,31 +48,55 @@ class IncapacidadController extends Controller
     }
 
     // POST /incapacidades
-    public function store(StoreIncapacidadRequest $request): JsonResponse
-    {
-        try {
-            $incapacidad = $this->incapacidadService->store($request);
+// CONTROLLER
+public function store(StoreIncapacidadRequest $request): JsonResponse
+{
+    try {
+        $incapacidad = $this->incapacidadService->store(
+            $request->validated(),
+            $request->file('soporte')
+        );
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Incapacidad creada exitosamente',
-                'data'    => $incapacidad,
-            ], 201);
+        return response()->json([
+            'success' => true,
+            'message' => 'Incapacidad creada exitosamente',
+          //  'data'    => $incapacidad,
+        ], 201);
 
-        } catch (\Exception $e) {
-            return $this->errorResponse($e);
-        }
+    } catch (\Exception $e) {
+        return $this->errorResponse($e);
     }
+}
 
     // PUT /incapacidades/{uuid}
-    public function update(UpdateIncapacidadRequest $request, string $uuid): JsonResponse  // ← int $id → string $uuid
+ public function update(UpdateIncapacidadRequest $request, string $uuid): JsonResponse
+{
+    try {
+        $incapacidad = $this->incapacidadService->update(
+            $uuid,
+            $request->validated()
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Incapacidad actualizada correctamente',
+            'data' => $incapacidad,
+        ]);
+
+    } catch (\Exception $e) {
+        return $this->errorResponse($e);
+    }
+}
+
+    // PATCH /incapacidades/{uuid}/revisar
+    public function revisar(string $uuid): JsonResponse
     {
         try {
-            $incapacidad = $this->incapacidadService->update($request, $uuid);  // ← $id → $uuid
+            $incapacidad = $this->incapacidadService->revisar($uuid);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Incapacidad actualizada exitosamente',
+                'message' => 'Incapacidad revisada correctamente',
                 'data'    => $incapacidad,
             ], 200);
 
