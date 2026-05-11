@@ -391,6 +391,10 @@ foreach ($data['pagos'] as $pago) {
               });
         });
     }
+    //Busuqueda por numero de factura por search numero factura proveedo
+  if (!empty($filtros['numero_factura_proveedor'])) {
+    $query->where('numero_factura_proveedor', 'like', '%' . $filtros['numero_factura_proveedor'] . '%');
+}
 
     // 🔹 Ordenamiento
     $query->orderBy('fecha_emision', 'desc');
