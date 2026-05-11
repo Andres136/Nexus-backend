@@ -17,87 +17,87 @@ class IncapacidadService
     public function getAll()
     {
         return Incapacidad::with([
-            'empleado',       // trae los datos del empleado
-            'revisor',        // trae los datos del revisor
-            'entidadMedica',  // trae los datos de la EPS
+            'empleado',
+            'revisor',
+            'entidadMedica',
         ])->paginate(20);
     }
 
     // =====================
     // TRAER UNA
     // =====================
-    public function getById(int $id): Incapacidad
+    public function getByUuid(string $uuid): Incapacidad  
     {
         return Incapacidad::with([
             'empleado',
             'revisor',
             'entidadMedica',
-        ])->findOrFail($id);
-        // findOrFail: si no existe lanza 404 automáticamente
+        ])
+        ->where('uuid', $uuid)   
+        ->firstOrFail();
     }
 
     // =====================
     // CREAR
     // =====================
     public function store(StoreIncapacidadRequest $request): Incapacidad
-{
-    return DB::transaction(function () use ($request) {
-
-        $data = $request->validated();
-
-        // ✅ user_id del usuario autenticado
-       $data['user_id'] = Auth::id(); 
-        // ✅ user_reviso_id null — se llena después en otro endpoint
-        $data['user_reviso_id'] = null;
-
-        // ✅ Si viene archivo lo guarda
-        if ($request->hasFile('soporte')) {
-            $data['soporte'] = $request->file('soporte')
-                ->store('nomina/incapacidades', 'public');
-        }
-
-        $incapacidad = Incapacidad::create($data);
-
-        Log::info('Incapacidad creada', [
-            'id'      => $incapacidad->id,
-            'user_id' => $incapacidad->user_id,
-        ]);
-
-        return $incapacidad;
-    });
-}
-
-    // =====================
-    // ACTUALIZAR
-    // =====================
-    public function update(UpdateIncapacidadRequest $request, int $id): Incapacidad
     {
-        return DB::transaction(function () use ($request, $id) {
+        return DB::transaction(function () use ($request) {
 
-            $incapacidad = $this->getById($id);
+            $data = $request->validated();
 
-            $incapacidad->update($request->validated());
+            $data['user_id']       = Auth::id();
+            $data['user_reviso_id'] = null;
 
-            Log::info('Incapacidad actualizada', ['id' => $incapacidad->id]);
+            if ($request->hasFile('soporte')) {
+                $data['soporte'] = $request->file('soporte')
+                    ->store('nomina/incapacidades', 'public');
+            }
+
+            $incapacidad = Incapacidad::create($data);
+
+            Log::info('Incapacidad creada', [
+                'uuid'    => $incapacidad->uuid,   
+                'user_id' => $incapacidad->user_id,
+            ]);
 
             return $incapacidad;
         });
     }
 
     // =====================
+    // ACTUALIZAR
+    // =====================
+    public function update(UpdateIncapacidadRequest $request, string $uuid): Incapacidad  
+    {
+        return DB::transaction(function () use ($request, $uuid) {
+
+            $incapacidad = $this->getByUuid($uuid);   
+
+            $incapacidad->update($request->validated());
+
+            Log::info('Incapacidad actualizada', ['uuid' => $incapacidad->uuid]);  
+
+            return $incapacidad->fresh([   
+                'empleado',
+                'revisor',
+                'entidadMedica',
+            ]);
+        });
+    }
+
+    // =====================
     // ELIMINAR (soft delete)
     // =====================
-    public function destroy(int $id): bool
+    public function destroy(string $uuid): bool  
     {
-        return DB::transaction(function () use ($id) {
+        return DB::transaction(function () use ($uuid) {
 
-            $incapacidad = $this->getById($id);
+            $incapacidad = $this->getByUuid($uuid);   
 
             $incapacidad->delete();
-            // delete() con softDeletes no borra el registro
-            // solo pone fecha en deleted_at
 
-            Log::info('Incapacidad eliminada', ['id' => $incapacidad->id]);
+            Log::info('Incapacidad eliminada', ['uuid' => $incapacidad->uuid]); 
 
             return true;
         });

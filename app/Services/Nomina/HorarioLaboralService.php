@@ -12,9 +12,10 @@ class HorarioLaboralService
         return HorarioLaboral::all();
     }
 
-    public function getById(int $id): HorarioLaboral
+    public function getByUuid(string $uuid): HorarioLaboral  // ← getById(int $id) → getByUuid(string $uuid)
     {
-        return HorarioLaboral::findOrFail($id);
+        return HorarioLaboral::where('uuid', $uuid)  
+            ->firstOrFail();
     }
 
     public function create(array $data): HorarioLaboral
@@ -22,16 +23,21 @@ class HorarioLaboralService
         return HorarioLaboral::create($data);
     }
 
-    public function update(int $id, array $data): HorarioLaboral
+    public function update(string $uuid, array $data): HorarioLaboral  
     {
-        $horario = HorarioLaboral::findOrFail($id);
+        $horario = HorarioLaboral::where('uuid', $uuid)  
+            ->firstOrFail();
+
         $horario->update($data);
-        return $horario;
+
+        return $horario->fresh();  
     }
 
-    public function delete(int $id): void
+    public function delete(string $uuid): void  
     {
-        $horario = HorarioLaboral::findOrFail($id);
+        $horario = HorarioLaboral::where('uuid', $uuid)  
+            ->firstOrFail();
+
         $horario->delete();
     }
 }

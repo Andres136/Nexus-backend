@@ -21,16 +21,18 @@ class TransacionalRegistroService
         ])->get();
     }
 
-    public function getById(int $id): TransacionalRegistro
+    public function getByUuid(string $uuid): TransacionalRegistro  // ← getById(int $id) → getByUuid(string $uuid)
     {
         return TransacionalRegistro::with([
             'empleado',
             'kioskoDevice',
             'tipoMarcacion',
-        ])->findOrFail($id);
+        ])
+        ->where('uuid', $uuid)                                     // ← findOrFail($id) → where + firstOrFail
+        ->firstOrFail();
     }
 
-    public function getByUser(int $userId): Collection
+    public function getByUser(int $userId): Collection             // ← este no cambia, usa userId no id del registro
     {
         return TransacionalRegistro::with(['tipoMarcacion', 'kioskoDevice'])
             ->where('users_id', $userId)
@@ -51,7 +53,7 @@ class TransacionalRegistroService
             $registro = TransacionalRegistro::create($data);
 
             Log::info('Marcación registrada', [
-                'id'      => $registro->id,
+                'uuid'    => $registro->uuid,                      // ← 'id' → 'uuid'
                 'user_id' => $registro->users_id,
                 'hora'    => $registro->marked_ad,
             ]);
@@ -60,10 +62,10 @@ class TransacionalRegistroService
         });
     }
 
-    public function update(UpdateTransacionalRegistroRequest $request, int $id): TransacionalRegistro
+    public function update(UpdateTransacionalRegistroRequest $request, string $uuid): TransacionalRegistro  // ← int $id → string $uuid
     {
-        return DB::transaction(function () use ($request, $id) {
-            $registro = $this->getById($id);
+        return DB::transaction(function () use ($request, $uuid) {
+            $registro = $this->getByUuid($uuid);                   // ← getById($id) → getByUuid($uuid)
             $data     = $request->validated();
 
             if ($request->hasFile('foto_referencia')) {
@@ -76,16 +78,20 @@ class TransacionalRegistroService
 
             $registro->update($data);
 
-            Log::info('Marcación actualizada', ['id' => $registro->id]);
+            Log::info('Marcación actualizada', ['uuid' => $registro->uuid]);  // ← 'id' → 'uuid'
 
-            return $registro;
+            return $registro->fresh([                              // ← agregado fresh() con relaciones
+                'empleado',
+                'kioskoDevice',
+                'tipoMarcacion',
+            ]);
         });
     }
 
-    public function delete(int $id): void
+    public function delete(string $uuid): void                     // ← int $id → string $uuid
     {
-        DB::transaction(function () use ($id) {
-            $registro = $this->getById($id);
+        DB::transaction(function () use ($uuid) {
+            $registro = $this->getByUuid($uuid);                   // ← getById($id) → getByUuid($uuid)
 
             if ($registro->foto_referencia) {
                 Storage::disk('public')->delete($registro->foto_referencia);
@@ -93,7 +99,7 @@ class TransacionalRegistroService
 
             $registro->delete();
 
-            Log::info('Marcación eliminada', ['id' => $registro->id]);
+            Log::info('Marcación eliminada', ['uuid' => $registro->uuid]);  // ← 'id' → 'uuid'
         });
     }
 }

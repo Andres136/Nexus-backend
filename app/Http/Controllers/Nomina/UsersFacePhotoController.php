@@ -15,62 +15,83 @@ class UsersFacePhotoController extends Controller
         private readonly UsersFacePhotoService $usersFacePhotoService
     ) {}
 
+    // GET /users-face-photos
     public function index(): JsonResponse
     {
         try {
             $data = $this->usersFacePhotoService->getAll();
-            return response()->json(['success' => true, 'data' => $data]);
+
+            return response()->json([
+                'success' => true,
+                'data'    => $data,
+            ], 200);
+
         } catch (\Exception $e) {
             return $this->errorResponse($e);
         }
     }
 
-    public function show(int $id): JsonResponse
+    // GET /users-face-photos/{uuid}
+    public function show(string $uuid): JsonResponse               
     {
         try {
-            $data = $this->usersFacePhotoService->getById($id);
-            return response()->json(['success' => true, 'data' => $data]);
+            $data = $this->usersFacePhotoService->getByUuid($uuid);  
+
+            return response()->json([
+                'success' => true,
+                'data'    => $data,
+            ], 200);
+
         } catch (\Exception $e) {
             return $this->errorResponse($e);
         }
     }
 
+    // POST /users-face-photos
     public function store(StoreUsersFacePhotoRequest $request): JsonResponse
     {
         try {
             $data = $this->usersFacePhotoService->store($request);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Foto facial registrada correctamente.',
                 'data'    => $data,
             ], 201);
+
         } catch (\Exception $e) {
             return $this->errorResponse($e);
         }
     }
 
-    public function update(UpdateUsersFacePhotoRequest $request, int $id): JsonResponse
+    // PUT /users-face-photos/{uuid}
+    public function update(UpdateUsersFacePhotoRequest $request, string $uuid): JsonResponse  
     {
         try {
-            $data = $this->usersFacePhotoService->update($request, $id);
+            $data = $this->usersFacePhotoService->update($request, $uuid); 
+
             return response()->json([
                 'success' => true,
                 'message' => 'Foto facial actualizada correctamente.',
                 'data'    => $data,
-            ]);
+            ], 200);
+
         } catch (\Exception $e) {
             return $this->errorResponse($e);
         }
     }
 
-    public function destroy(int $id): JsonResponse
+    // DELETE /users-face-photos/{uuid}
+    public function destroy(string $uuid): JsonResponse            
     {
         try {
-            $this->usersFacePhotoService->delete($id);
+            $this->usersFacePhotoService->delete($uuid);           
+
             return response()->json([
                 'success' => true,
                 'message' => 'Foto facial eliminada correctamente.',
-            ]);
+            ], 200);
+
         } catch (\Exception $e) {
             return $this->errorResponse($e);
         }
@@ -78,7 +99,10 @@ class UsersFacePhotoController extends Controller
 
     private function errorResponse(\Exception $e): JsonResponse
     {
-        Log::error('Error en UsersFacePhotoController', ['message' => $e->getMessage()]);
+        Log::error('Error en UsersFacePhotoController', [
+            'message' => $e->getMessage(),
+        ]);
+
         return response()->json([
             'success' => false,
             'message' => 'Ocurrió un error inesperado.',

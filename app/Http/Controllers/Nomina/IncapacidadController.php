@@ -11,15 +11,11 @@ use Illuminate\Support\Facades\Log;
 
 class IncapacidadController extends Controller
 {
-    // El Service se inyecta automáticamente — no lo instancias a mano
-    // Esto se llama Inyección de Dependencias
     public function __construct(
         private readonly IncapacidadService $incapacidadService
     ) {}
 
-    // =====================
     // GET /incapacidades
-    // =====================
     public function index(): JsonResponse
     {
         try {
@@ -35,13 +31,11 @@ class IncapacidadController extends Controller
         }
     }
 
-    // =====================
-    // GET /incapacidades/{id}
-    // =====================
-    public function show(int $id): JsonResponse
+    // GET /incapacidades/{uuid}
+    public function show(string $uuid): JsonResponse          // ← int $id → string $uuid
     {
         try {
-            $incapacidad = $this->incapacidadService->getById($id);
+            $incapacidad = $this->incapacidadService->getByUuid($uuid);  // ← getById → getByUuid
 
             return response()->json([
                 'success' => true,
@@ -53,13 +47,9 @@ class IncapacidadController extends Controller
         }
     }
 
-    // =====================
     // POST /incapacidades
-    // =====================
     public function store(StoreIncapacidadRequest $request): JsonResponse
     {
-        // El Request valida ANTES de llegar aquí
-        // Si algo falla en validación, Laravel retorna 422 automáticamente
         try {
             $incapacidad = $this->incapacidadService->store($request);
 
@@ -67,20 +57,18 @@ class IncapacidadController extends Controller
                 'success' => true,
                 'message' => 'Incapacidad creada exitosamente',
                 'data'    => $incapacidad,
-            ], 201); // 201 = Created
+            ], 201);
 
         } catch (\Exception $e) {
             return $this->errorResponse($e);
         }
     }
 
-    // =====================
-    // PUT /incapacidades/{id}
-    // =====================
-    public function update(UpdateIncapacidadRequest $request, int $id): JsonResponse
+    // PUT /incapacidades/{uuid}
+    public function update(UpdateIncapacidadRequest $request, string $uuid): JsonResponse  // ← int $id → string $uuid
     {
         try {
-            $incapacidad = $this->incapacidadService->update($request, $id);
+            $incapacidad = $this->incapacidadService->update($request, $uuid);  // ← $id → $uuid
 
             return response()->json([
                 'success' => true,
@@ -93,13 +81,11 @@ class IncapacidadController extends Controller
         }
     }
 
-    // =====================
-    // DELETE /incapacidades/{id}
-    // =====================
-    public function destroy(int $id): JsonResponse
+    // DELETE /incapacidades/{uuid}
+    public function destroy(string $uuid): JsonResponse       // ← int $id → string $uuid
     {
         try {
-            $this->incapacidadService->destroy($id);
+            $this->incapacidadService->destroy($uuid);        // ← $id → $uuid
 
             return response()->json([
                 'success' => true,
@@ -111,9 +97,6 @@ class IncapacidadController extends Controller
         }
     }
 
-    // =====================
-    // Respuesta de error centralizada
-    // =====================
     private function errorResponse(\Exception $e): JsonResponse
     {
         Log::error('Error en IncapacidadController', [

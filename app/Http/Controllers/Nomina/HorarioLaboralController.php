@@ -7,57 +7,101 @@ use App\Http\Requests\Nomina\StoreHorarioLaboralRequest;
 use App\Http\Requests\Nomina\UpdateHorarioLaboralRequest;
 use App\Services\Nomina\HorarioLaboralService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 
 class HorarioLaboralController extends Controller
 {
     public function __construct(
-        private HorarioLaboralService $horarioLaboralService
+        private readonly HorarioLaboralService $horarioLaboralService  // ← agregado readonly
     ) {}
 
     public function index(): JsonResponse
     {
-        $data = $this->horarioLaboralService->getAll();
-        return response()->json([
-            'success' => true,
-            'data'    => $data,
-        ]);
+        try {
+            $data = $this->horarioLaboralService->getAll();
+
+            return response()->json([
+                'success' => true,
+                'data'    => $data,
+            ], 200);
+
+        } catch (\Exception $e) {
+            return $this->errorResponse($e);
+        }
     }
 
-    public function show(int $id): JsonResponse
+    public function show(string $uuid): JsonResponse  // ← int $id → string $uuid
     {
-        $data = $this->horarioLaboralService->getById($id);
-        return response()->json([
-            'success' => true,
-            'data'    => $data,
-        ]);
+        try {
+            $data = $this->horarioLaboralService->getByUuid($uuid);  // ← getById → getByUuid
+
+            return response()->json([
+                'success' => true,
+                'data'    => $data,
+            ], 200);
+
+        } catch (\Exception $e) {
+            return $this->errorResponse($e);
+        }
     }
 
     public function store(StoreHorarioLaboralRequest $request): JsonResponse
     {
-        $data = $this->horarioLaboralService->create($request->validated());
-        return response()->json([
-            'success' => true,
-            'message' => 'Horario laboral creado correctamente.',
-            'data'    => $data,
-        ], 201);
+        try {
+            $data = $this->horarioLaboralService->create($request->validated());
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Horario laboral creado correctamente.',
+                'data'    => $data,
+            ], 201);
+
+        } catch (\Exception $e) {
+            return $this->errorResponse($e);
+        }
     }
 
-    public function update(UpdateHorarioLaboralRequest $request, int $id): JsonResponse
+    public function update(UpdateHorarioLaboralRequest $request, string $uuid): JsonResponse  // ← int $id → string $uuid
     {
-        $data = $this->horarioLaboralService->update($id, $request->validated());
-        return response()->json([
-            'success' => true,
-            'message' => 'Horario laboral actualizado correctamente.',
-            'data'    => $data,
-        ]);
+        try {
+            $data = $this->horarioLaboralService->update($uuid, $request->validated());  // ← $id → $uuid
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Horario laboral actualizado correctamente.',
+                'data'    => $data,
+            ], 200);
+
+        } catch (\Exception $e) {
+            return $this->errorResponse($e);
+        }
     }
 
-    public function destroy(int $id): JsonResponse
+    public function destroy(string $uuid): JsonResponse  // ← int $id → string $uuid
     {
-        $this->horarioLaboralService->delete($id);
-        return response()->json([
-            'success' => true,
-            'message' => 'Horario laboral eliminado correctamente.',
+        try {
+            $this->horarioLaboralService->delete($uuid);  // ← $id → $uuid
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Horario laboral eliminado correctamente.',
+            ], 200);
+
+        } catch (\Exception $e) {
+            return $this->errorResponse($e);
+        }
+    }
+
+    // ← método nuevo igual que en DescuentoController
+    private function errorResponse(\Exception $e): JsonResponse
+    {
+        Log::error('Error en HorarioLaboralController', [
+            'message' => $e->getMessage(),
         ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Ocurrió un error inesperado',
+        ], 500);
     }
 }

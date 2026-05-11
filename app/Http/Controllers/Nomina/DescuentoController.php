@@ -31,11 +31,11 @@ class DescuentoController extends Controller
         }
     }
 
-    // GET /descuentos/{id}
-    public function show(int $id): JsonResponse
+    // GET /descuentos/{uuid}
+    public function show(string $uuid): JsonResponse       // ← int $id → string $uuid
     {
         try {
-            $descuento = $this->descuentoService->getById($id);
+            $descuento = $this->descuentoService->getByUuid($uuid);   // ← getById → getByUuid
 
             return response()->json([
                 'success' => true,
@@ -64,11 +64,11 @@ class DescuentoController extends Controller
         }
     }
 
-    // PUT /descuentos/{id}
-    public function update(UpdateDescuentoRequest $request, int $id): JsonResponse
+    // PUT /descuentos/{uuid}
+    public function update(UpdateDescuentoRequest $request, string $uuid): JsonResponse  
     {
         try {
-            $descuento = $this->descuentoService->update($request, $id);
+            $descuento = $this->descuentoService->update($request, $uuid); 
 
             return response()->json([
                 'success' => true,
@@ -81,11 +81,11 @@ class DescuentoController extends Controller
         }
     }
 
-    // DELETE /descuentos/{id}
-    public function destroy(int $id): JsonResponse
+    // DELETE /descuentos/{uuid}
+    public function destroy(string $uuid): JsonResponse   
     {
         try {
-            $this->descuentoService->destroy($id);
+            $this->descuentoService->destroy($uuid);       
 
             return response()->json([
                 'success' => true,

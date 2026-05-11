@@ -26,14 +26,16 @@ class NominaService
     // =====================
     // TRAER UNA
     // =====================
-    public function getById(int $id): Nomina
+    public function getByUuid(string $uuid): Nomina            
     {
         return Nomina::with([
             'empleado',
             'descuento',
             'jornadaLaboral',
             'transacionalRegistro',
-        ])->findOrFail($id);
+        ])
+        ->where('uuid', $uuid)                                 
+        ->firstOrFail();
     }
 
     // =====================
@@ -48,7 +50,7 @@ class NominaService
             $nomina = Nomina::create($data);
 
             Log::info('Nómina creada', [
-                'id'      => $nomina->id,
+                'uuid'    => $nomina->uuid,                    
                 'user_id' => $nomina->user_id,
             ]);
 
@@ -59,35 +61,40 @@ class NominaService
     // =====================
     // ACTUALIZAR
     // =====================
-    public function update(UpdateNominaRequest $request, int $id): Nomina
+    public function update(UpdateNominaRequest $request, string $uuid): Nomina  
     {
-        return DB::transaction(function () use ($request, $id) {
+        return DB::transaction(function () use ($request, $uuid) {
 
-            $nomina = $this->getById($id);
+            $nomina = $this->getByUuid($uuid);                 
 
             $nomina->update($request->validated());
 
             Log::info('Nómina actualizada', [
-                'id'      => $nomina->id,
+                'uuid'    => $nomina->uuid,                    
                 'user_id' => $nomina->user_id,
             ]);
 
-            return $nomina;
+            return $nomina->fresh([                            
+                'empleado',
+                'descuento',
+                'jornadaLaboral',
+                'transacionalRegistro',
+            ]);
         });
     }
 
     // =====================
     // ELIMINAR (soft delete)
     // =====================
-    public function destroy(int $id): bool
+    public function destroy(string $uuid): bool                
     {
-        return DB::transaction(function () use ($id) {
+        return DB::transaction(function () use ($uuid) {
 
-            $nomina = $this->getById($id);
+            $nomina = $this->getByUuid($uuid);                 
 
             $nomina->delete();
 
-            Log::info('Nómina eliminada', ['id' => $nomina->id]);
+            Log::info('Nómina eliminada', ['uuid' => $nomina->uuid]);  
 
             return true;
         });

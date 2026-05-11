@@ -17,12 +17,14 @@ class UsersFacePhotoService
         return UsersFacePhoto::with('empleado')->get();
     }
 
-    public function getById(int $id): UsersFacePhoto
+    public function getByUuid(string $uuid): UsersFacePhoto        // ← getById(int $id) → getByUuid(string $uuid)
     {
-        return UsersFacePhoto::with('empleado')->findOrFail($id);
+        return UsersFacePhoto::with('empleado')
+            ->where('uuid', $uuid)                                 // ← findOrFail($id) → where + firstOrFail
+            ->firstOrFail();
     }
 
-    public function getByUser(int $userId): Collection
+    public function getByUser(int $userId): Collection             // ← sin cambios, usa userId del usuario
     {
         return UsersFacePhoto::where('users_id', $userId)->get();
     }
@@ -40,7 +42,7 @@ class UsersFacePhotoService
             $facePhoto = UsersFacePhoto::create($data);
 
             Log::info('Foto facial registrada', [
-                'id'       => $facePhoto->id,
+                'uuid'     => $facePhoto->uuid,                    // ← 'id' → 'uuid'
                 'users_id' => $facePhoto->users_id,
             ]);
 
@@ -48,10 +50,10 @@ class UsersFacePhotoService
         });
     }
 
-    public function update(UpdateUsersFacePhotoRequest $request, int $id): UsersFacePhoto
+    public function update(UpdateUsersFacePhotoRequest $request, string $uuid): UsersFacePhoto  // ← int $id → string $uuid
     {
-        return DB::transaction(function () use ($request, $id) {
-            $facePhoto = $this->getById($id);
+        return DB::transaction(function () use ($request, $uuid) {
+            $facePhoto = $this->getByUuid($uuid);                  // ← getById($id) → getByUuid($uuid)
             $data      = $request->validated();
 
             if ($request->hasFile('photo')) {
@@ -64,16 +66,16 @@ class UsersFacePhotoService
 
             $facePhoto->update($data);
 
-            Log::info('Foto facial actualizada', ['id' => $facePhoto->id]);
+            Log::info('Foto facial actualizada', ['uuid' => $facePhoto->uuid]);  // ← 'id' → 'uuid'
 
-            return $facePhoto;
+            return $facePhoto->fresh('empleado');                  // ← agregado fresh() con relación
         });
     }
 
-    public function delete(int $id): void
+    public function delete(string $uuid): void                     // ← int $id → string $uuid
     {
-        DB::transaction(function () use ($id) {
-            $facePhoto = $this->getById($id);
+        DB::transaction(function () use ($uuid) {
+            $facePhoto = $this->getByUuid($uuid);                  // ← getById($id) → getByUuid($uuid)
 
             if ($facePhoto->photo) {
                 Storage::disk('public')->delete($facePhoto->photo);
@@ -81,7 +83,7 @@ class UsersFacePhotoService
 
             $facePhoto->delete();
 
-            Log::info('Foto facial eliminada', ['id' => $facePhoto->id]);
+            Log::info('Foto facial eliminada', ['uuid' => $facePhoto->uuid]);  // ← 'id' → 'uuid'
         });
     }
 }

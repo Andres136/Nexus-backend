@@ -31,11 +31,11 @@ class WorkSessionController extends Controller
         }
     }
 
-    // GET /work-sessions/{id}
-    public function show(int $id): JsonResponse
+    // GET /work-sessions/{uuid}
+    public function show(string $uuid): JsonResponse              
     {
         try {
-            $session = $this->workSessionService->getById($id);
+            $session = $this->workSessionService->getByUuid($uuid);  
 
             return response()->json([
                 'success' => true,
@@ -64,11 +64,11 @@ class WorkSessionController extends Controller
         }
     }
 
-    // PUT /work-sessions/{id}
-    public function update(UpdateWorkSessionRequest $request, int $id): JsonResponse
+    // PUT /work-sessions/{uuid}
+    public function update(UpdateWorkSessionRequest $request, string $uuid): JsonResponse  
     {
         try {
-            $session = $this->workSessionService->update($request, $id);
+            $session = $this->workSessionService->update($request, $uuid);  
 
             return response()->json([
                 'success' => true,
@@ -81,11 +81,11 @@ class WorkSessionController extends Controller
         }
     }
 
-    // DELETE /work-sessions/{id}
-    public function destroy(int $id): JsonResponse
+    // DELETE /work-sessions/{uuid}
+    public function destroy(string $uuid): JsonResponse            
     {
         try {
-            $this->workSessionService->destroy($id);
+            $this->workSessionService->destroy($uuid);             
 
             return response()->json([
                 'success' => true,

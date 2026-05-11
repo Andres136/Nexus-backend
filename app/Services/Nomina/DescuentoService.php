@@ -22,10 +22,11 @@ class DescuentoService
     // =====================
     // TRAER UNO
     // =====================
-    public function getById(int $id): Descuento
+    public function getByUuid(string $uuid): Descuento  
     {
         return Descuento::with(['empleado'])
-            ->findOrFail($id);
+            ->where('uuid', $uuid)       
+            ->firstOrFail();
     }
 
     // =====================
@@ -37,13 +38,10 @@ class DescuentoService
 
             $data = $request->validated();
 
-            // user_id del usuario autenticado
-          
-
-            $descuento = Descuento::create($request->validated());
+            $descuento = Descuento::create($data);
 
             Log::info('Descuento creado', [
-                'id'      => $descuento->id,
+                'uuid'    => $descuento->uuid,  
                 'user_id' => $descuento->user_id,
                 'monto'   => $descuento->monto,
             ]);
@@ -55,16 +53,16 @@ class DescuentoService
     // =====================
     // ACTUALIZAR
     // =====================
-    public function update(UpdateDescuentoRequest $request, int $id): Descuento
+    public function update(UpdateDescuentoRequest $request, string $uuid): Descuento  
     {
-        return DB::transaction(function () use ($request, $id) {
+        return DB::transaction(function () use ($request, $uuid) {
 
-            $descuento = $this->getById($id);
+            $descuento = $this->getByUuid($uuid);   
 
             $descuento->update($request->validated());
 
             Log::info('Descuento actualizado', [
-                'id'    => $descuento->id,
+                'uuid'  => $descuento->uuid,         
                 'monto' => $descuento->monto,
             ]);
 
@@ -75,15 +73,15 @@ class DescuentoService
     // =====================
     // ELIMINAR (soft delete)
     // =====================
-    public function destroy(int $id): bool
+    public function destroy(string $uuid): bool       
     {
-        return DB::transaction(function () use ($id) {
+        return DB::transaction(function () use ($uuid) {
 
-            $descuento = $this->getById($id);
+            $descuento = $this->getByUuid($uuid);    
 
             $descuento->delete();
 
-            Log::info('Descuento eliminado', ['id' => $descuento->id]);
+            Log::info('Descuento eliminado', ['uuid' => $descuento->uuid]);  
 
             return true;
         });

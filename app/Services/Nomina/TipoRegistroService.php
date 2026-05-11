@@ -12,9 +12,10 @@ class TipoRegistroService
         return TipoRegistro::where('activo', true)->get();
     }
 
-    public function getById(int $id): TipoRegistro
+    public function getByUuid(string $uuid): TipoRegistro         // ← getById(int $id) → getByUuid(string $uuid)
     {
-        return TipoRegistro::findOrFail($id);
+        return TipoRegistro::where('uuid', $uuid)                 // ← findOrFail($id) → where + firstOrFail
+            ->firstOrFail();
     }
 
     public function create(array $data): TipoRegistro
@@ -22,16 +23,21 @@ class TipoRegistroService
         return TipoRegistro::create($data);
     }
 
-    public function update(int $id, array $data): TipoRegistro
+    public function update(string $uuid, array $data): TipoRegistro  // ← int $id → string $uuid
     {
-        $tipoRegistro = TipoRegistro::findOrFail($id);
+        $tipoRegistro = TipoRegistro::where('uuid', $uuid)        // ← findOrFail($id) → where + firstOrFail
+            ->firstOrFail();
+
         $tipoRegistro->update($data);
-        return $tipoRegistro;
+
+        return $tipoRegistro->fresh();                            // ← agregado fresh() para datos actualizados
     }
 
-    public function delete(int $id): void
+    public function delete(string $uuid): void                    // ← int $id → string $uuid
     {
-        $tipoRegistro = TipoRegistro::findOrFail($id);
+        $tipoRegistro = TipoRegistro::where('uuid', $uuid)        // ← findOrFail($id) → where + firstOrFail
+            ->firstOrFail();
+
         $tipoRegistro->delete();
     }
 }

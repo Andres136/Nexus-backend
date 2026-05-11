@@ -21,9 +21,11 @@ class JornadaLaboralService
     // =====================
     // TRAER UNA
     // =====================
-    public function getById(int $id): JornadaLaboral
+    public function getByUuid(string $uuid): JornadaLaboral  
     {
-        return JornadaLaboral::findOrFail($id);
+        return JornadaLaboral::where('uuid', $uuid)          
+        
+            ->firstOrFail();
     }
 
     // =====================
@@ -33,12 +35,10 @@ class JornadaLaboralService
     {
         return DB::transaction(function () use ($request) {
 
-            $jornada = JornadaLaboral::create(
-                $request->validated()
-            );
+            $jornada = JornadaLaboral::create($request->validated());
 
             Log::info('Jornada laboral creada', [
-                'id'              => $jornada->id,
+                'uuid'            => $jornada->uuid,         
                 'horas_semanales' => $jornada->horas_semanales,
             ]);
 
@@ -49,32 +49,32 @@ class JornadaLaboralService
     // =====================
     // ACTUALIZAR
     // =====================
-    public function update(UpdateJornadaLaboralRequest $request, int $id): JornadaLaboral
+    public function update(UpdateJornadaLaboralRequest $request, string $uuid): JornadaLaboral  
     {
-        return DB::transaction(function () use ($request, $id) {
+        return DB::transaction(function () use ($request, $uuid) {
 
-            $jornada = $this->getById($id);
+            $jornada = $this->getByUuid($uuid);              
 
             $jornada->update($request->validated());
 
-            Log::info('Jornada laboral actualizada', ['id' => $jornada->id]);
+            Log::info('Jornada laboral actualizada', ['uuid' => $jornada->uuid]);  
 
-            return $jornada;
+            return $jornada->fresh();                        
         });
     }
 
     // =====================
     // ELIMINAR (soft delete)
     // =====================
-    public function destroy(int $id): bool
+    public function destroy(string $uuid): bool              
     {
-        return DB::transaction(function () use ($id) {
+        return DB::transaction(function () use ($uuid) {
 
-            $jornada = $this->getById($id);
+            $jornada = $this->getByUuid($uuid);              
 
             $jornada->delete();
 
-            Log::info('Jornada laboral eliminada', ['id' => $jornada->id]);
+            Log::info('Jornada laboral eliminada', ['uuid' => $jornada->uuid]);  
 
             return true;
         });

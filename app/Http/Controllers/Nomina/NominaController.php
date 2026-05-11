@@ -31,11 +31,11 @@ class NominaController extends Controller
         }
     }
 
-    // GET /nomina/{id}
-    public function show(int $id): JsonResponse
+    // GET /nomina/{uuid}
+    public function show(string $uuid): JsonResponse              // ← int $id → string $uuid
     {
         try {
-            $nomina = $this->nominaService->getById($id);
+            $nomina = $this->nominaService->getByUuid($uuid);     // ← getById → getByUuid
 
             return response()->json([
                 'success' => true,
@@ -64,11 +64,11 @@ class NominaController extends Controller
         }
     }
 
-    // PUT /nomina/{id}
-    public function update(UpdateNominaRequest $request, int $id): JsonResponse
+    // PUT /nomina/{uuid}
+    public function update(UpdateNominaRequest $request, string $uuid): JsonResponse  // ← int $id → string $uuid
     {
         try {
-            $nomina = $this->nominaService->update($request, $id);
+            $nomina = $this->nominaService->update($request, $uuid);  // ← $id → $uuid
 
             return response()->json([
                 'success' => true,
@@ -81,11 +81,11 @@ class NominaController extends Controller
         }
     }
 
-    // DELETE /nomina/{id}
-    public function destroy(int $id): JsonResponse
+    // DELETE /nomina/{uuid}
+    public function destroy(string $uuid): JsonResponse           // ← int $id → string $uuid
     {
         try {
-            $this->nominaService->destroy($id);
+            $this->nominaService->destroy($uuid);                 // ← $id → $uuid
 
             return response()->json([
                 'success' => true,

@@ -12,9 +12,11 @@ class KioskoDeviceService
         return KioskoDevice::with(['sede', 'bodega', 'tipoRegistro'])->get();
     }
 
-    public function getById(int $id): KioskoDevice
+    public function getByUuid(string $uuid): KioskoDevice         
     {
-        return KioskoDevice::with(['sede', 'bodega', 'tipoRegistro'])->findOrFail($id);
+        return KioskoDevice::with(['sede', 'bodega', 'tipoRegistro'])
+            ->where('uuid', $uuid)                                
+            ->firstOrFail();
     }
 
     public function create(array $data): KioskoDevice
@@ -22,16 +24,21 @@ class KioskoDeviceService
         return KioskoDevice::create($data);
     }
 
-    public function update(int $id, array $data): KioskoDevice
+    public function update(string $uuid, array $data): KioskoDevice  
     {
-        $device = KioskoDevice::findOrFail($id);
+        $device = KioskoDevice::where('uuid', $uuid)              
+            ->firstOrFail();
+
         $device->update($data);
-        return $device;
+
+        return $device->fresh(['sede', 'bodega', 'tipoRegistro']); 
     }
 
-    public function delete(int $id): void
+    public function delete(string $uuid): void                    
     {
-        $device = KioskoDevice::findOrFail($id);
+        $device = KioskoDevice::where('uuid', $uuid)              
+            ->firstOrFail();
+
         $device->delete();
     }
 }

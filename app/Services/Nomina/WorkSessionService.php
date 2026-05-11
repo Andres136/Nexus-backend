@@ -27,13 +27,15 @@ class WorkSessionService
     // =====================
     // TRAER UNA
     // =====================
-    public function getById(int $id): WorkSession
+    public function getByUuid(string $uuid): WorkSession           
     {
         return WorkSession::with([
             'empleado',
             'kiosko',
             'jornadaLaboral',
-        ])->findOrFail($id);
+        ])
+        ->where('uuid', $uuid)                                     
+        ->firstOrFail();
     }
 
     // =====================
@@ -45,26 +47,23 @@ class WorkSessionService
 
             $data = $request->validated();
 
-            // Calcula minutos trabajados si vienen las dos horas
             if (isset($data['hora_entrada']) && isset($data['hola_salida'])) {
                 $entrada = Carbon::parse($data['hora_entrada']);
                 $salida  = Carbon::parse($data['hola_salida']);
                 $data['minutos_trabajados'] = $salida->diffInMinutes($entrada);
             }
 
-            // Calcula tardanza comparando con la jornada
             if (isset($data['hora_entrada']) && isset($data['horario_laboral_id'])) {
                 $jornada    = JornadaLaboral::findOrFail($data['horario_laboral_id']);
                 $entrada    = Carbon::parse($data['hora_entrada']);
-                $horaInicio = Carbon::parse('08:00:00'); // hora inicio jornada
+                $horaInicio = Carbon::parse('08:00:00');
                 $data['minutos_tardanza'] = max(0, $horaInicio->diffInMinutes($entrada, false));
             }
 
             $session = WorkSession::create($data);
 
             Log::info('WorkSession creada', [
-                'id'      => $session->id,
-                'user_id' => $session->users_id,
+                'uuid'    => $session->uuid,                      
                 'dia'     => $session->registro_diario,
             ]);
 
@@ -75,21 +74,19 @@ class WorkSessionService
     // =====================
     // ACTUALIZAR
     // =====================
-    public function update(UpdateWorkSessionRequest $request, int $id): WorkSession
+    public function update(UpdateWorkSessionRequest $request, string $uuid): WorkSession  
     {
-        return DB::transaction(function () use ($request, $id) {
+        return DB::transaction(function () use ($request, $uuid) {
 
-            $session = $this->getById($id);
+            $session = $this->getByUuid($uuid);                    
             $data    = $request->validated();
 
-            // Recalcula pausa si vienen las dos horas del brake
             if (isset($data['hora_salida_brake']) && isset($data['horara_ingreso_brake'])) {
                 $salida  = Carbon::parse($data['hora_salida_brake']);
                 $regreso = Carbon::parse($data['horara_ingreso_brake']);
                 $data['minutos_pausa'] = $regreso->diffInMinutes($salida);
             }
 
-            // Recalcula minutos trabajados si viene la salida
             if (isset($data['hola_salida'])) {
                 $entrada = Carbon::parse($session->hora_entrada);
                 $salida  = Carbon::parse($data['hola_salida']);
@@ -100,25 +97,29 @@ class WorkSessionService
             $session->update($data);
 
             Log::info('WorkSession actualizada', [
-                'id'  => $session->id,
-                'dia' => $session->registro_diario,
+                'uuid' => $session->uuid,                        
+                'dia'  => $session->registro_diario,
             ]);
 
-            return $session;
+            return $session->fresh([                               
+                'empleado',
+                'kiosko',
+                'jornadaLaboral',
+            ]);
         });
     }
 
     // =====================
     // ELIMINAR (soft delete)
     // =====================
-    public function destroy(int $id): bool
+    public function destroy(string $uuid): bool                  
     {
-        return DB::transaction(function () use ($id) {
+        return DB::transaction(function () use ($uuid) {
 
-            $session = $this->getById($id);
+            $session = $this->getByUuid($uuid);                   
             $session->delete();
 
-            Log::info('WorkSession eliminada', ['id' => $session->id]);
+            Log::info('WorkSession eliminada', ['uuid' => $session->uuid]);  
 
             return true;
         });

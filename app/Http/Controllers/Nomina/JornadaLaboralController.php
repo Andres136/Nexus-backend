@@ -31,11 +31,11 @@ class JornadaLaboralController extends Controller
         }
     }
 
-    // GET /jornada-laborals/{id}
-    public function show(int $id): JsonResponse
+    // GET /jornada-laborals/{uuid}
+    public function show(string $uuid): JsonResponse          // ← int $id → string $uuid
     {
         try {
-            $jornada = $this->jornadaLaboralService->getById($id);
+            $jornada = $this->jornadaLaboralService->getByUuid($uuid);  // ← getById → getByUuid
 
             return response()->json([
                 'success' => true,
@@ -64,11 +64,11 @@ class JornadaLaboralController extends Controller
         }
     }
 
-    // PUT /jornada-laborals/{id}
-    public function update(UpdateJornadaLaboralRequest $request, int $id): JsonResponse
+    // PUT /jornada-laborals/{uuid}
+    public function update(UpdateJornadaLaboralRequest $request, string $uuid): JsonResponse  
     {
         try {
-            $jornada = $this->jornadaLaboralService->update($request, $id);
+            $jornada = $this->jornadaLaboralService->update($request, $uuid);  
 
             return response()->json([
                 'success' => true,
@@ -81,11 +81,11 @@ class JornadaLaboralController extends Controller
         }
     }
 
-    // DELETE /jornada-laborals/{id}
-    public function destroy(int $id): JsonResponse
+    // DELETE /jornada-laborals/{uuid}
+    public function destroy(string $uuid): JsonResponse       
     {
         try {
-            $this->jornadaLaboralService->destroy($id);
+            $this->jornadaLaboralService->destroy($uuid);     
 
             return response()->json([
                 'success' => true,

@@ -31,11 +31,11 @@ class ValorController extends Controller
         }
     }
 
-    // GET /valores/{id}
-    public function show(int $id): JsonResponse
+    // GET /valores/{uuid}
+    public function show(string $uuid): JsonResponse               
     {
         try {
-            $valor = $this->valorService->getById($id);
+            $valor = $this->valorService->getByUuid($uuid);        
 
             return response()->json([
                 'success' => true,
@@ -64,11 +64,11 @@ class ValorController extends Controller
         }
     }
 
-    // PUT /valores/{id}
-    public function update(UpdateValorRequest $request, int $id): JsonResponse
+    // PUT /valores/{uuid}
+    public function update(UpdateValorRequest $request, string $uuid): JsonResponse  
     {
         try {
-            $valor = $this->valorService->update($request, $id);
+            $valor = $this->valorService->update($request, $uuid);  
 
             return response()->json([
                 'success' => true,
@@ -81,11 +81,11 @@ class ValorController extends Controller
         }
     }
 
-    // DELETE /valores/{id}
-    public function destroy(int $id): JsonResponse
+    // DELETE /valores/{uuid}
+    public function destroy(string $uuid): JsonResponse            
     {
         try {
-            $this->valorService->destroy($id);
+            $this->valorService->destroy($uuid);                 
 
             return response()->json([
                 'success' => true,
