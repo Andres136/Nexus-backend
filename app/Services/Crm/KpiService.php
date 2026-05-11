@@ -119,6 +119,50 @@ class KpiService
             ->get()
             ->groupBy('mes');
 
+
+            $carteraVencidas = (int) DB::table('gestion_cartera')
+    ->where('estado', '!=', 'cancelado')
+    ->whereDate('fecha_vencimiento', '<', now())
+    ->count();
+
+$carteraGestionadas = (int) DB::table('gestion_cartera as gc')
+    ->join('gestion_cartera_historial as gh', 'gc.id', '=', 'gh.gestion_cartera_id')
+    ->where('gc.estado', '!=', 'cancelado')
+    ->whereDate('gc.fecha_vencimiento', '<', now())
+    ->distinct('gc.id')
+    ->count('gc.id');
+
+// =========================
+// CARTERA: vencidas global + gestionadas POR MES
+// =========================
+
+// Denominador FIJO — todas las vencidas hasta hoy
+$carteraVencidas = (int) DB::table('gestion_cartera')
+    ->where('estado', '!=', 'cancelado')
+    ->whereDate('fecha_vencimiento', '<', now())
+    ->count();
+
+// Gestionadas POR MES — cuántas vencidas recibieron gestión en cada mes
+$carteraGestionadasByMonth = DB::table('gestion_cartera as gc')
+    ->join('gestion_cartera_historial as gh', 'gc.id', '=', 'gh.gestion_cartera_id')
+    ->selectRaw('MONTH(gh.created_at) as mes, COUNT(DISTINCT gc.id) as gestionadas')
+    ->where('gc.estado', '!=', 'cancelado')
+    ->whereDate('gc.fecha_vencimiento', '<', now()) // solo sobre vencidas
+    ->whereYear('gh.created_at', $year)
+    ->groupBy('mes')
+    ->pluck('gestionadas', 'mes');
+
+$carteraGestionadas = (int) DB::table('gestion_cartera as gc')
+    ->join('gestion_cartera_historial as gh', 'gc.id', '=', 'gh.gestion_cartera_id')
+    ->where('gc.estado', '!=', 'cancelado')
+    ->whereDate('gc.fecha_vencimiento', '<', now())
+    ->distinct('gc.id')
+    ->count('gc.id');
+
+$carteraPctGestion = $carteraVencidas > 0
+    ? round(($carteraGestionadas / $carteraVencidas) * 100, 2)
+    : 0;
+
         // =========================
         // Totales anuales “CRM”
         // =========================
@@ -153,7 +197,10 @@ class KpiService
             $gestionByMonth,
             $perdidosByMonth,
             $fielesPorMes,
-            $ventasPorUsuarioMensual
+            $ventasPorUsuarioMensual,
+            $carteraVencidas,
+            $carteraGestionadasByMonth
+
         ) {
             $mes = $m['month'];
 
@@ -198,6 +245,12 @@ class KpiService
 $funnelCompraToFiel = $compradoresMes > 0
     ? ($clientesFielesMes / $compradoresMes) * 100
     : 0;
+// Cartera — denominador fijo, numerador varía por mes
+$carteraGestionadasMes = (int) ($carteraGestionadasByMonth[$mes] ?? 0);
+$carteraPctMes = $carteraVencidas > 0
+    ? round(($carteraGestionadasMes / $carteraVencidas) * 100, 2)
+    : 0;
+
 
             return [
                 'month' => $mes,
@@ -227,6 +280,11 @@ $funnelCompraToFiel = $compradoresMes > 0
                 'ventas_por_usuario' => ($ventasPorUsuarioMensual[$mes] ?? collect())->values(),
                 'funnel_gestion_to_compra' => round($funnelGestionToCompra, 2),
                 'funnel_compra_to_fiel' => round($funnelCompraToFiel, 2),
+
+                // Cartera
+                'cartera_vencidas' => $carteraVencidas,
+                'cartera_gestionadas' => $carteraGestionadasMes,
+                'cartera_pct_gestion' => $carteraPctMes,
             ];
         })->values();
 
@@ -264,6 +322,9 @@ $funnelCompraToFiel = $compradoresMes > 0
                 'gestion_clientes_pct'      => round($gestionPct, 2),
                 'conversion_clientes_pct'   => round($conversionClientesPct, 2),
                 'fidelizacion_clientes_pct' => round($fidelizacionPct, 2),
+                'cartera_vencidas'    => $carteraVencidas,
+'cartera_gestionadas' => $carteraGestionadas,
+'cartera_pct_gestion' => $carteraPctGestion,
 
                 // KPI financiero
                 'ticket_promedio' => round($ticketPromedio, 2),

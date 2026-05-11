@@ -117,34 +117,74 @@ public function store(StoreIndicadoresRequest $request)
 
 public function indexAdmin(Request $request)
 {
-    
     $user = $request->user();
     $perPage = $request->input('per_page', 10);
     $departamentoId = $request->input('departamento_id');
+    $search = $request->query('search');
 
-    // Si es admin o supervisor (role_id 1 o 2)
+    /*
+    |--------------------------------------------------------------------------
+    | ADMIN / SUPERVISOR
+    |--------------------------------------------------------------------------
+    */
     if (in_array($user->role_id, [1, 2])) {
+
         $query = Indicadores::with('departamento', 'user');
 
-        // Si viene el filtro desde el frontend, úsalo
+        // 🔍 Filtro por departamento
         if ($departamentoId) {
             $query->where('departamento_id', $departamentoId);
         } elseif ($user->departamento_id) {
-            // Si no viene filtro, pero el usuario tiene departamento, filtra por ese
             $query->where('departamento_id', $user->departamento_id);
         }
-        $indicadores = $query->paginate($perPage);
+
+        // 🔍 Búsqueda general
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('nombre', 'like', "%{$search}%")
+                  ->orWhere('descripcion', 'like', "%{$search}%")
+                  ->orWhere('formula', 'like', "%{$search}%")
+                  ->orWhere('frecuencia', 'like', "%{$search}%")
+                  ->orWhere('tipo_meta', 'like', "%{$search}%");
+            });
+        }
+
+        $indicadores = $query
+            ->orderBy('id', 'desc')
+            ->paginate($perPage);
+
         return response()->json($indicadores);
     }
 
-    // Solo mostrar indicadores si el usuario es responsable de su departamento
+    /*
+    |--------------------------------------------------------------------------
+    | RESPONSABLE DE DEPARTAMENTO
+    |--------------------------------------------------------------------------
+    */
     $departamento = $user->departamento;
+
     if (!$departamento || $departamento->responsable_id !== $user->id) {
-        return response()->json(['message' => 'No autorizado.'], 403);
+        return response()->json([
+            'message' => 'No autorizado.'
+        ], 403);
     }
 
-    $indicadores = Indicadores::with('departamento', 'user', 'registros')
-        ->where('departamento_id', $departamento->id)
+    $query = Indicadores::with('departamento', 'user', 'registros')
+        ->where('departamento_id', $departamento->id);
+
+    // 🔍 Búsqueda para responsables
+    if ($search) {
+        $query->where(function ($q) use ($search) {
+            $q->where('nombre', 'like', "%{$search}%")
+              ->orWhere('descripcion', 'like', "%{$search}%")
+              ->orWhere('formula', 'like', "%{$search}%")
+              ->orWhere('frecuencia', 'like', "%{$search}%")
+              ->orWhere('tipo_meta', 'like', "%{$search}%");
+        });
+    }
+
+    $indicadores = $query
+        ->orderBy('id', 'desc')
         ->paginate($perPage);
 
     return response()->json($indicadores);
