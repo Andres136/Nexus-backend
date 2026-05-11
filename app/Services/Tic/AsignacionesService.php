@@ -11,7 +11,6 @@ class AsignacionesService
 
     //Consltar todas las asignaciones
    
-   
 public function getAllAsignaciones(array $filters = [])
 {
     $query = Asignaciones::with([
@@ -22,62 +21,137 @@ public function getAllAsignaciones(array $filters = [])
         'usuarioRecibe',
     ]);
 
-  if (!empty($filters['usuario_id'])) {
-    $query->where(function ($q) use ($filters) {
-        $q->where('id_usuario', $filters['usuario_id'])
-          ->orWhere('usuario_asignacion_id', $filters['usuario_id']);
-    });
-}
+    /*
+    |--------------------------------------------------------------------------
+    | Filtro por usuario
+    |--------------------------------------------------------------------------
+    */
+    if (!empty($filters['usuario_id'])) {
+        $query->where(function ($q) use ($filters) {
+            $q->where('id_usuario', $filters['usuario_id'])
+              ->orWhere('usuario_asignacion_id', $filters['usuario_id']);
+        });
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Filtro por nombre usuario
+    |--------------------------------------------------------------------------
+    */
     if (!empty($filters['usuario_nombre'])) {
         $query->whereHas('usuario', function ($q) use ($filters) {
             $q->where('name', 'like', '%' . $filters['usuario_nombre'] . '%');
         });
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Estado activo/inactivo
+    |--------------------------------------------------------------------------
+    */
     if (isset($filters['activo']) && $filters['activo'] !== '') {
         $query->where('activo', $filters['activo']);
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Filtro por sede
+    |--------------------------------------------------------------------------
+    */
     if (!empty($filters['sede_id'])) {
         $query->where('sede_id', $filters['sede_id']);
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Búsqueda por producto
+    |--------------------------------------------------------------------------
+    */
     if (!empty($filters['search'])) {
         $query->whereHas('producto', function ($q) use ($filters) {
             $q->where('name', 'like', '%' . $filters['search'] . '%');
         });
     }
 
-    $perPage = $filters['per_page'] ?? 20;
+    /*
+    |--------------------------------------------------------------------------
+    | Orden
+    |--------------------------------------------------------------------------
+    */
+    $query->latest();
 
+    /*
+    |--------------------------------------------------------------------------
+    | Paginación
+    |--------------------------------------------------------------------------
+    */
+    $perPage = $filters['per_page'] ?? 20;
     $paginado = $query->paginate($perPage);
 
-$usuariosIds = Asignaciones::select('id_usuario as user_id')
-    ->union(
-        Asignaciones::select('usuario_asignacion_id as user_id')
-    )
-    ->pluck('user_id')
-    ->unique()
-    ->filter();
+    /*
+    |--------------------------------------------------------------------------
+    | Transformación con URLs PDF
+    |--------------------------------------------------------------------------
+    */
+ $data = collect($paginado->items())->map(function ($asignacion) {
 
-$usuariosFiltro = User::whereIn('id', $usuariosIds)
-    ->select('id', 'name')
-    ->orderBy('name')
-    ->get();
+    $rutaAsignacion = public_path('storage/asignaciones/acta_asignacion_' . $asignacion->id . '.pdf');
+    $rutaDevolucion = public_path('storage/asignaciones/acta_devolucion_' . $asignacion->id . '.pdf');
 
+    $asignacion->acta_asignacion_url = file_exists($rutaAsignacion)
+        ? asset('storage/asignaciones/acta_asignacion_' . $asignacion->id . '.pdf')
+        : null;
+
+    $asignacion->acta_devolucion_url = file_exists($rutaDevolucion)
+        ? asset('storage/asignaciones/acta_devolucion_' . $asignacion->id . '.pdf')
+        : null;
+
+    return $asignacion;
+});
+
+    /*
+    |--------------------------------------------------------------------------
+    | Usuarios filtro
+    |--------------------------------------------------------------------------
+    */
+    $usuariosIds = Asignaciones::select('id_usuario as user_id')
+        ->union(
+            Asignaciones::select('usuario_asignacion_id as user_id')
+        )
+        ->pluck('user_id')
+        ->unique()
+        ->filter();
+
+    $usuariosFiltro = User::whereIn('id', $usuariosIds)
+        ->select('id', 'name')
+        ->orderBy('name')
+        ->get();
+
+    /*
+    |--------------------------------------------------------------------------
+    | Sedes filtro
+    |--------------------------------------------------------------------------
+    */
     $sedesFiltro = Sede::select('id', 'nombre')
         ->orderBy('nombre')
         ->get();
 
+    /*
+    |--------------------------------------------------------------------------
+    | Respuesta final
+    |--------------------------------------------------------------------------
+    */
     return [
-        'data' => $paginado->items(),
+        'data' => $data,
         'current_page' => $paginado->currentPage(),
         'last_page' => $paginado->lastPage(),
         'per_page' => $paginado->perPage(),
         'total' => $paginado->total(),
+        'from' => $paginado->firstItem(),
+        'to' => $paginado->lastItem(),
+
         'usuarios_filtro' => $usuariosFiltro,
         'sedes_filtro' => $sedesFiltro,
-
     ];
 }
 
