@@ -7,6 +7,7 @@ use App\Http\Requests\Nomina\StoreValorRequest;
 use App\Http\Requests\Nomina\UpdateValorRequest;
 use App\Services\Nomina\ValorService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class ValorController extends Controller
@@ -15,97 +16,79 @@ class ValorController extends Controller
         private readonly ValorService $valorService
     ) {}
 
-    // GET /valores
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         try {
-            $valores = $this->valorService->getAll();
+            $filters = [
+                'status'   => $request->query('status'),
+                'per_page' => $request->query('per_page', 10),
+            ];
 
-            return response()->json([
-                'success' => true,
-                'data'    => $valores,
-            ], 200);
+            $data = $this->valorService->getAll($filters);
 
+            return response()->json(['success' => true, 'data' => $data]);
         } catch (\Exception $e) {
-            return $this->errorResponse($e);
+            Log::error('Error al listar valores de hora', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al obtener los valores.'], 500);
         }
     }
 
-    // GET /valores/{uuid}
-    public function show(string $uuid): JsonResponse               
+    public function show(string $uuid): JsonResponse
     {
         try {
-            $valor = $this->valorService->getByUuid($uuid);        
+            $data = $this->valorService->getByUuid($uuid);
 
-            return response()->json([
-                'success' => true,
-                'data'    => $valor,
-            ], 200);
-
+            return response()->json(['success' => true, 'data' => $data]);
         } catch (\Exception $e) {
-            return $this->errorResponse($e);
+            Log::error('Error al obtener valor', ['uuid' => $uuid, 'error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Valor no encontrado.'], 404);
         }
     }
 
-    // POST /valores
     public function store(StoreValorRequest $request): JsonResponse
     {
         try {
-            $valor = $this->valorService->store($request);
+            $data = $this->valorService->store($request->validated());
 
             return response()->json([
                 'success' => true,
-                'message' => 'Valores creados exitosamente',
-                'data'    => $valor,
+                'message' => 'Valores de hora creados exitosamente.',
+                'data'    => $data,
             ], 201);
-
         } catch (\Exception $e) {
-            return $this->errorResponse($e);
+            Log::error('Error al crear valores de hora', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al crear los valores.'], 500);
         }
     }
 
-    // PUT /valores/{uuid}
-    public function update(UpdateValorRequest $request, string $uuid): JsonResponse  
+    public function update(UpdateValorRequest $request, string $uuid): JsonResponse
     {
         try {
-            $valor = $this->valorService->update($request, $uuid);  
+            $data = $this->valorService->update($uuid, $request->validated());
 
             return response()->json([
                 'success' => true,
-                'message' => 'Valores actualizados exitosamente',
-                'data'    => $valor,
-            ], 200);
-
+                'message' => 'Valores de hora actualizados exitosamente.',
+                'data'    => $data,
+            ]);
         } catch (\Exception $e) {
-            return $this->errorResponse($e);
+            Log::error('Error al actualizar valores de hora', ['uuid' => $uuid, 'error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al actualizar los valores.'], 500);
         }
     }
 
-    // DELETE /valores/{uuid}
-    public function destroy(string $uuid): JsonResponse            
+    public function destroy(string $uuid): JsonResponse
     {
         try {
-            $this->valorService->destroy($uuid);                 
+            $this->valorService->destroy($uuid);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Valores eliminados exitosamente',
-            ], 200);
-
+                'message' => 'Valores de hora eliminados exitosamente.',
+            ]);
         } catch (\Exception $e) {
-            return $this->errorResponse($e);
+            Log::error('Error al eliminar valores de hora', ['uuid' => $uuid, 'error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al eliminar los valores.'], 500);
         }
-    }
-
-    private function errorResponse(\Exception $e): JsonResponse
-    {
-        Log::error('Error en ValorController', [
-            'message' => $e->getMessage(),
-        ]);
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Ocurrió un error inesperado',
-        ], 500);
     }
 }

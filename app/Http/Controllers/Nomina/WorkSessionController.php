@@ -7,6 +7,7 @@ use App\Http\Requests\Nomina\StoreWorkSessionRequest;
 use App\Http\Requests\Nomina\UpdateWorkSessionRequest;
 use App\Services\Nomina\WorkSessionService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class WorkSessionController extends Controller
@@ -15,97 +16,81 @@ class WorkSessionController extends Controller
         private readonly WorkSessionService $workSessionService
     ) {}
 
-    // GET /work-sessions
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         try {
-            $sessions = $this->workSessionService->getAll();
+            $filters = [
+                'user_id'      => $request->query('user_id'),
+                'fecha'        => $request->query('fecha'),
+                'fecha_inicio' => $request->query('fecha_inicio'),
+                'fecha_fin'    => $request->query('fecha_fin'),
+                'per_page'     => $request->query('per_page', 15),
+            ];
 
-            return response()->json([
-                'success' => true,
-                'data'    => $sessions,
-            ], 200);
+            $data = $this->workSessionService->getAll($filters);
 
+            return response()->json(['success' => true, 'data' => $data]);
         } catch (\Exception $e) {
-            return $this->errorResponse($e);
+            Log::error('Error al listar sesiones de trabajo', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al obtener las sesiones.'], 500);
         }
     }
 
-    // GET /work-sessions/{uuid}
-    public function show(string $uuid): JsonResponse              
+    public function show(string $uuid): JsonResponse
     {
         try {
-            $session = $this->workSessionService->getByUuid($uuid);  
-
-            return response()->json([
-                'success' => true,
-                'data'    => $session,
-            ], 200);
-
+            $data = $this->workSessionService->getByUuid($uuid);
+            return response()->json(['success' => true, 'data' => $data]);
         } catch (\Exception $e) {
-            return $this->errorResponse($e);
+            Log::error('Error al obtener sesión', ['uuid' => $uuid, 'error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Sesión no encontrada.'], 404);
         }
     }
 
-    // POST /work-sessions
     public function store(StoreWorkSessionRequest $request): JsonResponse
     {
         try {
-            $session = $this->workSessionService->store($request);
+            $data = $this->workSessionService->store($request->validated());
 
             return response()->json([
                 'success' => true,
-                'message' => 'Sesión de trabajo creada exitosamente',
-                'data'    => $session,
+                'message' => 'Sesión de trabajo creada exitosamente.',
+                'data'    => $data,
             ], 201);
-
         } catch (\Exception $e) {
-            return $this->errorResponse($e);
+            Log::error('Error al crear sesión de trabajo', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al crear la sesión.'], 500);
         }
     }
 
-    // PUT /work-sessions/{uuid}
-    public function update(UpdateWorkSessionRequest $request, string $uuid): JsonResponse  
+    public function update(UpdateWorkSessionRequest $request, string $uuid): JsonResponse
     {
         try {
-            $session = $this->workSessionService->update($request, $uuid);  
+            $data = $this->workSessionService->update($uuid, $request->validated());
 
             return response()->json([
                 'success' => true,
-                'message' => 'Sesión de trabajo actualizada exitosamente',
-                'data'    => $session,
-            ], 200);
-
+                'message' => 'Sesión de trabajo actualizada exitosamente.',
+                'data'    => $data,
+            ]);
         } catch (\Exception $e) {
-            return $this->errorResponse($e);
+            Log::error('Error al actualizar sesión de trabajo', ['uuid' => $uuid, 'error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al actualizar la sesión.'], 500);
         }
     }
 
-    // DELETE /work-sessions/{uuid}
-    public function destroy(string $uuid): JsonResponse            
+    public function destroy(string $uuid): JsonResponse
     {
         try {
-            $this->workSessionService->destroy($uuid);             
+            $this->workSessionService->destroy($uuid);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Sesión de trabajo eliminada exitosamente',
-            ], 200);
-
+                'message' => 'Sesión de trabajo eliminada exitosamente.',
+            ]);
         } catch (\Exception $e) {
-            return $this->errorResponse($e);
+            Log::error('Error al eliminar sesión de trabajo', ['uuid' => $uuid, 'error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al eliminar la sesión.'], 500);
         }
-    }
-
-    private function errorResponse(\Exception $e): JsonResponse
-    {
-        Log::error('Error en WorkSessionController', [
-            'message' => $e->getMessage(),
-        ]);
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Ocurrió un error inesperado',
-        ], 500);
     }
 }

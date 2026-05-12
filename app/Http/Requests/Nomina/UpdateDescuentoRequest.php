@@ -21,6 +21,8 @@ class UpdateDescuentoRequest extends FormRequest
             'fin'                => 'sometimes|nullable|date|after:inicio',
             'status'             => 'sometimes|boolean',
             'concepto_descuento' => 'sometimes|string|max:45',
+            'numero_cuotas'      => 'sometimes|integer|min:1',
+            'frecuencia_pago'    => 'sometimes|in:quincenal,mensual',
         ];
     }
 

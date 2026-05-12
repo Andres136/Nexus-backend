@@ -3,7 +3,6 @@
 namespace App\Services\Nomina;
 
 use App\Models\Nomina\Descuento;
-use App\Http\Requests\Nomina\StoreDescuentoRequest;
 use App\Http\Requests\Nomina\UpdateDescuentoRequest;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -131,20 +130,35 @@ public function store(array $data): Descuento
     // =====================
     // ACTUALIZAR
     // =====================
-    public function update(UpdateDescuentoRequest $request, string $uuid): Descuento  
+    public function update(UpdateDescuentoRequest $request, string $uuid): Descuento
     {
         return DB::transaction(function () use ($request, $uuid) {
 
-            $descuento = $this->getByUuid($uuid);   
+            $descuento = $this->getByUuid($uuid);
+            $data      = $request->validated();
 
-            $descuento->update($request->validated());
+            $monto         = $data['monto']         ?? $descuento->monto;
+            $numeroCuotas  = $data['numero_cuotas'] ?? $descuento->numero_cuotas;
+            $frecuencia    = $data['frecuencia_pago'] ?? $descuento->frecuencia_pago;
+            $inicio        = Carbon::parse($data['inicio'] ?? $descuento->inicio);
+
+            $data['valor_cuota'] = round($monto / $numeroCuotas, 2);
+
+            if ($frecuencia === 'quincenal') {
+                $data['fin'] = $inicio->copy()->addDays(($numeroCuotas - 1) * 15)->format('Y-m-d');
+            } elseif ($frecuencia === 'mensual') {
+                $data['fin'] = $inicio->copy()->addMonths($numeroCuotas - 1)->format('Y-m-d');
+            }
+
+            $descuento->update($data);
 
             Log::info('Descuento actualizado', [
-                'uuid'  => $descuento->uuid,         
-                'monto' => $descuento->monto,
+                'uuid'        => $descuento->uuid,
+                'monto'       => $descuento->monto,
+                'valor_cuota' => $descuento->valor_cuota,
             ]);
 
-            return $descuento;
+            return $descuento->fresh(['empleado']);
         });
     }
 

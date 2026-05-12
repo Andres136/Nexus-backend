@@ -27,16 +27,16 @@ class Contratacion extends Model
         'eps_id',
         'arl_id',
         'fondo_pensiones_id',
-        'caja_pensiones_id',
+        'caja_compensacion_id',
     ];
 
     protected $casts = [
-        'no_salarial'        => 'decimal:2',
-        'base_salario'       => 'decimal:2',
-        'auxilio_transporte' => 'decimal:2',
-        'inicio_contratacion'=> 'date',
-        'fin_contrato'       => 'datetime',
-        'status'             => 'integer',
+        'no_salarial'         => 'decimal:2',
+        'base_salario'        => 'decimal:2',
+        'auxilio_transporte'  => 'decimal:2',
+        'inicio_contratacion' => 'date',
+        'fin_contrato'        => 'datetime',
+        'status'              => 'integer',
     ];
 
     protected static function booted()
@@ -46,7 +46,6 @@ class Contratacion extends Model
         });
     }
 
-    // Relaciones
     public function tipoContrato()
     {
         return $this->belongsTo(TipoContrato::class, 'id_contrato');
@@ -59,32 +58,21 @@ class Contratacion extends Model
 
     public function eps()
     {
-        return $this->belongsTo(SeguridadSocial::class, 'eps_id');
+        return $this->belongsTo(SeguridadSocial::class, 'eps_id')->withTrashed();
     }
-      // ARL
+
     public function arl()
     {
-        return $this->belongsTo(
-            \App\Models\Nomina\SeguridadSocial::class,
-            'arl_id'
-        )->withTrashed();
+        return $this->belongsTo(SeguridadSocial::class, 'arl_id')->withTrashed();
     }
 
-    // 🔥 Fondo pensión
     public function fondoPensiones()
     {
-        return $this->belongsTo(
-            \App\Models\Nomina\SeguridadSocial::class,
-            'fondo_pensiones_id'
-        )->withTrashed();
+        return $this->belongsTo(SeguridadSocial::class, 'fondo_pensiones_id')->withTrashed();
     }
 
-    // 🔥 Caja pensión
-    public function cajaPensiones()
+    public function cajaCompensacion()
     {
-        return $this->belongsTo(
-            \App\Models\Nomina\SeguridadSocial::class,
-            'caja_pensiones_id'
-        )->withTrashed();
+        return $this->belongsTo(SeguridadSocial::class, 'caja_compensacion_id')->withTrashed();
     }
 }

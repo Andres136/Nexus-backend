@@ -7,6 +7,7 @@ use App\Http\Requests\Nomina\StoreTransacionalRegistroRequest;
 use App\Http\Requests\Nomina\UpdateTransacionalRegistroRequest;
 use App\Services\Nomina\TransacionalRegistroService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class TransacionalRegistroController extends Controller
@@ -15,113 +16,87 @@ class TransacionalRegistroController extends Controller
         private readonly TransacionalRegistroService $transacionalRegistroService
     ) {}
 
-    // GET /transacional-registros
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         try {
-            $data = $this->transacionalRegistroService->getAll();
+            $filters = [
+                'users_id' => $request->query('users_id'),
+                'fecha'    => $request->query('fecha'),
+                'per_page' => $request->query('per_page', 15),
+            ];
 
-            return response()->json([
-                'success' => true,
-                'data'    => $data,
-            ], 200);
+            $data = $this->transacionalRegistroService->getAll($filters);
 
+            return response()->json(['success' => true, 'data' => $data]);
         } catch (\Exception $e) {
-            return $this->errorResponse($e);
+            Log::error('Error al listar marcaciones', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al obtener las marcaciones.'], 500);
         }
     }
 
-    // GET /transacional-registros/{uuid}
-    public function show(string $uuid): JsonResponse               
+    public function show(string $uuid): JsonResponse
     {
         try {
-            $data = $this->transacionalRegistroService->getByUuid($uuid);  
-
-            return response()->json([
-                'success' => true,
-                'data'    => $data,
-            ], 200);
-
+            $data = $this->transacionalRegistroService->getByUuid($uuid);
+            return response()->json(['success' => true, 'data' => $data]);
         } catch (\Exception $e) {
-            return $this->errorResponse($e);
+            Log::error('Error al obtener marcación', ['uuid' => $uuid, 'error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Marcación no encontrada.'], 404);
         }
     }
 
-    // GET /transacional-registros/user/{userId}
-    public function byUser(int $userId): JsonResponse              
+    public function byUser(int $userId): JsonResponse
     {
         try {
             $data = $this->transacionalRegistroService->getByUser($userId);
-
-            return response()->json([
-                'success' => true,
-                'data'    => $data,
-            ], 200);
-
+            return response()->json(['success' => true, 'data' => $data]);
         } catch (\Exception $e) {
-            return $this->errorResponse($e);
+            Log::error('Error al obtener marcaciones del empleado', ['userId' => $userId, 'error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al obtener las marcaciones.'], 500);
         }
     }
 
-    // POST /transacional-registros
     public function store(StoreTransacionalRegistroRequest $request): JsonResponse
     {
         try {
             $data = $this->transacionalRegistroService->store($request);
-
             return response()->json([
                 'success' => true,
                 'message' => 'Marcación registrada correctamente.',
                 'data'    => $data,
             ], 201);
-
         } catch (\Exception $e) {
-            return $this->errorResponse($e);
+            Log::error('Error al registrar marcación', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al registrar la marcación.'], 500);
         }
     }
 
-    // PUT /transacional-registros/{uuid}
-    public function update(UpdateTransacionalRegistroRequest $request, string $uuid): JsonResponse  
+    public function update(UpdateTransacionalRegistroRequest $request, string $uuid): JsonResponse
     {
         try {
-            $data = $this->transacionalRegistroService->update($request, $uuid);  
-
+            $data = $this->transacionalRegistroService->update($request, $uuid);
             return response()->json([
                 'success' => true,
                 'message' => 'Marcación actualizada correctamente.',
                 'data'    => $data,
-            ], 200);
-
+            ]);
         } catch (\Exception $e) {
-            return $this->errorResponse($e);
+            Log::error('Error al actualizar marcación', ['uuid' => $uuid, 'error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al actualizar la marcación.'], 500);
         }
     }
 
-    // DELETE /transacional-registros/{uuid}
-    public function destroy(string $uuid): JsonResponse           
+    public function destroy(string $uuid): JsonResponse
     {
         try {
-            $this->transacionalRegistroService->delete($uuid);     
-
+            $this->transacionalRegistroService->delete($uuid);
             return response()->json([
                 'success' => true,
                 'message' => 'Marcación eliminada correctamente.',
-            ], 200);
-
+            ]);
         } catch (\Exception $e) {
-            return $this->errorResponse($e);
+            Log::error('Error al eliminar marcación', ['uuid' => $uuid, 'error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al eliminar la marcación.'], 500);
         }
-    }
-
-    private function errorResponse(\Exception $e): JsonResponse
-    {
-        Log::error('Error en TransacionalRegistroController', [
-            'message' => $e->getMessage(),
-        ]);
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Ocurrió un error inesperado',
-        ], 500);
     }
 }

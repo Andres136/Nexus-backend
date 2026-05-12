@@ -3,125 +3,97 @@
 namespace App\Services\Nomina;
 
 use App\Models\Nomina\WorkSession;
-use App\Models\Nomina\JornadaLaboral;
-use App\Http\Requests\Nomina\StoreWorkSessionRequest;
-use App\Http\Requests\Nomina\UpdateWorkSessionRequest;
 use Carbon\Carbon;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class WorkSessionService
 {
-    // =====================
-    // TRAER TODAS
-    // =====================
-    public function getAll()
+    private const WITH = ['empleado', 'kiosko', 'jornadaLaboral'];
+
+    public function getAll(array $filters = []): LengthAwarePaginator
     {
-        return WorkSession::with([
-            'empleado',
-            'kiosko',
-            'jornadaLaboral',
-        ])->get();
+        $perPage = $filters['per_page'] ?? 15;
+
+        return WorkSession::with(self::WITH)
+            ->when(!empty($filters['user_id']), fn($q) => $q->where('user_id', $filters['user_id']))
+            ->when(!empty($filters['fecha']), fn($q) => $q->whereDate('registro_diario', $filters['fecha']))
+            ->when(!empty($filters['fecha_inicio']), fn($q) => $q->whereDate('registro_diario', '>=', $filters['fecha_inicio']))
+            ->when(!empty($filters['fecha_fin']), fn($q) => $q->whereDate('registro_diario', '<=', $filters['fecha_fin']))
+            ->orderByDesc('registro_diario')
+            ->paginate($perPage);
     }
 
-    // =====================
-    // TRAER UNA
-    // =====================
-    public function getByUuid(string $uuid): WorkSession           
+    public function getByUuid(string $uuid): WorkSession
     {
-        return WorkSession::with([
-            'empleado',
-            'kiosko',
-            'jornadaLaboral',
-        ])
-        ->where('uuid', $uuid)                                     
-        ->firstOrFail();
+        return WorkSession::with(self::WITH)
+            ->where('uuid', $uuid)
+            ->firstOrFail();
     }
 
-    // =====================
-    // CREAR
-    // =====================
-    public function store(StoreWorkSessionRequest $request): WorkSession
+    public function store(array $data): WorkSession
     {
-        return DB::transaction(function () use ($request) {
-
-            $data = $request->validated();
-
-            if (isset($data['hora_entrada']) && isset($data['hola_salida'])) {
-                $entrada = Carbon::parse($data['hora_entrada']);
-                $salida  = Carbon::parse($data['hola_salida']);
-                $data['minutos_trabajados'] = $salida->diffInMinutes($entrada);
-            }
-
-            if (isset($data['hora_entrada']) && isset($data['horario_laboral_id'])) {
-                $jornada    = JornadaLaboral::findOrFail($data['horario_laboral_id']);
-                $entrada    = Carbon::parse($data['hora_entrada']);
-                $horaInicio = Carbon::parse('08:00:00');
-                $data['minutos_tardanza'] = max(0, $horaInicio->diffInMinutes($entrada, false));
-            }
+        return DB::transaction(function () use ($data) {
+            $data = $this->calcularMinutos($data);
 
             $session = WorkSession::create($data);
 
             Log::info('WorkSession creada', [
-                'uuid'    => $session->uuid,                      
-                'dia'     => $session->registro_diario,
+                'uuid' => $session->uuid,
+                'dia'  => $session->registro_diario,
             ]);
 
-            return $session;
+            return $session->load(self::WITH);
         });
     }
 
-    // =====================
-    // ACTUALIZAR
-    // =====================
-    public function update(UpdateWorkSessionRequest $request, string $uuid): WorkSession  
+    public function update(string $uuid, array $data): WorkSession
     {
-        return DB::transaction(function () use ($request, $uuid) {
+        return DB::transaction(function () use ($uuid, $data) {
+            $session = $this->getByUuid($uuid);
 
-            $session = $this->getByUuid($uuid);                    
-            $data    = $request->validated();
-
-            if (isset($data['hora_salida_brake']) && isset($data['horara_ingreso_brake'])) {
-                $salida  = Carbon::parse($data['hora_salida_brake']);
-                $regreso = Carbon::parse($data['horara_ingreso_brake']);
-                $data['minutos_pausa'] = $regreso->diffInMinutes($salida);
-            }
-
-            if (isset($data['hola_salida'])) {
-                $entrada = Carbon::parse($session->hora_entrada);
-                $salida  = Carbon::parse($data['hola_salida']);
-                $pausa   = $session->minutos_pausa ?? 0;
-                $data['minutos_trabajados'] = $salida->diffInMinutes($entrada) - $pausa;
-            }
+            $data = $this->calcularMinutos($data, $session);
 
             $session->update($data);
 
             Log::info('WorkSession actualizada', [
-                'uuid' => $session->uuid,                        
+                'uuid' => $session->uuid,
                 'dia'  => $session->registro_diario,
             ]);
 
-            return $session->fresh([                               
-                'empleado',
-                'kiosko',
-                'jornadaLaboral',
-            ]);
+            return $session->fresh(self::WITH);
         });
     }
 
-    // =====================
-    // ELIMINAR (soft delete)
-    // =====================
-    public function destroy(string $uuid): bool                  
+    public function destroy(string $uuid): void
     {
-        return DB::transaction(function () use ($uuid) {
-
-            $session = $this->getByUuid($uuid);                   
+        DB::transaction(function () use ($uuid) {
+            $session = $this->getByUuid($uuid);
             $session->delete();
 
-            Log::info('WorkSession eliminada', ['uuid' => $session->uuid]);  
-
-            return true;
+            Log::info('WorkSession eliminada', ['uuid' => $session->uuid]);
         });
+    }
+
+    private function calcularMinutos(array $data, ?WorkSession $session = null): array
+    {
+        $entrada   = $data['hora_entrada']         ?? $session?->hora_entrada;
+        $salida    = $data['hola_salida']           ?? $session?->hola_salida;
+        $pausaSale = $data['hora_salida_brake']     ?? $session?->hora_salida_brake;
+        $pausaVuelve = $data['horara_ingreso_brake'] ?? $session?->horara_ingreso_brake;
+        $pausaMinutos = $session?->minutos_pausa ?? 0;
+
+        if ($pausaSale && $pausaVuelve) {
+            $data['minutos_pausa'] = (int) Carbon::parse($pausaSale)->diffInMinutes(Carbon::parse($pausaVuelve));
+            $pausaMinutos = $data['minutos_pausa'];
+        }
+
+        if ($entrada && $salida) {
+            $minutos = (int) Carbon::parse($entrada)->diffInMinutes(Carbon::parse($salida));
+            $data['minutos_trabajados'] = max(0, $minutos - $pausaMinutos);
+        }
+
+        return $data;
     }
 }

@@ -11,9 +11,9 @@ class UpdateTransacionalRegistroRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'tipo_marcacion_id' => 'sometimes|exists:tipo_registros,id',
-            'foto_referencia'   => 'sometimes|image|mimes:jpg,jpeg,png|max:5120',
-            'marked_ad'         => 'sometimes|date_format:H:i:s',
+            'tipo_marcacion_id' => 'sometimes|integer|exists:tipo_registros,id',
+            'foto_referencia'   => 'sometimes|nullable|image|mimes:jpg,jpeg,png|max:5120',
+            'marked_ad'         => 'sometimes|date_format:Y-m-d H:i:s',
         ];
     }
 
@@ -22,9 +22,9 @@ class UpdateTransacionalRegistroRequest extends FormRequest
         return [
             'tipo_marcacion_id.exists' => 'El tipo de marcación no existe.',
             'foto_referencia.image'    => 'La foto de referencia debe ser una imagen.',
-            'foto_referencia.mimes'    => 'La foto de referencia debe ser jpg, jpeg o png.',
-            'foto_referencia.max'      => 'La foto de referencia no puede superar 5MB.',
-            'marked_ad.date_format'    => 'La hora debe tener formato HH:MM:SS.',
+            'foto_referencia.mimes'    => 'La foto debe ser jpg, jpeg o png.',
+            'foto_referencia.max'      => 'La foto no puede superar 5MB.',
+            'marked_ad.date_format'    => 'La fecha y hora debe tener formato YYYY-MM-DD HH:MM:SS.',
         ];
     }
 }

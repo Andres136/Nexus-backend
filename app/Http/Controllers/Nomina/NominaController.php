@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Nomina;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Nomina\LiquidarNominaRequest;
 use App\Http\Requests\Nomina\StoreNominaRequest;
 use App\Http\Requests\Nomina\UpdateNominaRequest;
 use App\Services\Nomina\NominaService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class NominaController extends Controller
@@ -15,97 +17,108 @@ class NominaController extends Controller
         private readonly NominaService $nominaService
     ) {}
 
-    // GET /nomina
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         try {
-            $nominas = $this->nominaService->getAll();
+            $filters = [
+                'user_id'            => $request->query('user_id'),
+                'jornada_laboral_id' => $request->query('jornada_laboral_id'),
+                'per_page'           => $request->query('per_page', 15),
+            ];
 
-            return response()->json([
-                'success' => true,
-                'data'    => $nominas,
-            ], 200);
+            $data = $this->nominaService->getAll($filters);
 
+            return response()->json(['success' => true, 'data' => $data]);
         } catch (\Exception $e) {
-            return $this->errorResponse($e);
+            Log::error('Error al listar nóminas', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al obtener las nóminas.'], 500);
         }
     }
 
-    // GET /nomina/{uuid}
-    public function show(string $uuid): JsonResponse              // ← int $id → string $uuid
+    public function show(string $uuid): JsonResponse
     {
         try {
-            $nomina = $this->nominaService->getByUuid($uuid);     // ← getById → getByUuid
+            $data = $this->nominaService->getByUuid($uuid);
 
-            return response()->json([
-                'success' => true,
-                'data'    => $nomina,
-            ], 200);
-
+            return response()->json(['success' => true, 'data' => $data]);
         } catch (\Exception $e) {
-            return $this->errorResponse($e);
+            Log::error('Error al obtener nómina', ['uuid' => $uuid, 'error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Nómina no encontrada.'], 404);
         }
     }
 
-    // POST /nomina
     public function store(StoreNominaRequest $request): JsonResponse
     {
         try {
-            $nomina = $this->nominaService->store($request);
+            $data = $this->nominaService->store($request->validated());
 
             return response()->json([
                 'success' => true,
-                'message' => 'Nómina creada exitosamente',
+                'message' => 'Nómina creada exitosamente.',
+                'data'    => $data,
+            ], 201);
+        } catch (\Exception $e) {
+            Log::error('Error al crear nómina', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al crear la nómina.'], 500);
+        }
+    }
+
+    public function update(UpdateNominaRequest $request, string $uuid): JsonResponse
+    {
+        try {
+            $data = $this->nominaService->update($uuid, $request->validated());
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Nómina actualizada exitosamente.',
+                'data'    => $data,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al actualizar nómina', ['uuid' => $uuid, 'error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al actualizar la nómina.'], 500);
+        }
+    }
+
+    public function destroy(string $uuid): JsonResponse
+    {
+        try {
+            $this->nominaService->destroy($uuid);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Nómina eliminada exitosamente.',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al eliminar nómina', ['uuid' => $uuid, 'error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al eliminar la nómina.'], 500);
+        }
+    }
+
+    /**
+     * Calcula y liquida la nómina de un empleado para el período dado.
+     * Las horas se obtienen automáticamente de las WorkSessions del período.
+     *
+     * POST /nomina/nominas/liquidar
+     * Body: { user_id, periodo_inicio, periodo_fin, jornada_laboral_id, descuento_id? }
+     */
+    public function liquidar(LiquidarNominaRequest $request): JsonResponse
+    {
+        try {
+            $nomina = $this->nominaService->liquidar($request->validated());
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Nómina liquidada exitosamente.',
                 'data'    => $nomina,
             ], 201);
-
-        } catch (\Exception $e) {
-            return $this->errorResponse($e);
-        }
-    }
-
-    // PUT /nomina/{uuid}
-    public function update(UpdateNominaRequest $request, string $uuid): JsonResponse  // ← int $id → string $uuid
-    {
-        try {
-            $nomina = $this->nominaService->update($request, $uuid);  // ← $id → $uuid
-
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
-                'success' => true,
-                'message' => 'Nómina actualizada exitosamente',
-                'data'    => $nomina,
-            ], 200);
-
+                'success' => false,
+                'message' => 'No se encontró contrato activo o configuración de tarifas para el empleado.',
+            ], 422);
         } catch (\Exception $e) {
-            return $this->errorResponse($e);
+            Log::error('Error al liquidar nómina', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al liquidar la nómina.'], 500);
         }
-    }
-
-    // DELETE /nomina/{uuid}
-    public function destroy(string $uuid): JsonResponse           // ← int $id → string $uuid
-    {
-        try {
-            $this->nominaService->destroy($uuid);                 // ← $id → $uuid
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Nómina eliminada exitosamente',
-            ], 200);
-
-        } catch (\Exception $e) {
-            return $this->errorResponse($e);
-        }
-    }
-
-    private function errorResponse(\Exception $e): JsonResponse
-    {
-        Log::error('Error en NominaController', [
-            'message' => $e->getMessage(),
-        ]);
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Ocurrió un error inesperado',
-        ], 500);
     }
 }

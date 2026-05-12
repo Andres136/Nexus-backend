@@ -74,6 +74,8 @@ use App\Http\Controllers\Nomina\TipoRegistroController;
 use App\Http\Controllers\Nomina\UsersFacePhotoController;
 use App\Http\Controllers\Nomina\ValorController;
 use App\Http\Controllers\Nomina\WorkSessionController;
+use App\Http\Controllers\Nomina\HoraExtraController;
+use App\Http\Controllers\Nomina\PermisoController;
 use App\Http\Controllers\NotificacionOrdenController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PqrController;
@@ -485,7 +487,16 @@ Route::prefix('nomina')->group(function () {
     Route::apiResource('transacional-registros',   TransacionalRegistroController::class);
     Route::get('transacional-registros/user/{userId}', [TransacionalRegistroController::class, 'byUser']);
     Route::apiResource('work-sessions',    WorkSessionController::class);
-     Route::apiResource('nominas',      NominaController::class);
+     Route::post('nominas/liquidar', [NominaController::class, 'liquidar']);
+     Route::apiResource('nominas', NominaController::class);
+
+     Route::apiResource('horas-extras', HoraExtraController::class)->except(['update']);
+     Route::patch('horas-extras/{uuid}/aprobar',  [HoraExtraController::class, 'aprobar']);
+     Route::patch('horas-extras/{uuid}/rechazar', [HoraExtraController::class, 'rechazar']);
+
+     Route::apiResource('permisos', PermisoController::class)->except(['update']);
+     Route::patch('permisos/{uuid}/aprobar',  [PermisoController::class, 'aprobar']);
+     Route::patch('permisos/{uuid}/rechazar', [PermisoController::class, 'rechazar']);
 });
 
 });

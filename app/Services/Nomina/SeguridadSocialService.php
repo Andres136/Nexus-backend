@@ -66,7 +66,7 @@ public function update(string $uuid, array $data): SeguridadSocial
 
     public function delete(string $uuid): void
     {
-        $seguridadSocial = SeguridadSocial::where('uuid', $uuid)->firstOrFail(null, true);
+        $seguridadSocial = SeguridadSocial::where('uuid', $uuid)->firstOrFail();
         $seguridadSocial->delete();
     }
 }

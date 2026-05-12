@@ -22,7 +22,7 @@ class TransacionalRegistro extends Model
     ];
 
     protected $casts = [
-        'marked_ad' => 'string',
+        'marked_ad' => 'datetime',
     ];
 
     protected static function booted(): void

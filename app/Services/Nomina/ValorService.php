@@ -3,79 +3,62 @@
 namespace App\Services\Nomina;
 
 use App\Models\Nomina\Valor;
-use App\Http\Requests\Nomina\StoreValorRequest;
-use App\Http\Requests\Nomina\UpdateValorRequest;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class ValorService
 {
-    // =====================
-    // TRAER TODOS
-    // =====================
-    public function getAll()
+    public function getAll(array $filters = []): LengthAwarePaginator
     {
-        return Valor::all();
+        $perPage = $filters['per_page'] ?? 10;
+
+        return Valor::query()
+            ->when(isset($filters['status']), fn($q) => $q->where('status', $filters['status']))
+            ->orderByDesc('created_at')
+            ->paginate($perPage);
     }
 
-    // =====================
-    // TRAER UNO
-    // =====================
-    public function getByUuid(string $uuid): Valor                 
+    public function getByUuid(string $uuid): Valor
     {
-        return Valor::where('uuid', $uuid)                       
-            ->firstOrFail();
+        return Valor::where('uuid', $uuid)->firstOrFail();
     }
 
-    // =====================
-    // CREAR
-    // =====================
-    public function store(StoreValorRequest $request): Valor
+    public function store(array $data): Valor
     {
-        return DB::transaction(function () use ($request) {
+        return DB::transaction(function () use ($data) {
+            $valor = Valor::create($data);
 
-            $valor = Valor::create($request->validated());
-
-            Log::info('Valores creados', [
-                'uuid'               => $valor->uuid,              
-                'valor_hora_normal'  => $valor->valor_hora_normal,
+            Log::info('Valores de hora creados', [
+                'uuid'              => $valor->uuid,
+                'valor_hora_normal' => $valor->valor_hora_normal,
             ]);
 
             return $valor;
         });
     }
 
-    // =====================
-    // ACTUALIZAR
-    // =====================
-    public function update(UpdateValorRequest $request, string $uuid): Valor  
+    public function update(string $uuid, array $data): Valor
     {
-        return DB::transaction(function () use ($request, $uuid) {
+        return DB::transaction(function () use ($uuid, $data) {
+            $valor = $this->getByUuid($uuid);
 
-            $valor = $this->getByUuid($uuid);                   
+            $valor->update($data);
 
-            $valor->update($request->validated());
+            Log::info('Valores de hora actualizados', ['uuid' => $valor->uuid]);
 
-            Log::info('Valores actualizados', ['uuid' => $valor->uuid]);  
-
-            return $valor->fresh();                               
+            return $valor->fresh();
         });
     }
 
-    // =====================
-    // ELIMINAR (soft delete)
-    // =====================
-    public function destroy(string $uuid): bool                    
+    public function destroy(string $uuid): void
     {
-        return DB::transaction(function () use ($uuid) {
-
-            $valor = $this->getByUuid($uuid);                      
+        DB::transaction(function () use ($uuid) {
+            $valor = $this->getByUuid($uuid);
 
             $valor->delete();
 
-            Log::info('Valores eliminados', ['uuid' => $valor->uuid]);  
-
-            return true;
+            Log::info('Valores de hora eliminados', ['uuid' => $valor->uuid]);
         });
     }
 }
