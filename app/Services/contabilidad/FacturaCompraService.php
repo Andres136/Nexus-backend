@@ -224,30 +224,36 @@ if (!empty($data['pagos'])) {
 }
 
     // Otros métodos como actualizar, eliminar, etc.
-public function actualizar(FacturaCompra $factura, array $data)
+public function actualizar(int $id, array $data)
+{
+    $factura = FacturaCompra::findOrFail($id);
+    return $this->_actualizar($factura, $data);
+}
+
+private function _actualizar(FacturaCompra $factura, array $data)
 {
     return DB::transaction(function () use ($factura, $data) {
 
-        // 🔹 1. Recalcular totales
+        // =====================================================
+        // 🔹 1. RECALCULAR SUBTOTAL
+        // =====================================================
         $subtotal = collect($data['detalles'])->sum(function ($d) {
             return $d['cantidad'] * $d['precio_unitario'];
         });
 
         $totalGastos = collect($data['gastos'] ?? [])->sum('monto');
-        $totalImpuestos = collect($data['impuestos'] ?? [])->sum('valor');
+        $totalImpuestos = 0;
 
-        $total = $subtotal + $totalGastos + $totalImpuestos;
-
-        // 🔹 2. Actualizar factura
+        // =====================================================
+        // 🔹 2. ACTUALIZAR FACTURA BASE
+        // =====================================================
         $factura->update(array_merge($data['factura'], [
             'subtotal' => $subtotal,
-            'total' => $total
         ]));
 
         // =====================================================
-        // 🔹 3. DETALLES (sync manual)
+        // 🔹 3. DETALLES + IMPUESTOS POR DETALLE
         // =====================================================
-
         if (isset($data['detalles'])) {
 
             $idsEnviados = collect($data['detalles'])
@@ -255,104 +261,172 @@ public function actualizar(FacturaCompra $factura, array $data)
                 ->filter()
                 ->toArray();
 
-            // ❗ eliminar los que ya no existen
-            $factura->detalles()
+            // Eliminar detalles removidos
+            $detallesEliminar = $factura->detalles()
                 ->whereNotIn('id', $idsEnviados)
-                ->delete();
+                ->get();
+
+            foreach ($detallesEliminar as $detalleEliminar) {
+                $detalleEliminar->impuestos()->detach();
+                $detalleEliminar->delete();
+            }
 
             foreach ($data['detalles'] as $detalle) {
 
-                $detalle['total'] = $detalle['cantidad'] * $detalle['precio_unitario'];
+                $base = $detalle['cantidad'] * $detalle['precio_unitario'];
 
-                if (isset($detalle['id'])) {
-                    // actualizar
-                    $factura->detalles()->where('id', $detalle['id'])->update($detalle);
+                $detalleData = [
+                    'bodega_id' => $detalle['bodega_id'] ?? null,
+                    'producto_id' => $detalle['producto_id'],
+                    'puck_id' => $detalle['puck_id'],
+                    'cantidad' => $detalle['cantidad'],
+                    'precio_unitario' => $detalle['precio_unitario'],
+                    'total' => $base,
+                ];
+
+                if (!empty($detalle['id'])) {
+
+                    $detalleModel = $factura->detalles()->findOrFail($detalle['id']);
+                    $detalleModel->update($detalleData);
+
                 } else {
-                    // crear
-                    $factura->detalles()->create($detalle);
+
+                    $detalleModel = $factura->detalles()->create($detalleData);
                 }
+
+                // Limpiar impuestos anteriores
+                $detalleModel->impuestos()->detach();
+
+                $impuestosDetalle = 0;
+
+                if (!empty($detalle['impuestos'])) {
+
+                    foreach ($detalle['impuestos'] as $imp) {
+
+                        $impuesto = Impuesto::find($imp['impuesto_id']);
+                        if (!$impuesto) continue;
+
+                        $monto = $base * ($impuesto->porcentaje / 100);
+
+                        $detalleModel->impuestos()->attach($imp['impuesto_id'], [
+                            'monto' => $monto
+                        ]);
+
+                        $impuestosDetalle += $monto;
+                        $totalImpuestos += $monto;
+                    }
+                }
+
+                $detalleModel->update([
+                    'total' => $base + $impuestosDetalle
+                ]);
             }
         }
 
         // =====================================================
         // 🔹 4. PAGOS
         // =====================================================
+        $totalPagos = 0;
+        $formaPagoId = $data['factura']['forma_pago_id'] ?? null;
 
-$totalPagos = 0;
-$formaPagoId = $data['factura']['forma_pago_id'] ?? null;
+        $factura->pagos()->delete();
 
-if (isset($data['pagos'])) {
+        if (!empty($data['pagos'])) {
 
-    $factura->pagos()->delete();
+            foreach ($data['pagos'] as $pago) {
 
-foreach ($data['pagos'] as $pago) {
+                $montoPago = $pago['monto'] > 0 ? $pago['monto'] : 0;
 
-    $montoPago = $pago['monto'] > 0 ? $pago['monto'] : $total;
-    $formaPagoId = $data['factura']['forma_pago_id'] ?? null;
+                $factura->pagos()->create([
+                    'forma_pago_id' => $formaPagoId,
+                    'monto' => $montoPago,
+                    'fecha_pago' => $pago['fecha_pago'] ?? now(),
+                    'observaciones' => $pago['observaciones'] ?? null,
+                    'user_id' => auth()->id(),
+                ]);
 
-    $factura->pagos()->create([
-        'forma_pago_id' => $formaPagoId,
-        'monto' => $montoPago,
-        'fecha_pago' => $pago['fecha_pago'] ?? now(),
-        'observaciones' => $pago['observaciones'] ?? null,
-        'user_id' => auth()->id(),
-    ]);
+                $totalPagos += $montoPago;
+            }
 
-    $totalPagos += $montoPago;
-}
-}
+        } elseif ($formaPagoId) {
+
+            $factura->pagos()->create([
+                'forma_pago_id' => $formaPagoId,
+                'monto' => 0,
+                'fecha_pago' => now(),
+                'observaciones' => 'Registro inicial automático',
+                'user_id' => auth()->id(),
+            ]);
+        }
 
         // =====================================================
         // 🔹 5. GASTOS
         // =====================================================
+        $factura->gastos()->delete();
 
-        if (isset($data['gastos'])) {
-
-            $factura->gastos()->delete();
-
+        if (!empty($data['gastos'])) {
             foreach ($data['gastos'] as $gasto) {
                 $factura->gastos()->create($gasto);
             }
         }
 
         // =====================================================
-        // 🔹 6. IMPUESTOS
+        // 🔹 6. IMPUESTOS GENERALES
         // =====================================================
+        $factura->impuestos()->detach();
 
-        if (isset($data['impuestos'])) {
-
-            $factura->impuestos()->delete();
+        if (!empty($data['impuestos'])) {
 
             foreach ($data['impuestos'] as $imp) {
-                $factura->impuestos()->create($imp);
+
+                $impuesto = Impuesto::find($imp['impuesto_id']);
+                if (!$impuesto) continue;
+
+                $monto = $subtotal * ($impuesto->porcentaje / 100);
+
+                $factura->impuestos()->attach($imp['impuesto_id'], [
+                    'monto' => $monto
+                ]);
+
+                $totalImpuestos += $monto;
             }
         }
 
         // =====================================================
-        // 🔹 7. VALIDAR PAGOS
+        // 🔹 7. TOTAL FINAL
         // =====================================================
+        $total = $subtotal + $totalGastos + $totalImpuestos;
 
         if ($totalPagos > $total) {
             throw new \Exception('Los pagos no pueden superar el total');
         }
 
         // =====================================================
-        // 🔹 8. ESTADO AUTOMÁTICO
+        // 🔹 8. ESTADO
         // =====================================================
-
         if ($totalPagos == 0) {
-            $estado = 1;
+            $estado = 1; // Pendiente
         } elseif ($totalPagos < $total) {
-            $estado = 2;
+            $estado = 5; // Parcial
         } else {
-            $estado = 3;
+            $estado = 4; // Pagado
         }
 
         $factura->update([
-            'estado_id' => $estado
+            'total' => $total,
+            'total_impuestos' => $totalImpuestos,
+            'total_gastos' => $totalGastos,
+            'estado_id' => $estado,
         ]);
 
-        return new FacturaCompraResource($factura->load(['detalles', 'pagos', 'gastos', 'impuestos']));
+        return new FacturaCompraResource(
+            $factura->load([
+                'detalles.impuestos',
+                'pagos',
+                'gastos',
+                'impuestos'
+            ])
+        );
     });
 }
 
@@ -435,7 +509,10 @@ foreach ($data['pagos'] as $pago) {
 //oBTENER DETALLES DE UNA FACTURA POR ID
 public function obtenerDetalles(int $id)
 {
-    $factura = FacturaCompra::with(['detalles', 'pagos', 'gastos', 'impuestos'])->findOrFail($id);
+    $factura = FacturaCompra::with(['detalles.impuestos', 'pagos', 'gastos', 'impuestos'])->findOrFail($id);
+        // Forma de pago principal
+    $data['forma_pago_id'] = optional($factura->pagos->first())->forma_pago_id;
+    $factura->forma_pago_id = $data['forma_pago_id'];
     return $factura;
     
 }

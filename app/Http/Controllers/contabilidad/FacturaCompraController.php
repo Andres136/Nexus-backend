@@ -52,6 +52,7 @@ class FacturaCompraController extends Controller
 
         return response()->json([
             'message' => 'Factura obtenida correctamente',
+                   'forma_pago_id' => optional($factura->pagos->first())->forma_pago_id,
             'data' => $factura
         ], 200);
     }
