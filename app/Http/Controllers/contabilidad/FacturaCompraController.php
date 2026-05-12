@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\contabilidad;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\contabilidad\RegistrarPagoRequest;
 use App\Http\Requests\contabilidad\StoreFacturaCompreRequest;
 use App\Services\contabilidad\FacturaCompraService;
 use Illuminate\Http\Request;
@@ -80,4 +81,6 @@ class FacturaCompraController extends Controller
             'message' => 'Factura Anulada correctamente',
         ], 200);
     }
+
+
 }

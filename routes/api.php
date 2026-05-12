@@ -7,6 +7,7 @@ use App\Http\Controllers\contabilidad\FacturaCompraController;
 use App\Http\Controllers\contabilidad\FormaPagoController;
 use App\Http\Controllers\contabilidad\ImpuestoController;
 use App\Http\Controllers\contabilidad\PuckController;
+use App\Http\Controllers\contabilidad\RegistroPagoFacturaCompraController;
 use App\Http\Controllers\Crm\AlistamientoOtController;
 use App\Http\Controllers\Crm\BodegaController;
 use App\Http\Controllers\Crm\CarpetaController;
@@ -456,6 +457,11 @@ Route::apiResource('formas-pago', FormaPagoController::class);
 //RUTAS PUCk
 Route::apiResource('cuentas-contables', PuckController::class);
 Route::apiResource('costeo', CosteoController::class);
+Route::apiResource('pago-factura-compra', RegistroPagoFacturaCompraController::class);
+Route::post(
+    'facturas-compras/{facturaId}/pagos',
+    [RegistroPagoFacturaCompraController::class, 'store']
+);
 
 });
 

@@ -536,4 +536,10 @@ public function eliminar(int $id)
 
   return $factura;
 }
-    }
+
+// ==========================================
+// REGISTRAR ABONO / PAGO A FACTURA COMPRA
+// ==========================================
+
+}
+    

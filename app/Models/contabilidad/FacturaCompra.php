@@ -27,6 +27,7 @@ class FacturaCompra extends Model
         'observaciones',
         'subtotal',
         'total',
+        'saldo_pendiente',
         'total_impuestos',
         'total_gastos',
         'numero_factura_proveedor',
