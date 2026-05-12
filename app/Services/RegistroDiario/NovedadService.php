@@ -88,38 +88,62 @@ public function getNovedades($filters = [])
     //Update estado de la novedad
 public function updateNovedad($id, $data, $request)
 {
-    $novedad = Novedades::find($id);
+    $novedad = Novedades::with('hallazgos')->find($id);
 
     if (!$novedad) {
         return null;
     }
 
-    // 🔥 Manejo de archivo soporte
+    // =====================================================
+    // 🔹 VALIDAR CIERRE GLOBAL
+    // =====================================================
+    if (
+        isset($data['estado']) &&
+        strtoupper($data['estado']) === 'CERRADA'
+    ) {
+
+        $hallazgosPendientes = $novedad->hallazgos()
+            ->where('estado', '!=', 'CERRADA')
+            ->count();
+
+        if ($hallazgosPendientes > 0) {
+            throw new \Exception(
+                'Debes cerrar todos los planes de acción (hallazgos) antes de cerrar esta novedad.'
+            );
+        }
+    }
+
+    // =====================================================
+    // 🔹 MANEJO DE ARCHIVO SOPORTE
+    // =====================================================
     if ($request->hasFile('soporte')) {
 
-        // Eliminar soporte anterior si existe
         if ($novedad->soporte) {
             Storage::disk('public')->delete($novedad->soporte);
         }
 
-        // Guardar nuevo archivo
         $ruta = $request->file('soporte')
-                        ->store('soportes', 'public');
+            ->store('soportes', 'public');
 
         $data['soporte'] = $ruta;
     }
 
+    // =====================================================
+    // 🔹 ACTUALIZAR NOVEDAD
+    // =====================================================
     $novedad->update($data);
 
-    // Recargar relaciones
+    // =====================================================
+    // 🔹 RECARGAR RELACIONES
+    // =====================================================
     $novedad->load([
         'registroDiario.departamento',
-        'responsable'
+        'responsable',
+        'hallazgos.responsable'
     ]);
 
     return $novedad;
 }
-
 
 
 
