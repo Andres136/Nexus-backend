@@ -4,6 +4,7 @@ namespace App\Services\Hseq;
 
 
 use App\Models\Hseq\HallazgoNovedad;
+use App\Models\Hseq\SoporteTarea;
 use App\Models\RegistroDiario\Novedades;
 use App\Models\Tareas;
 use App\Models\User;
@@ -26,13 +27,21 @@ public function create(array $data)
 
 
 $tarea = Tareas::create([
-     'nombre' => $novedad->descripcion ?? 'Tarea sin descripción', // 🔥 AQUÍ
+     'nombre' => $novedad->descripcion ?? 'Tarea sin descripción', //  AQUÍ
     'descripcion' => $data['plan_accion'] ?? null,
     'fecha_fin' => $data['fecha_cierre'] ?? null,
     'estado_id' => 1,
     'departamento_id' => $usuario->departamento_id ?? 1,
     'user_id' => $usuario->id ?? null,
     'user_id_creo' => auth()->id()
+]);
+
+
+
+// Crear soporte vacío vinculado a tarea y hallazgo
+SoporteTarea::create([
+    'tarea_id'    => $tarea->id,
+    'hallazgo_id' => $hallazgo->id,
 ]);
 
 // Notificación
@@ -49,12 +58,55 @@ if ($usuario) {
         return HallazgoNovedad::findOrFail($id);
     }
 
-    public function update($id, array $data)
-    {
-        $hallazgoNovedad = $this->find($id);
-        $hallazgoNovedad->update($data);
-        return $hallazgoNovedad;
-    }
+ public function update($id, array $data)
+{
+    return DB::transaction(function () use ($id, $data) {
+
+        // =====================================================
+        // 🔹 1. ACTUALIZAR HALLAZGO
+        // =====================================================
+        $hallazgo = $this->find($id);
+        $hallazgo->update($data);
+
+        // =====================================================
+        // 🔹 2. OBTENER NOVEDAD RELACIONADA
+        // =====================================================
+        $novedad = Novedades::with('hallazgos')->find($hallazgo->novedad_id);
+
+        if ($novedad) {
+
+            // =================================================
+            // 🔹 3. VALIDAR SI TODOS LOS HALLAZGOS ESTÁN CERRADOS
+            // =================================================
+            $hallazgosPendientes = $novedad->hallazgos()
+                ->where('estado', '!=', 'CERRADA')
+                ->count();
+
+            // =================================================
+            // 🔹 4. SI TODOS ESTÁN CERRADOS → CERRAR NOVEDAD
+            // =================================================
+            if ($hallazgosPendientes === 0) {
+
+                $novedad->update([
+                    'estado' => 'CERRADA',
+                    'fecha_terminado' => now(),
+                ]);
+
+            } else {
+
+                // Si aún hay pendientes, mantener en proceso
+                $novedad->update([
+                    'estado' => 'EN_PROCESO',
+                ]);
+            }
+        }
+
+        return $hallazgo->load([
+            'responsable',
+            'novedad'
+        ]);
+    });
+}
 
     public function delete($id)
     {
