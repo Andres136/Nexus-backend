@@ -55,6 +55,7 @@ use App\Http\Controllers\Hseq\InspeccionHseqController;
 use App\Http\Controllers\Hseq\PreguntaInspeccionController;
 use App\Http\Controllers\Hseq\ResiduoController;
 use App\Http\Controllers\Hseq\RespuestaInspeccionController;
+use App\Http\Controllers\Hseq\SoporteTareaController;
 use App\Http\Controllers\Hseq\TipoInspeccionController;
 use App\Http\Controllers\Hseq\TipoResiduoController;
 use App\Http\Controllers\Hseq\TipoServicioController;
@@ -440,6 +441,9 @@ Route::get('hseq-descargar-hallazgos-pdf', [HseqDashboardController::class, 'des
 Route::get('hseq-dashboard/inspecciones/finalizadas', [HseqDashboardController::class, 'inspeccionesFinalizadas']);
 Route::apiResource('hallazgos', HallazgoNovedadController::class);
 Route::apiResource('seguimiento-hallazgos', HallazgoSeguimientoController::class);
+Route::apiResource('soporte-tareas', SoporteTareaController::class);
+Route::get('soporte-tarea/{tarea_id}', [SoporteTareaController::class, 'getByTareaId']);
+Route::get('soporte-tareas/hallazgo/{soporte_id}', [SoporteTareaController::class, 'getByHallazgoId']);
 
 Route::apiResource('/vsm/ordenes', DashboardOperativoController::class);
 

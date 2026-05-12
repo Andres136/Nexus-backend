@@ -30,6 +30,7 @@ class StoreHallazgoNovedadRequest extends FormRequest
             'fecha_revision' => 'required|date',
             'estado' => 'nullable|string',
             'observaciones' => 'nullable|string',
+            'soporte_tarea' => 'nullable|file|mimes:pdf,jpg,jpeg,png,xlsx,xls,doc,docx|max:10240',
         ];
     }
 
