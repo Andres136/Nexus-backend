@@ -8,22 +8,35 @@ class StoreTipoContratoRequest extends FormRequest
 {
     public function authorize(): bool { return true; }
 
-    public function rules(): array
-    {
-        return [
-            'nombre'      => 'required|unique:tipo_contratos,nombre|max:100',
-            'descripcion' => 'nullable|string',
-            'activo'      => 'boolean',
-        ];
-    }
+public function rules(): array
+{
+    return [
+        'nombre' => 'required|unique:tipo_contratos,nombre|max:100',
 
-    public function messages(): array
-    {
-        return [
+        
+
+        'descripcion' => 'nullable|string',
+
+        'activo' => 'boolean',
+    ];
+}
+
+ public function messages(): array
+{
+    return [
+        'nombre.required' =>
+            'El nombre es obligatorio.',
+
+        'nombre.unique' =>
+            'Este nombre ya existe.',
+
+        'nombre.max' =>
+            'El nombre no puede superar 100 caracteres.',
+
      
-            'nombre.required' => 'El nombre es obligatorio.',
-            'nombre.unique'   => 'Este nombre ya existe.',
-            'nombre.max'      => 'El nombre no puede superar 100 caracteres.',
-        ];
-    }
+
+        'codigo.max' =>
+            'El código no puede superar 20 caracteres.',
+    ];
+}
 }

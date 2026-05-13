@@ -18,18 +18,56 @@ class TipoContratoService
         return TipoContrato::where('uuid', $uuid)->firstOrFail();
     }
 
- public function create(array $data): TipoContrato
+public function create(array $data): TipoContrato
 {
-    $codigo = strtoupper(
+    /*
+    |--------------------------------------------------------------------------
+    | GENERAR CÓDIGO BASE
+    |--------------------------------------------------------------------------
+    */
+    $baseCodigo = strtoupper(
         $data['codigo'] ??
-        Str::slug(substr($data['nombre'], 0, 3), '')
+        Str::slug(
+            substr($data['nombre'], 0, 3),
+            ''
+        )
     );
 
+    $codigo = $baseCodigo;
+    $contador = 1;
+
+    /*
+    |--------------------------------------------------------------------------
+    | EVITAR DUPLICADOS
+    |--------------------------------------------------------------------------
+    */
+    while (
+        TipoContrato::where(
+            'codigo',
+            $codigo
+        )->exists()
+    ) {
+        $codigo =
+            $baseCodigo . $contador;
+
+        $contador++;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CREAR REGISTRO
+    |--------------------------------------------------------------------------
+    */
     return TipoContrato::create([
-        'nombre'      => $data['nombre'],
-        'codigo'      => $codigo,
-        'descripcion' => $data['descripcion'] ?? null,
-        'activo'      => $data['activo'] ?? true,
+        'nombre' => $data['nombre'],
+
+        'codigo' => $codigo,
+
+        'descripcion' =>
+            $data['descripcion'] ?? null,
+
+        'activo' =>
+            $data['activo'] ?? true,
     ]);
 }
 
