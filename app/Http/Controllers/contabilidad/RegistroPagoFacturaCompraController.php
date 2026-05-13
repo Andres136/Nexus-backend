@@ -88,7 +88,11 @@ public function store(RegistrarPagoRequest $request, int $facturaId)
      */
     public function update(Request $request, string $id)
     {
-        //
+        $pagos = $this->facturaCompraService->actualizarPago((int)$id, $request->all());
+        return response()->json([
+            'message' => 'Pago actualizado correctamente',
+            'data' => $pagos
+        ], 200);
     }
 
     /**

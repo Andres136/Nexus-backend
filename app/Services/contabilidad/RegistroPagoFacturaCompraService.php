@@ -71,7 +71,7 @@ public function registrarPago(int $facturaId, array $data)
 
     public function listar($filters)
     {
-        return FacturaCompra::with(['proveedor', 'empresa', 'estado', 'pagos'])
+        return FacturaCompra::with(['proveedor', 'empresa', 'estado', 'pagos.user'])
         ->when(isset($filters['proveedor_id']), function ($query) use ($filters) {
             $query->where('proveedor_id', $filters['proveedor_id']);
         })

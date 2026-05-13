@@ -233,7 +233,15 @@ public function actualizar(int $id, array $data)
 private function _actualizar(FacturaCompra $factura, array $data)
 {
     return DB::transaction(function () use ($factura, $data) {
-
+    // ❌ BLOQUEAR FACTURAS PAGADAS
+        if (
+            $factura->estado_id == 4 ||
+            $factura->saldo_pendiente <= 0
+        ) {
+            throw new \Exception(
+                'La factura ya está pagada y no puede editarse.'
+            );
+        }
         // =====================================================
         // 🔹 1. RECALCULAR SUBTOTAL
         // =====================================================
@@ -430,82 +438,226 @@ private function _actualizar(FacturaCompra $factura, array $data)
     });
 }
 
-
-   public function listar(array $filtros = [], $perPage = 15)
+public function listar(array $filtros = [], $perPage = 15)
 {
     $query = FacturaCompra::query()
-        ->with(['proveedor', 'detalles', 'pagos', 'gastos', 'impuestos', 'estados']); // 🔥 eager loading
-
-    // 🔹 Filtro por proveedor
-    if (!empty($filtros['proveedor_id'])) {
-        $query->where('proveedor_id', $filtros['proveedor_id']);
-    }
-
-    // 🔹 Filtro por rango de fechas
-    if (!empty($filtros['fecha_inicial']) && !empty($filtros['fecha_final'])) {
-        $query->whereBetween('fecha_compra', [
-            $filtros['fecha_inicial'],
-            $filtros['fecha_final']
+        ->with([
+            'proveedor',
+            'detalles',
+            'pagos.user',
+            'gastos',
+            'impuestos',
+            'estados'
         ]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | FILTRO PROVEEDOR
+    |--------------------------------------------------------------------------
+    */
+    if (!empty($filtros['proveedor_id'])) {
+        $query->where(
+            'proveedor_id',
+            $filtros['proveedor_id']
+        );
     }
 
-    // 🔹 Filtro por estado
-    if (isset($filtros['estado_id']) && $filtros['estado_id'] !== '') {
-        $query->where('estado_id', $filtros['estado_id']);
+    /*
+    |--------------------------------------------------------------------------
+    | FILTRO FECHAS
+    |--------------------------------------------------------------------------
+    */
+    if (
+        !empty($filtros['fecha_inicial']) &&
+        !empty($filtros['fecha_final'])
+    ) {
+        $query->whereBetween(
+            'fecha_emision',
+            [
+                $filtros['fecha_inicial'],
+                $filtros['fecha_final']
+            ]
+        );
     }
 
-    // 🔹 Búsqueda general (opcional)
+    /*
+    |--------------------------------------------------------------------------
+    | FILTRO ESTADO
+    |--------------------------------------------------------------------------
+    */
+    if (
+        isset($filtros['estado_id']) &&
+        $filtros['estado_id'] !== ''
+    ) {
+        $query->where(
+            'estado_id',
+            $filtros['estado_id']
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | FILTRO BÚSQUEDA GENERAL
+    |--------------------------------------------------------------------------
+    */
     if (!empty($filtros['search'])) {
         $search = $filtros['search'];
 
         $query->where(function ($q) use ($search) {
-            $q->where('numero_factura_proveedor', 'like', "%$search%")
-              ->orWhereHas('proveedor', function ($q2) use ($search) {
-                  $q2->where('nombre', 'like', "%$search%");
-              });
+            $q->where(
+                'numero_factura_proveedor',
+                'like',
+                "%{$search}%"
+            )
+            ->orWhere(
+                'numero_factura',
+                'like',
+                "%{$search}%"
+            )
+            ->orWhereHas(
+                'proveedor',
+                function ($q2) use ($search) {
+                    $q2->where(
+                        'nombre',
+                        'like',
+                        "%{$search}%"
+                    );
+                }
+            );
         });
     }
-    //Busuqueda por numero de factura por search numero factura proveedo
-  if (!empty($filtros['numero_factura_proveedor'])) {
-    $query->where('numero_factura_proveedor', 'like', '%' . $filtros['numero_factura_proveedor'] . '%');
+
+    /*
+    |--------------------------------------------------------------------------
+    | FILTRO ESPECÍFICO FACTURA PROVEEDOR
+    |--------------------------------------------------------------------------
+    */
+    if (
+        !empty(
+            $filtros['numero_factura_proveedor']
+        )
+    ) {
+        $query->where(
+            'numero_factura_proveedor',
+            'like',
+            '%' .
+            $filtros['numero_factura_proveedor'] .
+            '%'
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ORDENAMIENTO
+    |--------------------------------------------------------------------------
+    */
+    $query->orderBy(
+        'fecha_emision',
+        'desc'
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | PAGINACIÓN
+    |--------------------------------------------------------------------------
+    */
+    $facturas = $query->paginate($perPage);
+
+    /*
+    |--------------------------------------------------------------------------
+    | TOTALES GLOBALES SEGÚN FILTROS
+    |--------------------------------------------------------------------------
+    */
+    $totalesQuery = clone $query;
+
+    $resumen = [
+        'total_facturas' => $totalesQuery->count(),
+
+        'total_subtotal' => (float) $totalesQuery->sum(
+            'subtotal'
+        ),
+
+        'total_general' => (float) $totalesQuery->sum(
+            'total'
+        ),
+
+        'total_saldo_pendiente' => (float) $totalesQuery->sum(
+            'saldo_pendiente'
+        ),
+
+        'total_pagado' => (float) (
+            $totalesQuery->sum('total') -
+            $totalesQuery->sum('saldo_pendiente')
+        ),
+    ];
+
+    /*
+    |--------------------------------------------------------------------------
+    | RESPUESTA FINAL
+    |--------------------------------------------------------------------------
+    */
+    return [
+        'facturas' => $facturas,
+        'resumen' => $resumen,
+    ];
 }
 
-    // 🔹 Ordenamiento
-    $query->orderBy('fecha_emision', 'desc');
 
-    return $query->paginate($perPage);
-}
-
-
-
-   public function anular(FacturaCompra $factura)
+public function anular(int $id)
 {
-    return DB::transaction(function () use ($factura) {
+    return DB::transaction(function () use ($id) {
 
+        if (!$id || $id <= 0) {
+            throw new \Exception('ID de factura inválido.');
+        }
+
+        $factura = FacturaCompra::with([
+            'pagos',
+            'detalles.producto'
+        ])->findOrFail($id);
+
+        // ❌ Ya anulada
         if ($factura->estado_id == 4) {
-            return response()->json(['error' => 'La factura ya está anulada'], 400);
+            throw new \Exception(
+                'La factura ya está anulada.'
+            );
         }
 
-        if ($factura->pagos()->exists()) {
-            return response()->json(['error' => 'No puedes anular una factura con pagos'], 400);
+        // ❌ Tiene pagos reales
+        $pagosReales = $factura->pagos()
+            ->where('monto', '>', 0)
+            ->count();
+
+        if ($pagosReales > 0) {
+            throw new \Exception(
+                'No puedes anular una factura con pagos registrados.'
+            );
         }
 
-        // Revertir inventario
+        // 🔄 Revertir inventario
         foreach ($factura->detalles as $detalle) {
-            $producto = $detalle->producto;
-            $producto->stock -= $detalle->cantidad;
-            $producto->save();
+            if ($detalle->producto) {
+                $detalle->producto->stock -= $detalle->cantidad;
+                $detalle->producto->save();
+            }
         }
 
-        // Anular factura
-        $factura->estado_id = 4;
-        $factura->fecha_anulacion = now();
-        $factura->save();
+        // 🗑 Eliminar pagos automáticos en cero
+        $factura->pagos()->delete();
 
-        return $factura;
+        // ❌ Anular
+        $factura->update([
+            'estado_id' => 4,
+            'fecha_anulacion' => now(),
+            'saldo_pendiente' => 0,
+        ]);
+
+        return [
+            'message' => 'Factura anulada correctamente.',
+            'data' => $factura
+        ];
     });
 }
-
 //oBTENER DETALLES DE UNA FACTURA POR ID
 public function obtenerDetalles(int $id)
 {

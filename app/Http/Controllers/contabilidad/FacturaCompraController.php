@@ -76,7 +76,7 @@ class FacturaCompraController extends Controller
      */
     public function destroy(string $id)
     {
-        $this->facturaCompraService->eliminar((int)$id);
+        $this->facturaCompraService->anular((int)$id);
         return response()->json([
             'message' => 'Factura Anulada correctamente',
         ], 200);
