@@ -13,6 +13,7 @@ class StoreContratacionRequest extends FormRequest
         return [
             'id_contrato'          => 'required|integer|exists:tipo_contratos,id',
             'users_id'             => 'required|integer|exists:users,id',
+            'empresa_id'           => 'required|integer|exists:empresas,id',
             'no_salarial'          => 'required|numeric|min:0',
             'base_salario'         => 'required|numeric|min:0',
             'auxilio_transporte'   => 'nullable|numeric|min:0',
@@ -34,6 +35,8 @@ class StoreContratacionRequest extends FormRequest
             'id_contrato.exists'            => 'El tipo de contrato no existe.',
             'users_id.required'             => 'El empleado es obligatorio.',
             'users_id.exists'               => 'El empleado no existe.',
+            'empresa_id.required'           => 'La empresa es obligatoria.',
+            'empresa_id.exists'             => 'La empresa no existe.',
             'no_salarial.required'          => 'El componente no salarial es obligatorio.',
             'base_salario.required'         => 'El salario base es obligatorio.',
             'pago_frecuencia.required'      => 'La frecuencia de pago es obligatoria.',

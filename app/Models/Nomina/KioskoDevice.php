@@ -37,7 +37,7 @@ class KioskoDevice extends Model
 
     public function bodega()
     {
-        return $this->belongsTo(\App\Models\Crm\bodega::class, 'bodega_id');
+        return $this->belongsTo(\App\Models\Crm\Bodega::class, 'bodega_id');
     }
 
     public function tipoRegistro()

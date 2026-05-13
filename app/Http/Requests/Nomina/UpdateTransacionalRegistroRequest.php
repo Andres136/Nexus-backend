@@ -11,15 +11,21 @@ class UpdateTransacionalRegistroRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'users_id'          => 'sometimes|integer|exists:users,id',
+            'kiosk_device_id'   => 'sometimes|integer|exists:kiosko_devices,id',
             'tipo_marcacion_id' => 'sometimes|integer|exists:tipo_registros,id',
             'foto_referencia'   => 'sometimes|nullable|image|mimes:jpg,jpeg,png|max:5120',
-            'marked_ad'         => 'sometimes|date_format:Y-m-d H:i:s',
+            'marked_ad'         => 'sometimes|nullable|date_format:Y-m-d H:i:s',
         ];
     }
 
     public function messages(): array
     {
         return [
+            'users_id.exists'          => 'El empleado no existe.',
+            'users_id.integer'         => 'El empleado debe ser un número.',
+            'kiosk_device_id.exists'   => 'El dispositivo kiosko no existe.',
+            'kiosk_device_id.integer'  => 'El dispositivo kiosko debe ser un número.',
             'tipo_marcacion_id.exists' => 'El tipo de marcación no existe.',
             'foto_referencia.image'    => 'La foto de referencia debe ser una imagen.',
             'foto_referencia.mimes'    => 'La foto debe ser jpg, jpeg o png.',

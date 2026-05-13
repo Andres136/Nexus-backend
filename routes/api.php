@@ -76,6 +76,7 @@ use App\Http\Controllers\Nomina\ValorController;
 use App\Http\Controllers\Nomina\WorkSessionController;
 use App\Http\Controllers\Nomina\HoraExtraController;
 use App\Http\Controllers\Nomina\PermisoController;
+use App\Http\Controllers\Nomina\VacacionController;
 use App\Http\Controllers\NotificacionOrdenController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PqrController;
@@ -472,6 +473,7 @@ Route::apiResource('costeo', CosteoController::class);
 
 //Rutas tipos de contratos nomina
 Route::prefix('nomina')->group(function () {
+    Route::apiResource('empresas', EmpresaController::class);
     Route::apiResource('tipo-contratos', TipoContratoController::class);
     Route::apiResource('contratacion', ContratacionController::class);
     Route::apiResource('seguridad-social', SeguridadSocialController::class);
@@ -497,6 +499,10 @@ Route::prefix('nomina')->group(function () {
      Route::apiResource('permisos', PermisoController::class)->except(['update']);
      Route::patch('permisos/{uuid}/aprobar',  [PermisoController::class, 'aprobar']);
      Route::patch('permisos/{uuid}/rechazar', [PermisoController::class, 'rechazar']);
+
+     Route::apiResource('vacaciones', VacacionController::class)->except(['update']);
+     Route::patch('vacaciones/{uuid}/aprobar',  [VacacionController::class, 'aprobar']);
+     Route::patch('vacaciones/{uuid}/rechazar', [VacacionController::class, 'rechazar']);
 });
 
 });

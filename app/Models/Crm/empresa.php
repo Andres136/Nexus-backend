@@ -17,6 +17,11 @@ class empresa extends Model
         'logo',
     ];
 
+public function contrataciones()
+{
+    return $this->hasMany(\App\Models\Nomina\Contratacion::class, 'empresa_id');
+}
+
 public function sedes()
 {
     return $this->belongsToMany(Sede::class, 'empresa_sede', 'empresa_id', 'sede_id');

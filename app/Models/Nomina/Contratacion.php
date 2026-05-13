@@ -2,6 +2,7 @@
 
 namespace App\Models\Nomina;
 
+use App\Models\Crm\empresa;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -17,6 +18,7 @@ class Contratacion extends Model
         'uuid',
         'id_contrato',
         'users_id',
+        'empresa_id',
         'no_salarial',
         'base_salario',
         'auxilio_transporte',
@@ -44,6 +46,11 @@ class Contratacion extends Model
         static::creating(function ($model) {
             $model->uuid = Str::uuid();
         });
+    }
+
+    public function empresa()
+    {
+        return $this->belongsTo(empresa::class, 'empresa_id');
     }
 
     public function tipoContrato()

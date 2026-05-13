@@ -53,7 +53,9 @@ class UsersFacePhotoService
     public function update(UpdateUsersFacePhotoRequest $request, string $uuid): UsersFacePhoto  
     {
         return DB::transaction(function () use ($request, $uuid) {
-            $facePhoto = $this->getByUuid($uuid);                  
+            $facePhoto = $this->getByUuid($uuid);
+
+            $data = $request->validated();
 
             if ($request->hasFile('photo')) {
                 if ($facePhoto->photo) {
@@ -61,6 +63,8 @@ class UsersFacePhotoService
                 }
                 $data['photo'] = $request->file('photo')
                     ->store('nomina/face_photos', 'public');
+            } else {
+                unset($data['photo']);
             }
 
             $facePhoto->update($data);
