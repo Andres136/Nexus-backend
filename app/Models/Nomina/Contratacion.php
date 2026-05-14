@@ -29,7 +29,7 @@ class Contratacion extends Model
         'eps_id',
         'arl_id',
         'fondo_pensiones_id',
-        'caja_compensacion_id',
+        'caja_penciones_id',
     ];
 
     protected $casts = [
@@ -78,8 +78,8 @@ class Contratacion extends Model
         return $this->belongsTo(SeguridadSocial::class, 'fondo_pensiones_id')->withTrashed();
     }
 
-    public function cajaCompensacion()
+    public function cajaPenciones()
     {
-        return $this->belongsTo(SeguridadSocial::class, 'caja_compensacion_id')->withTrashed();
+        return $this->belongsTo(SeguridadSocial::class, 'caja_penciones_id')->withTrashed();
     }
 }

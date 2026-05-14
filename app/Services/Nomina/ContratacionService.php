@@ -15,7 +15,7 @@ class ContratacionService
         'eps:id,nombre,nit',
         'arl:id,nombre,nit',
         'fondoPensiones:id,nombre,nit',
-        'cajaCompensacion:id,nombre,nit',
+        'cajaPenciones:id,nombre,nit',
     ];
 
     public function getAll(array $filters = []): LengthAwarePaginator

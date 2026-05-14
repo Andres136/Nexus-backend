@@ -24,7 +24,7 @@ class StoreContratacionRequest extends FormRequest
             'eps_id'               => 'required|integer|exists:seguridad_socials,id',
             'arl_id'               => 'required|integer|exists:seguridad_socials,id',
             'fondo_pensiones_id'   => 'required|integer|exists:seguridad_socials,id',
-            'caja_compensacion_id' => 'required|integer|exists:seguridad_socials,id',
+            'caja_penciones_id'    => 'required|integer|exists:seguridad_socials,id',
         ];
     }
 
@@ -50,8 +50,8 @@ class StoreContratacionRequest extends FormRequest
             'arl_id.exists'                 => 'La ARL no existe.',
             'fondo_pensiones_id.required'   => 'El fondo de pensiones es obligatorio.',
             'fondo_pensiones_id.exists'     => 'El fondo de pensiones no existe.',
-            'caja_compensacion_id.required' => 'La caja de compensación es obligatoria.',
-            'caja_compensacion_id.exists'   => 'La caja de compensación no existe.',
+            'caja_penciones_id.required'   => 'La caja de pensiones es obligatoria.',
+            'caja_penciones_id.exists'     => 'La caja de pensiones no existe.',
         ];
     }
 }
