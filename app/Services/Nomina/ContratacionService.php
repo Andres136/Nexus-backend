@@ -12,6 +12,7 @@ class ContratacionService
     private const WITH = [
         'tipoContrato:id,nombre,codigo',
         'usuario:id,name,email',
+        'empresa:id,nombre',
         'eps:id,nombre,nit',
         'arl:id,nombre,nit',
         'fondoPensiones:id,nombre,nit',

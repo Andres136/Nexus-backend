@@ -18,7 +18,7 @@ class StoreIncapacidadRequest extends FormRequest
             'identidad_medica_id' => 'required|exists:seguridad_socials,id',
             'inicio'              => 'required|date',
             'fin'                 => 'required|date|after:inicio',
-            'soporte'             => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
+            'soporte'             => 'required|file|mimes:pdf,jpg,jpeg,png|max:2048',
             'status'              => 'boolean',
          
         ];
@@ -35,6 +35,7 @@ class StoreIncapacidadRequest extends FormRequest
             'fin.after'                    => 'La fecha fin debe ser después del inicio',
             'soporte.file'                 => 'El soporte debe ser un archivo',
             'soporte.mimes'                => 'El soporte debe ser PDF o imagen',
+            'soporte.required'             => 'El soporte es obligatorio',
         ];
     }
 }
