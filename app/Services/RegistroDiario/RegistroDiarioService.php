@@ -32,6 +32,7 @@ class RegistroDiarioService
             Novedades::create([
                 'registro_diario_id' => $registroDiario->id,
                 'descripcion'        => $data['novedad'],
+                'estado'             => 'ABIERTA',
             ]);
         }
 
@@ -161,6 +162,24 @@ class RegistroDiarioService
 {
     $departamentos = Departamentos::all();
 
+    // 🔹 INDICADORES POR DEPARTAMENTO
+    $indicadoresPorDep = DB::table('indicadores_procesos')
+        ->select('id', 'departamento_id', 'meta', 'tipo_meta')
+        ->get()
+        ->groupBy('departamento_id');
+
+    // 🔹 REGISTROS DE INDICADORES POR MES
+    $registroIndicadores = DB::table('registro_indicadores')
+        ->select(
+            'indicador_id',
+            DB::raw('MONTH(fecha) as mes'),
+            DB::raw('AVG(valor) as promedio_valor')
+        )
+        ->whereYear('fecha', $anio)
+        ->groupBy('indicador_id', DB::raw('MONTH(fecha)'))
+        ->get()
+        ->groupBy(['indicador_id', 'mes']);
+
     // 🔹 REGISTROS
     $registros = RegistroDiarios::select(
         'departamento_id',
@@ -230,6 +249,7 @@ class RegistroDiarioService
     // 🔹 NOVEDADES (1 SOLO LOOP)
     $novedadesPorMes = [];
     $novedadesEstabilidadPorMes = [];
+    $novedadesResolucionPorMes = [];
 
     for ($mes = 1; $mes <= 12; $mes++) {
 
@@ -242,23 +262,36 @@ class RegistroDiarioService
         'registro_diario.departamento_id',
         DB::raw('COUNT(novedad_diaria.id) as total_novedades')
     )
-    ->where('novedad_diaria.created_at', '<=', $finMes)
+    ->whereBetween('registro_diario.fecha', [$inicioMes, $finMes])
     ->whereIn('novedad_diaria.estado', ['ABIERTA', 'EN_PROCESO'])
     ->groupBy('registro_diario.departamento_id')
     ->get()
     ->keyBy('departamento_id');
 
-$novedadesEstabilidadPorMes[$mes] = DB::table('novedad_diaria')
+        $novedadesEstabilidadPorMes[$mes] = DB::table('novedad_diaria')
     ->join('registro_diario', 'registro_diario.id', '=', 'novedad_diaria.registro_diario_id')
     ->select(
         'registro_diario.departamento_id',
         DB::raw('COUNT(DISTINCT novedad_diaria.registro_diario_id) as registros_con_novedad_mes')
     )
-    ->where('novedad_diaria.created_at', '<=', $finMes)
+    ->whereBetween('registro_diario.fecha', [$inicioMes, $finMes])
     ->whereIn('novedad_diaria.estado', ['ABIERTA', 'EN_PROCESO'])
     ->groupBy('registro_diario.departamento_id')
     ->get()
     ->keyBy('departamento_id');
+
+        $novedadesResolucionPorMes[$mes] = DB::table('novedad_diaria')
+    ->join('registro_diario', 'registro_diario.id', '=', 'novedad_diaria.registro_diario_id')
+    ->select(
+        'registro_diario.departamento_id',
+        DB::raw('COUNT(novedad_diaria.id) as total'),
+        DB::raw("SUM(CASE WHEN novedad_diaria.estado = 'CERRADA' THEN 1 ELSE 0 END) as cerradas")
+    )
+    ->whereBetween('registro_diario.fecha', [$inicioMes, $finMes])
+    ->groupBy('registro_diario.departamento_id')
+    ->get()
+    ->keyBy('departamento_id');
+
     }
 
     // 🔥 RESULTADO FINAL
@@ -275,6 +308,7 @@ $novedadesEstabilidadPorMes[$mes] = DB::table('novedad_diaria')
             $p = $planificadas[$dep->id][$mes][0] ?? null;
             $n = $novedadesPorMes[$mes][$dep->id] ?? null;
             $nEstabilidad = $novedadesEstabilidadPorMes[$mes][$dep->id] ?? null;
+            $nResolucion = $novedadesResolucionPorMes[$mes][$dep->id] ?? null;
 
             $totalRegistros = $r->total_registros ?? 0;
             $si = $r->si ?? 0;
@@ -288,6 +322,12 @@ $novedadesEstabilidadPorMes[$mes] = DB::table('novedad_diaria')
             $totalNovedades = $n->total_novedades ?? 0;
             $registrosConNovedadMes = $nEstabilidad->registros_con_novedad_mes ?? 0;
 
+            $totalNovedadesMes = $nResolucion->total ?? 0;
+            $novedadesCerradas = $nResolucion->cerradas ?? 0;
+            $noConformidades = $totalNovedadesMes > 0
+                ? round(($novedadesCerradas / $totalNovedadesMes) * 100, 2)
+                : 100;
+
             // 🔹 MÉTRICAS
            $rendimiento = $totalPlanificadas > 0
     ? round(($completadas / $totalPlanificadas) * 100, 2)
@@ -295,7 +335,30 @@ $novedadesEstabilidadPorMes[$mes] = DB::table('novedad_diaria')
 
             $eficienciaTiempo = $completadas > 0
     ? round(($aTiempo / $completadas) * 100, 2)
-    : 0;
+    : 100;
+
+            // 🔹 CUMPLIMIENTO: promedio de indicadores del departamento
+            $indicadoresDep = $indicadoresPorDep[$dep->id] ?? collect();
+            $sumaCumplimiento = 0;
+            $totalIndicadores = 0;
+
+            foreach ($indicadoresDep as $indicador) {
+                $regInd = $registroIndicadores[$indicador->id][$mes][0] ?? null;
+                if ($regInd && $indicador->meta > 0) {
+                    $valor = $regInd->promedio_valor;
+                    if ($indicador->tipo_meta === 'menor') {
+                        $pct = $valor > 0 ? min(round(($indicador->meta / $valor) * 100, 2), 100) : 100;
+                    } else {
+                        $pct = min(round(($valor / $indicador->meta) * 100, 2), 100);
+                    }
+                    $sumaCumplimiento += $pct;
+                    $totalIndicadores++;
+                }
+            }
+
+            $cumplimiento = $totalIndicadores > 0
+                ? round($sumaCumplimiento / $totalIndicadores, 2)
+                : 0;
 
             $meses[] = [
                 'mes' => $mes,
@@ -304,9 +367,7 @@ $novedadesEstabilidadPorMes[$mes] = DB::table('novedad_diaria')
                 'total_registros' => $totalRegistros,
                 'si' => $si,
                 'no' => $no,
-'cumplimiento' => $totalRegistros > 0
-    ? round(($si / $totalRegistros) * 100, 2)
-    : 100,
+                'cumplimiento' => $cumplimiento,
 
                 'respuestas' => [
                     'total' => (int) ($r->total_respuesta ?? 0),
@@ -314,6 +375,7 @@ $novedadesEstabilidadPorMes[$mes] = DB::table('novedad_diaria')
                 ],
 
                 'novedades' => $totalNovedades,
+                'no_conformidades' => $noConformidades,
 
                 'estabilidad' => $totalRegistros > 0
                     ? round((($totalRegistros - $registrosConNovedadMes) / $totalRegistros) * 100, 2)
