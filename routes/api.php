@@ -475,6 +475,7 @@ Route::apiResource('costeo', CosteoController::class);
 Route::prefix('nomina')->group(function () {
     Route::apiResource('empresas', EmpresaController::class);
     Route::apiResource('tipo-contratos', TipoContratoController::class);
+    Route::get('contratacion/empleados', [ContratacionController::class, 'getEmpleados']);
     Route::apiResource('contratacion', ContratacionController::class);
     Route::apiResource('seguridad-social', SeguridadSocialController::class);
     Route::apiResource('incapacidades', IncapacidadController::class);

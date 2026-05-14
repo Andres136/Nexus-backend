@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Nomina;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Nomina\StoreContratacionRequest;
 use App\Http\Requests\Nomina\UpdateContratacionRequest;
+use App\Models\User;
 use App\Services\Nomina\ContratacionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -89,5 +90,11 @@ class ContratacionController extends Controller
             Log::error('Error al eliminar contratación', ['uuid' => $uuid, 'error' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => 'Error al eliminar la contratación.'], 500);
         }
+    }
+
+    public function getEmpleados(): JsonResponse
+    {
+        $empleados = User::select('id', 'name')->orderBy('name')->get();
+        return response()->json($empleados);
     }
 }
