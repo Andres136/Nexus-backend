@@ -62,4 +62,74 @@ Cache::put('notificacion_ordenes_' . $hoy, true, now()->addDay());
   
 
 }
+// ===============================
+//  SERVICE: OrdenCompraService
+// ===============================
+
+public function misOrdenesSearch($request)
+{
+    $userId = auth()->id();
+
+    $query = Orden_Compra::with([
+            'cliente',
+            'estado',
+            'empresa'
+        ])
+        ->where('user_id', $userId)
+        ->select([
+            'id',
+            'cliente_id',
+            'estado_id',
+            'empresa_id',
+            'fecha_entrega',
+            'valor_total',
+            'created_at',
+            'observaciones'
+        ]);
+
+    // ✅ Si no hay búsqueda, limitar últimos 5 meses
+    if (!$request->filled('search')) {
+        $query->whereDate(
+            'created_at',
+            '>=',
+            now()->subMonths(5)
+        );
+    }
+
+    // 🔍 Filtro por estado
+    if ($request->filled('estado_id')) {
+        $query->where('estado_id', $request->estado_id);
+    }
+
+    // 🔍 Filtro fechas
+    if (
+        $request->filled('fecha_inicio') &&
+        $request->filled('fecha_fin')
+    ) {
+        $query->whereBetween('created_at', [
+            $request->fecha_inicio,
+            $request->fecha_fin
+        ]);
+    }
+
+    // 🔍 Buscador
+    if ($request->filled('search')) {
+        $search = $request->search;
+
+        $query->where(function ($q) use ($search) {
+            $q->where('id', 'like', "%{$search}%")
+              ->orWhere('observaciones', 'like', "%{$search}%")
+              ->orWhereHas('cliente', function ($cliente) use ($search) {
+                  $cliente->where('nombre', 'like', "%{$search}%");
+              });
+        });
+    }
+
+    return $query
+        ->orderByDesc('created_at')
+        ->paginate(
+            $request->filled('search') ? 50 : ($request->per_page ?? 15)
+        );
+}
+
 }

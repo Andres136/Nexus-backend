@@ -522,23 +522,64 @@ public function destroy(string $id)
 
 
 
-    public function misOrdenes(Request $request)
-    {
-        $search = $request->input('search');
+public function misOrdenes(Request $request)
+{
+    $search = $request->input('search');
 
-        $ordenes = Orden_Compra::with('detalles', 'cliente', 'user', 'estado')
-            ->where('user_id', auth()->id())
-            ->when($search, function ($query, $search) {
-                return $query->whereHas('cliente', function ($q) use ($search) {
-                    $q->where('nombre', 'like', "%$search%");
-                });
-            })
-            ->orderBy('created_at', 'desc')
-            ->paginate(5)
-            ->appends(request()->query());
+    $ordenes = Orden_Compra::with(
+            'detalles',
+            'cliente',
+            'user',
+            'estado'
+        )
+        ->where('user_id', auth()->id())
 
-        return response()->json($ordenes);
-    }
+        // ✅ Si no hay búsqueda, solo últimos 5 meses
+        ->when(!$search, function ($query) {
+            $query->whereDate(
+                'created_at',
+                '>=',
+                now()->subMonths(5)
+            );
+        })
+
+        // 🔍 Búsqueda por cliente, id o observaciones
+        ->when($search, function ($query, $search) {
+            return $query->where(function ($q) use ($search) {
+                $q->where('id', 'like', "%{$search}%")
+                  ->orWhere('observaciones', 'like', "%{$search}%")
+                  ->orWhereHas('cliente', function ($cliente) use ($search) {
+                      $cliente->where('nombre', 'like', "%{$search}%");
+                  });
+            });
+        })
+
+        // 🔍 Filtro opcional por estado
+        ->when($request->filled('estado_id'), function ($query) use ($request) {
+            $query->where('estado_id', $request->estado_id);
+        })
+
+        // 🔍 Filtro opcional por fechas
+        ->when(
+            $request->filled('fecha_inicio') &&
+            $request->filled('fecha_fin'),
+            function ($query) use ($request) {
+                $query->whereBetween('created_at', [
+                    $request->fecha_inicio,
+                    $request->fecha_fin
+                ]);
+            }
+        )
+
+        ->orderBy('created_at', 'desc')
+
+        // ✅ Mantienes compatibilidad
+        ->paginate($search ? 50 : 5)
+
+        ->appends(request()->query());
+
+    return response()->json($ordenes);
+}
 
     public function edit(string $id)
     {

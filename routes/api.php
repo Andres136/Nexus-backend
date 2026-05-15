@@ -49,6 +49,8 @@ use App\Http\Controllers\DocumentoController;
 use App\Http\Controllers\ErrorController;
 use App\Http\Controllers\EstadoController;
 use App\Http\Controllers\Hseq\ConsumoServicioController;
+use App\Http\Controllers\Hseq\AnalisisProductoNoConformeController;
+use App\Http\Controllers\Hseq\ProductoNoConformeController;
 use App\Http\Controllers\Hseq\HallazgoNovedadController;
 use App\Http\Controllers\Hseq\HallazgoSeguimientoController;
 use App\Http\Controllers\Hseq\HseqDashboardController;
@@ -445,6 +447,18 @@ Route::apiResource('seguimiento-hallazgos', HallazgoSeguimientoController::class
 Route::apiResource('soporte-tareas', SoporteTareaController::class);
 Route::get('soporte-tarea/{tarea_id}', [SoporteTareaController::class, 'getByTareaId']);
 Route::get('soporte-tareas/hallazgo/{soporte_id}', [SoporteTareaController::class, 'getByHallazgoId']);
+
+//RUTAS PARA PRODUCTOS NO CONFORMES
+Route::get('productos-no-conformes/estadisticas', [ProductoNoConformeController::class, 'estadisticas']);
+Route::apiResource('productos-no-conformes', ProductoNoConformeController::class);
+Route::patch('productos-no-conformes/{id}/estado', [ProductoNoConformeController::class, 'cambiarEstado']);
+
+//RUTAS PARA ANÁLISIS DE PRODUCTOS NO CONFORMES
+Route::post('analisis-producto-no-conforme', [AnalisisProductoNoConformeController::class, 'store']);
+Route::get('analisis-producto-no-conforme/{id}', [AnalisisProductoNoConformeController::class, 'show']);
+Route::get('analisis-producto-no-conforme/producto/{productoNoConformeId}', [AnalisisProductoNoConformeController::class, 'showByProducto']);
+Route::put('analisis-producto-no-conforme/{id}', [AnalisisProductoNoConformeController::class, 'update']);
+Route::patch('analisis-producto-no-conforme/{id}/estado', [AnalisisProductoNoConformeController::class, 'cambiarEstado']);
 
 Route::apiResource('/vsm/ordenes', DashboardOperativoController::class);
 
