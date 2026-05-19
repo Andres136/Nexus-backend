@@ -4,7 +4,7 @@ namespace App\Http\Requests\Crm;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class OrdenCompraProveedorRequest extends FormRequest
+class UpdateOrdenProveedorRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -33,10 +33,9 @@ class OrdenCompraProveedorRequest extends FormRequest
             'detalles.*.descripcion' => 'required|string|max:255',
            'detalles.*.cantidad_solicitada' => 'required|numeric|min:0.01',
           'detalles.*.cantidad_entregada' => 'nullable|numeric|gte:0',
-
-
         ];
     }
+
 
     public function messages(): array
     {
@@ -58,8 +57,7 @@ class OrdenCompraProveedorRequest extends FormRequest
             'detalles.*.cantidad_solicitada.numeric' => 'La cantidad solicitada debe ser un número.',
             'detalles.*.cantidad_solicitada.min' => 'La cantidad solicitada debe ser al menos 0.01.',
             'detalles.*.cantidad_entregada.numeric' => 'La cantidad entregada debe ser un número.',
-            'detalles.*.cantidad_entregada.min' => 'La cantidad entregada debe ser al menos 0.',
-            
+
         ];
     }
 }

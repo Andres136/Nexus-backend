@@ -131,6 +131,7 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
   Route::get('/documentacion/{id}', [DocumentoController::class, 'index']);
   Route::get('/errores/kpi', [ErrorController::class, 'kpiErrores']);
   Route::apiResource('clientes/{cliente}/seguimientos', SeguimientoController::class);
+  Route::patch('clientes/{id}/estado', [ClienteController::class, 'cambiarEstado']);
   
 
   

@@ -19,11 +19,13 @@ class OrdenCompraProveedor extends Model
         'empresa_id',
         'bodega_id',
         'sede_id',
+        'fecha_entrega',
     ];
 
 
     protected $casts = [
         'fecha' => 'date',
+        'fecha_entrega' => 'date',
     ];
 //Relacion con el modelo Proveedor
     public function proveedor()
