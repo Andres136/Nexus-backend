@@ -381,8 +381,8 @@ public function dashboardOrdenesAnual(Request $request)
         $sedeId = $user->sede_id;
     }
 
-    $inicioAnio = Carbon::create($anio, 1,  1)->startOfYear()->toDateString();
-    $finAnio    = Carbon::create($anio, 12, 31)->endOfYear()->toDateString();
+    $inicioAnio = Carbon::create($anio, 1,  1)->startOfYear();
+    $finAnio    = Carbon::create($anio, 12, 31)->endOfYear();
 
     // ── Resumen por sede (año completo) ──────────────────────────────────
     $resumenPorSede = OrdenCompraProveedor::with('sede:id,nombre')
@@ -392,7 +392,7 @@ public function dashboardOrdenesAnual(Request $request)
              SUM(CASE WHEN estado_id = ? THEN 1 ELSE 0 END) as completadas',
             [EstadoEnum::COMPLETADO->value]
         )
-        ->whereBetween('fecha', [$inicioAnio, $finAnio])
+        ->whereBetween('created_at', [$inicioAnio, $finAnio])
         ->when($sedeId, fn($q) => $q->where('sede_id', $sedeId))
         ->groupBy('sede_id')
         ->get()
@@ -421,10 +421,10 @@ public function dashboardOrdenesAnual(Request $request)
         $fin    = Carbon::create($anio, $mes, 1)->endOfMonth();
 
         $baseQuery = OrdenCompraProveedor::query()
-            ->whereBetween('fecha', [$inicio->toDateString(), $fin->toDateString()])
+            ->whereBetween('created_at', [$inicio, $fin])
             ->when($sedeId, fn($q) => $q->where('sede_id', $sedeId));
 
-        $totales    = (clone $baseQuery)->count();
+        $totales     = (clone $baseQuery)->count();
         $completadas = (clone $baseQuery)->where('estado_id', EstadoEnum::COMPLETADO->value)->count();
         $pendientes  = max($totales - $completadas, 0);
         $porcentaje  = $totales > 0 ? round(($completadas / $totales) * 100, 2) : 0;
