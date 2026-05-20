@@ -385,7 +385,7 @@ public function dashboardOrdenesAnual(Request $request)
     $finAnio    = Carbon::create($anio, 12, 31)->endOfYear();
 
     // ── Resumen por sede (año completo) ──────────────────────────────────
-$resumenPorSede = OrdenCompraProveedor::query()
+$resumenPorSede = OrdenCompraProveedor::with('sede:id,nombre')
     ->selectRaw(
         'sede_id,
          COUNT(*) as totales,
@@ -396,7 +396,6 @@ $resumenPorSede = OrdenCompraProveedor::query()
     ->when($sedeId, fn($q) => $q->where('sede_id', $sedeId))
     ->groupBy('sede_id')
     ->get()
-    ->load('sede:id,nombre')
     ->map(function ($row) {
 
         $porcentaje = $row->totales > 0
