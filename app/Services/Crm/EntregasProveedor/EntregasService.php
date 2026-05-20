@@ -2,10 +2,12 @@
 
 namespace App\Services\Crm\EntregasProveedor;
 
+use App\EstadoEnum;
 use App\Models\Crm\EntregaProveedor;
 use App\Models\Crm\Inventario;
 use App\Models\Crm\Orden_servicio\OrdenServicio;
 use App\Models\Crm\Orden_servicio\OrdenServicioDetalle;
+use App\Models\Crm\OrdenCompraProveedor;
 use App\Models\Crm\OrdenCompraProveedorDetalle;
 use App\Models\Crm\OrdenDetalleObservaciones;
 use Illuminate\Support\Facades\DB;
@@ -83,8 +85,6 @@ class EntregasService
             $detalle = OrdenCompraProveedorDetalle::with('orden.detalles', 'entregas')
                 ->findOrFail($data['detalle_id']);
 
-            $orden = $detalle->orden;
-
             // 1️⃣ Crear entrega
             $entrega = EntregaProveedor::create([
                 'detalle_id'         => $data['detalle_id'],
@@ -132,16 +132,7 @@ class EntregasService
                 ]);
             }
             // 4️ Verificar si orden completa
-            $orden = $detalle->orden;
-
-            $todosCompletos = $orden->detalles->every(function ($d) {
-                return $d->cantidad_entregada >= $d->cantidad_solicitada;
-            });
-
-            if ($todosCompletos) {
-                $orden->estado_id = 2; // COMPLETO
-                $orden->save();
-            }
+            $this->actualizarEstadoOrden($detalle->orden_id);
 
             // 5️ Actualizar inventario
             $this->actualizarInventario($data, $data['producto_id'], 0);
@@ -173,6 +164,10 @@ class EntregasService
         $productoId = $this->resolverProductoId($data);
         $this->actualizarInventario($data, $productoId, $cantidadAnterior);
 
+        $this->verificarDetalleCompleto(['detalle_id' => $entrega->detalle_id]);
+        $this->actualizarEstadoOrden(
+            OrdenCompraProveedorDetalle::findOrFail($entrega->detalle_id)->orden_id
+        );
 
         return $entrega;
     }
@@ -225,6 +220,27 @@ class EntregasService
         }
 
         $inventario->save();
+    }
+
+    private function actualizarEstadoOrden(int $ordenId): void
+    {
+        $orden = OrdenCompraProveedor::with('detalles')->findOrFail($ordenId);
+
+        $todosCompletos = $orden->detalles->every(
+            fn($d) => $d->cantidad_entregada >= $d->cantidad_solicitada
+        );
+
+        $algunoIniciado = $orden->detalles->some(
+            fn($d) => $d->cantidad_entregada > 0
+        );
+
+        if ($todosCompletos) {
+            $orden->estado_id = EstadoEnum::COMPLETADO->value;
+        } elseif ($algunoIniciado) {
+            $orden->estado_id = EstadoEnum::ENTREGA_PARCIAL->value;
+        }
+
+        $orden->save();
     }
 
     private function verificarDetalleCompleto(array $data): void
