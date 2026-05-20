@@ -7,7 +7,9 @@ use App\Http\Requests\Nomina\StoreUsersFacePhotoRequest;
 use App\Http\Requests\Nomina\UpdateUsersFacePhotoRequest;
 use App\Services\Nomina\UsersFacePhotoService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class UsersFacePhotoController extends Controller
 {
@@ -94,6 +96,29 @@ class UsersFacePhotoController extends Controller
 
         } catch (\Exception $e) {
             return $this->errorResponse($e);
+        }
+    }
+
+    // GET /users-face-photos/{uuid}/image — sirve la imagen con CORS vía API
+    public function image(string $uuid): Response
+    {
+        try {
+            $facePhoto = \App\Models\Nomina\UsersFacePhoto::where('uuid', $uuid)->firstOrFail();
+
+            if (!$facePhoto->photo || !Storage::disk('public')->exists($facePhoto->photo)) {
+                abort(404, 'Imagen no encontrada.');
+            }
+
+            $path     = Storage::disk('public')->path($facePhoto->photo);
+            $mime     = mime_content_type($path) ?: 'image/jpeg';
+            $contents = Storage::disk('public')->get($facePhoto->photo);
+
+            return response($contents, 200, [
+                'Content-Type'  => $mime,
+                'Cache-Control' => 'public, max-age=3600',
+            ]);
+        } catch (\Exception $e) {
+            abort(404, 'Imagen no encontrada.');
         }
     }
 

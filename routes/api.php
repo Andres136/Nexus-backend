@@ -484,6 +484,7 @@ Route::prefix('nomina')->group(function () {
     Route::apiResource('jornada-laborals', JornadaLaboralController::class);
     Route::apiResource('valores',ValorController::class);
     Route::apiResource('tipo-registros',TipoRegistroController::class);
+    Route::get('users-face-photos/{uuid}/image', [UsersFacePhotoController::class, 'image']);
     Route::apiResource('users-face-photos',UsersFacePhotoController::class);
     Route::apiResource('kiosko-devices',KioskoDeviceController::class);
     Route::apiResource('horario-laboral',HorarioLaboralController::class);
