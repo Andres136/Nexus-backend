@@ -16,11 +16,12 @@ class TareaService
     public function listar(Request $request, User $user): Collection
     {
         $query = Tareas::with('usuario', 'departamentos')
-            ->whereIn('estado_id', [1, 5]);
+            ->whereIn('estado_id', [1, 5,]);
 
-        if (!in_array($user->role_id, [1, 20])) {
-            $query->where('user_id', $user->id);
-        }
+        $query->where(function ($q) use ($user) {
+            $q->where('user_id', $user->id)
+              ->orWhere('user_id_creo', $user->id);
+        });
 
         if ($request->filled('usuario')) {
             $query->whereHas('usuario', fn($q) =>

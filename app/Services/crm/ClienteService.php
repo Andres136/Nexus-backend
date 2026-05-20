@@ -17,10 +17,25 @@ class ClienteService
 
         $user = Auth::user();
 return Cliente::with([
-        'usuario:id,name',
-        'estado',
-        'ultimaGestion.usuario:id,name'
-    ])
+    'usuario:id,name',
+    'estado',
+
+    'seguimientos' => function ($query) use ($user) {
+
+        if (!in_array($user->role_id, [
+            RolEnum::ADMINISTRADOR->value,
+            RolEnum::ADMINISTRATIVO->value,
+            RolEnum::COMERCIAL->value,
+        ])) {
+
+            $query->where('user_id', $user->id);
+        }
+
+        $query->latest();
+    },
+
+    'ultimaGestion.usuario:id,name'
+])
 
     ->withMax('seguimientos', 'created_at')
 
