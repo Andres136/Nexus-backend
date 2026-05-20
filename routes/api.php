@@ -490,6 +490,7 @@ Route::prefix('nomina')->group(function () {
     Route::apiResource('transacional-registros',   TransacionalRegistroController::class);
     Route::get('transacional-registros/user/{userId}', [TransacionalRegistroController::class, 'byUser']);
     Route::apiResource('work-sessions',    WorkSessionController::class);
+     Route::get('nominas/resumen',   [NominaController::class, 'resumen']);
      Route::post('nominas/liquidar', [NominaController::class, 'liquidar']);
      Route::apiResource('nominas', NominaController::class);
 

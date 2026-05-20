@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Nomina\LiquidarNominaRequest;
 use App\Http\Requests\Nomina\StoreNominaRequest;
 use App\Http\Requests\Nomina\UpdateNominaRequest;
+use App\Models\Nomina\Contratacion;
+use App\Models\Nomina\Nomina;
 use App\Services\Nomina\NominaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -101,6 +103,41 @@ class NominaController extends Controller
      * POST /nomina/nominas/liquidar
      * Body: { user_id, periodo_inicio, periodo_fin, jornada_laboral_id, descuento_id? }
      */
+    public function resumen(Request $request): JsonResponse
+    {
+        try {
+            $inicio = $request->query('periodo_inicio');
+            $fin    = $request->query('periodo_fin');
+
+            $empleadosActivos = Contratacion::where('status', 1)->count();
+
+            $query = Nomina::query();
+            if ($inicio && $fin) {
+                $query->where('periodo_inicio', '>=', $inicio)
+                      ->where('periodo_fin',    '<=', $fin);
+            }
+
+            $nominaBruta      = (float) $query->sum('total_devengado');
+            $deducciones      = (float) $query->sum('total_deducciones');
+            $nominaNeta       = (float) $query->sum('salario_neto');
+            $pagosRealizados  = (float) $query->where('liquidada', true)->sum('salario_neto');
+
+            return response()->json([
+                'success' => true,
+                'data'    => [
+                    'empleados_activos' => $empleadosActivos,
+                    'nomina_bruta'      => $nominaBruta,
+                    'deducciones'       => $deducciones,
+                    'nomina_neta'       => $nominaNeta,
+                    'pagos_realizados'  => $pagosRealizados,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener resumen de nómina', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al obtener el resumen.'], 500);
+        }
+    }
+
     public function liquidar(LiquidarNominaRequest $request): JsonResponse
     {
         try {
