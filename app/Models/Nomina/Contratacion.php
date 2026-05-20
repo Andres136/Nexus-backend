@@ -19,6 +19,8 @@ class Contratacion extends Model
         'id_contrato',
         'users_id',
         'empresa_id',
+        'tipo_documento',
+        'numero_documento',
         'no_salarial',
         'base_salario',
         'auxilio_transporte',
