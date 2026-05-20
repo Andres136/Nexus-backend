@@ -151,6 +151,8 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
   Route::patch('tareas/estado/{id}/', [TareaController::class, 'update']);
   Route::apiResource('tareas', TareaController::class);
   Route::put('/tareas/update/{id}', [TareaController::class, 'actualizarTarea']);
+  Route::post('/tareas/{id}/notas', [TareaController::class, 'agregarNota']);
+  Route::get('/tareas/{id}/historial', [TareaController::class, 'historial']);
   Route::put('/pqrs/{id}/estado', [PqrController::class, 'cambiarEstado']);
   Route::get('notifications-pqrs/pqr', [NotificacionOrdenController::class, 'notificacionesPqrs']);
   //vehiculos
