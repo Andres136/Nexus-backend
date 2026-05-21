@@ -223,34 +223,41 @@ public function stockForUserAndOrder($productoId, Request $request)
 public function getAllProducts(Request $request)
 {
     try {
-        $query = product::query()
-            ->when($request->search, fn($q) =>
-                $q->where('name', 'like', "%{$request->search}%")
-                  ->orWhere('description', 'like', "%{$request->search}%")
-                  ->orWhere('code', 'like', "%{$request->search}%")
-            );
 
-        // Sin búsqueda: limitar para no traer toda la tabla
+        $query = Product::query()
+
+            ->when($request->search, function ($q) use ($request) {
+
+                $q->where(function ($sub) use ($request) {
+
+                    $sub->where('name', 'like', "%{$request->search}%")
+                        ->orWhere('description', 'like', "%{$request->search}%")
+                        ->orWhere('code', 'like', "%{$request->search}%");
+
+                });
+
+            });
+
+        // SOLO limitar cuando NO hay búsqueda
         if (!$request->search) {
             $query->limit(50);
         }
 
-        $products = $query->get();
+        $products = $query->orderBy('name')->get();
 
         return response()->json([
             'message' => 'Listado de productos',
-            'data'    => $products,
+            'data' => $products,
         ], 200);
 
     } catch (\Exception $e) {
+
         return response()->json([
             'message' => 'Error al obtener los productos',
-            'error'   => $e->getMessage(),
+            'error' => $e->getMessage(),
         ], 500);
     }
 }
-
-
     /**
      * Store a newly created resource in storage.
      */
