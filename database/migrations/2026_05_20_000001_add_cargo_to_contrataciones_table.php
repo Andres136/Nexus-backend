@@ -6,12 +6,20 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    public function up(): void
-    {
+public function up(): void
+{
+    if (!Schema::hasColumn('contrataciones', 'cargo')) {
+
         Schema::table('contrataciones', function (Blueprint $table) {
-            $table->string('cargo', 100)->nullable()->after('numero_documento');
+
+            $table->string('cargo', 100)
+                ->nullable()
+                ->after('numero_documento');
+
         });
+
     }
+}
 
     public function down(): void
     {
