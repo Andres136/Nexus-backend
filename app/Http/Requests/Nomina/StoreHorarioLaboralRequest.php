@@ -14,7 +14,7 @@ class StoreHorarioLaboralRequest extends FormRequest
             'hora_ingreso'          => 'required|date_format:H:i',
             'hora_salida'           => 'required|date_format:H:i|after:hora_ingreso',
             'hora_salida_brake'     => 'nullable|date_format:H:i',
-            'horara_ingreso_brake'  => 'nullable|date_format:H:i',
+            'hora_ingreso_brake'  => 'nullable|date_format:H:i',
             'hora_salida_almuerzo'  => 'nullable|date_format:H:i',
             'hora_ingreso_almuerzo' => 'nullable|date_format:H:i',
         ];

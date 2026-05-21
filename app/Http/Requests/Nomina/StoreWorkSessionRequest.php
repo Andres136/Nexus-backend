@@ -22,9 +22,9 @@ class StoreWorkSessionRequest extends FormRequest
 
             // Horas — nullable porque se llenan progresivamente
             'hora_entrada'         => 'nullable|date_format:H:i:s',
-            'hola_salida'          => 'nullable|date_format:H:i:s|after:hora_entrada',
+            'hora_salida'          => 'nullable|date_format:H:i:s|after:hora_entrada',
             'hora_salida_brake'    => 'nullable|date_format:H:i:s',
-            'horara_ingreso_brake' => 'nullable|date_format:H:i:s',
+            'hora_ingreso_brake' => 'nullable|date_format:H:i:s',
             'hora_salida_almuerzo' => 'nullable|date_format:H:i:s',
             'hora_ingreso_almuerzo'=> 'nullable|date_format:H:i:s',
 
@@ -48,7 +48,7 @@ class StoreWorkSessionRequest extends FormRequest
             'registro_diario.date'        => 'La fecha no es válida',
             'horario_laboral_id.required' => 'La jornada laboral es obligatoria',
             'horario_laboral_id.exists'   => 'La jornada laboral no existe',
-            'hola_salida.after'           => 'La salida debe ser después de la entrada',
+            'hora_salida.after'           => 'La salida debe ser después de la entrada',
         ];
     }
 }

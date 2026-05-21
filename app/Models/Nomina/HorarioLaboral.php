@@ -17,7 +17,7 @@ class HorarioLaboral extends Model
         'hora_ingreso',
         'hora_salida',
         'hora_salida_brake',
-        'horara_ingreso_brake',
+        'hora_ingreso_brake',
         'hora_salida_almuerzo',
         'hora_ingreso_almuerzo',
     ];
@@ -26,7 +26,7 @@ class HorarioLaboral extends Model
         'hora_ingreso'          => 'datetime',
         'hora_salida'           => 'datetime',
         'hora_salida_brake'     => 'datetime',
-        'horara_ingreso_brake'  => 'datetime',
+        'hora_ingreso_brake'  => 'datetime',
         'hora_salida_almuerzo'  => 'datetime',
         'hora_ingreso_almuerzo' => 'datetime',
     ];

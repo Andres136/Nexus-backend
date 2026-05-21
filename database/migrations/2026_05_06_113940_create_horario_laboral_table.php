@@ -14,7 +14,7 @@ return new class extends Migration
             $table->timestamp('hora_ingreso')->nullable();
             $table->timestamp('hora_salida')->nullable();
             $table->timestamp('hora_salida_brake')->nullable();
-            $table->dateTime('horara_ingreso_brake')->nullable();
+            $table->dateTime('hora_ingreso_brake')->nullable();
             $table->timestamp('hora_salida_almuerzo')->nullable();
             $table->timestamp('hora_ingreso_almuerzo')->nullable();
             $table->timestamps();

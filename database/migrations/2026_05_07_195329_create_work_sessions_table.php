@@ -15,9 +15,9 @@ return new class extends Migration
             $table->foreignId('kiosko_id')->constrained('kiosko_devices');
             $table->date('registro_diario');
             $table->timestamp('hora_entrada')->nullable();
-            $table->datetime('hola_salida')->nullable();
+            $table->datetime('hora_salida')->nullable();
             $table->timestamp('hora_salida_brake')->nullable();
-            $table->datetime('horara_ingreso_brake')->nullable();
+            $table->datetime('hora_ingreso_brake')->nullable();
             $table->timestamp('hora_salida_almuerzo')->nullable();
             $table->timestamp('hora_ingreso_almuerzo')->nullable();
             $table->integer('minutos_trabajados')->default(0);

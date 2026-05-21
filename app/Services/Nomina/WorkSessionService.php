@@ -79,9 +79,9 @@ class WorkSessionService
     private function calcularMinutos(array $data, ?WorkSession $session = null): array
     {
         $entrada   = $data['hora_entrada']         ?? $session?->hora_entrada;
-        $salida    = $data['hola_salida']           ?? $session?->hola_salida;
+        $salida    = $data['hora_salida']           ?? $session?->hora_salida;
         $pausaSale = $data['hora_salida_brake']     ?? $session?->hora_salida_brake;
-        $pausaVuelve = $data['horara_ingreso_brake'] ?? $session?->horara_ingreso_brake;
+        $pausaVuelve = $data['hora_ingreso_brake'] ?? $session?->hora_ingreso_brake;
         $pausaMinutos = $session?->minutos_pausa ?? 0;
 
         if ($pausaSale && $pausaVuelve) {

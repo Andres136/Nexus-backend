@@ -23,9 +23,9 @@ class UpdateWorkSessionRequest extends FormRequest
 
             // Horas — se actualizan cuando el kiosko marca
             'hora_entrada'         => 'sometimes|nullable|date_format:H:i:s',
-            'hola_salida'          => 'sometimes|nullable|date_format:H:i:s|after:hora_entrada',
+            'hora_salida'          => 'sometimes|nullable|date_format:H:i:s',
             'hora_salida_brake'    => 'sometimes|nullable|date_format:H:i:s',
-            'horara_ingreso_brake' => 'sometimes|nullable|date_format:H:i:s',
+            'hora_ingreso_brake' => 'sometimes|nullable|date_format:H:i:s',
             'hora_salida_almuerzo' => 'sometimes|nullable|date_format:H:i:s',
             'hora_ingreso_almuerzo'=> 'sometimes|nullable|date_format:H:i:s',
 
@@ -45,7 +45,7 @@ class UpdateWorkSessionRequest extends FormRequest
             'kiosko_id.exists'            => 'El kiosko no existe',
             'registro_diario.date'        => 'La fecha no es válida',
             'horario_laboral_id.exists'   => 'La jornada laboral no existe',
-            'hola_salida.after'           => 'La salida debe ser después de la entrada',
+            'hora_salida.after'           => 'La salida debe ser después de la entrada',
         ];
     }
 }
