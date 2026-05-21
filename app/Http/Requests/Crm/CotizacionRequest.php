@@ -30,9 +30,11 @@ class CotizacionRequest extends FormRequest
             'detalles.*.largo_cm' => 'nullable|numeric|min:0',
             'detalles.*.ancho_cm' => 'nullable|numeric|min:0',
             'detalles.*.calibre' => 'nullable|numeric|min:0',
-            'detalles.*.numero_bolsas' => 'nullable|integer|min:1',
+            'detalles.*.numero_bolsas' => 'nullable|integer|min:0',
             
             'detalles.*.cantidad' => 'required|numeric|min:0.01',
+            'detalles.*.valor_unitario' => 'required|numeric|min:0',
+            'detalles.*.valor_total' => 'required|numeric|min:0',
           
             'detalles.*.descripcion' => 'nullable|string',
             'detalles.*.cliente_clb' => 'nullable|string',
@@ -48,8 +50,12 @@ class CotizacionRequest extends FormRequest
             'detalles.*.cantidad.required' => 'La cantidad es obligatoria.',
             'detalles.*.cantidad.numeric' => 'La cantidad debe ser un número.',
             'detalles.*.cantidad.min' => 'La cantidad debe ser mayor a 0.',
-            'detalles.*.precio_total.numeric' => 'El precio total debe ser un número.',
-
+            'detalles.*.valor_unitario.required' => 'El valor unitario es obligatorio.',
+            'detalles.*.valor_unitario.numeric' => 'El valor unitario debe ser un número.',
+            'detalles.*.valor_unitario.min' => 'El valor unitario debe ser mayor o igual a 0.',
+            'detalles.*.valor_total.required' => 'El valor total es obligatorio.',
+            'detalles.*.valor_total.numeric' => 'El valor total debe ser un número.',
+            'detalles.*.valor_total.min' => 'El valor total debe ser mayor o igual a 0.',
         ];
     }
 }

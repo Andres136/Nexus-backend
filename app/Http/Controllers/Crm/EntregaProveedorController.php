@@ -376,10 +376,7 @@ public function dashboardOrdenesAnual(Request $request)
     $user   = auth()->user();
     $anio   = $request->query('anio', now()->year);
 
-    $sedeId = $request->query('sede_id');
-    if (!$sedeId && $user?->sede_id) {
-        $sedeId = $user->sede_id;
-    }
+    $sedeId = $user->sede_id;
 
     $inicioAnio = Carbon::create($anio, 1,  1)->startOfYear();
     $finAnio    = Carbon::create($anio, 12, 31)->endOfYear();
@@ -441,10 +438,9 @@ $resumenPorSede = OrdenCompraProveedor::with('sede:id,nombre')
     }
 
     return response()->json([
-        'anio'            => $anio,
-        'sede_aplicada'   => $sedeId,
+        'anio'             => $anio,
         'resumen_por_sede' => $resumenPorSede,
-        'resumen_mensual' => $resultado,
+        'resumen_mensual'  => $resultado,
     ]);
 }
 
