@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Crm;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Crm\OrdenCompraProveedorRequest;
 use App\Http\Requests\Crm\UpdateOrdenCompraProveedorDetallesRequest;
+use App\Http\Requests\Crm\UpdateOrdenProveedorRequest;
 use App\Mail\OrdenCompraProveedorMail;
 use App\Models\Crm\OrdenCompraProveedor;
 use App\Models\Crm\OrdenCompraProveedorDetalle;
@@ -49,7 +51,25 @@ public function index(Request $request,OrdenCompraService $estadoService)
     ->when(in_array($user->role_id, [1, 2, 4]), function ($q) {
         // Los admins ven todo (incluyendo NULL)
     })
-    // ✅ Ordena primero las órdenes de la sede del usuario autenticado validar si sede es nulo
+    ->orderByRaw("
+        CASE
+            WHEN (
+                SELECT SUM(d.cantidad_entregada)
+                FROM orden_compra_proveedor_detalles d
+                WHERE d.orden_id = orden_compra_proveedores.id
+            ) = 0 OR (
+                SELECT COUNT(*) FROM orden_compra_proveedor_detalles d2
+                WHERE d2.orden_id = orden_compra_proveedores.id
+            ) = 0 THEN 0
+            WHEN (
+                SELECT COUNT(*)
+                FROM orden_compra_proveedor_detalles d3
+                WHERE d3.orden_id = orden_compra_proveedores.id
+                AND d3.cantidad_entregada < d3.cantidad_solicitada
+            ) > 0 THEN 1
+            ELSE 2
+        END
+    ")
     ->orderByRaw("CASE WHEN sede_id = ? THEN 0 ELSE 1 END", [$user->sede_id ?? 0])
     ->orderBy('id', 'desc');
 
@@ -146,6 +166,7 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
                 'empresa_id' => $request->empresa_id,
                 'bodega_id' => $request->bodega_id,
                 'sede_id' => $user->sede_id ?? $request->sede_id, // Asignar la sede del usuario autenticado si no es admin
+                'fecha_entrega' => $request->fecha_entrega,
             ]);
 
             foreach ($request->detalles as $i => $detalle) {
@@ -225,13 +246,13 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
 
     $detalles = $orden->detalles->map(function ($detalle) use ($user) {
 
-        // ✅ Total histórico (siempre existe)
+        // Total histórico (siempre existe)
         $entregadoGlobal = (float) $detalle->cantidad_entregada;
 
-        // ✅ Entregas visibles según filtro aplicado en WITH
+        // Entregas visibles según filtro aplicado en WITH
         $entregasFiltradas = $detalle->entregas;
 
-        // ✅ Cantidad entregada por sede
+        // Cantidad entregada por sede
         if (!in_array($user->role_id, [1, 2])) {
             $entregadoSede = $entregasFiltradas->sum('cantidad_entregada');
         } else {
@@ -240,14 +261,14 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
                 ->sum('cantidad_entregada');
         }
 
-        // ✅ FALLBACK para órdenes viejas sin sede_id
+        //  FALLBACK para órdenes viejas sin sede_id
         $tieneSede = $detalle->entregas->whereNotNull('sede_id')->count() > 0;
 
         if (!$tieneSede && $detalle->entregas->count() > 0) {
             $entregadoSede = $entregadoGlobal;
         }
 
-        // ✅ Estado según vista del usuario
+        //  Estado según vista del usuario
         $cantidadParaEstado = in_array($user->role_id, [1, 2, 4])
             ? $entregadoGlobal
             : $entregadoSede;
@@ -266,7 +287,7 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
             'descripcion' => $detalle->descripcion,
             'cantidad_solicitada' => (float) $detalle->cantidad_solicitada,
 
-            // ✅ ahora 100% consistentes
+            //  ahora 100% consistentes
             'cantidad_entregada' => $entregadoGlobal,
             'cantidad_entregada_sede' => $entregadoSede,
 
@@ -360,7 +381,7 @@ public function entregasShow($id)
 
         $estado = 'Pendiente';
 
-        // ✅ Estado basado en entregas de la sede del usuario (o todas si es admin)
+        //  Estado basado en entregas de la sede del usuario (o todas si es admin)
         $cantidadParaEstado = in_array($user->role_id, [1, 2, 4]) 
             ? $detalle->cantidad_entregada  // Admins ven estado global
             : $cantidadEntregadaSede;       // Usuarios ven estado de su sede
@@ -388,7 +409,7 @@ public function entregasShow($id)
             'producto_nombre' => $detalle->producto?->nombre,
             'code' => $detalle->code,
 
-            // ✅ Entregas filtradas por sede
+            //  Entregas filtradas por sede
             'entregas' => $detalle->entregas->map(function ($entrega) {
                 return [
                     'id' => $entrega->id,
@@ -401,7 +422,7 @@ public function entregasShow($id)
                     'product_id' => $entrega->product_id,
                     'product_nombre' => $entrega->product?->nombre,
                     
-                    // ✅ NUEVOS: Información de sede y usuario
+                    //  NUEVOS: Información de sede y usuario
                     'sede_id' => $entrega->sede_id,
                     'sede_nombre' => $entrega->bodega?->sede?->nombre ?? 'Sin sede',
                     'usuario_id' => $entrega->usuario_id,
@@ -457,7 +478,7 @@ public function entregasShow($id)
         'usuario' => $orden->usuario->name ?? null,
         'productos' => $detalles,
         
-        // ✅ Información adicional del contexto del usuario
+        // Información adicional del contexto del usuario
         'estadisticas_sede' => $estadisticasSede,
         'usuario_actual' => [
             'id' => $user->id,
@@ -512,53 +533,89 @@ public function entregasShow($id)
         return response()->json(['message' => 'Detalle creado correctamente.']);
     }
 
-    public function update(Request $request, $id)
-    {
-        $user = auth()->user();
-            $orden = OrdenCompraProveedor::with('detalles.entregas')->findOrFail($id);
+   public function update(UpdateOrdenProveedorRequest $request, $id)
+{
+    $user = auth()->user();
 
-    // 🚫 BLOQUEO: si ya tiene entregas
-    if ($this->ordenTieneEntregas($orden)) {
+    $orden = OrdenCompraProveedor::with('detalles.entregas')
+        ->findOrFail($id);
+
+    DB::beginTransaction();
+
+    try {
+
+        //  Actualizar cabecera
+        $orden->update([
+            'observaciones' => $request->observaciones,
+            'sede_id' => $orden->sede_id ?? $user->sede_id,
+            'empresa_id' => $request->empresa_id,
+            'proveedor_id' => $request->proveedor_id,
+        ]);
+
+ 
+
+        foreach ($request->detalles as $detalleRequest) {
+
+            $tieneId = !empty($detalleRequest['id']);
+
+            $detalle = $tieneId
+                ? $orden->detalles()->with('entregas')->where('id', $detalleRequest['id'])->first()
+                : null;
+
+        
+
+            if ($tieneId && $detalle) {
+
+                if ($detalle->entregas->count() > 0) {
+
+                    $detalle->update([
+                        'descripcion' => $detalleRequest['descripcion'] ?? $detalle->descripcion,
+                    ]);
+
+                } else {
+
+                    $detalle->update([
+                        'descripcion'         => $detalleRequest['descripcion'] ?? null,
+                        'cantidad_solicitada' => $detalleRequest['cantidad_solicitada'],
+                        'code'                => $detalleRequest['code'] ?? null,
+                        'producto_id'         => $detalleRequest['producto_id'],
+                        'proveedor_id'        => $detalleRequest['proveedor_id'] ?? null,
+                        'proceso_bolsas_id'   => $detalleRequest['proceso_bolsas_id'] ?? null,
+                    ]);
+                }
+
+            } elseif (!$tieneId) {
+
+                $orden->detalles()->create([
+                    'item'                => $detalleRequest['item'] ?? 1,
+                    'descripcion'         => $detalleRequest['descripcion'] ?? null,
+                    'cantidad_solicitada' => $detalleRequest['cantidad_solicitada'],
+                    'cantidad_entregada'  => 0,
+                    'code'                => $detalleRequest['code'] ?? null,
+                    'producto_id'         => $detalleRequest['producto_id'],
+                    'proveedor_id'        => $detalleRequest['proveedor_id'] ?? null,
+                    'proceso_bolsas_id'   => $detalleRequest['proceso_bolsas_id'] ?? null,
+                ]);
+            }
+            // Si vino id pero no matchea en esta orden → se ignora
+        }
+
+        DB::commit();
+
         return response()->json([
-            'success' => false,
-            'message' => 'No se puede editar la orden porque ya tiene entregas registradas.'
-        ], 422);
+            'message' => 'Orden actualizada correctamente.'
+        ]);
+
+    } catch (\Exception $e) {
+
+        DB::rollBack();
+
+        return response()->json([
+            'error' => 'Error al actualizar la orden',
+            'detalle' => $e->getMessage()
+        ], 500);
     }
-        DB::beginTransaction();
-        try {
-            $orden->update([
-                'observaciones' => $request->observaciones,
-                'sede_id' => $orden->sede_id ?? $user->sede_id, // Asignar la sede del usuario autenticado si no es admin
-                'empresa_id' => $request->empresa_id,
-                'proveedor_id' => $request->proveedor_id,
-            ]);
-               // 🔹 Actualizar detalles (sobrescribir)
-        $orden->detalles()->delete(); // opcional: limpiar y recrear
-        foreach ($request->detalles as $i => $detalle) {
-            $orden->detalles()->create([
-                'item'               => $i + 1,
-                'descripcion'        => $detalle['descripcion'] ?? null,
-                'cantidad_solicitada'=> $detalle['cantidad_solicitada'],
-                'cantidad_entregada' => $detalle['cantidad_entregada'] ?? 0,
-                'code'               => $detalle['code'] ?? null,
-                'producto_id'        => $detalle['producto_id'],
-                'proveedor_id'       => $detalle['proveedor_id'] ?? null,
-                'proceso_bolsas_id'  => $detalle['proceso_bolsas_id'] ?? null,
-            ]);
-        }
-
-        DB::commit();
-
-
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['error' => 'Error al actualizar la orden'], 500);
-        }
-
-        DB::commit();
-        return response()->json(['message' => 'Orden actualizada correctamente.']);
-    }
+}
 
 
 

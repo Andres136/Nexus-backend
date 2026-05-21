@@ -2,6 +2,7 @@
 
 namespace App\Models\contabilidad;
 
+use App\Models\Crm\product;
 use Illuminate\Database\Eloquent\Model;
 
 class DetalleFacturaCompra extends Model
@@ -23,5 +24,17 @@ class DetalleFacturaCompra extends Model
     public function facturaCompra()
     {
         return $this->belongsTo(FacturaCompra::class, 'factura_compras_id');
+    }
+
+    public function impuestos()
+    {
+        return $this->belongsToMany(Impuesto::class, 'detalle_factura_impuestos', 'detalle_factura_id', 'impuesto_id')
+            ->withPivot('monto')
+            ->withTimestamps();
+    }
+
+    public function producto()
+    {
+        return $this->belongsTo(product::class, 'producto_id');
     }
 }

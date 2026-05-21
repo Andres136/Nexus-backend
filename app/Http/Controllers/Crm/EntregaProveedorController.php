@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Crm;
 
+use App\EstadoEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Crm\EntregasRequest;
 
@@ -372,15 +373,44 @@ public function dashboardOrdenesMensual(Request $request)
 
 public function dashboardOrdenesAnual(Request $request)
 {
-    $user = auth()->user();
-    $anio = $request->query('anio', now()->year);
+    $user   = auth()->user();
+    $anio   = $request->query('anio', now()->year);
 
-    $sedeId = $request->query('sede_id');
+    $sedeId = $user->sede_id;
 
-    if (!$sedeId && $user?->sede_id) {
-        $sedeId = $user->sede_id;
-    }
+    $inicioAnio = Carbon::create($anio, 1,  1)->startOfYear();
+    $finAnio    = Carbon::create($anio, 12, 31)->endOfYear();
 
+    // ── Resumen por sede (año completo) ──────────────────────────────────
+$resumenPorSede = OrdenCompraProveedor::with('sede:id,nombre')
+    ->selectRaw(
+        'sede_id,
+         COUNT(*) as totales,
+         SUM(CASE WHEN estado_id = ? THEN 1 ELSE 0 END) as completadas',
+        [EstadoEnum::COMPLETADO->value]
+    )
+    ->whereBetween('created_at', [$inicioAnio, $finAnio])
+    ->when($sedeId, fn($q) => $q->where('sede_id', $sedeId))
+    ->groupBy('sede_id')
+    ->get()
+    ->map(function ($row) {
+
+        $porcentaje = $row->totales > 0
+            ? round(($row->completadas / $row->totales) * 100, 2)
+            : 0;
+
+        return [
+            'sede_id'                 => $row->sede_id,
+            'sede_nombre'             => optional($row->sede)->nombre ?? 'Sin sede',
+            'ordenes_totales'         => (int) $row->totales,
+            'ordenes_completadas'     => (int) $row->completadas,
+            'ordenes_pendientes'      => max((int) $row->totales - (int) $row->completadas, 0),
+            'porcentaje_cumplimiento' => $porcentaje,
+        ];
+    })
+    ->values();
+
+    // ── Resumen mensual ───────────────────────────────────────────────────
     $resultado = collect();
 
     for ($mes = 1; $mes <= 12; $mes++) {
@@ -389,41 +419,28 @@ public function dashboardOrdenesAnual(Request $request)
         $fin    = Carbon::create($anio, $mes, 1)->endOfMonth();
 
         $baseQuery = OrdenCompraProveedor::query()
-            ->whereBetween('fecha', [
-                $inicio->toDateString(),
-                $fin->toDateString()
-            ]);
+            ->whereBetween('created_at', [$inicio, $fin])
+            ->when($sedeId, fn($q) => $q->where('sede_id', $sedeId));
 
-        if (!empty($sedeId)) {
-            $baseQuery->where('sede_id', $sedeId);
-        }
-
-        $totales = (clone $baseQuery)->count();
-
-        $completadas = (clone $baseQuery)
-            ->where('estado_id', 2)
-            ->count();
-
-        $pendientes = max($totales - $completadas, 0);
-
-        $porcentaje = $totales > 0
-            ? round(($completadas / $totales) * 100, 2)
-            : 0;
+        $totales     = (clone $baseQuery)->count();
+        $completadas = (clone $baseQuery)->where('estado_id', EstadoEnum::COMPLETADO->value)->count();
+        $pendientes  = max($totales - $completadas, 0);
+        $porcentaje  = $totales > 0 ? round(($completadas / $totales) * 100, 2) : 0;
 
         $resultado->push([
-            'mes' => $mes,
-            'mes_nombre' => ucfirst($inicio->translatedFormat('F')),
-            'ordenes_totales' => $totales,
-            'ordenes_completadas' => $completadas,
-            'ordenes_pendientes' => $pendientes,
+            'mes'                     => $mes,
+            'mes_nombre'              => ucfirst($inicio->translatedFormat('F')),
+            'ordenes_totales'         => $totales,
+            'ordenes_completadas'     => $completadas,
+            'ordenes_pendientes'      => $pendientes,
             'porcentaje_cumplimiento' => $porcentaje,
         ]);
     }
 
     return response()->json([
-        'anio' => $anio,
-        'sede_aplicada' => $sedeId,
-        'resumen_mensual' => $resultado,
+        'anio'             => $anio,
+        'resumen_por_sede' => $resumenPorSede,
+        'resumen_mensual'  => $resultado,
     ]);
 }
 

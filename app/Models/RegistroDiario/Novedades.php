@@ -14,6 +14,7 @@ class Novedades extends Model
         'registro_diario_id',
         'descripcion',
         'estado',
+        'tipo_accion',
         'fecha_revision',
         'fecha_terminado',
         'soporte',

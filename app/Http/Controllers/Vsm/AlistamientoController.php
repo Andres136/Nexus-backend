@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Vsm;
 
+use App\EstadoEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Vsm\AlistamientoCreateRequest;
 use App\Http\Requests\Vsm\StoreRegistrarProduccionRequest;
@@ -16,6 +17,7 @@ use App\Services\Vsm\AlistamientoService;
 use App\Services\Vsm\VsmRuntimeService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class AlistamientoController extends Controller
 {
@@ -268,51 +270,76 @@ public function ordenesTrabajoAlistamiento(Request $request)
 {
     $search = $request->input('search');
 
-    $estadoPendiente = Estados::where('nombre', 'Pendiente')->value('id');
-    $estadoParcial   = Estados::where('nombre', 'Entrega Parcial')->value('id');
+    $user = Auth::user();
 
     $ordenes = OrdenDeTrabajo::with([
         'ordenCompra.cliente',
-        'ordenCompra.detalles.product', // Necesario para product_id
+        'ordenCompra.detalles.product',
         'estado',
         'entregas'
     ])
-    ->where(function ($q) use ($estadoPendiente, $estadoParcial) {
-        $q->where('estado_id', $estadoPendiente)
-          ->orWhere('estado_id', $estadoParcial);
-    })
+
+    ->whereIn('estado_id', [
+        EstadoEnum::PENDIENTE->value,
+        EstadoEnum::ENTREGA_PARCIAL->value,
+    ])
+
+    // 🔥 FILTRO POR SEDE
+    ->when(
+        $user->sede_id,
+        function ($query) use ($user) {
+
+            $query->whereHas('ordenCompra', function ($q) use ($user) {
+
+                $q->where('sede_id', $user->sede_id);
+
+            });
+
+        }
+    )
+
     ->when($search, function ($q) use ($search) {
+
         $q->whereHas('ordenCompra.cliente', function ($c) use ($search) {
-            $c->where('nombre', 'LIKE', "%$search%");
+
+            $c->where('nombre', 'LIKE', "%{$search}%");
+
         });
+
     })
-    ->orderBy('updated_at', 'desc')
+
+    ->orderByDesc('updated_at')
+
     ->limit(300)
+
     ->get();
 
-    // ---------------------------------------------
-    // 🔥 Extraer product_id y cantidad desde detalles
-    // ---------------------------------------------
     $ordenes = $ordenes->map(function ($ot) {
 
         $detalles = $ot->ordenCompra->detalles;
 
-        $primerDetalle = $detalles->first();  // Usamos el primero (tu flujo usual)
+        $primerDetalle = $detalles->first();
 
         return [
-            'id'                    => $ot->id,
-            'numero_ot'             => $ot->numero_ot,
-            'estado'                => $ot->estado,
-            'orden_compra'          => $ot->ordenCompra,
-            'entregas'              => $ot->entregas,
 
-            // 🔥 CAMPOS NUEVOS CORRECTOS
-            'product_id'            => $primerDetalle?->product_id,
-            'producto_nombre'       => $primerDetalle?->producto?->name,
-            'cantidad_programada'   => $detalles->sum('cantidad'),  // cantidad total solicitada
-            'total_enviada'         => $detalles->sum('cantidad_enviada'),
-            'faltantes'             => $detalles->sum('faltantes'),
+            'id'                  => $ot->id,
+            'numero_ot'           => $ot->numero_ot,
+            'estado'              => $ot->estado,
+            'orden_compra'        => $ot->ordenCompra,
+            'entregas'            => $ot->entregas,
+
+            'product_id'          => $primerDetalle?->product_id,
+
+            'producto_nombre'     => $primerDetalle?->producto?->name,
+
+            'cantidad_programada' => $detalles->sum('cantidad'),
+
+            'total_enviada'       => $detalles->sum('cantidad_enviada'),
+
+            'faltantes'           => $detalles->sum('faltantes'),
+
         ];
+
     });
 
     return response()->json($ordenes, 200);

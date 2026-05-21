@@ -188,7 +188,8 @@
         <div style="display: table-cell; width: 25%; text-align: right; vertical-align: middle; font-size: 12px;">
             <strong>Fecha:</strong><br>
             {{ $orden->fecha ? $orden->fecha->format('d/m/Y') : 'Sin fecha' }}<br><br>
-          
+            <strong>Fecha de entrega:</strong><br>
+            {{ $orden->fecha_entrega ? \Carbon\Carbon::parse($orden->fecha_entrega)->format('d/m/Y') : 'Sin fecha' }}
         </div>
     </div>
     

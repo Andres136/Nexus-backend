@@ -21,13 +21,6 @@ class StorePuckRequest extends FormRequest
      */
 // En tu StorePuckRequest.php
 
-protected function prepareForValidation()
-{
-    $this->merge([
-        'nombre' => 'Puck ' . $this->nombre,
-        'numero' => 'PUCK-' . $this->numero,
-    ]);
-}
 
 public function rules(): array
 {

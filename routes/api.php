@@ -7,6 +7,7 @@ use App\Http\Controllers\contabilidad\FacturaCompraController;
 use App\Http\Controllers\contabilidad\FormaPagoController;
 use App\Http\Controllers\contabilidad\ImpuestoController;
 use App\Http\Controllers\contabilidad\PuckController;
+use App\Http\Controllers\contabilidad\RegistroPagoFacturaCompraController;
 use App\Http\Controllers\Crm\AlistamientoOtController;
 use App\Http\Controllers\Crm\BodegaController;
 use App\Http\Controllers\Crm\CarpetaController;
@@ -48,6 +49,8 @@ use App\Http\Controllers\DocumentoController;
 use App\Http\Controllers\ErrorController;
 use App\Http\Controllers\EstadoController;
 use App\Http\Controllers\Hseq\ConsumoServicioController;
+use App\Http\Controllers\Hseq\AnalisisProductoNoConformeController;
+use App\Http\Controllers\Hseq\ProductoNoConformeController;
 use App\Http\Controllers\Hseq\HallazgoNovedadController;
 use App\Http\Controllers\Hseq\HallazgoSeguimientoController;
 use App\Http\Controllers\Hseq\HseqDashboardController;
@@ -55,6 +58,7 @@ use App\Http\Controllers\Hseq\InspeccionHseqController;
 use App\Http\Controllers\Hseq\PreguntaInspeccionController;
 use App\Http\Controllers\Hseq\ResiduoController;
 use App\Http\Controllers\Hseq\RespuestaInspeccionController;
+use App\Http\Controllers\Hseq\SoporteTareaController;
 use App\Http\Controllers\Hseq\TipoInspeccionController;
 use App\Http\Controllers\Hseq\TipoResiduoController;
 use App\Http\Controllers\Hseq\TipoServicioController;
@@ -144,6 +148,7 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
   Route::get('/documentacion/{id}', [DocumentoController::class, 'index']);
   Route::get('/errores/kpi', [ErrorController::class, 'kpiErrores']);
   Route::apiResource('clientes/{cliente}/seguimientos', SeguimientoController::class);
+  Route::patch('clientes/{id}/estado', [ClienteController::class, 'cambiarEstado']);
   
 
   
@@ -163,6 +168,8 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
   Route::patch('tareas/estado/{id}/', [TareaController::class, 'update']);
   Route::apiResource('tareas', TareaController::class);
   Route::put('/tareas/update/{id}', [TareaController::class, 'actualizarTarea']);
+  Route::post('/tareas/{id}/notas', [TareaController::class, 'agregarNota']);
+  Route::get('/tareas/{id}/historial', [TareaController::class, 'historial']);
   Route::put('/pqrs/{id}/estado', [PqrController::class, 'cambiarEstado']);
   Route::get('notifications-pqrs/pqr', [NotificacionOrdenController::class, 'notificacionesPqrs']);
   //vehiculos
@@ -457,6 +464,21 @@ Route::get('hseq-descargar-hallazgos-pdf', [HseqDashboardController::class, 'des
 Route::get('hseq-dashboard/inspecciones/finalizadas', [HseqDashboardController::class, 'inspeccionesFinalizadas']);
 Route::apiResource('hallazgos', HallazgoNovedadController::class);
 Route::apiResource('seguimiento-hallazgos', HallazgoSeguimientoController::class);
+Route::apiResource('soporte-tareas', SoporteTareaController::class);
+Route::get('soporte-tarea/{tarea_id}', [SoporteTareaController::class, 'getByTareaId']);
+Route::get('soporte-tareas/hallazgo/{soporte_id}', [SoporteTareaController::class, 'getByHallazgoId']);
+
+//RUTAS PARA PRODUCTOS NO CONFORMES
+Route::get('productos-no-conformes/estadisticas', [ProductoNoConformeController::class, 'estadisticas']);
+Route::apiResource('productos-no-conformes', ProductoNoConformeController::class);
+Route::patch('productos-no-conformes/{id}/estado', [ProductoNoConformeController::class, 'cambiarEstado']);
+
+//RUTAS PARA ANÁLISIS DE PRODUCTOS NO CONFORMES
+Route::post('analisis-producto-no-conforme', [AnalisisProductoNoConformeController::class, 'store']);
+Route::get('analisis-producto-no-conforme/{id}', [AnalisisProductoNoConformeController::class, 'show']);
+Route::get('analisis-producto-no-conforme/producto/{productoNoConformeId}', [AnalisisProductoNoConformeController::class, 'showByProducto']);
+Route::put('analisis-producto-no-conforme/{id}', [AnalisisProductoNoConformeController::class, 'update']);
+Route::patch('analisis-producto-no-conforme/{id}/estado', [AnalisisProductoNoConformeController::class, 'cambiarEstado']);
 
 Route::apiResource('/vsm/ordenes', DashboardOperativoController::class);
 
@@ -468,7 +490,16 @@ Route::apiResource('impuestos', ImpuestoController::class);
 Route::apiResource('formas-pago', FormaPagoController::class);
 //RUTAS PUCk
 Route::apiResource('cuentas-contables', PuckController::class);
-Route::apiResource('costeo', CosteoController::class);
+Route::apiResource('costeos', CosteoController::class);
+Route::get(
+    '/costeos/export',
+    [CosteoController::class, 'export']
+);
+Route::apiResource('pago-factura-compra', RegistroPagoFacturaCompraController::class);
+Route::post(
+    'facturas-compras/{facturaId}/pagos',
+    [RegistroPagoFacturaCompraController::class, 'store']
+);
 
 
 //Rutas tipos de contratos nomina

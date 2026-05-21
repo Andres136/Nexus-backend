@@ -23,18 +23,24 @@ class PuckService
 
     }
 
-    public function update (array $data, int $id)
-    {
-        // Lógica para actualizar un recurso existente
-        $data['nombre'] =  $data['nombre'];
-        $data['numero'] =  $data['numero];'];
-        return $data;
-    }
+   public function update(array $data, int $id)
+{
+    $puck = Puck::findOrFail($id);
+
+    $puck->update([
+        'nombre' => $data['nombre'] ?? null,
+        'numero' => $data['numero'] ?? null,
+    ]);
+
+    return $puck;
+}
 
     public function delete (int $id)
     {
         // Lógica para eliminar un recurso
-        return ['message' => 'Puck eliminado correctamente'];
+        $puck = Puck::findOrFail($id);
+        $puck->delete();
+       return $puck;
     }
 
     //tAER POER ID

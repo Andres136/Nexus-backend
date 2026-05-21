@@ -29,10 +29,10 @@ class OrdenComprasRequest extends FormRequest
         $rules['detalles.*.largo_cm'] = 'nullable:detalles|numeric';
         $rules['detalles.*.ancho_cm'] = 'nullable:detalles|numeric';
         $rules['detalles.*.calibre'] = 'required_with:detalles';
-        $rules['detalles.*.cantidad'] = 'required_with:detalles';
+     $rules['detalles.*.cantidad'] = 'required_with:detalles|integer|min:1';
         $rules['detalles.*.cantidad_enviada'] = 'nullable_with:detalles';
         $rules['detalles.*.faltantes'] = 'nullable_with:detalles';
-        $rules['detalles.*.valor_unitario'] = 'required_with:detalles|numeric|regex:/^\d+(\.\d{1,2})?$/';
+      $rules['detalles.*.valor_unitario'] = 'required_with:detalles|numeric|min:0';
 
         $rules['detalles.*.peso_bolsa'] = 'required_with:detalles';
         $rules['detalles.*.numero_bolsas'] = 'required_with:detalles|integer';
@@ -40,7 +40,7 @@ class OrdenComprasRequest extends FormRequest
         $rules['detalles.*.cantidad_requerida_kg'] = 'required_with:detalles';
         $rules['detalles.*.descripcion'] = 'required_with:detalles';
         $rules['detalles.*.tipo_embalaje'] = 'required_with:detalles';
-        $rules['detalles.*.valor_total'] = 'required_with:detalles|numeric|regex:/^\d+(\.\d{1,2})?$/';
+        $rules['detalles.*.valor_total'] = 'required_with:detalles|numeric|min:0';
 
 
 
@@ -72,12 +72,22 @@ class OrdenComprasRequest extends FormRequest
             'detalles.*.ancho_cm.numeric' => 'El ancho debe ser un número válido',
             'detalles.*.calibre.required_with' => 'El calibre es obligatorio',
             'detalles.*.cantidad.required_with' => 'La cantidad es obligatoria',
+            'detalles.*.cantidad.integer' => 'La cantidad debe ser un número entero',
+            'detalles.*.cantidad.min' => 'La cantidad debe ser al menos 1',
+            'detalles.*.valor_unitario.required_with' => 'El valor unitario es obligatorio',
+            'detalles.*.valor_unitario.numeric' => 'El valor unitario debe ser un número válido',
+            'detalles.*.valor_unitario.min' => 'El valor unitario no puede ser negativo',
+            'detalles.*.cantidad_enviada.nullable_with' => 'La cantidad enviada debe ser un número válido',
+            'detalles.*.faltantes.nullable_with' => 'Los faltantes deben ser un número válido',
+            'detalles.*.cantidad.required_with' => 'La cantidad es obligatoria',
             'detalles.*.valor_unitario.required_with' => 'El valor unitario es obligatorio',
             'detalles.*.peso_bolsa.required_with' => 'El peso de la bolsa es obligatorio',
             'detalles.*.numero_bolsas.required_with' => 'El número de bolsas es obligatorio',
             'detalles.*.numero_bolsas.integer' => 'El número de bolsas debe ser un número entero',
             'detalles.*.cliente_clb.required_with' => 'El cliente es obligatorio',
+            
             'detalles.*.cantidad_requerida_kg.required_with' => 'La cantidad requerida en kg es obligatoria',
+
             'detalles.*.unidad_empaque.required_with' => 'La unidad de empaque es obligatoria',
             'detalles.*.descripcion.required_with' => 'La descripcion es Obligatoria',
             'detalles.*.valor_total.required_with' => 'El valor total es obligatorio',

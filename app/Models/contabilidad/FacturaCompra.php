@@ -2,6 +2,7 @@
 
 namespace App\Models\contabilidad;
 
+use App\Models\Crm\empresa;
 use App\Models\Crm\Proveedor;
 use App\Models\Crm\Sede;
 use App\Models\Estados;
@@ -16,6 +17,7 @@ class FacturaCompra extends Model
     protected $fillable = [
         'uuid',
         'proveedor_id',
+        'empresa_id',
         'sede_id',
         'estado_id',
         'user_id',
@@ -25,7 +27,11 @@ class FacturaCompra extends Model
         'observaciones',
         'subtotal',
         'total',
+        'saldo_pendiente',
+        'total_impuestos',
+        'total_gastos',
         'numero_factura_proveedor',
+        'pdf_url'
     ];
 
 protected $attributes = [
@@ -67,6 +73,11 @@ protected $attributes = [
         return $this->hasMany(CompraGasto::class, 'factura_compras_id');
     }
 
+    public function empresa()
+    {
+        return $this->belongsTo(empresa::class, 'empresa_id');
+    }
+
  public function facturaImpuestos()
 {
     return $this->hasMany(FacturaCompraImpuesto::class, 'factura_compras_id');
@@ -88,4 +99,10 @@ public function impuestos()
             }
         });
     }
+
+    //Relacion con estados
+    public function estados()
+    {
+        return $this->belongsTo(Estados::class, 'estado_id');
+    }    
 }
