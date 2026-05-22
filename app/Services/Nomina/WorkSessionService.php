@@ -3,6 +3,7 @@
 namespace App\Services\Nomina;
 
 use App\Models\Nomina\WorkSession;
+use App\Models\Nomina\JornadaLaboral;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -11,6 +12,8 @@ use Illuminate\Support\Facades\Log;
 class WorkSessionService
 {
     private const WITH = ['empleado', 'kiosko', 'jornadaLaboral'];
+    private const PAUSA_PERMITIDA_MINUTOS = 15;
+    private const ALMUERZO_PERMITIDO_MINUTOS = 60;
 
     public function getAll(array $filters = []): LengthAwarePaginator
     {
@@ -78,16 +81,39 @@ class WorkSessionService
 
     private function calcularMinutos(array $data, ?WorkSession $session = null): array
     {
+        $jornada = $this->resolverJornada($data, $session);
         $entrada   = $data['hora_entrada']         ?? $session?->hora_entrada;
         $salida    = $data['hora_salida']           ?? $session?->hora_salida;
         $pausaSale = $data['hora_salida_brake']     ?? $session?->hora_salida_brake;
         $pausaVuelve = $data['hora_ingreso_brake'] ?? $session?->hora_ingreso_brake;
+        $almuerzoSale = $data['hora_salida_almuerzo'] ?? $session?->hora_salida_almuerzo;
+        $almuerzoVuelve = $data['hora_ingreso_almuerzo'] ?? $session?->hora_ingreso_almuerzo;
         $pausaMinutos = $session?->minutos_pausa ?? 0;
+        $tardanzaMinutos = 0;
+        $pausaPermitida = $jornada?->duracion_pausa_minutos ?? self::PAUSA_PERMITIDA_MINUTOS;
+        $almuerzoPermitido = $jornada?->duracion_almuerzo_minutos ?? self::ALMUERZO_PERMITIDO_MINUTOS;
+
+        if ($entrada) {
+            $horaEntradaProgramada = $jornada?->hora_entrada ?? '07:00:00';
+            $entradaReal = Carbon::parse($entrada);
+            $entradaBase = Carbon::parse($entradaReal->toDateString() . ' ' . $horaEntradaProgramada);
+            $tardanzaMinutos += $entradaReal->greaterThan($entradaBase)
+                ? (int) $entradaBase->diffInMinutes($entradaReal)
+                : 0;
+        }
 
         if ($pausaSale && $pausaVuelve) {
             $data['minutos_pausa'] = (int) Carbon::parse($pausaSale)->diffInMinutes(Carbon::parse($pausaVuelve));
             $pausaMinutos = $data['minutos_pausa'];
+            $tardanzaMinutos += max(0, $pausaMinutos - $pausaPermitida);
         }
+
+        if ($almuerzoSale && $almuerzoVuelve) {
+            $almuerzoMinutos = (int) Carbon::parse($almuerzoSale)->diffInMinutes(Carbon::parse($almuerzoVuelve));
+            $tardanzaMinutos += max(0, $almuerzoMinutos - $almuerzoPermitido);
+        }
+
+        $data['minutos_tardanza'] = $tardanzaMinutos;
 
         if ($entrada && $salida) {
             $minutos = (int) Carbon::parse($entrada)->diffInMinutes(Carbon::parse($salida));
@@ -95,5 +121,20 @@ class WorkSessionService
         }
 
         return $data;
+    }
+
+    private function resolverJornada(array $data, ?WorkSession $session = null): ?JornadaLaboral
+    {
+        $jornadaId = $data['horario_laboral_id'] ?? $session?->horario_laboral_id;
+
+        if (!$jornadaId) {
+            return null;
+        }
+
+        if ($session?->relationLoaded('jornadaLaboral') && (int) $session->horario_laboral_id === (int) $jornadaId) {
+            return $session->jornadaLaboral;
+        }
+
+        return JornadaLaboral::find($jornadaId);
     }
 }
