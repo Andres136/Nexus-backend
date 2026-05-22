@@ -13,6 +13,8 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Validator;
 
 class NominaController extends Controller
 {
@@ -174,5 +176,51 @@ class NominaController extends Controller
         ])->setPaper('letter', 'portrait');
 
         return $pdf->download("desprendible_{$nomina->uuid}.pdf");
+    }
+
+    public function enviarDesprendible($uuid, Request $request): JsonResponse
+    {
+        $nomina = Nomina::with([
+            'empleado',
+            'contratacion.empresa',
+            'descuento',
+        ])->where('uuid', $uuid)->firstOrFail();
+
+        $correo = $request->input('correo', $nomina->contratacion?->correo);
+
+        $validator = Validator::make(['correo' => $correo], [
+            'correo' => 'required|email|max:255',
+        ], [
+            'correo.required' => 'Debes indicar un correo para enviar el desprendible.',
+            'correo.email'    => 'El correo debe ser un correo electrónico válido.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first('correo'),
+            ], 422);
+        }
+
+        $pdf = Pdf::loadView('pdf.desprendible_pago', [
+            'nomina'  => $nomina,
+            'empresa' => $nomina->contratacion?->empresa,
+        ])->setPaper('letter', 'portrait');
+
+        $nombreArchivo = "desprendible_{$nomina->uuid}.pdf";
+
+        Mail::raw(
+            "Adjuntamos el desprendible de pago solicitado.",
+            function ($message) use ($correo, $pdf, $nombreArchivo) {
+                $message->to($correo)
+                    ->subject('Desprendible de pago')
+                    ->attachData($pdf->output(), $nombreArchivo, ['mime' => 'application/pdf']);
+            }
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => "Desprendible enviado a {$correo}.",
+        ]);
     }
 }

@@ -11,8 +11,10 @@ use App\Services\Nomina\ContratacionService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class ContratacionController extends Controller
 {
@@ -27,6 +29,7 @@ class ContratacionController extends Controller
                 'search'       => $request->query('search'),
                 'fecha_inicio' => $request->query('fecha_inicio'),
                 'fecha_fin'    => $request->query('fecha_fin'),
+                'user_id'      => $request->query('user_id'),
                 'status'       => $request->query('status'),
                 'per_page'     => $request->query('per_page', 10),
             ];
@@ -119,5 +122,50 @@ class ContratacionController extends Controller
         ])->setPaper('letter', 'portrait');
 
         return $pdf->download("certificado_{$contratacion->uuid}.pdf");
+    }
+
+    public function enviarCertificado($uuid, Request $request): JsonResponse
+    {
+        $contratacion = Contratacion::with(['usuario', 'empresa', 'tipoContrato'])
+            ->where('uuid', $uuid)->firstOrFail();
+
+        $correo = $request->input('correo', $contratacion->correo);
+
+        $validator = Validator::make(['correo' => $correo], [
+            'correo' => 'required|email|max:255',
+        ], [
+            'correo.required' => 'Debes indicar un correo para enviar el certificado.',
+            'correo.email'    => 'El correo debe ser un correo electrónico válido.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first('correo'),
+            ], 422);
+        }
+
+        $pdf = Pdf::loadView('pdf.certificado_laboral', [
+            'contratacion' => $contratacion,
+            'empresa'      => $contratacion->empresa,
+            'dirigido_a'   => $request->input('dirigido_a'),
+            'fecha_actual' => now()->locale('es')->translatedFormat('d \d\e F \d\e Y'),
+        ])->setPaper('letter', 'portrait');
+
+        $nombreArchivo = "certificado_{$contratacion->uuid}.pdf";
+
+        Mail::raw(
+            "Adjuntamos el certificado laboral solicitado.",
+            function ($message) use ($correo, $pdf, $nombreArchivo) {
+                $message->to($correo)
+                    ->subject('Certificado laboral')
+                    ->attachData($pdf->output(), $nombreArchivo, ['mime' => 'application/pdf']);
+            }
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => "Certificado enviado a {$correo}.",
+        ]);
     }
 }

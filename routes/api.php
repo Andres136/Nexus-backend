@@ -510,6 +510,7 @@ Route::prefix('nomina')->group(function () {
     Route::apiResource('tipo-contratos', TipoContratoController::class);
     Route::get('contratacion/empleados', [ContratacionController::class, 'getEmpleados']);
     Route::get('contratacion/{uuid}/certificado', [ContratacionController::class, 'certificado']);
+    Route::post('contratacion/{uuid}/certificado/enviar', [ContratacionController::class, 'enviarCertificado']);
     Route::apiResource('contratacion', ContratacionController::class);
     Route::apiResource('seguridad-social', SeguridadSocialController::class);
     Route::apiResource('incapacidades', IncapacidadController::class);
@@ -528,6 +529,7 @@ Route::prefix('nomina')->group(function () {
      Route::get('nominas/resumen',              [NominaController::class, 'resumen']);
      Route::post('nominas/liquidar',            [NominaController::class, 'liquidar']);
      Route::get('nominas/{uuid}/desprendible', [NominaController::class, 'desprendible']);
+     Route::post('nominas/{uuid}/desprendible/enviar', [NominaController::class, 'enviarDesprendible']);
      Route::apiResource('nominas', NominaController::class);
 
      Route::apiResource('horas-extras', HoraExtraController::class)->except(['update']);
@@ -659,5 +661,4 @@ Route::post('/eventos/crear-qr', [EventoController::class, 'crearQr']);
 Route::post('/qrs/productos/pdf', [EventoController::class, 'crearQrMasivoConPdf']);
 
 Route::get('/orden-compras/{orden}/preview-documento', [OrdenCompraController::class, 'previewDocumento']);
-
 
