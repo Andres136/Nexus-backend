@@ -9,6 +9,7 @@ use App\Http\Requests\Nomina\UpdateNominaRequest;
 use App\Models\Nomina\Contratacion;
 use App\Models\Nomina\Nomina;
 use App\Services\Nomina\NominaService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -157,5 +158,21 @@ class NominaController extends Controller
             Log::error('Error al liquidar nómina', ['error' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => 'Error al liquidar la nómina.'], 500);
         }
+    }
+
+    public function desprendible($uuid)
+    {
+        $nomina = Nomina::with([
+            'empleado',
+            'contratacion.empresa',
+            'descuento',
+        ])->where('uuid', $uuid)->firstOrFail();
+
+        $pdf = Pdf::loadView('pdf.desprendible_pago', [
+            'nomina'  => $nomina,
+            'empresa' => $nomina->contratacion?->empresa,
+        ])->setPaper('letter', 'portrait');
+
+        return $pdf->download("desprendible_{$nomina->uuid}.pdf");
     }
 }

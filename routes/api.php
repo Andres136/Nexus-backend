@@ -81,6 +81,8 @@ use App\Http\Controllers\Nomina\WorkSessionController;
 use App\Http\Controllers\Nomina\HoraExtraController;
 use App\Http\Controllers\Nomina\PermisoController;
 use App\Http\Controllers\Nomina\VacacionController;
+use App\Http\Controllers\Nomina\LlamadoAtencionController;
+use App\Http\Controllers\Nomina\DescargoController;
 use App\Http\Controllers\NotificacionOrdenController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PqrController;
@@ -507,6 +509,7 @@ Route::prefix('nomina')->group(function () {
     Route::apiResource('empresas', EmpresaController::class);
     Route::apiResource('tipo-contratos', TipoContratoController::class);
     Route::get('contratacion/empleados', [ContratacionController::class, 'getEmpleados']);
+    Route::get('contratacion/{uuid}/certificado', [ContratacionController::class, 'certificado']);
     Route::apiResource('contratacion', ContratacionController::class);
     Route::apiResource('seguridad-social', SeguridadSocialController::class);
     Route::apiResource('incapacidades', IncapacidadController::class);
@@ -522,8 +525,9 @@ Route::prefix('nomina')->group(function () {
     Route::apiResource('transacional-registros',   TransacionalRegistroController::class);
     Route::get('transacional-registros/user/{userId}', [TransacionalRegistroController::class, 'byUser']);
     Route::apiResource('work-sessions',    WorkSessionController::class);
-     Route::get('nominas/resumen',   [NominaController::class, 'resumen']);
-     Route::post('nominas/liquidar', [NominaController::class, 'liquidar']);
+     Route::get('nominas/resumen',              [NominaController::class, 'resumen']);
+     Route::post('nominas/liquidar',            [NominaController::class, 'liquidar']);
+     Route::get('nominas/{uuid}/desprendible', [NominaController::class, 'desprendible']);
      Route::apiResource('nominas', NominaController::class);
 
      Route::apiResource('horas-extras', HoraExtraController::class)->except(['update']);
@@ -537,6 +541,12 @@ Route::prefix('nomina')->group(function () {
      Route::apiResource('vacaciones', VacacionController::class)->except(['update']);
      Route::patch('vacaciones/{uuid}/aprobar',  [VacacionController::class, 'aprobar']);
      Route::patch('vacaciones/{uuid}/rechazar', [VacacionController::class, 'rechazar']);
+
+     Route::get('llamados-atencion/{uuid}/pdf', [LlamadoAtencionController::class, 'pdf']);
+     Route::apiResource('llamados-atencion', LlamadoAtencionController::class)->except(['update']);
+
+     Route::get('descargos/{uuid}/pdf', [DescargoController::class, 'pdf']);
+     Route::apiResource('descargos', DescargoController::class)->except(['update']);
 });
 
 });

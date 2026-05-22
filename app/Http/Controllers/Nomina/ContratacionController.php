@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Nomina;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Nomina\StoreContratacionRequest;
 use App\Http\Requests\Nomina\UpdateContratacionRequest;
+use App\Models\Nomina\Contratacion;
 use App\Models\User;
 use App\Services\Nomina\ContratacionService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class ContratacionController extends Controller
@@ -94,7 +97,27 @@ class ContratacionController extends Controller
 
     public function getEmpleados(): JsonResponse
     {
-        $empleados = User::select('id', 'name')->orderBy('name')->get();
+        $empleados = User::select(
+            'users.id',
+            'users.name',
+            DB::raw('(SELECT c.numero_documento FROM contrataciones c WHERE c.users_id = users.id ORDER BY c.id DESC LIMIT 1) as numero_documento')
+        )->orderBy('users.name')->get();
+
         return response()->json($empleados);
+    }
+
+    public function certificado($uuid, Request $request)
+    {
+        $contratacion = Contratacion::with(['usuario', 'empresa', 'tipoContrato'])
+            ->where('uuid', $uuid)->firstOrFail();
+
+        $pdf = Pdf::loadView('pdf.certificado_laboral', [
+            'contratacion' => $contratacion,
+            'empresa'      => $contratacion->empresa,
+            'dirigido_a'   => $request->input('dirigido_a'),
+            'fecha_actual' => now()->locale('es')->translatedFormat('d \d\e F \d\e Y'),
+        ])->setPaper('letter', 'portrait');
+
+        return $pdf->download("certificado_{$contratacion->uuid}.pdf");
     }
 }

@@ -21,6 +21,7 @@ class Contratacion extends Model
         'empresa_id',
         'tipo_documento',
         'numero_documento',
+        'correo',
         'cargo',
         'no_salarial',
         'base_salario',
