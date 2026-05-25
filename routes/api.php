@@ -514,6 +514,7 @@ Route::prefix('nomina')->group(function () {
     Route::patch('contratacion/{uuid}/estado', [ContratacionController::class, 'cambiarEstado']);
     Route::apiResource('contratacion', ContratacionController::class);
     Route::apiResource('seguridad-social', SeguridadSocialController::class);
+    Route::get('incapacidades/{uuid}/soporte', [IncapacidadController::class, 'soporte']);
     Route::apiResource('incapacidades', IncapacidadController::class);
     Route::patch('incapacidades/{uuid}/revisar', [IncapacidadController::class, 'revisar']);
     Route::apiResource('descuentos', DescuentoController::class);

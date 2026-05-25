@@ -9,6 +9,7 @@ use App\Services\Nomina\IncapacidadService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class IncapacidadController extends Controller
 {
@@ -43,6 +44,30 @@ class IncapacidadController extends Controller
                 'data'    => $incapacidad,
             ], 200);
 
+        } catch (\Exception $e) {
+            return $this->errorResponse($e);
+        }
+    }
+
+    public function soporte(string $uuid)
+    {
+        try {
+            $incapacidad = $this->incapacidadService->getByUuid($uuid);
+
+            if (!$incapacidad->soporte || !Storage::disk('public')->exists($incapacidad->soporte)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'La incapacidad no tiene soporte disponible.',
+                ], 404);
+            }
+
+            $path = Storage::disk('public')->path($incapacidad->soporte);
+            $mime = Storage::disk('public')->mimeType($incapacidad->soporte) ?: 'application/octet-stream';
+
+            return response()->file($path, [
+                'Content-Type' => $mime,
+                'Content-Disposition' => 'inline; filename="' . basename($path) . '"',
+            ]);
         } catch (\Exception $e) {
             return $this->errorResponse($e);
         }

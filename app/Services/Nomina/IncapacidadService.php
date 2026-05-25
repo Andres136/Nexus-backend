@@ -60,6 +60,9 @@ public function getAll(array $filters = [])
         $item->soporte_url = $item->soporte
             ? asset('storage/' . $item->soporte)
             : null;
+        $item->soporte_embed_url = $item->soporte
+            ? url("api/nomina/incapacidades/{$item->uuid}/soporte")
+            : null;
 
         // Estado automático según fecha fin
         $item->estado_actual = now()->gt($item->fin)
@@ -92,6 +95,9 @@ public function getByUuid(string $uuid): Incapacidad
     // URL pública del PDF
     $incapacidad->soporte_url = $incapacidad->soporte
         ? asset('storage/' . $incapacidad->soporte)
+        : null;
+    $incapacidad->soporte_embed_url = $incapacidad->soporte
+        ? url("api/nomina/incapacidades/{$incapacidad->uuid}/soporte")
         : null;
 
     // Estado automático
@@ -146,6 +152,9 @@ public function store(array $data, $soporte = null): Incapacidad
         // URL pública
         $incapacidad->soporte_url = $incapacidad->soporte
             ? asset('storage/' . $incapacidad->soporte)
+            : null;
+        $incapacidad->soporte_embed_url = $incapacidad->soporte
+            ? url("api/nomina/incapacidades/{$incapacidad->uuid}/soporte")
             : null;
 
         // Estado visual
@@ -217,6 +226,9 @@ public function store(array $data, $soporte = null): Incapacidad
         $incapacidad->soporte_url = $incapacidad->soporte
             ? asset('storage/' . $incapacidad->soporte)
             : null;
+        $incapacidad->soporte_embed_url = $incapacidad->soporte
+            ? url("api/nomina/incapacidades/{$incapacidad->uuid}/soporte")
+            : null;
         $incapacidad->estado_revision = $incapacidad->estado_revision ?? 'pendiente';
 
         return $incapacidad;
@@ -248,6 +260,9 @@ public function store(array $data, $soporte = null): Incapacidad
 
             $incapacidad->soporte_url = $incapacidad->soporte
                 ? asset('storage/' . $incapacidad->soporte)
+                : null;
+            $incapacidad->soporte_embed_url = $incapacidad->soporte
+                ? url("api/nomina/incapacidades/{$incapacidad->uuid}/soporte")
                 : null;
 
             return $incapacidad;
