@@ -65,7 +65,9 @@ use App\Http\Controllers\Hseq\TipoServicioController;
 use App\Http\Controllers\IndicadoresProcesosController;
 use App\Http\Controllers\MacroProcesoController;
 use App\Http\Controllers\Nomina\ContratacionController;
+use App\Http\Controllers\Nomina\ConfiguracionNominaController;
 use App\Http\Controllers\Nomina\DescuentoController;
+use App\Http\Controllers\Nomina\HorarioOperacionDiariaController;
 use App\Http\Controllers\Nomina\IncapacidadController;
 use App\Http\Controllers\Nomina\JornadaLaboralController;
 use App\Http\Controllers\Nomina\SeguridadSocialController;
@@ -506,6 +508,10 @@ Route::post(
 
 //Rutas tipos de contratos nomina
 Route::prefix('nomina')->group(function () {
+    Route::get('configuracion', [ConfiguracionNominaController::class, 'show']);
+    Route::put('configuracion', [ConfiguracionNominaController::class, 'update']);
+    Route::get('horario-operacion/hoy', [HorarioOperacionDiariaController::class, 'show']);
+    Route::put('horario-operacion/hoy', [HorarioOperacionDiariaController::class, 'update']);
     Route::apiResource('empresas', EmpresaController::class);
     Route::apiResource('tipo-contratos', TipoContratoController::class);
     Route::get('contratacion/empleados', [ContratacionController::class, 'getEmpleados']);
