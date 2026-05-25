@@ -28,6 +28,9 @@ class NominaController extends Controller
             $filters = [
                 'user_id'            => $request->query('user_id'),
                 'jornada_laboral_id' => $request->query('jornada_laboral_id'),
+                'periodo_inicio'     => $request->query('periodo_inicio'),
+                'periodo_fin'        => $request->query('periodo_fin'),
+                'search'             => $request->query('search'),
                 'per_page'           => $request->query('per_page', 15),
             ];
 
@@ -156,9 +159,40 @@ class NominaController extends Controller
                 'success' => false,
                 'message' => 'No se encontró contrato activo o configuración de tarifas para el empleado.',
             ], 422);
+        } catch (\LogicException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
         } catch (\Exception $e) {
             Log::error('Error al liquidar nómina', ['error' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => 'Error al liquidar la nómina.'], 500);
+        }
+    }
+
+    public function preliquidar(LiquidarNominaRequest $request): JsonResponse
+    {
+        try {
+            $data = $this->nominaService->preliquidar($request->validated());
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Preliquidación calculada exitosamente.',
+                'data'    => $data,
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se encontró contrato activo o configuración de tarifas para el empleado.',
+            ], 422);
+        } catch (\LogicException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error al preliquidar nómina', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al preliquidar la nómina.'], 500);
         }
     }
 

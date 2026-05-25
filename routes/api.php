@@ -527,6 +527,7 @@ Route::prefix('nomina')->group(function () {
     Route::get('transacional-registros/user/{userId}', [TransacionalRegistroController::class, 'byUser']);
     Route::apiResource('work-sessions',    WorkSessionController::class);
      Route::get('nominas/resumen',              [NominaController::class, 'resumen']);
+     Route::post('nominas/preliquidar',         [NominaController::class, 'preliquidar']);
      Route::post('nominas/liquidar',            [NominaController::class, 'liquidar']);
      Route::get('nominas/{uuid}/desprendible', [NominaController::class, 'desprendible']);
      Route::post('nominas/{uuid}/desprendible/enviar', [NominaController::class, 'enviarDesprendible']);
@@ -661,4 +662,3 @@ Route::post('/eventos/crear-qr', [EventoController::class, 'crearQr']);
 Route::post('/qrs/productos/pdf', [EventoController::class, 'crearQrMasivoConPdf']);
 
 Route::get('/orden-compras/{orden}/preview-documento', [OrdenCompraController::class, 'previewDocumento']);
-
