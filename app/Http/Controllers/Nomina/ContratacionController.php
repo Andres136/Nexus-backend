@@ -64,6 +64,10 @@ class ContratacionController extends Controller
                 'data'    => $data,
             ], 201);
         } catch (\Exception $e) {
+            if ($e instanceof \LogicException) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+            }
+
             Log::error('Error al crear contratación', ['error' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => 'Error al crear la contratación.'], 500);
         }
@@ -81,6 +85,32 @@ class ContratacionController extends Controller
         } catch (\Exception $e) {
             Log::error('Error al actualizar contratación', ['uuid' => $uuid, 'error' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => 'Error al actualizar la contratación.'], 500);
+        }
+    }
+
+    public function cambiarEstado(Request $request, string $uuid): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'status' => 'required|boolean',
+            ]);
+
+            $data = $this->contratacionService->cambiarEstado($uuid, (bool) $validated['status']);
+
+            return response()->json([
+                'success' => true,
+                'message' => $data->status ? 'Contratación activada correctamente.' : 'Contratación inactivada correctamente.',
+                'data'    => $data,
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Estado inválido.',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error al cambiar estado de contratación', ['uuid' => $uuid, 'error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al cambiar el estado de la contratación.'], 500);
         }
     }
 

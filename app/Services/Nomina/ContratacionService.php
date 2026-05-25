@@ -6,6 +6,7 @@ use App\Models\Nomina\Contratacion;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use LogicException;
 
 class ContratacionService
 {
@@ -22,7 +23,7 @@ class ContratacionService
 
     public function getAll(array $filters = []): LengthAwarePaginator
     {
-        $perPage = $filters['per_page'] ?? 10;
+        $perPage = min(max((int) ($filters['per_page'] ?? 10), 1), 100);
 
         return Contratacion::with(self::WITH)
             ->when(!empty($filters['search']), function ($query) use ($filters) {
@@ -60,12 +61,24 @@ class ContratacionService
     public function create(array $data): Contratacion
     {
         return DB::transaction(function () use ($data) {
+            if ($this->tieneContratoActivo((int) $data['users_id'])) {
+                throw new LogicException('Este empleado ya tiene un contrato activo. Debes inactivar o finalizar el contrato actual antes de registrar uno nuevo.');
+            }
+
             $contratacion = Contratacion::create($data);
 
             Log::info('Contratación creada', ['uuid' => $contratacion->uuid, 'users_id' => $contratacion->users_id]);
 
             return $contratacion->load(self::WITH);
         });
+    }
+
+    private function tieneContratoActivo(int $userId, ?string $excludeUuid = null): bool
+    {
+        return Contratacion::where('users_id', $userId)
+            ->where('status', true)
+            ->when($excludeUuid, fn($q) => $q->where('uuid', '!=', $excludeUuid))
+            ->exists();
     }
 
     public function update(string $uuid, array $data): Contratacion
@@ -76,6 +89,22 @@ class ContratacionService
             $contratacion->update($data);
 
             Log::info('Contratación actualizada', ['uuid' => $contratacion->uuid]);
+
+            return $contratacion->fresh(self::WITH);
+        });
+    }
+
+    public function cambiarEstado(string $uuid, bool $status): Contratacion
+    {
+        return DB::transaction(function () use ($uuid, $status) {
+            $contratacion = Contratacion::where('uuid', $uuid)->firstOrFail();
+
+            $contratacion->update(['status' => $status ? 1 : 0]);
+
+            Log::info('Estado de contratación actualizado', [
+                'uuid' => $contratacion->uuid,
+                'status' => $contratacion->status,
+            ]);
 
             return $contratacion->fresh(self::WITH);
         });

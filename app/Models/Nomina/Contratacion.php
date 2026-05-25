@@ -42,7 +42,7 @@ class Contratacion extends Model
         'auxilio_transporte'  => 'decimal:2',
         'inicio_contratacion' => 'date',
         'fin_contrato'        => 'datetime',
-        'status'              => 'integer',
+        'status'              => 'boolean',
     ];
 
     protected static function booted()
@@ -83,6 +83,11 @@ class Contratacion extends Model
     }
 
     public function cajaPenciones()
+    {
+        return $this->belongsTo(SeguridadSocial::class, 'caja_penciones_id')->withTrashed();
+    }
+
+    public function cajaCompensacion()
     {
         return $this->belongsTo(SeguridadSocial::class, 'caja_penciones_id')->withTrashed();
     }

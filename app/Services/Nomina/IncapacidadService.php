@@ -70,6 +70,7 @@ public function getAll(array $filters = [])
         $item->status = now()->gt($item->fin)
             ? false
             : true;
+        $item->estado_revision = $item->estado_revision ?? 'pendiente';
 
         return $item;
     });
@@ -102,6 +103,7 @@ public function getByUuid(string $uuid): Incapacidad
     $incapacidad->status = now()->gt($incapacidad->fin)
         ? false
         : true;
+    $incapacidad->estado_revision = $incapacidad->estado_revision ?? 'pendiente';
 
     return $incapacidad;
 }
@@ -150,6 +152,7 @@ public function store(array $data, $soporte = null): Incapacidad
         $incapacidad->estado_actual = now()->gt($incapacidad->fin)
             ? 'finalizada'
             : 'activa';
+        $incapacidad->estado_revision = $incapacidad->estado_revision ?? 'pendiente';
 
         return $incapacidad;
     });
@@ -214,6 +217,7 @@ public function store(array $data, $soporte = null): Incapacidad
         $incapacidad->soporte_url = $incapacidad->soporte
             ? asset('storage/' . $incapacidad->soporte)
             : null;
+        $incapacidad->estado_revision = $incapacidad->estado_revision ?? 'pendiente';
 
         return $incapacidad;
     });
@@ -221,18 +225,23 @@ public function store(array $data, $soporte = null): Incapacidad
     // =====================
     // REVISAR DOCUMENTO
     // =====================
-    public function revisar(string $uuid): Incapacidad
+    public function revisar(string $uuid, string $estadoRevision, ?string $observacion = null): Incapacidad
     {
-        return DB::transaction(function () use ($uuid) {
+        return DB::transaction(function () use ($uuid, $estadoRevision, $observacion) {
 
             $incapacidad = Incapacidad::where('uuid', $uuid)->firstOrFail();
 
             $incapacidad->user_reviso_id = Auth::id();
+            $incapacidad->estado_revision = $estadoRevision;
+            $incapacidad->observacion_revision = $observacion;
+            $incapacidad->fecha_revision = now();
+            $incapacidad->status = $estadoRevision === 'aprobada';
             $incapacidad->save();
 
             Log::info('Incapacidad revisada', [
                 'uuid'           => $incapacidad->uuid,
                 'revisado_por'   => Auth::id(),
+                'estado_revision' => $estadoRevision,
             ]);
 
             $incapacidad = $incapacidad->fresh(['empleado', 'revisor', 'entidadMedica']);

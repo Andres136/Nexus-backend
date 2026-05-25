@@ -511,6 +511,7 @@ Route::prefix('nomina')->group(function () {
     Route::get('contratacion/empleados', [ContratacionController::class, 'getEmpleados']);
     Route::get('contratacion/{uuid}/certificado', [ContratacionController::class, 'certificado']);
     Route::post('contratacion/{uuid}/certificado/enviar', [ContratacionController::class, 'enviarCertificado']);
+    Route::patch('contratacion/{uuid}/estado', [ContratacionController::class, 'cambiarEstado']);
     Route::apiResource('contratacion', ContratacionController::class);
     Route::apiResource('seguridad-social', SeguridadSocialController::class);
     Route::apiResource('incapacidades', IncapacidadController::class);

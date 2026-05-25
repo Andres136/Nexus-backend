@@ -7,6 +7,7 @@ use App\Http\Requests\Nomina\StoreIncapacidadRequest;
 use App\Http\Requests\Nomina\UpdateIncapacidadRequest;
 use App\Services\Nomina\IncapacidadService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class IncapacidadController extends Controller
@@ -89,17 +90,34 @@ public function store(StoreIncapacidadRequest $request): JsonResponse
 }
 
     // PATCH /incapacidades/{uuid}/revisar
-    public function revisar(string $uuid): JsonResponse
+    public function revisar(Request $request, string $uuid): JsonResponse
     {
         try {
-            $incapacidad = $this->incapacidadService->revisar($uuid);
+            $validated = $request->validate([
+                'estado_revision' => 'required|in:aprobada,rechazada',
+                'observacion_revision' => 'nullable|string|max:1000',
+            ]);
+
+            $incapacidad = $this->incapacidadService->revisar(
+                $uuid,
+                $validated['estado_revision'],
+                $validated['observacion_revision'] ?? null
+            );
 
             return response()->json([
                 'success' => true,
-                'message' => 'Incapacidad revisada correctamente',
+                'message' => $validated['estado_revision'] === 'aprobada'
+                    ? 'Incapacidad aprobada correctamente'
+                    : 'Incapacidad rechazada correctamente',
                 'data'    => $incapacidad,
             ], 200);
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Datos de revisión inválidos',
+                'errors' => $e->errors(),
+            ], 422);
         } catch (\Exception $e) {
             return $this->errorResponse($e);
         }

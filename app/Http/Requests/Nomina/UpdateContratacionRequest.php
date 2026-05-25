@@ -28,7 +28,7 @@ class UpdateContratacionRequest extends FormRequest
             'eps_id'               => 'sometimes|integer|exists:seguridad_socials,id',
             'arl_id'               => 'sometimes|integer|exists:seguridad_socials,id',
             'fondo_pensiones_id'   => 'sometimes|integer|exists:seguridad_socials,id',
-            'caja_compensacion_id' => 'sometimes|integer|exists:seguridad_socials,id',
+            'caja_penciones_id'    => 'sometimes|integer|exists:seguridad_socials,id',
         ];
     }
 
@@ -49,7 +49,7 @@ class UpdateContratacionRequest extends FormRequest
             'eps_id.exists'                 => 'La EPS no existe.',
             'arl_id.exists'                 => 'La ARL no existe.',
             'fondo_pensiones_id.exists'     => 'El fondo de pensiones no existe.',
-            'caja_compensacion_id.exists'   => 'La caja de compensación no existe.',
+            'caja_penciones_id.exists'      => 'La caja de compensación no existe.',
         ];
     }
 }

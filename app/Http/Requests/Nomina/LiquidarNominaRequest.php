@@ -17,7 +17,7 @@ class LiquidarNominaRequest extends FormRequest
             'user_id'            => 'required|integer|exists:users,id',
             'periodo_inicio'     => 'required|date',
             'periodo_fin'        => 'required|date|after_or_equal:periodo_inicio',
-            'jornada_laboral_id' => 'required|integer|exists:jornada_laborals,id',
+            'jornada_laboral_id' => 'nullable|integer|exists:jornada_laborals,id',
             'descuento_id'       => 'nullable|integer|exists:descuentos,id',
         ];
     }
@@ -32,7 +32,6 @@ class LiquidarNominaRequest extends FormRequest
             'periodo_fin.required'         => 'La fecha de fin del período es obligatoria.',
             'periodo_fin.date'             => 'La fecha de fin debe ser una fecha válida.',
             'periodo_fin.after_or_equal'   => 'La fecha de fin debe ser igual o posterior al inicio.',
-            'jornada_laboral_id.required'  => 'La jornada laboral es obligatoria.',
             'jornada_laboral_id.exists'    => 'La jornada laboral no existe.',
             'descuento_id.exists'          => 'El descuento no existe.',
         ];

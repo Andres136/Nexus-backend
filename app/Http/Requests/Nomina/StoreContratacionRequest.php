@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Nomina;
 
+use App\Models\Nomina\Contratacion;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class StoreContratacionRequest extends FormRequest
 {
@@ -64,6 +66,28 @@ class StoreContratacionRequest extends FormRequest
             'fondo_pensiones_id.exists'     => 'El fondo de pensiones no existe.',
             'caja_penciones_id.required'   => 'La caja de pensiones es obligatoria.',
             'caja_penciones_id.exists'     => 'La caja de pensiones no existe.',
+        ];
+    }
+
+    public function after(): array
+    {
+        return [
+            function (Validator $validator) {
+                if (!$this->filled('users_id')) {
+                    return;
+                }
+
+                $tieneContratoActivo = Contratacion::where('users_id', $this->input('users_id'))
+                    ->where('status', true)
+                    ->exists();
+
+                if ($tieneContratoActivo) {
+                    $validator->errors()->add(
+                        'users_id',
+                        'Este empleado ya tiene un contrato activo. Debes inactivar o finalizar el contrato actual antes de registrar uno nuevo.'
+                    );
+                }
+            },
         ];
     }
 }

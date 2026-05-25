@@ -23,12 +23,16 @@ class Incapacidad extends Model
         'status',
         'user_id',
         'user_reviso_id',
+        'estado_revision',
+        'observacion_revision',
+        'fecha_revision',
     ];
 
     protected $casts = [
         'inicio'  => 'date',
         'fin'     => 'date',
         'status'  => 'boolean',
+        'fecha_revision' => 'datetime',
         'uuid'    => 'string',
     ];
 
