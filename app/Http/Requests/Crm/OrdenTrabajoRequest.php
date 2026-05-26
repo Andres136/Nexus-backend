@@ -29,7 +29,7 @@ class OrdenTrabajoRequest extends FormRequest
        if ($this->debeValidarProducto()) {
     $rules['detalles'] = ['required', 'array', 'min:1'];
     $rules['detalles.*.product_id'] = [
-        'required',
+        'nullable',
         'integer',
         Rule::exists('products', 'id')
     ];
@@ -48,7 +48,7 @@ class OrdenTrabajoRequest extends FormRequest
             'sede_id.integer' => 'El campo sede debe ser un número entero.',
             'sede_id.exists' => 'La sede seleccionada no existe en el sistema.',
            'detalles.required' => 'Debe agregar al menos un ítem.',
-'detalles.*.product_id.required' => 'Debe seleccionar un producto.',
+
 'detalles.*.product_id.exists' => 'El producto seleccionado no existe.',
 
         ];
