@@ -330,7 +330,7 @@ public function obtenerOrdenesTrabajo(Request $request)
     public function show(string $id)
     {
         // 1. Buscar la orden de compra con sus detalles y usuario asociado
-        $orden = Orden_Compra::with('detalles', 'user')->findOrFail($id);
+        $orden = Orden_Compra::with('detalles.product', 'user')->findOrFail($id);
 
         // 2. Verificar si la orden NO está completada (estado_id !== 2)
         if ($orden->estado_id !== 2) {
