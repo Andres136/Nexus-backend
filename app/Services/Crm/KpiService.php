@@ -64,6 +64,17 @@ class KpiService
             ->pluck('total', 'mes');
 
         // =========================
+        // CONVERSIÓN CLIENTES TRIMESTRAL
+        // =========================
+        $compradoresTotalesPorTrimestre = Orden_Compra::selectRaw("
+                QUARTER(created_at) as trimestre,
+                COUNT(DISTINCT cliente_id) as clientes_con_orden
+            ")
+            ->whereBetween('created_at', [$inicio, $fin])
+            ->groupBy('trimestre')
+            ->pluck('clientes_con_orden', 'trimestre');
+
+        // =========================
         // SEGUIMIENTOS: gestión + perdidos (mensual)
         // Gestionado = cliente con al menos 1 seguimiento en el año / mes
         // Perdido = seguimientos estado=perdido (conteo de eventos)
@@ -199,8 +210,8 @@ $carteraPctGestion = $carteraVencidas > 0
             $fielesPorMes,
             $ventasPorUsuarioMensual,
             $carteraVencidas,
-            $carteraGestionadasByMonth
-
+            $carteraGestionadasByMonth,
+            $compradoresTotalesPorTrimestre
         ) {
             $mes = $m['month'];
 
@@ -221,6 +232,13 @@ $carteraPctGestion = $carteraVencidas > 0
             // Conversión “a compra” mensual (por clientes, no por cotizaciones)
             $conversionClientesMes = $clientesTotales > 0
                 ? ($compradoresMes / $clientesTotales) * 100
+                : 0;
+
+            // Conversión clientes trimestral (clientes distintos que compraron en el trimestre)
+            $trimestre = (int) ceil($mes / 3);
+            $compradoresTrimestre = (int) ($compradoresTotalesPorTrimestre[$trimestre] ?? 0);
+            $conversionClientesTrimestralPct = $clientesTotales > 0
+                ? round(($compradoresTrimestre / $clientesTotales) * 100, 2)
                 : 0;
 
             // Gestión mensual
@@ -269,9 +287,11 @@ $carteraPctMes = $carteraVencidas > 0
                 'clientes_perdidos'      => $perdidos,
 
                 // KPIs (%)
-                'conversion_clientes_pct'     => round($conversionClientesMes, 2),
-                'gestion_clientes_pct'        => round($gestionMes, 2),
-                'fidelizacion_clientes_pct'   => round($fidelizacionMes, 2),
+                'conversion_clientes_pct'            => round($conversionClientesMes, 2),
+                'conversion_clientes_trimestral_pct' => $conversionClientesTrimestralPct,
+                'trimestre'                          => "Q{$trimestre}",
+                'gestion_clientes_pct'               => round($gestionMes, 2),
+                'fidelizacion_clientes_pct'          => round($fidelizacionMes, 2),
 
                 // Funnel clásico (si lo quieres mostrar en el dashboard)
                 'conversion_cotizaciones_pct' => round($conversionCotizacionesMes, 2),
