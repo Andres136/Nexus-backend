@@ -13,6 +13,7 @@ use App\Http\Controllers\Crm\BodegaController;
 use App\Http\Controllers\Crm\CarpetaController;
 use App\Http\Controllers\Crm\CategoriaController;
 use App\Http\Controllers\Crm\ClienteController;
+use App\Http\Controllers\Crm\EncuestaController;
 use App\Http\Controllers\Crm\CotizacionController;
 use App\Http\Controllers\Crm\DashboardController;
 use App\Http\Controllers\Crm\DatoCondutorController;
@@ -96,6 +97,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use SebastianBergmann\CodeCoverage\Report\Html\Dashboard;
 
+// Rutas públicas encuestas (sin auth)
+Route::get('/r/{token}',  [EncuestaController::class, 'showPublico']);
+Route::post('/r/{token}', [EncuestaController::class, 'responder']);
+
 Route::middleware('auth:sanctum')->group(function () {
   Route::get('/user', function (Request $request) {
     return $request->user();
@@ -132,6 +137,11 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
   Route::get('/errores/kpi', [ErrorController::class, 'kpiErrores']);
   Route::apiResource('clientes/{cliente}/seguimientos', SeguimientoController::class);
   Route::patch('clientes/{id}/estado', [ClienteController::class, 'cambiarEstado']);
+
+  // Encuestas
+  Route::apiResource('encuestas', EncuestaController::class);
+  Route::post('encuestas/{id}/enviar', [EncuestaController::class, 'enviar']);
+  Route::get('encuestas/{id}/resultados', [EncuestaController::class, 'resultados']);
   
 
   
@@ -568,8 +578,12 @@ Route::get('/seguimientos', [SeguimientoController::class, 'index']);
 Route::get('procesos/departamento/{departamento_id}', [ProcesoController::class, 'index']);
 
 Route::get('download/{id}', [DocumentosAdministrativosController::class, 'downloand']);
-Route::delete('documentos-administrativos/{id}', [DocumentosAdministrativosController::class, 'destroy']);
-Route::apiResource('carpetas', CarpetaController::class);
+Route::delete('documentos-administrativos/{id}', [DocumentosAdministrativosController::class, 'destroy'])
+    ->middleware('auth:sanctum');
+Route::apiResource('carpetas', CarpetaController::class)
+    ->middleware('auth:sanctum');
+Route::put('carpetas/{id}/mover', [CarpetaController::class, 'mover'])
+    ->middleware('auth:sanctum');
 Route::post('login', [AuthController::class, 'login'])->name('login');
 //Whatsapp Webhook
 Route::match(['GET', 'POST'], '/webhook', [WhatsappWebhookController::class, 'handle']);
