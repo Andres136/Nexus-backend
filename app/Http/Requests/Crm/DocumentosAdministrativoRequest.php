@@ -23,7 +23,7 @@ class DocumentosAdministrativoRequest extends FormRequest
     {
         return [
             'nombre' => 'required|string|max:255',
-            'archivo' => 'required|mimes:pdf,doc,docx,xls,xlsx|max:20480', 
+            'archivo' => 'required|mimes:pdf,doc,docx,xls,xlsx|max:8192',
             'carpeta_id' => 'required|exists:carpetas,id',
    
         ];
@@ -36,8 +36,9 @@ class DocumentosAdministrativoRequest extends FormRequest
             'nombre.string' => 'El campo nombre debe ser una cadena de texto',
             'nombre.max' => 'El campo nombre no debe exceder los 255 caracteres',
             'archivo.required' => 'El campo archivo es requerido',
+            'archivo.uploaded' => 'El archivo no pudo subirse. Verifica que no supere el tamaño máximo permitido de 8MB.',
             'archivo.mimes' => 'El archivo debe ser un archivo PDF, DOC o DOCX, XLS o XLSX',
-            'archivo.max' => 'El archivo no debe exceder los 20MB',
+            'archivo.max' => 'El archivo no debe exceder los 8MB',
        
             'carpeta_id.required' => 'El campo carpeta es requerido',
             'carpeta_id.exists' => 'La carpeta seleccionada no existe',
