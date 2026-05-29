@@ -28,16 +28,20 @@ class OrdenComprasUpdateRequest extends FormRequest
             'cliente_id' => 'required',
             'ubicacion_entrega' => 'required',
             'observaciones' => 'required',
+            'empresa_id' => 'required|exists:empresas,id',
+            'cliente_documento' => 'sometimes|file|mimes:pdf,doc,docx,xls,xlsx|max:10240',
         ];
 
         // Validaciones condicionales para detalles
         $rules['detalles'] = 'nullable|array|min:1';
+        $rules['detalles.*.id'] = 'sometimes|nullable|exists:orden__compra__detalles,id';
+        $rules['detalles.*.product_id'] = 'sometimes|nullable|exists:products,id';
         $rules['detalles.*.largo_cm'] = 'required_with:detalles';
         $rules['detalles.*.ancho_cm'] = 'required_with:detalles';
         $rules['detalles.*.calibre'] = 'required_with:detalles';
         $rules['detalles.*.cantidad'] = 'required_with:detalles';
-        $rules['detalles.*.cantidad_enviada'] = 'nullable_with:detalles';
-        $rules['detalles.*.faltantes'] = 'nullable_with:detalles';
+        $rules['detalles.*.cantidad_enviada'] = 'nullable';
+        $rules['detalles.*.faltantes'] = 'nullable';
         $rules['detalles.*.valor_unitario'] = 'required_with:detalles|numeric|regex:/^\d+(\.\d{1,2})?$/';
 
         $rules['detalles.*.peso_bolsa'] = 'required_with:detalles';
@@ -45,6 +49,8 @@ class OrdenComprasUpdateRequest extends FormRequest
         $rules['detalles.*.cliente_clb'] = 'required_with:detalles';
         $rules['detalles.*.cantidad_requerida_kg'] = 'required_with:detalles';
         $rules['detalles.*.descripcion'] = 'required_with:detalles';
+        $rules['detalles.*.tipo_embalaje'] = 'sometimes|nullable|string';
+        $rules['detalles.*.codigo_embalaje'] = 'sometimes|nullable|string';
         $rules['detalles.*.valor_total'] = 'required_with:detalles|numeric|regex:/^\d+(\.\d{1,2})?$/';
 
 
@@ -59,10 +65,15 @@ class OrdenComprasUpdateRequest extends FormRequest
             'cliente_id.required' => 'El cliente es obligatorio',
             'ubicacion_entrega.required' => 'La ubicación de entrega es obligatoria',
             'observaciones.required' => 'Las observaciones son obligatorias',
+            'empresa_id.required' => 'La empresa es obligatoria',
+            'empresa_id.exists' => 'La empresa seleccionada no es válida',
+            'cliente_documento.mimes' => 'El documento del cliente debe ser un archivo de tipo: pdf, doc, docx, xls, xlsx',
+            'cliente_documento.max' => 'El documento del cliente no debe superar los 10MB',
             
 
             // Mensajes de error para detalles
             'detalles.min' => 'Debes ingresar mínimo un elemento',
+            'detalles.*.product_id.exists' => 'El producto seleccionado no es válido',
             'detalles.*.largo_cm.required_with' => 'El largo es obligatorio',
             
             'detalles.*.ancho_cm.required_with' => 'El ancho es obligatorio',

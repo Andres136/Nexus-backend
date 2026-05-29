@@ -370,7 +370,7 @@ public function obtenerOrdenesTrabajo(Request $request)
      */
 
 
-    public function update(Request $request, $id)
+    public function update(OrdenComprasUpdateRequest $request, $id)
     {
         DB::beginTransaction();
         try {
@@ -387,8 +387,8 @@ public function obtenerOrdenesTrabajo(Request $request)
 if ($request->hasFile('cliente_documento')) {
 
     // Eliminar archivo anterior (opcional pero recomendado)
-    if ($oc->cliente_documento_path) {
-        Storage::delete($oc->cliente_documento_path);
+    if ($oc->cliente_documento) {
+        Storage::disk('public')->delete($oc->cliente_documento);
     }
 
     // Guardar nuevo archivo
@@ -406,6 +406,7 @@ $path = $request->file('cliente_documento')->store('documentos_clientes', 'publi
                 'cliente_id'        => $request->cliente_id,
                 'ubicacion_entrega' => $request->ubicacion_entrega,
                 'observaciones'     => $request->observaciones,
+                'empresa_id'        => $request->empresa_id,
 
             ]);
 
@@ -413,15 +414,24 @@ $path = $request->file('cliente_documento')->store('documentos_clientes', 'publi
             //    A) destruir todos y volver a crear
             //    B) upsert por ID (con createMany/update/delete faltantes)  ✅
             //    C) solo updateCampos permitidos
-            $idsEnRequest = collect($request->detalles)->pluck('id')->filter()->all();
+            $detalles = $request->input('detalles', []);
+           \Log::info('DETALLES RECIBIDOS', [
+    'detalles' => $detalles,
+    'cantidad' => count($detalles)
+]);
+            $idsEnRequest = collect($detalles)->pluck('id')->filter()->all();
 
             // B-1) Eliminar detalles que ya no vienen
             $oc->detalles()->whereNotIn('id', $idsEnRequest)->delete();
 
-            foreach ($request->detalles as $d) {
+            foreach ($detalles as $d) {
+    \Log::info('DETALLE RECIBIDO', [
+        'detalle' => $d
+    ]);
                 $oc->detalles()->updateOrCreate(
                     ['id' => $d['id'] ?? null],
                     [
+                        'product_id'      => $d['product_id'] ?? null,
                         'largo_cm'       => $d['largo_cm'],
                         'ancho_cm'       => $d['ancho_cm'],
                         'calibre'        => $d['calibre'],
@@ -434,9 +444,12 @@ $path = $request->file('cliente_documento')->store('documentos_clientes', 'publi
                         'valor_unitario' => $d['valor_unitario'] ?? 0,
                         'valor_total'    => $d['valor_total']    ?? 0,
                         'observaciones'  => $d['observaciones']  ?? '',
+                        'tipo_embalaje'   => $d['tipo_embalaje']   ?? null,
+                        'codigo_embalaje' => $d['codigo_embalaje'] ?? null,
                     ]
                 );
             }
+
 
             // 3. Recalcular valor_total
             $valorTotal = $oc->detalles()->sum('valor_total');
@@ -583,7 +596,7 @@ public function misOrdenes(Request $request)
 
     public function edit(string $id)
     {
-        $orden = Orden_Compra::with('detalles', 'cliente', 'user', 'estado')
+        $orden = Orden_Compra::with('detalles.product', 'cliente', 'user', 'estado')
             ->findOrFail($id);
 
         return response()->json($orden, 200);
