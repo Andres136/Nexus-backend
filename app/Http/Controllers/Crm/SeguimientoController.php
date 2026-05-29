@@ -8,6 +8,7 @@ use App\Http\Requests\Crm\SeguimientoClienteRequest;
 use App\Models\Crm\Cliente;
 use App\Models\Crm\SeguimientoCliente;
 use App\Models\User;
+use App\RolEnum;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -91,13 +92,12 @@ class SeguimientoController extends Controller
     }
  public function resumenMensualPorUsuario(Request $request)
 {
-    $user      = auth()->user();
-    $rolNombre = $user->role->nombre; // ajusta si es ->name
+    $user = auth()->user();
 
     $inicio = Carbon::now()->subMonths(6)->startOfMonth()->toDateTimeString();
 
-    // Control de acceso
-    $userId = in_array($rolNombre, ['Ejecutivo Comercial', 'Comercial'])
+    $rolesRestringidos = [RolEnum::COMERCIAL->value, RolEnum::EJECUTIVO_COMERCIAL->value];
+    $userId = in_array($user->role_id, $rolesRestringidos)
         ? $user->id
         : $request->query('user_id');
 
@@ -122,17 +122,13 @@ class SeguimientoController extends Controller
     public function dashboardComercialMesAMes(Request $request)
 {
     $user = auth()->user();
-    $rol  = $user->role_id; // ajusta si usas roles por relación
 
     $inicio = Carbon::now()->subMonths(6)->startOfMonth();
 
-    // 🔒CONTROL DE ACCESO
-    if (in_array($rol, ['Ejecutivo Comercial', 'Comercial'])) {
-        $userId = $user->id; //  forzado
-    } else {
-        // root / admin
-        $userId = $request->query('user_id'); // opcional
-    }
+    $rolesRestringidos = [RolEnum::COMERCIAL->value, RolEnum::EJECUTIVO_COMERCIAL->value];
+    $userId = in_array($user->role_id, $rolesRestringidos)
+        ? $user->id
+        : $request->query('user_id');
 
     // 1️⃣ Gestiones
     $gestiones = DB::table('seguimiento_clientes')
@@ -211,6 +207,7 @@ class SeguimientoController extends Controller
         collect($resultado)->sortBy('mes')->values()
     );
 }
+
 
 
 }
