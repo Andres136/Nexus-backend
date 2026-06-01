@@ -3,23 +3,24 @@
 namespace App\Services\Crm;
 
 use App\Mail\EncuestaEnviadaMail;
+use App\Models\Crm\Cliente;
 use App\Models\Crm\Encuesta;
 use App\Models\Crm\EncuestaEnvio;
 use App\Models\Crm\EncuestaRespuesta;
+use App\Models\User;
 use App\RolEnum;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class EncuestaService
 {
-    private array $rolesAdmin = [
-        RolEnum::ADMINISTRADOR->value,
-        RolEnum::ADMINISTRATIVO->value,
-        RolEnum::COMERCIAL->value,
-    ];
-
     private array $rolesCreador = [
         RolEnum::ADMINISTRADOR->value,
+    ];
+
+    private array $rolesResultados = [
+        RolEnum::ADMINISTRADOR->value,
+        RolEnum::ADMINISTRATIVO->value,
     ];
 
     // ─── CRUD ────────────────────────────────────────────────────────────────
@@ -79,36 +80,129 @@ class EncuestaService
         Encuesta::findOrFail($id)->delete();
     }
 
+    // ─── ÍNDICE GENERAL DE SATISFACCIÓN ──────────────────────────────────────
+
+    public function indiceGeneral($user): array
+    {
+        if (!in_array($user->role_id, $this->rolesResultados)) {
+            abort(403, 'No tienes permiso para ver los resultados');
+        }
+
+        $preguntasEscala = \App\Models\Crm\EncuestaPregunta::where('tipo', 'escala')->get();
+
+        $totalRespuestas     = 0;
+        $respuestasSatisfecho = 0;
+        $encuestasConDatos   = 0;
+        $encuestasVistas     = [];
+
+        foreach ($preguntasEscala as $pregunta) {
+            $maxEscala = $pregunta->max_escala ?? 5;
+            $umbral    = (int) ceil($maxEscala * 0.7);
+
+            $valores = EncuestaRespuesta::where('pregunta_id', $pregunta->id)->pluck('valor');
+
+            if ($valores->isEmpty()) continue;
+
+            $totalRespuestas      += $valores->count();
+            $respuestasSatisfecho += $valores->filter(fn ($v) => (int) $v >= $umbral)->count();
+
+            if (!in_array($pregunta->encuesta_id, $encuestasVistas)) {
+                $encuestasVistas[] = $pregunta->encuesta_id;
+                $encuestasConDatos++;
+            }
+        }
+
+        $indice = $totalRespuestas > 0
+            ? round(($respuestasSatisfecho / $totalRespuestas) * 100, 1)
+            : null;
+
+        return [
+            'indice_general'      => $indice,
+            'total_respuestas'    => $totalRespuestas,
+            'respuestas_positivas'=> $respuestasSatisfecho,
+            'encuestas_con_datos' => $encuestasConDatos,
+        ];
+    }
+
+    // ─── CLIENTES PARA ENCUESTA ───────────────────────────────────────────────
+
+    public function clientesParaEncuesta($user): array
+    {
+        $clienteIds = Cliente::where('user_id', $user->id)
+            ->whereHas('ordenes')
+            ->pluck('id');
+
+        return Cliente::where('user_id', $user->id)
+            ->orderBy('nombre')
+            ->get(['id', 'nombre', 'email'])
+            ->map(function ($c) use ($clienteIds) {
+                $tieneOrdenes = $clienteIds->contains($c->id);
+                $tieneEmail   = !empty($c->email);
+
+                $razon = null;
+                if (!$tieneOrdenes && !$tieneEmail) {
+                    $razon = 'Sin órdenes de compra ni correo electrónico';
+                } elseif (!$tieneOrdenes) {
+                    $razon = 'Sin órdenes de compra';
+                } elseif (!$tieneEmail) {
+                    $razon = 'Sin correo electrónico';
+                }
+
+                return [
+                    'id'         => $c->id,
+                    'nombre'     => $c->nombre,
+                    'email'      => $c->email,
+                    'habilitado' => $tieneOrdenes && $tieneEmail,
+                    'razon'      => $razon,
+                ];
+            })
+            ->toArray();
+    }
+
     // ─── ENVÍO ───────────────────────────────────────────────────────────────
 
-    public function enviar(int $encuestaId, array $clienteIds, $user): array
+    public function enviar(int $encuestaId, array $clienteIdsOriginales, $user): array
     {
         $encuesta = Encuesta::with('preguntas')->findOrFail($encuestaId);
 
-        // Comercial solo puede enviar a sus clientes
-        if (!in_array($user->role_id, $this->rolesAdmin)) {
-            $clienteIds = \App\Models\Crm\Cliente::whereIn('id', $clienteIds)
-                ->where('user_id', $user->id)
-                ->pluck('id')
-                ->toArray();
-        }
+        // Cargar todos los clientes solicitados que pertenezcan al usuario
+        $todosClientes = Cliente::whereIn('id', $clienteIdsOriginales)
+            ->where('user_id', $user->id)
+            ->get()
+            ->keyBy('id');
 
-        $clientes = \App\Models\Crm\Cliente::whereIn('id', $clienteIds)->get()->keyBy('id');
+        // IDs que tienen al menos una orden de compra
+        $idsConOrdenes = Cliente::whereIn('id', $todosClientes->keys())
+            ->whereHas('ordenes')
+            ->pluck('id')
+            ->flip(); // flip para búsqueda O(1)
 
-        $links = [];
+        $links    = [];
+        $excluidos = [];
 
-        foreach ($clienteIds as $clienteId) {
-            $cliente = $clientes[$clienteId] ?? null;
-            if (!$cliente || !$cliente->email) {
+        foreach ($todosClientes as $cliente) {
+            $tieneOrdenes = $idsConOrdenes->has($cliente->id);
+            $tieneEmail   = !empty($cliente->email);
+
+            if (!$tieneOrdenes || !$tieneEmail) {
+                $razon = match (true) {
+                    !$tieneOrdenes && !$tieneEmail => 'Sin órdenes de compra ni correo electrónico',
+                    !$tieneOrdenes                 => 'Sin órdenes de compra',
+                    default                        => 'Sin correo electrónico',
+                };
+                $excluidos[] = [
+                    'cliente_id'    => $cliente->id,
+                    'cliente_nombre'=> $cliente->nombre,
+                    'razon'         => $razon,
+                ];
                 continue;
             }
 
             $envio = EncuestaEnvio::firstOrNew([
                 'encuesta_id' => $encuestaId,
-                'cliente_id'  => $clienteId,
+                'cliente_id'  => $cliente->id,
             ]);
 
-            // Regenerar token si ya fue respondida (reenvío)
             if (!$envio->exists || $envio->estado === 'respondida') {
                 $envio->token        = Str::uuid()->toString();
                 $envio->estado       = 'pendiente';
@@ -119,7 +213,6 @@ class EncuestaService
             $envio->sent_at = now();
             $envio->save();
 
-            // Cargar relaciones para la vista del correo
             $envio->setRelation('encuesta', $encuesta);
             $envio->setRelation('cliente', $cliente);
 
@@ -128,7 +221,7 @@ class EncuestaService
             Mail::to($cliente->email)->queue(new EncuestaEnviadaMail($envio, $link));
 
             $links[] = [
-                'cliente_id'    => $clienteId,
+                'cliente_id'    => $cliente->id,
                 'cliente_nombre'=> $cliente->nombre,
                 'cliente_email' => $cliente->email,
                 'token'         => $envio->token,
@@ -137,7 +230,10 @@ class EncuestaService
             ];
         }
 
-        return $links;
+        return [
+            'links'     => $links,
+            'excluidos' => $excluidos,
+        ];
     }
 
     // ─── RESPUESTA PÚBLICA ────────────────────────────────────────────────────
@@ -174,28 +270,34 @@ class EncuestaService
 
     // ─── RESULTADOS ───────────────────────────────────────────────────────────
 
-    public function resultados(int $encuestaId, $user): array
+    public function resultados(int $encuestaId, $user, ?int $filtroUserId = null): array
     {
-        $encuesta  = Encuesta::with('preguntas')->findOrFail($encuestaId);
-        $esAdmin   = in_array($user->role_id, $this->rolesAdmin);
+        if (!in_array($user->role_id, $this->rolesResultados)) {
+            abort(403, 'No tienes permiso para ver los resultados');
+        }
+
+        $encuesta = Encuesta::with('preguntas')->findOrFail($encuestaId);
 
         $baseEnvios = EncuestaEnvio::where('encuesta_id', $encuestaId)
-            ->when(!$esAdmin, fn ($q) => $q->where('user_id', $user->id));
+            ->when($filtroUserId, fn ($q) => $q->where('user_id', $filtroUserId));
 
         $totalEnvios      = (clone $baseEnvios)->count();
         $totalRespondidas = (clone $baseEnvios)->where('estado', 'respondida')->count();
 
         $envioIds = (clone $baseEnvios)->pluck('id');
 
-        $resultadosPorPregunta = $encuesta->preguntas->map(function ($pregunta) use ($encuestaId, $envioIds) {
+        $resultadosPorPregunta = $encuesta->preguntas->map(function ($pregunta) use ($envioIds) {
             $respuestas = EncuestaRespuesta::whereIn('envio_id', $envioIds)
                 ->where('pregunta_id', $pregunta->id)
                 ->pluck('valor');
 
+            $maxEscala = $pregunta->max_escala ?? 5;
+
             $datos = match ($pregunta->tipo) {
                 'escala' => [
                     'promedio'      => round($respuestas->avg(), 2),
-                    'distribucion'  => collect(range(1, 5))->mapWithKeys(fn ($n) => [
+                    'max_escala'    => $maxEscala,
+                    'distribucion'  => collect(range(1, $maxEscala))->mapWithKeys(fn ($n) => [
                         $n => $respuestas->filter(fn ($v) => (int) $v === $n)->count(),
                     ]),
                 ],
@@ -216,27 +318,53 @@ class EncuestaService
             ];
         });
 
-        // Índice de satisfacción: % de respuestas >= 4 en preguntas de tipo escala
-        $preguntasEscala  = $encuesta->preguntas->where('tipo', 'escala');
+        // Índice de satisfacción: % de respuestas en el tramo superior (>= ceil(max/2)+1) de escala
+        $preguntasEscala     = $encuesta->preguntas->where('tipo', 'escala');
         $indicesSatisfaccion = null;
 
         if ($preguntasEscala->isNotEmpty()) {
-            $totalEscala    = 0;
+            $totalEscala     = 0;
             $positivasEscala = 0;
 
             foreach ($preguntasEscala as $pregunta) {
+                $maxEscala = $pregunta->max_escala ?? 5;
+                $umbral    = (int) ceil($maxEscala * 0.7); // 70% del máximo = "satisfecho"
+
                 $vals = EncuestaRespuesta::whereIn('envio_id', $envioIds)
                     ->where('pregunta_id', $pregunta->id)
                     ->pluck('valor');
 
-                $totalEscala    += $vals->count();
-                $positivasEscala += $vals->filter(fn ($v) => (int) $v >= 4)->count();
+                $totalEscala     += $vals->count();
+                $positivasEscala += $vals->filter(fn ($v) => (int) $v >= $umbral)->count();
             }
 
             $indicesSatisfaccion = $totalEscala > 0
                 ? round(($positivasEscala / $totalEscala) * 100, 1)
                 : null;
         }
+
+        // Usuarios que han enviado esta encuesta (para el filtro)
+        $usuariosRemitentes = EncuestaEnvio::where('encuesta_id', $encuestaId)
+            ->distinct('user_id')
+            ->pluck('user_id')
+            ->filter()
+            ->pipe(fn ($ids) => User::whereIn('id', $ids)->get(['id', 'name']))
+            ->values()
+            ->toArray();
+
+        // Clientes pendientes (enviados pero sin responder)
+        $clientesPendientes = (clone $baseEnvios)
+            ->where('estado', 'pendiente')
+            ->with('cliente:id,nombre,email')
+            ->get()
+            ->map(fn ($e) => [
+                'cliente_id'    => $e->cliente_id,
+                'nombre'        => $e->cliente?->nombre,
+                'email'         => $e->cliente?->email,
+                'enviado_el'    => $e->sent_at?->format('Y-m-d H:i'),
+            ])
+            ->values()
+            ->toArray();
 
         return [
             'encuesta_id'         => $encuestaId,
@@ -245,6 +373,8 @@ class EncuestaService
             'total_respondidas'   => $totalRespondidas,
             'tasa_respuesta'      => $totalEnvios > 0 ? round(($totalRespondidas / $totalEnvios) * 100, 2) : 0,
             'indice_satisfaccion' => $indicesSatisfaccion,
+            'usuarios_remitentes' => $usuariosRemitentes,
+            'clientes_pendientes' => $clientesPendientes,
             'preguntas'           => $resultadosPorPregunta,
         ];
     }
@@ -257,11 +387,12 @@ class EncuestaService
 
         foreach ($preguntas as $index => $p) {
             $encuesta->preguntas()->create([
-                'texto'     => $p['texto'],
-                'tipo'      => $p['tipo'],
-                'opciones'  => $p['opciones'] ?? null,
-                'orden'     => $p['orden'] ?? $index,
-                'requerida' => $p['requerida'] ?? true,
+                'texto'      => $p['texto'],
+                'tipo'       => $p['tipo'],
+                'opciones'   => $p['opciones'] ?? null,
+                'orden'      => $p['orden'] ?? $index,
+                'requerida'  => $p['requerida'] ?? true,
+                'max_escala' => ($p['tipo'] === 'escala') ? ($p['max_escala'] ?? 5) : null,
             ]);
         }
     }

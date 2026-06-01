@@ -24,6 +24,7 @@ class EncuestaRequest extends FormRequest
             'preguntas.*.opciones.*'    => 'string|max:255',
             'preguntas.*.orden'         => 'nullable|integer|min:0',
             'preguntas.*.requerida'     => 'nullable|boolean',
+            'preguntas.*.max_escala'    => 'nullable|integer|min:2|max:10',
         ];
     }
 

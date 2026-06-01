@@ -56,22 +56,41 @@ class EncuestaController extends Controller
 
     public function enviar(EncuestaEnvioRequest $request, string $id)
     {
-        $links = $this->encuestaService->enviar(
+        $resultado = $this->encuestaService->enviar(
             (int) $id,
             $request->validated()['cliente_ids'],
             auth()->user()
         );
 
         return response()->json([
-            'message' => 'Encuesta enviada correctamente',
-            'links'   => $links,
+            'message'   => 'Encuesta enviada correctamente',
+            'links'     => $resultado['links'],
+            'excluidos' => $resultado['excluidos'],
         ]);
     }
 
-    public function resultados(string $id)
+    public function resultados(Request $request, string $id)
     {
         return response()->json(
-            $this->encuestaService->resultados((int) $id, auth()->user())
+            $this->encuestaService->resultados(
+                (int) $id,
+                auth()->user(),
+                $request->query('user_id') ? (int) $request->query('user_id') : null
+            )
+        );
+    }
+
+    public function indiceGeneral()
+    {
+        return response()->json(
+            $this->encuestaService->indiceGeneral(auth()->user())
+        );
+    }
+
+    public function clientesParaEncuesta()
+    {
+        return response()->json(
+            $this->encuestaService->clientesParaEncuesta(auth()->user())
         );
     }
 
