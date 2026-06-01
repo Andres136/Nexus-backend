@@ -111,23 +111,7 @@
         @endif
         @endif
 
-        {{-- ── BANNER: IMAGEN PRINCIPAL ── --}}
-        @if(!empty($imagen_principal))
-        @php
-            $bannerUrl = $imagen_principal;
-            if (!str_starts_with($bannerUrl, 'http')) {
-                $bannerUrl = asset('storage/' . ltrim(str_replace('storage/', '', $bannerUrl), '/'));
-            }
-        @endphp
-        <tr>
-            <td style="padding:0; font-size:0; line-height:0;">
-                <img src="{{ $bannerUrl }}" alt="{{ $titulo ?? 'Banner' }}" width="680"
-                     style="width:100%; max-width:680px; height:auto; display:block;">
-            </td>
-        </tr>
-        @endif
-
-        {{-- ── SALUDO ── --}}
+        {{-- ── MASCOTA / SALUDO ── --}}
         @if(!empty($saludo) || !empty($imagen_mascota))
         <tr>
             <td bgcolor="#f0fdf4" style="background-color:#f0fdf4; padding:35px 40px 20px;" class="pad">
@@ -157,6 +141,22 @@
                         </td>
                     </tr>
                 </table>
+            </td>
+        </tr>
+        @endif
+
+        {{-- ── BANNER: IMAGEN PRINCIPAL ── --}}
+        @if(!empty($imagen_principal))
+        @php
+            $bannerUrl = $imagen_principal;
+            if (!str_starts_with($bannerUrl, 'http')) {
+                $bannerUrl = asset('storage/' . ltrim(str_replace('storage/', '', $bannerUrl), '/'));
+            }
+        @endphp
+        <tr>
+            <td style="padding:0; font-size:0; line-height:0;">
+                <img src="{{ $bannerUrl }}" alt="{{ $titulo ?? 'Banner' }}" width="680"
+                     style="width:100%; max-width:680px; height:auto; display:block;">
             </td>
         </tr>
         @endif

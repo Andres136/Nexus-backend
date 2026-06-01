@@ -214,6 +214,23 @@ public function update(PlantillaUpdateRequest $request, $id)
         $plantilla = Plantilla::findOrFail($id);
 
 
+        $request->validate([
+            'nombre' => 'required|string|max:255',
+            'tipo' => 'nullable|string|max:255',
+            'contenido_html' => 'nullable|string',
+            'video_url' => 'nullable|string|max:255',
+
+            // lo que se conserva
+            'imagenes_keep' => 'nullable',
+            'logos_keep' => 'nullable',
+
+            'imagenes.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif|max:10240',
+            'logos_empresas.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif|max:10240',
+            'imagen_principal' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif|max:10240',
+            'imagen_mascota'   => 'nullable|file|mimes:jpg,jpeg,png,webp,gif|max:5120',
+        ]);
+
+
         // -------------------------
         // 1) Estado anterior (BD)
         // -------------------------
@@ -461,6 +478,7 @@ public function enviar(Request $request, $id)
         return [
             'imagen_principal' => $plantilla->imagen_principal,
             'imagen_mascota'   => $plantilla->imagen_mascota,
+            'saludo'           => 'Hola, soy GAIA — ¡Esperamos que te encuentres muy bien!',
             'titulo' => $plantilla->nombre,
             'contenido_html' => $plantilla->contenido_html,
             'video_url' => $plantilla->video_url,
