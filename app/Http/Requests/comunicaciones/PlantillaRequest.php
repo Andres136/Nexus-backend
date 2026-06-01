@@ -23,30 +23,30 @@ class PlantillaRequest extends FormRequest
 {
     return [
         'nombre' => 'required|string|max:255',
-        'imagen_principal' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif|max:2048',
+        'imagen_principal' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif|max:10240',//10 MB
         'tipo' => 'nullable|string|max:255',
         'contenido_html' => 'nullable|string',
         'video_url' => 'nullable|string|max:255',
 
-        // ✅ Archivos múltiples
+        //  Archivos múltiples
         'imagenes' => 'nullable|array',
-        'imagenes.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif|max:2048',
+        'imagenes.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif|max:10240',//10 MB
 
         'logos_empresas' => 'nullable|array',
-        'logos_empresas.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif|max:2048',
+        'logos_empresas.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif|max:10240',//10 MB
 
-        // ✅ Certificaciones anidadas
+        //  Certificaciones anidadas
         'certificaciones' => 'nullable|array',
         'certificaciones.*.nombre' => 'nullable|string|max:255',
-        'certificaciones.*.logo' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif|max:2048',
+        'certificaciones.*.logo' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif|max:10240',//10 MB
         'certificaciones.*.url_cert' => 'nullable|string|max:255',
 
-        // ✅ Redes sociales
+        //  Redes sociales
         'redes_sociales' => 'nullable|array',
         'redes_sociales.*.nombre' => 'nullable|string|max:255',
         'redes_sociales.*.url' => 'nullable|string|max:255',
-
-        // ✅ Archivos descargables
+  
+        //  Archivos descargables
         'descargas' => 'nullable|array',
         'descargas.*.nombre' => 'nullable|string|max:255',
         'descargas.*.link' => 'nullable|string|max:255',
