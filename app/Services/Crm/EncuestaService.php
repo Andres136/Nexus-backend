@@ -80,6 +80,50 @@ class EncuestaService
         Encuesta::findOrFail($id)->delete();
     }
 
+    // ─── ÍNDICE GENERAL DE SATISFACCIÓN ──────────────────────────────────────
+
+    public function indiceGeneral($user): array
+    {
+        if (!in_array($user->role_id, $this->rolesResultados)) {
+            abort(403, 'No tienes permiso para ver los resultados');
+        }
+
+        $preguntasEscala = \App\Models\Crm\EncuestaPregunta::where('tipo', 'escala')->get();
+
+        $totalRespuestas     = 0;
+        $respuestasSatisfecho = 0;
+        $encuestasConDatos   = 0;
+        $encuestasVistas     = [];
+
+        foreach ($preguntasEscala as $pregunta) {
+            $maxEscala = $pregunta->max_escala ?? 5;
+            $umbral    = (int) ceil($maxEscala * 0.7);
+
+            $valores = EncuestaRespuesta::where('pregunta_id', $pregunta->id)->pluck('valor');
+
+            if ($valores->isEmpty()) continue;
+
+            $totalRespuestas      += $valores->count();
+            $respuestasSatisfecho += $valores->filter(fn ($v) => (int) $v >= $umbral)->count();
+
+            if (!in_array($pregunta->encuesta_id, $encuestasVistas)) {
+                $encuestasVistas[] = $pregunta->encuesta_id;
+                $encuestasConDatos++;
+            }
+        }
+
+        $indice = $totalRespuestas > 0
+            ? round(($respuestasSatisfecho / $totalRespuestas) * 100, 1)
+            : null;
+
+        return [
+            'indice_general'      => $indice,
+            'total_respuestas'    => $totalRespuestas,
+            'respuestas_positivas'=> $respuestasSatisfecho,
+            'encuestas_con_datos' => $encuestasConDatos,
+        ];
+    }
+
     // ─── CLIENTES PARA ENCUESTA ───────────────────────────────────────────────
 
     public function clientesParaEncuesta($user): array

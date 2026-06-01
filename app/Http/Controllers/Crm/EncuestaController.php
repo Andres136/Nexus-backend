@@ -80,6 +80,13 @@ class EncuestaController extends Controller
         );
     }
 
+    public function indiceGeneral()
+    {
+        return response()->json(
+            $this->encuestaService->indiceGeneral(auth()->user())
+        );
+    }
+
     public function clientesParaEncuesta()
     {
         return response()->json(
