@@ -4,6 +4,7 @@ namespace App\Http\Controllers\comunicaciones;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\comunicaciones\PlantillaRequest;
+use App\Http\Requests\comunicaciones\PlantillaUpdateRequest;
 use App\Models\comunicaciones\Plantilla;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -200,25 +201,10 @@ private function storageRelativePath(?string $url): ?string
 
     return null;
 }
-public function update(Request $request, $id)
+public function update(PlantillaUpdateRequest $request, $id)
 {
     try {
         $plantilla = Plantilla::findOrFail($id);
-
-        $request->validate([
-            'nombre' => 'required|string|max:255',
-            'tipo' => 'nullable|string|max:100',
-            'contenido_html' => 'nullable|string',
-            'video_url' => 'nullable|url',
-
-            // nuevos: lo que se conserva
-            'imagenes_keep' => 'nullable',
-            'logos_keep' => 'nullable',
-
-            'imagenes.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
-            'logos_empresas.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
-            'imagen_principal' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
-        ]);
 
         // -------------------------
         // 1) Estado anterior (BD)
