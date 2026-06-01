@@ -142,6 +142,7 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
   Route::apiResource('encuestas', EncuestaController::class);
   Route::post('encuestas/{id}/enviar', [EncuestaController::class, 'enviar']);
   Route::get('encuestas/{id}/resultados', [EncuestaController::class, 'resultados']);
+  Route::get('encuestas-clientes', [EncuestaController::class, 'clientesParaEncuesta']);
   
 
   

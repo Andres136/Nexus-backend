@@ -15,6 +15,7 @@ class EncuestaPregunta extends Model
         'opciones',
         'orden',
         'requerida',
+        'max_escala',
     ];
 
     protected $casts = [
