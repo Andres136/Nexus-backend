@@ -214,23 +214,6 @@ public function update(PlantillaUpdateRequest $request, $id)
         $plantilla = Plantilla::findOrFail($id);
 
 
-        $request->validate([
-            'nombre' => 'required|string|max:255',
-            'tipo' => 'nullable|string|max:100',
-            'contenido_html' => 'nullable|string',
-            'video_url' => 'nullable|url',
-
-            // nuevos: lo que se conserva
-            'imagenes_keep' => 'nullable',
-            'logos_keep' => 'nullable',
-
-            'imagenes.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
-            'logos_empresas.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
-            'imagen_principal' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
-            'imagen_mascota'   => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:5120',
-        ]);
-
-
         // -------------------------
         // 1) Estado anterior (BD)
         // -------------------------

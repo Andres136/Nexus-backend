@@ -29,10 +29,11 @@ class PlantillaUpdateRequest extends FormRequest
             'logos_empresas.*'  => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:10240',
 
             'imagen_principal'  => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:10240',
+            'imagen_mascota'    => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:5120',
 
             'certificaciones'           => 'nullable|array',
             'certificaciones.*.nombre'  => 'nullable|string|max:255',
-            'certificaciones.*.logo'    => 'nullable|file|mimes:jpg,jpeg,png,webp,gif|max:10240',
+            'certificaciones.*.logo'    => 'nullable',  // puede ser File (nuevo) o string (URL existente)
             'certificaciones.*.url_cert'=> 'nullable|string|max:255',
 
             'redes_sociales'            => 'nullable|array',
