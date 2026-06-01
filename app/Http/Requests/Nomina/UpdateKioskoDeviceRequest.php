@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Nomina;
 
+use App\Models\Nomina\KioskoDevice;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateKioskoDeviceRequest extends FormRequest
 {
@@ -10,12 +12,13 @@ class UpdateKioskoDeviceRequest extends FormRequest
 
     public function rules(): array
     {
-        $id = $this->route('kiosko_device');
+        $uuid = $this->route('kiosko_device');
+        $deviceId = KioskoDevice::where('uuid', $uuid)->value('id');
 
         return [
             'sede_id'           => 'sometimes|exists:sedes,id',
             'name'              => 'sometimes|string|max:45',
-            'code'              => 'sometimes|string|max:45|unique:kiosko_devices,code,' . $id,
+            'code'              => ['sometimes', 'string', 'max:45', Rule::unique('kiosko_devices', 'code')->ignore($deviceId)],
             'ip_adres'          => 'sometimes|string|max:45',
             'descripcion'       => 'nullable|string|max:255',
             'bodega_id'         => 'sometimes|exists:bodegas,id',

@@ -93,6 +93,24 @@ class User extends Authenticatable
     {
         return $this->hasMany(Orden_Compra::class, 'user_id');
     }
+
+    public function contratacionesNomina()
+    {
+        return $this->hasMany(\App\Models\Nomina\Contratacion::class, 'users_id');
+    }
+
+    public function contratacionActivaNomina()
+    {
+        return $this->hasOne(\App\Models\Nomina\Contratacion::class, 'users_id')
+            ->where('contrataciones.status', true)
+            ->latestOfMany();
+    }
+
+    public function fotoFacialNomina()
+    {
+        return $this->hasOne(\App\Models\Nomina\UsersFacePhoto::class, 'users_id')
+            ->latestOfMany();
+    }
    
 
     //Relacion con la tabla sedes

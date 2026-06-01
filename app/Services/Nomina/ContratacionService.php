@@ -3,7 +3,9 @@
 namespace App\Services\Nomina;
 
 use App\Models\Nomina\Contratacion;
+use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use LogicException;
@@ -56,6 +58,19 @@ class ContratacionService
         return Contratacion::with(self::WITH)
             ->where('uuid', $uuid)
             ->firstOrFail();
+    }
+
+    public function getEmpleadosOptions(array $filters = []): Collection
+    {
+        return User::select(
+            'users.id',
+            'users.name',
+            DB::raw('(SELECT c.numero_documento FROM contrataciones c WHERE c.users_id = users.id ORDER BY c.id DESC LIMIT 1) as numero_documento')
+        )
+            ->when(!empty($filters['con_contrato']), fn ($query) =>
+                $query->whereHas('contratacionActivaNomina'))
+            ->orderBy('users.name')
+            ->get();
     }
 
     public function create(array $data): Contratacion

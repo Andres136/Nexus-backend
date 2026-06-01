@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Nomina;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Nomina\StoreUsersFacePhotoRequest;
 use App\Http\Requests\Nomina\UpdateUsersFacePhotoRequest;
+use App\Services\Nomina\KioskoDeviceService;
 use App\Services\Nomina\UsersFacePhotoService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -14,7 +16,8 @@ use Illuminate\Support\Facades\Storage;
 class UsersFacePhotoController extends Controller
 {
     public function __construct(
-        private readonly UsersFacePhotoService $usersFacePhotoService
+        private readonly UsersFacePhotoService $usersFacePhotoService,
+        private readonly KioskoDeviceService $kioskoDeviceService
     ) {}
 
     // GET /users-face-photos
@@ -28,6 +31,25 @@ class UsersFacePhotoController extends Controller
                 'data'    => $data,
             ], 200);
 
+        } catch (\Exception $e) {
+            return $this->errorResponse($e);
+        }
+    }
+
+    public function empleadosConContrato(Request $request): JsonResponse
+    {
+        try {
+            $data = $this->usersFacePhotoService->getEmpleadosConContrato([
+                'search' => $request->query('search'),
+                'foto' => $request->query('foto', 'todos'),
+                'per_page' => $request->query('per_page', 10),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => $data['items'],
+                'stats' => $data['stats'],
+            ], 200);
         } catch (\Exception $e) {
             return $this->errorResponse($e);
         }
@@ -103,23 +125,43 @@ class UsersFacePhotoController extends Controller
     public function image(string $uuid): Response
     {
         try {
-            $facePhoto = \App\Models\Nomina\UsersFacePhoto::where('uuid', $uuid)->firstOrFail();
-
-            if (!$facePhoto->photo || !Storage::disk('public')->exists($facePhoto->photo)) {
-                abort(404, 'Imagen no encontrada.');
-            }
-
-            $path     = Storage::disk('public')->path($facePhoto->photo);
-            $mime     = mime_content_type($path) ?: 'image/jpeg';
-            $contents = Storage::disk('public')->get($facePhoto->photo);
-
-            return response($contents, 200, [
-                'Content-Type'  => $mime,
-                'Cache-Control' => 'public, max-age=3600',
-            ]);
+            return $this->serveImage($uuid);
         } catch (\Exception $e) {
             abort(404, 'Imagen no encontrada.');
         }
+    }
+
+    public function kioskImage(Request $request, string $uuid): Response
+    {
+        try {
+            $this->kioskoDeviceService->validateDeviceSession([
+                'uuid' => (string) $request->header('X-Kiosko-Device'),
+                'session_token' => (string) $request->header('X-Kiosko-Session'),
+                'fingerprint' => (string) $request->header('X-Kiosko-Fingerprint'),
+            ], $request->ip());
+
+            return $this->serveImage($uuid);
+        } catch (\Exception $e) {
+            abort(404, 'Imagen no encontrada.');
+        }
+    }
+
+    private function serveImage(string $uuid): Response
+    {
+        $facePhoto = \App\Models\Nomina\UsersFacePhoto::where('uuid', $uuid)->firstOrFail();
+
+        if (!$facePhoto->photo || !Storage::disk('public')->exists($facePhoto->photo)) {
+            abort(404, 'Imagen no encontrada.');
+        }
+
+        $path = Storage::disk('public')->path($facePhoto->photo);
+        $mime = mime_content_type($path) ?: 'image/jpeg';
+        $contents = Storage::disk('public')->get($facePhoto->photo);
+
+        return response($contents, 200, [
+            'Content-Type' => $mime,
+            'Cache-Control' => 'public, max-age=3600',
+        ]);
     }
 
     private function errorResponse(\Exception $e): JsonResponse

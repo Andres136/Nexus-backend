@@ -21,6 +21,24 @@ class KioskoDevice extends Model
         'descripcion',
         'bodega_id',
         'tipo_registros_id',
+        'activation_token_hash',
+        'activation_expires_at',
+        'activation_used_at',
+        'device_session_token_hash',
+        'device_fingerprint_hash',
+        'activated_at',
+        'last_seen_at',
+        'last_ip',
+        'status',
+        'revoked_at',
+    ];
+
+    protected $casts = [
+        'activation_expires_at' => 'datetime',
+        'activation_used_at' => 'datetime',
+        'activated_at' => 'datetime',
+        'last_seen_at' => 'datetime',
+        'revoked_at' => 'datetime',
     ];
 
     protected static function booted(): void

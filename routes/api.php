@@ -121,6 +121,14 @@ use SebastianBergmann\CodeCoverage\Report\Html\Dashboard;
 // Rutas públicas encuestas (sin auth)
 Route::get('/r/{token}',  [EncuestaController::class, 'showPublico']);
 Route::post('/r/{token}', [EncuestaController::class, 'responder']);
+Route::post('nomina/kiosko-devices/activate', [KioskoDeviceController::class, 'activateDevice']);
+Route::post('nomina/kiosko-devices/validate-session', [KioskoDeviceController::class, 'validateSession']);
+Route::post('nomina/kiosko-devices/bootstrap', [KioskoDeviceController::class, 'bootstrap']);
+Route::get('nomina/kiosko-horario-operacion/hoy', [HorarioOperacionDiariaController::class, 'kioskShow']);
+Route::get('nomina/kiosko-face-photos/{uuid}/image', [UsersFacePhotoController::class, 'kioskImage']);
+Route::get('nomina/kiosko-work-sessions', [WorkSessionController::class, 'kioskIndex']);
+Route::post('nomina/kiosko-work-sessions', [WorkSessionController::class, 'kioskStore']);
+Route::put('nomina/kiosko-work-sessions/{uuid}', [WorkSessionController::class, 'kioskUpdate']);
 
 Route::middleware('auth:sanctum')->group(function () {
   Route::get('/user', function (Request $request) {
@@ -537,8 +545,13 @@ Route::prefix('nomina')->group(function () {
     Route::apiResource('jornada-laborals', JornadaLaboralController::class);
     Route::apiResource('valores',ValorController::class);
     Route::apiResource('tipo-registros',TipoRegistroController::class);
+    Route::get('users-face-photos/empleados-con-contrato', [UsersFacePhotoController::class, 'empleadosConContrato']);
     Route::get('users-face-photos/{uuid}/image', [UsersFacePhotoController::class, 'image']);
     Route::apiResource('users-face-photos',UsersFacePhotoController::class);
+    Route::post('kiosko-devices/{uuid}/activation-link', [KioskoDeviceController::class, 'generateActivationLink']);
+    Route::patch('kiosko-devices/{uuid}/revoke', [KioskoDeviceController::class, 'revoke']);
+    Route::patch('kiosko-devices/{uuid}/deactivate', [KioskoDeviceController::class, 'deactivate']);
+    Route::patch('kiosko-devices/{uuid}/activate-admin', [KioskoDeviceController::class, 'activateAdmin']);
     Route::apiResource('kiosko-devices',KioskoDeviceController::class);
     Route::apiResource('horario-laboral',HorarioLaboralController::class);
     Route::apiResource('transacional-registros',   TransacionalRegistroController::class);

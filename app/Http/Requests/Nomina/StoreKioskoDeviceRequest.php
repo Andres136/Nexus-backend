@@ -13,7 +13,7 @@ class StoreKioskoDeviceRequest extends FormRequest
         return [
             'sede_id'           => 'required|exists:sedes,id',
             'name'              => 'required|string|max:45',
-            'code'              => 'required|string|max:45|unique:kiosko_devices,code',
+         
             'ip_adres'          => 'required|string|max:45',
             'descripcion'       => 'nullable|string|max:255',
             'bodega_id'         => 'required|exists:bodegas,id',

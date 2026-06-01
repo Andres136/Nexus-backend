@@ -7,6 +7,7 @@ use App\Http\Requests\Nomina\StoreKioskoDeviceRequest;
 use App\Http\Requests\Nomina\UpdateKioskoDeviceRequest;
 use App\Services\Nomina\KioskoDeviceService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class KioskoDeviceController extends Controller
@@ -15,10 +16,14 @@ class KioskoDeviceController extends Controller
         private readonly KioskoDeviceService $kioskoDeviceService  // ← agregado readonly
     ) {}
 
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         try {
-            $data = $this->kioskoDeviceService->getAll();
+            $data = $this->kioskoDeviceService->getAll([
+                'search' => $request->query('search'),
+                'sede_id' => $request->query('sede_id'),
+                'per_page' => $request->query('per_page', 10),
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -87,6 +92,145 @@ class KioskoDeviceController extends Controller
                 'message' => 'Dispositivo kiosko eliminado correctamente.',
             ], 200);
 
+        } catch (\Exception $e) {
+            return $this->errorResponse($e);
+        }
+    }
+
+    public function generateActivationLink(string $uuid): JsonResponse
+    {
+        try {
+            $data = $this->kioskoDeviceService->generateActivationLink($uuid);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Link de activación generado correctamente.',
+                'data' => $data,
+            ], 200);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e);
+        }
+    }
+
+    public function activateDevice(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'token' => 'required|string',
+            'fingerprint' => 'required|string|min:20',
+        ]);
+
+        try {
+            $data = $this->kioskoDeviceService->activateDevice($validated, $request->ip());
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Kiosko activado correctamente.',
+                'data' => $data,
+            ], 200);
+        } catch (\LogicException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e);
+        }
+    }
+
+    public function validateSession(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'uuid' => 'required|uuid',
+            'session_token' => 'required|string',
+            'fingerprint' => 'required|string|min:20',
+        ]);
+
+        try {
+            $device = $this->kioskoDeviceService->validateDeviceSession($validated, $request->ip());
+
+            return response()->json([
+                'success' => true,
+                'data' => $device,
+            ], 200);
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 403);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e);
+        }
+    }
+
+    public function bootstrap(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'uuid' => 'required|uuid',
+            'session_token' => 'required|string',
+            'fingerprint' => 'required|string|min:20',
+        ]);
+
+        try {
+            $data = $this->kioskoDeviceService->bootstrapDeviceSession($validated, $request->ip());
+
+            return response()->json([
+                'success' => true,
+                'data' => $data,
+            ], 200);
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 403);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e);
+        }
+    }
+
+    public function revoke(string $uuid): JsonResponse
+    {
+        try {
+            $data = $this->kioskoDeviceService->revoke($uuid);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Kiosko revocado correctamente.',
+                'data' => $data,
+            ], 200);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e);
+        }
+    }
+
+    public function deactivate(string $uuid): JsonResponse
+    {
+        try {
+            $data = $this->kioskoDeviceService->setActiveStatus($uuid, false);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Kiosko desactivado correctamente.',
+                'data' => $data,
+            ], 200);
+        } catch (\LogicException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e);
+        }
+    }
+
+    public function activateAdmin(string $uuid): JsonResponse
+    {
+        try {
+            $data = $this->kioskoDeviceService->setActiveStatus($uuid, true);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Kiosko activado correctamente.',
+                'data' => $data,
+            ], 200);
+        } catch (\LogicException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Exception $e) {
             return $this->errorResponse($e);
         }

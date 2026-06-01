@@ -3,8 +3,10 @@
 namespace App\Services\Nomina;
 
 use App\Models\Nomina\UsersFacePhoto;
+use App\Models\User;
 use App\Http\Requests\Nomina\StoreUsersFacePhotoRequest;
 use App\Http\Requests\Nomina\UpdateUsersFacePhotoRequest;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -15,6 +17,61 @@ class UsersFacePhotoService
     public function getAll(): Collection
     {
         return UsersFacePhoto::with('empleado')->get();
+    }
+
+    public function getEmpleadosConContrato(array $filters = []): array
+    {
+        $perPage = min(max((int) ($filters['per_page'] ?? 10), 1), 100);
+        $baseQuery = $this->empleadosConContratoQuery($filters);
+
+        $stats = [
+            'total' => (clone $baseQuery)->count(),
+            'con_foto' => (clone $baseQuery)->whereHas('fotoFacialNomina')->count(),
+            'sin_foto' => (clone $baseQuery)->whereDoesntHave('fotoFacialNomina')->count(),
+        ];
+
+        $paginator = $baseQuery
+            ->when(($filters['foto'] ?? 'todos') === 'con_foto', fn ($query) =>
+                $query->whereHas('fotoFacialNomina'))
+            ->when(($filters['foto'] ?? 'todos') === 'sin_foto', fn ($query) =>
+                $query->whereDoesntHave('fotoFacialNomina'))
+            ->orderBy('name')
+            ->paginate($perPage)
+            ->through(fn (User $empleado) => [
+                'userId' => $empleado->id,
+                'nombre' => $empleado->name,
+                'email' => $empleado->email,
+                'contrato' => $empleado->contratacionActivaNomina,
+                'foto' => $empleado->fotoFacialNomina,
+            ]);
+
+        return [
+            'items' => $paginator,
+            'stats' => $stats,
+        ];
+    }
+
+    private function empleadosConContratoQuery(array $filters): Builder
+    {
+        return User::query()
+            ->select('id', 'name', 'email')
+            ->with([
+                'fotoFacialNomina:users_face_photos.id,users_face_photos.uuid,users_face_photos.users_id,users_face_photos.photo',
+                'contratacionActivaNomina:contrataciones.id,contrataciones.uuid,contrataciones.users_id,contrataciones.numero_documento,contrataciones.cargo,contrataciones.status,contrataciones.inicio_contratacion,contrataciones.fin_contrato',
+            ])
+            ->whereHas('contratacionActivaNomina')
+            ->when(!empty($filters['search']), function ($query) use ($filters) {
+                $search = trim($filters['search']);
+
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhereHas('contratacionActivaNomina', function ($contrato) use ($search) {
+                            $contrato->where('numero_documento', 'like', "%{$search}%")
+                                ->orWhere('cargo', 'like', "%{$search}%");
+                        });
+                });
+            });
     }
 
     public function getByUuid(string $uuid): UsersFacePhoto        // ← getById(int $id) → getByUuid(string $uuid)
