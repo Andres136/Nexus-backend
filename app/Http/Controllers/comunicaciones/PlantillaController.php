@@ -82,11 +82,15 @@ public function store(PlantillaRequest $request)
         $videoUrl = $request->input('video_url');
     }
 
+    $imagenPath = null;
     if ($request->hasFile('imagen_principal')) {
-    $imagenPath = 'storage/' . $request->file('imagen_principal')->store('plantillas/portadas', 'public');
-    $data['imagen_principal'] = $imagenPath;
-}
+        $imagenPath = 'storage/' . $request->file('imagen_principal')->store('plantillas/portadas', 'public');
+    }
 
+    $mascotaPath = null;
+    if ($request->hasFile('imagen_mascota')) {
+        $mascotaPath = 'storage/' . $request->file('imagen_mascota')->store('plantillas/mascotas', 'public');
+    }
 
     // 5️⃣ Crear plantilla
     $plantilla = Plantilla::create([
@@ -100,7 +104,8 @@ public function store(PlantillaRequest $request)
         'redes_sociales'   => $request->input('redes_sociales', []),
         'descargas'        => $request->input('descargas', []),
         'publicada'        => (bool) ($validated['publicada'] ?? false),
-        'imagen_principal' => $imagenPath ?? null,
+        'imagen_principal' => $imagenPath,
+        'imagen_mascota'   => $mascotaPath,
     ]);
 
     return response()->json([
@@ -147,9 +152,11 @@ public function edit($id)
             'tipo' => $plantilla->tipo ?? '',
             'contenido_html' => $plantilla->contenido_html ?? '',
             'video_url' => $plantilla->video_url ?? '',
+            'imagen_principal' => $plantilla->imagen_principal ?? null,
+            'imagen_mascota'   => $plantilla->imagen_mascota ?? null,
             'publicada' => (bool) $plantilla->publicada,
-            
-            // ✅ Arrays para el frontend (ya decodificados)
+
+            // Arrays para el frontend (ya decodificados)
             'imagenes' => $jsonDecode($plantilla->imagenes),
             'logos_empresas' => $jsonDecode($plantilla->logos_empresas),
             'certificaciones' => $jsonDecode($plantilla->certificaciones),
@@ -218,6 +225,7 @@ public function update(Request $request, $id)
             'imagenes.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'logos_empresas.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'imagen_principal' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'imagen_mascota'   => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:5120',
         ]);
 
         // -------------------------
@@ -280,31 +288,60 @@ public function update(Request $request, $id)
         }
 
         // -------------------------
-        // 4) Imagen principal (si reemplazas, borra la anterior)
+        // 4) Imágenes únicas (portada y mascota)
         // -------------------------
         $imagenPath = $plantilla->imagen_principal;
         if ($request->hasFile('imagen_principal')) {
-            // borra anterior si existía
             $oldMain = $this->storageRelativePath($plantilla->imagen_principal);
             if ($oldMain) Storage::disk('public')->delete($oldMain);
-
             $imagenPath = 'storage/' . $request->file('imagen_principal')->store('plantillas/portadas', 'public');
         }
 
+        $mascotaPath = $plantilla->imagen_mascota;
+        if ($request->hasFile('imagen_mascota')) {
+            $oldMascota = $this->storageRelativePath($plantilla->imagen_mascota);
+            if ($oldMascota) Storage::disk('public')->delete($oldMascota);
+            $mascotaPath = 'storage/' . $request->file('imagen_mascota')->store('plantillas/mascotas', 'public');
+        }
+
         // -------------------------
-        // 5) Update
+        // 5) Certificaciones
+        // -------------------------
+        $certsPaths = $this->jsonDecodeSafe($plantilla->certificaciones);
+        if ($request->has('certificaciones')) {
+            $certsPaths = [];
+            foreach ($request->certificaciones as $i => $cert) {
+                $logoPath = null;
+                if ($request->hasFile("certificaciones.$i.logo")) {
+                    $file = $request->file("certificaciones.$i.logo");
+                    $logoPath = 'storage/' . $file->store('plantillas/certificaciones', 'public');
+                } elseif (!empty($cert['logo']) && is_string($cert['logo'])) {
+                    $logoPath = $cert['logo'];
+                }
+                $certsPaths[] = [
+                    'nombre'   => $cert['nombre'] ?? null,
+                    'logo'     => $logoPath,
+                    'url_cert' => $cert['url_cert'] ?? null,
+                ];
+            }
+        }
+
+        // -------------------------
+        // 6) Update
         // -------------------------
         $plantilla->update([
-            'nombre' => $request->input('nombre'),
-            'tipo' => $request->input('tipo'),
-            'contenido_html' => $request->input('contenido_html'),
-            'video_url' => $request->filled('video_url') ? $request->input('video_url') : $plantilla->video_url,
-            'imagenes' => $newImages,
-            'logos_empresas' => $newLogos,
-            'redes_sociales' => $request->input('redes_sociales', $plantilla->redes_sociales),
-            'descargas' => $request->input('descargas', $plantilla->descargas),
-            'publicada' => (bool) $request->input('publicada', $plantilla->publicada),
+            'nombre'          => $request->input('nombre'),
+            'tipo'            => $request->input('tipo'),
+            'contenido_html'  => $request->input('contenido_html'),
+            'video_url'       => $request->filled('video_url') ? $request->input('video_url') : $plantilla->video_url,
+            'imagenes'        => $newImages,
+            'logos_empresas'  => $newLogos,
+            'certificaciones' => $certsPaths,
+            'redes_sociales'  => $request->input('redes_sociales', $plantilla->redes_sociales),
+            'descargas'       => $request->input('descargas', $plantilla->descargas),
+            'publicada'        => (bool) $request->input('publicada', $plantilla->publicada),
             'imagen_principal' => $imagenPath,
+            'imagen_mascota'   => $mascotaPath,
         ]);
 
         return response()->json([
@@ -437,6 +474,7 @@ public function enviar(Request $request, $id)
 
         return [
             'imagen_principal' => $plantilla->imagen_principal,
+            'imagen_mascota'   => $plantilla->imagen_mascota,
             'titulo' => $plantilla->nombre,
             'contenido_html' => $plantilla->contenido_html,
             'video_url' => $plantilla->video_url,
