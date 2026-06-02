@@ -51,25 +51,7 @@ public function index(Request $request,OrdenCompraService $estadoService)
     ->when(in_array($user->role_id, [1, 2, 4]), function ($q) {
         // Los admins ven todo (incluyendo NULL)
     })
-    ->orderByRaw("
-        CASE
-            WHEN (
-                SELECT SUM(d.cantidad_entregada)
-                FROM orden_compra_proveedor_detalles d
-                WHERE d.orden_id = orden_compra_proveedores.id
-            ) = 0 OR (
-                SELECT COUNT(*) FROM orden_compra_proveedor_detalles d2
-                WHERE d2.orden_id = orden_compra_proveedores.id
-            ) = 0 THEN 0
-            WHEN (
-                SELECT COUNT(*)
-                FROM orden_compra_proveedor_detalles d3
-                WHERE d3.orden_id = orden_compra_proveedores.id
-                AND d3.cantidad_entregada < d3.cantidad_solicitada
-            ) > 0 THEN 1
-            ELSE 2
-        END
-    ")
+
     ->orderByRaw("CASE WHEN sede_id = ? THEN 0 ELSE 1 END", [$user->sede_id ?? 0])
     ->orderBy('id', 'desc');
 
