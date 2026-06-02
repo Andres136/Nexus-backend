@@ -126,6 +126,7 @@ class WorkSessionService
         $almuerzoSale = $data['hora_salida_almuerzo'] ?? $session?->hora_salida_almuerzo;
         $almuerzoVuelve = $data['hora_ingreso_almuerzo'] ?? $session?->hora_ingreso_almuerzo;
         $pausaMinutos = $session?->minutos_pausa ?? 0;
+        $almuerzoMinutos = $session?->minutos_almuerzo ?? 0;
         $tardanzaMinutos = 0;
         $pausaPermitida = $jornada?->duracion_pausa_minutos ?? self::PAUSA_PERMITIDA_MINUTOS;
         $almuerzoPermitido = $jornada?->duracion_almuerzo_minutos ?? self::ALMUERZO_PERMITIDO_MINUTOS;
@@ -147,6 +148,7 @@ class WorkSessionService
 
         if ($almuerzoSale && $almuerzoVuelve) {
             $almuerzoMinutos = (int) Carbon::parse($almuerzoSale)->diffInMinutes(Carbon::parse($almuerzoVuelve));
+            $data['minutos_almuerzo'] = $almuerzoMinutos;
             $tardanzaMinutos += max(0, $almuerzoMinutos - $almuerzoPermitido);
         }
 
@@ -154,7 +156,7 @@ class WorkSessionService
 
         if ($entrada && $salida) {
             $minutos = (int) Carbon::parse($entrada)->diffInMinutes(Carbon::parse($salida));
-            $data['minutos_trabajados'] = max(0, $minutos - $pausaMinutos);
+            $data['minutos_trabajados'] = max(0, $minutos - $pausaMinutos - $almuerzoMinutos);
         }
 
         return $data;

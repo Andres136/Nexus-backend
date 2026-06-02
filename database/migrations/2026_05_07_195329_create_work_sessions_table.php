@@ -22,6 +22,7 @@ return new class extends Migration
             $table->timestamp('hora_ingreso_almuerzo')->nullable();
             $table->integer('minutos_trabajados')->default(0);
             $table->integer('minutos_pausa')->default(0);
+            $table->integer('minutos_almuerzo')->default(0);
             $table->integer('minutos_tardanza')->default(0);
             $table->decimal('sabado_minutos', 8, 2)->default(0);
             $table->decimal('festivo_minutos', 8, 2)->default(0);
