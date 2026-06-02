@@ -208,7 +208,12 @@ public function getMonthlyStats(Request $request)
         'pendientes_vencidas' => $pendientes,
 
         'cumplimiento_total_pct' => round($cumplimientoTotal, 2),
-        'cumplimiento_logistico_pct' => round($cumplimientoLogistico, 2)
+        'cumplimiento_logistico_pct' => round($cumplimientoLogistico, 2),
+
+        // KPI doc: (órdenes no vencidas / total) × 100 — meta 80%
+        'cumplimiento_ot_pct' => $totalOrdenes > 0
+            ? round((($totalOrdenes - $pendientes) / $totalOrdenes) * 100, 2)
+            : 0,
     ]);
 }
 
