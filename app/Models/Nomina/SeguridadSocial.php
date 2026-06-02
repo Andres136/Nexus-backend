@@ -15,6 +15,7 @@ class SeguridadSocial extends Model
     protected $fillable = [
         'uuid',
         'nombre',
+        'tipo',
         'nit',
         'direccion',
         'fecha_inicio',

@@ -86,6 +86,8 @@ use App\Http\Controllers\Nomina\PermisoController;
 use App\Http\Controllers\Nomina\VacacionController;
 use App\Http\Controllers\Nomina\LlamadoAtencionController;
 use App\Http\Controllers\Nomina\DescargoController;
+use App\Http\Controllers\Nomina\LicenciaController;
+use App\Http\Controllers\Nomina\PortalEmpleadoController;
 use App\Http\Controllers\NotificacionOrdenController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PqrController;
@@ -524,6 +526,17 @@ Route::post(
 );
 
 
+// Portal del Empleado — siempre escopa al usuario autenticado, sin distinción de roles
+Route::prefix('nomina/portal')->group(function () {
+    Route::get('nominas',              [PortalEmpleadoController::class, 'nominas']);
+    Route::get('certificado',          [PortalEmpleadoController::class, 'certificado']);
+    Route::post('certificado/enviar',  [PortalEmpleadoController::class, 'enviarCertificado']);
+    Route::get('vacaciones',           [PortalEmpleadoController::class, 'vacaciones']);
+    Route::get('permisos',             [PortalEmpleadoController::class, 'permisos']);
+    Route::get('incapacidades',        [PortalEmpleadoController::class, 'incapacidades']);
+    Route::get('licencias',            [PortalEmpleadoController::class, 'licencias']);
+});
+
 //Rutas tipos de contratos nomina
 Route::prefix('nomina')->group(function () {
     Route::get('configuracion', [ConfiguracionNominaController::class, 'show']);
@@ -571,6 +584,10 @@ Route::prefix('nomina')->group(function () {
      Route::apiResource('permisos', PermisoController::class)->except(['update']);
      Route::patch('permisos/{uuid}/aprobar',  [PermisoController::class, 'aprobar']);
      Route::patch('permisos/{uuid}/rechazar', [PermisoController::class, 'rechazar']);
+
+     Route::apiResource('licencias', LicenciaController::class)->except(['update']);
+     Route::patch('licencias/{uuid}/aprobar',  [LicenciaController::class, 'aprobar']);
+     Route::patch('licencias/{uuid}/rechazar', [LicenciaController::class, 'rechazar']);
 
      Route::apiResource('vacaciones', VacacionController::class)->except(['update']);
      Route::patch('vacaciones/{uuid}/aprobar',  [VacacionController::class, 'aprobar']);

@@ -21,6 +21,7 @@ class UpdateSeguridadSocialRequest extends FormRequest
 
         return [
             'nombre' => 'required|string|max:45',
+            'tipo'   => 'required|in:eps,arl,afp,ccf',
 
             'nit' => [
                 'required',
@@ -40,6 +41,8 @@ class UpdateSeguridadSocialRequest extends FormRequest
     {
         return [
             'nombre.required'       => 'El nombre es obligatorio.',
+            'tipo.required'         => 'El tipo de entidad es obligatorio.',
+            'tipo.in'               => 'El tipo debe ser: eps, arl, afp o ccf.',
             'nit.required'          => 'El NIT es obligatorio.',
             'nit.unique'            => 'Este NIT ya existe.',
             'direccion.required'    => 'La dirección es obligatoria.',

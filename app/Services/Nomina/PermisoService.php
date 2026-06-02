@@ -3,6 +3,7 @@
 namespace App\Services\Nomina;
 
 use App\Models\Nomina\Permiso;
+use App\RolEnum;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -12,8 +13,20 @@ class PermisoService
 {
     private const WITH = ['empleado:id,name,email', 'supervisor:id,name,email'];
 
+    private const ROLES_PRIVILEGIADOS = [RolEnum::ADMINISTRADOR, RolEnum::ADMINISTRATIVO];
+
+    private function resolverUserId(array &$filters): void
+    {
+        $user = Auth::user();
+        $esPrivilegiado = in_array($user->role_id, array_map(fn($r) => $r->value, self::ROLES_PRIVILEGIADOS));
+        if (!$esPrivilegiado) {
+            $filters['user_id'] = $user->id;
+        }
+    }
+
     public function getAll(array $filters = []): LengthAwarePaginator
     {
+        $this->resolverUserId($filters);
         $perPage = $filters['per_page'] ?? 15;
 
         return Permiso::with(self::WITH)
