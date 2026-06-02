@@ -20,8 +20,8 @@ class KioskoDeviceController extends Controller
     {
         try {
             $data = $this->kioskoDeviceService->getAll([
-                'search' => $request->query('search'),
-                'sede_id' => $request->query('sede_id'),
+                'search'   => $request->query('search'),
+                'sede_id'  => auth()->user()->sede_id,
                 'per_page' => $request->query('per_page', 10),
             ]);
 
@@ -182,6 +182,44 @@ class KioskoDeviceController extends Controller
                 'success' => false,
                 'message' => $e->getMessage(),
             ], 403);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e);
+        }
+    }
+
+    public function generateGuestLink(string $uuid): JsonResponse
+    {
+        try {
+            $data = $this->kioskoDeviceService->generateGuestLink($uuid);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Link de acceso temporal generado correctamente.',
+                'data'    => $data,
+            ], 200);
+        } catch (\LogicException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e);
+        }
+    }
+
+    public function bootstrapGuest(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'uuid'        => 'required|uuid',
+            'guest_token' => 'required|string',
+        ]);
+
+        try {
+            $data = $this->kioskoDeviceService->bootstrapGuestSession($validated);
+
+            return response()->json([
+                'success' => true,
+                'data'    => $data,
+            ], 200);
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 403);
         } catch (\Exception $e) {
             return $this->errorResponse($e);
         }

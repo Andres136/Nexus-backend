@@ -47,11 +47,7 @@ class HorarioOperacionDiariaController extends Controller
     public function kioskShow(Request $request): JsonResponse
     {
         try {
-            $this->kioskoDeviceService->validateDeviceSession([
-                'uuid' => (string) $request->header('X-Kiosko-Device'),
-                'session_token' => (string) $request->header('X-Kiosko-Session'),
-                'fingerprint' => (string) $request->header('X-Kiosko-Fingerprint'),
-            ], $request->ip());
+            $this->kioskoDeviceService->resolveKioskoDevice($request, $request->ip());
 
             $fecha = now(config('app.timezone'))->toDateString();
 

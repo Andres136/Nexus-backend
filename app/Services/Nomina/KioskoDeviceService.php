@@ -17,6 +17,7 @@ class KioskoDeviceService
 {
     private const WITH = ['sede', 'bodega', 'tipoRegistro'];
     private const ACTIVATION_TTL_HOURS = 24;
+    private const GUEST_TTL_HOURS      = 24;
 
     public function getAll(array $filters = []): LengthAwarePaginator
     {
@@ -196,6 +197,98 @@ public function create(array $data): KioskoDevice
         ];
     }
 
+    public function generateGuestLink(string $uuid): array
+    {
+        return DB::transaction(function () use ($uuid) {
+            $device = KioskoDevice::where('uuid', $uuid)->firstOrFail();
+
+            if ($device->status === 'revoked') {
+                throw new LogicException('El dispositivo está revocado.');
+            }
+
+            $token = $this->buildToken();
+
+            $device->update([
+                'guest_token_hash' => $this->hashToken($token['plain']),
+                'guest_expires_at' => now()->addHours(self::GUEST_TTL_HOURS),
+            ]);
+
+            Log::info('Link de acceso temporal de kiosko generado', ['uuid' => $device->uuid]);
+
+            return [
+                'device'     => $device->fresh(self::WITH),
+                'guest_url'  => $this->guestUrl($device->uuid, $token['plain']),
+                'expires_at' => $device->fresh()->guest_expires_at,
+            ];
+        });
+    }
+
+    public function validateGuestAccess(string $uuid, string $guestToken): KioskoDevice
+    {
+        $device = KioskoDevice::with(self::WITH)->where('uuid', $uuid)->firstOrFail();
+
+        if ($device->status === 'revoked' || $device->revoked_at) {
+            throw new AuthorizationException('El kiosko fue revocado.');
+        }
+
+        if (!$device->guest_token_hash) {
+            throw new AuthorizationException('No hay un link de acceso temporal activo para este kiosko.');
+        }
+
+        if (!hash_equals($device->guest_token_hash, $this->hashToken($guestToken))) {
+            throw new AuthorizationException('El link de acceso temporal no es válido.');
+        }
+
+        if (!$device->guest_expires_at || $device->guest_expires_at->isPast()) {
+            throw new AuthorizationException('El link de acceso temporal ha vencido.');
+        }
+
+        return $device;
+    }
+
+    public function bootstrapGuestSession(array $data): array
+    {
+        $device = $this->validateGuestAccess($data['uuid'], $data['guest_token']);
+
+        $empleados = User::select(
+            'users.id',
+            'users.name',
+            DB::raw('(SELECT c.numero_documento FROM contrataciones c WHERE c.users_id = users.id ORDER BY c.id DESC LIMIT 1) as numero_documento')
+        )
+            ->whereHas('contratacionActivaNomina')
+            ->orderBy('users.name')
+            ->get();
+
+        return [
+            'device'    => $device,
+            'empleados' => $empleados,
+            'fotos'     => UsersFacePhoto::with('empleado:id,name')
+                ->whereHas('empleado.contratacionActivaNomina')
+                ->get(),
+            'jornadas'  => JornadaLaboral::orderByDesc('status')
+                ->orderBy('nombre')
+                ->get(),
+        ];
+    }
+
+    // Valida sesión de dispositivo físico o acceso temporal (guest token).
+    // Usado por los controllers de kiosko públicos para auth dual.
+    public function resolveKioskoDevice(\Illuminate\Http\Request $request, ?string $ip = null): KioskoDevice
+    {
+        $guestToken = $request->header('X-Kiosko-Guest-Token');
+        $deviceUuid = (string) $request->header('X-Kiosko-Device');
+
+        if ($guestToken && $deviceUuid) {
+            return $this->validateGuestAccess($deviceUuid, $guestToken);
+        }
+
+        return $this->validateDeviceSession([
+            'uuid'          => $deviceUuid,
+            'session_token' => (string) $request->header('X-Kiosko-Session'),
+            'fingerprint'   => (string) $request->header('X-Kiosko-Fingerprint'),
+        ], $ip);
+    }
+
     public function revoke(string $uuid): KioskoDevice
     {
         return DB::transaction(function () use ($uuid) {
@@ -281,5 +374,10 @@ public function create(array $data): KioskoDevice
     private function kioskoUrl(string $uuid): string
     {
         return rtrim((string) config('app.frontend_url', env('FRONTEND_URL', '')), '/') . '/kiosko/' . $uuid;
+    }
+
+    private function guestUrl(string $uuid, string $token): string
+    {
+        return rtrim((string) config('app.frontend_url', env('FRONTEND_URL', '')), '/') . '/kiosko/acceso-temporal/' . $uuid . '/' . $token;
     }
 }

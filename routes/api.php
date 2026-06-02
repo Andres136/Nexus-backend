@@ -126,6 +126,7 @@ Route::post('/r/{token}', [EncuestaController::class, 'responder']);
 Route::post('nomina/kiosko-devices/activate', [KioskoDeviceController::class, 'activateDevice']);
 Route::post('nomina/kiosko-devices/validate-session', [KioskoDeviceController::class, 'validateSession']);
 Route::post('nomina/kiosko-devices/bootstrap', [KioskoDeviceController::class, 'bootstrap']);
+Route::post('nomina/kiosko-devices/bootstrap-guest', [KioskoDeviceController::class, 'bootstrapGuest']);
 Route::get('nomina/kiosko-horario-operacion/hoy', [HorarioOperacionDiariaController::class, 'kioskShow']);
 Route::get('nomina/kiosko-face-photos/{uuid}/image', [UsersFacePhotoController::class, 'kioskImage']);
 Route::get('nomina/kiosko-work-sessions', [WorkSessionController::class, 'kioskIndex']);
@@ -562,6 +563,7 @@ Route::prefix('nomina')->group(function () {
     Route::get('users-face-photos/{uuid}/image', [UsersFacePhotoController::class, 'image']);
     Route::apiResource('users-face-photos',UsersFacePhotoController::class);
     Route::post('kiosko-devices/{uuid}/activation-link', [KioskoDeviceController::class, 'generateActivationLink']);
+    Route::post('kiosko-devices/{uuid}/guest-link', [KioskoDeviceController::class, 'generateGuestLink']);
     Route::patch('kiosko-devices/{uuid}/revoke', [KioskoDeviceController::class, 'revoke']);
     Route::patch('kiosko-devices/{uuid}/deactivate', [KioskoDeviceController::class, 'deactivate']);
     Route::patch('kiosko-devices/{uuid}/activate-admin', [KioskoDeviceController::class, 'activateAdmin']);

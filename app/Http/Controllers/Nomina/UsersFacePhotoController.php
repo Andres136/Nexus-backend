@@ -134,11 +134,7 @@ class UsersFacePhotoController extends Controller
     public function kioskImage(Request $request, string $uuid): Response
     {
         try {
-            $this->kioskoDeviceService->validateDeviceSession([
-                'uuid' => (string) $request->header('X-Kiosko-Device'),
-                'session_token' => (string) $request->header('X-Kiosko-Session'),
-                'fingerprint' => (string) $request->header('X-Kiosko-Fingerprint'),
-            ], $request->ip());
+            $this->kioskoDeviceService->resolveKioskoDevice($request, $request->ip());
 
             return $this->serveImage($uuid);
         } catch (\Exception $e) {

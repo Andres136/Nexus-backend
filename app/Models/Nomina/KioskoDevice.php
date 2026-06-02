@@ -31,14 +31,17 @@ class KioskoDevice extends Model
         'last_ip',
         'status',
         'revoked_at',
+        'guest_token_hash',
+        'guest_expires_at',
     ];
 
     protected $casts = [
         'activation_expires_at' => 'datetime',
-        'activation_used_at' => 'datetime',
-        'activated_at' => 'datetime',
-        'last_seen_at' => 'datetime',
-        'revoked_at' => 'datetime',
+        'activation_used_at'    => 'datetime',
+        'activated_at'          => 'datetime',
+        'last_seen_at'          => 'datetime',
+        'revoked_at'            => 'datetime',
+        'guest_expires_at'      => 'datetime',
     ];
 
     protected static function booted(): void

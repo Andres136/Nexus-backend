@@ -195,11 +195,7 @@ class WorkSessionController extends Controller
 
     private function validateKioskRequest(Request $request)
     {
-        return $this->kioskoDeviceService->validateDeviceSession([
-            'uuid' => (string) $request->header('X-Kiosko-Device'),
-            'session_token' => (string) $request->header('X-Kiosko-Session'),
-            'fingerprint' => (string) $request->header('X-Kiosko-Fingerprint'),
-        ], $request->ip());
+        return $this->kioskoDeviceService->resolveKioskoDevice($request, $request->ip());
     }
 
     private function aplicarHoraServidorKiosko(array $data): array
