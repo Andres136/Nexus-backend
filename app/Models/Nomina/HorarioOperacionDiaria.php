@@ -15,11 +15,15 @@ class HorarioOperacionDiaria extends Model
     protected $fillable = [
         'uuid',
         'fecha',
+        'kiosko_device_id',
         'jornada_laboral_id',
+        'hora_entrada',
+        'hora_entrada_limite',
         'hora_salida_pausa',
         'hora_ingreso_pausa',
         'hora_salida_almuerzo',
         'hora_ingreso_almuerzo',
+        'hora_salida',
         'duracion_pausa_minutos',
         'duracion_almuerzo_minutos',
         'motivo',
@@ -45,5 +49,10 @@ class HorarioOperacionDiaria extends Model
     public function jornadaLaboral()
     {
         return $this->belongsTo(JornadaLaboral::class, 'jornada_laboral_id');
+    }
+
+    public function kiosko()
+    {
+        return $this->belongsTo(KioskoDevice::class, 'kiosko_device_id');
     }
 }

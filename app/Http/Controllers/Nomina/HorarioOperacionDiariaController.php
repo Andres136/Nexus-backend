@@ -22,7 +22,10 @@ class HorarioOperacionDiariaController extends Controller
         try {
             return response()->json([
                 'success' => true,
-                'data' => $this->horarioOperacionDiariaService->porFecha($request->query('fecha')),
+                'data' => $this->horarioOperacionDiariaService->porFecha(
+                    $request->query('fecha'),
+                    $request->query('kiosko_device_id') ? (int) $request->query('kiosko_device_id') : null
+                ),
             ]);
         } catch (\Exception $e) {
             Log::error('Error al obtener instrucción operativa diaria', ['error' => $e->getMessage()]);
@@ -47,13 +50,13 @@ class HorarioOperacionDiariaController extends Controller
     public function kioskShow(Request $request): JsonResponse
     {
         try {
-            $this->kioskoDeviceService->resolveKioskoDevice($request, $request->ip());
+            $device = $this->kioskoDeviceService->resolveKioskoDevice($request, $request->ip());
 
             $fecha = now(config('app.timezone'))->toDateString();
 
             return response()->json([
                 'success' => true,
-                'data' => $this->horarioOperacionDiariaService->porFecha($fecha),
+                'data' => $this->horarioOperacionDiariaService->porFecha($fecha, $device->id),
             ]);
         } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 403);

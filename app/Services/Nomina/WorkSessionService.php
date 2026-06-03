@@ -186,10 +186,21 @@ class WorkSessionService
             return $jornadaBase ? (object) $jornadaBase->toArray() : null;
         }
 
-        $instruccion = HorarioOperacionDiaria::with('jornadaLaboral')
+        $kioskoId = $data['kiosko_id'] ?? $session?->kiosko_id;
+        $instruccionQuery = HorarioOperacionDiaria::with('jornadaLaboral')
             ->whereDate('fecha', Carbon::parse($fecha)->toDateString())
-            ->where('status', true)
-            ->first();
+            ->where('status', true);
+
+        if ($kioskoId) {
+            $instruccionQuery->where(function ($q) use ($kioskoId) {
+                $q->where('kiosko_device_id', $kioskoId)
+                    ->orWhereNull('kiosko_device_id');
+            })->orderByRaw('CASE WHEN kiosko_device_id = ? THEN 0 ELSE 1 END', [$kioskoId]);
+        } else {
+            $instruccionQuery->whereNull('kiosko_device_id');
+        }
+
+        $instruccion = $instruccionQuery->first();
 
         $jornada = $instruccion?->jornadaLaboral ?? $jornadaBase;
         if (!$jornada) {
@@ -198,10 +209,13 @@ class WorkSessionService
 
         $operativa = (object) $jornada->toArray();
         foreach ([
+            'hora_entrada',
+            'hora_entrada_limite',
             'hora_salida_pausa',
             'hora_ingreso_pausa',
             'hora_salida_almuerzo',
             'hora_ingreso_almuerzo',
+            'hora_salida',
             'duracion_pausa_minutos',
             'duracion_almuerzo_minutos',
         ] as $campo) {
