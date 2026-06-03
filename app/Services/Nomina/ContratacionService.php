@@ -65,10 +65,13 @@ class ContratacionService
         return User::select(
             'users.id',
             'users.name',
+            'users.sede_id',
             DB::raw('(SELECT c.numero_documento FROM contrataciones c WHERE c.users_id = users.id ORDER BY c.id DESC LIMIT 1) as numero_documento')
         )
             ->when(!empty($filters['con_contrato']), fn ($query) =>
                 $query->whereHas('contratacionActivaNomina'))
+            ->when(!empty($filters['sede_id']), fn ($query) =>
+                $query->where('users.sede_id', $filters['sede_id']))
             ->orderBy('users.name')
             ->get();
     }

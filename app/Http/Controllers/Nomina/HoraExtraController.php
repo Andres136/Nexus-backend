@@ -21,8 +21,12 @@ class HoraExtraController extends Controller
         try {
             $filters = [
                 'user_id'     => $request->query('user_id'),
+                'sede_id'     => $request->query('sede_id'),
+                'kiosko_device_id' => $request->query('kiosko_device_id'),
                 'status'      => $request->query('status'),
                 'tipo'        => $request->query('tipo'),
+                'search'      => $request->query('search'),
+                'mine'        => $request->boolean('mine'),
                 'fecha_desde' => $request->query('fecha_desde'),
                 'fecha_hasta' => $request->query('fecha_hasta'),
                 'per_page'    => $request->query('per_page', 15),

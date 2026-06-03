@@ -5,6 +5,7 @@ namespace App\Services\Nomina;
 use App\Models\Nomina\WorkSession;
 use App\Models\Nomina\HorarioOperacionDiaria;
 use App\Models\Nomina\JornadaLaboral;
+use App\Models\Nomina\HoraExtra;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -285,6 +286,7 @@ class WorkSessionService
         $this->validarSecuenciaMarcacion($session, $campo);
         $this->validarDuracionMinimaPausa($session, $campo, $data[$campo], $jornada);
         $this->validarVentanaHorario($campo, $data[$campo], $jornada);
+        $this->validarHoraExtraAprobadaParaSalida($session, $campo, $data[$campo], $jornada);
     }
 
     private function validarSecuenciaMarcacion(WorkSession $session, string $campo): void
@@ -411,6 +413,48 @@ class WorkSessionService
 
         if ($actual < $inicio || ($fin !== null && $actual >= $fin)) {
             throw ValidationException::withMessages([$campo => $mensaje]);
+        }
+    }
+
+    private function validarHoraExtraAprobadaParaSalida(WorkSession $session, string $campo, string $hora, ?object $jornada): void
+    {
+        if ($campo !== 'hora_salida' || !$jornada?->hora_salida) {
+            return;
+        }
+
+        $salidaProgramada = $this->minutosHora($jornada->hora_salida);
+        $salidaReal = $this->minutosHora($hora);
+
+        if ($salidaProgramada === null || $salidaReal === null || $salidaReal <= $salidaProgramada) {
+            return;
+        }
+
+        $fecha = Carbon::parse($session->registro_diario)->toDateString();
+        $horasAprobadas = HoraExtra::where('user_id', $session->user_id)
+            ->whereDate('fecha', $fecha)
+            ->where('status', 'aprobada')
+            ->where(function ($q) use ($session) {
+                $q->whereNull('kiosko_device_id');
+
+                if ($session->kiosko_id) {
+                    $q->orWhere('kiosko_device_id', $session->kiosko_id);
+                }
+            })
+            ->sum('horas');
+
+        if ((float) $horasAprobadas <= 0) {
+            throw ValidationException::withMessages([
+                'hora_salida' => 'No tienes horas extras aprobadas para hoy. La salida tarde debe estar autorizada antes de marcar en el kiosko.',
+            ]);
+        }
+
+        $minutosAprobados = (int) round(((float) $horasAprobadas) * 60);
+        $salidaMaximaAutorizada = $salidaProgramada + $minutosAprobados;
+
+        if ($salidaReal > $salidaMaximaAutorizada) {
+            throw ValidationException::withMessages([
+                'hora_salida' => "Tus horas extras aprobadas cubren hasta {$horasAprobadas} hora(s). Solicita aprobación adicional antes de marcar salida.",
+            ]);
         }
     }
 

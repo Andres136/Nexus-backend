@@ -21,7 +21,7 @@ class KioskoDeviceController extends Controller
         try {
             $data = $this->kioskoDeviceService->getAll([
                 'search'   => $request->query('search'),
-                'sede_id'  => auth()->user()->sede_id,
+                'sede_id'  => $request->query('sede_id', auth()->user()?->sede_id),
                 'per_page' => $request->query('per_page', 10),
             ]);
 

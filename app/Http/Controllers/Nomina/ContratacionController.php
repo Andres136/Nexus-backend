@@ -130,6 +130,7 @@ class ContratacionController extends Controller
     {
         $empleados = $this->contratacionService->getEmpleadosOptions([
             'con_contrato' => $request->boolean('con_contrato'),
+            'sede_id' => $request->query('sede_id'),
         ]);
 
         return response()->json($empleados);

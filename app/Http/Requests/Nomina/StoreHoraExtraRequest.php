@@ -18,6 +18,9 @@ class StoreHoraExtraRequest extends FormRequest
             'users'          => 'required|array|min:1',
             'users.*'        => 'required|integer|exists:users,id',
 
+            'sede_id'        => 'nullable|integer|exists:sedes,id',
+            'kiosko_device_id' => 'nullable|integer|exists:kiosko_devices,id',
+            'origen'         => 'sometimes|in:admin,kiosko',
             'fecha'          => 'required|date',
             'horas'          => 'required|numeric|min:0.5|max:24',
             'tipo'           => 'required|in:diurna,nocturna,festiva,nocturna_festiva',

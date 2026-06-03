@@ -3,6 +3,8 @@
 namespace App\Services\Nomina;
 
 use App\Models\Nomina\HoraExtra;
+use App\Models\Nomina\KioskoDevice;
+use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -11,7 +13,13 @@ use Illuminate\Support\Facades\Log;
 
 class HoraExtraService
 {
-    private const WITH = ['empleado:id,name,email', 'supervisor:id,name,email'];
+    private const WITH = [
+        'empleado:id,name,email,sede_id',
+        'sede:id,nombre',
+        'kiosko:id,uuid,name,code,sede_id',
+        'solicitante:id,name,email',
+        'supervisor:id,name,email',
+    ];
 
     public function getAll(array $filters = []): LengthAwarePaginator
     {
@@ -19,8 +27,29 @@ class HoraExtraService
 
         return HoraExtra::with(self::WITH)
             ->when(!empty($filters['user_id']),  fn($q) => $q->where('user_id', $filters['user_id']))
+            ->when(!empty($filters['mine']), fn($q) => $q->where('solicitado_por', Auth::id()))
+            ->when(!empty($filters['sede_id']),  fn($q) => $q->where('sede_id', $filters['sede_id']))
+            ->when(!empty($filters['kiosko_device_id']), fn($q) => $q->where('kiosko_device_id', $filters['kiosko_device_id']))
             ->when(!empty($filters['status']),   fn($q) => $q->where('status', $filters['status']))
             ->when(!empty($filters['tipo']),     fn($q) => $q->where('tipo', $filters['tipo']))
+            ->when(!empty($filters['search']), function ($query) use ($filters) {
+                $search = trim($filters['search']);
+
+                $query->where(function ($q) use ($search) {
+                    $q->whereHas('empleado', fn ($empleado) =>
+                        $empleado->where('name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%")
+                    )
+                    ->orWhereHas('solicitante', fn ($solicitante) =>
+                        $solicitante->where('name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%")
+                    )
+                    ->orWhereHas('kiosko', fn ($kiosko) =>
+                        $kiosko->where('name', 'like', "%{$search}%")
+                            ->orWhere('code', 'like', "%{$search}%")
+                    );
+                });
+            })
             ->when(!empty($filters['fecha_desde']), fn($q) => $q->whereDate('fecha', '>=', $filters['fecha_desde']))
             ->when(!empty($filters['fecha_hasta']), fn($q) => $q->whereDate('fecha', '<=', $filters['fecha_hasta']))
             ->orderByDesc('fecha')
@@ -42,15 +71,26 @@ class HoraExtraService
     {
         return DB::transaction(function () use ($data) {
             $registros = collect();
+            $kiosko = !empty($data['kiosko_device_id'])
+                ? KioskoDevice::select('id', 'sede_id')->find($data['kiosko_device_id'])
+                : null;
+            $solicitadoPor = Auth::id();
 
             foreach ($data['users'] as $userId) {
+                $empleado = User::select('id', 'sede_id')->find($userId);
+                $sedeId = $data['sede_id'] ?? $kiosko?->sede_id ?? $empleado?->sede_id;
+
                 $horaExtra = HoraExtra::create([
-                    'user_id' => $userId,
-                    'fecha'   => $data['fecha'],
-                    'horas'   => $data['horas'],
-                    'tipo'    => $data['tipo'],
-                    'motivo'  => $data['motivo'] ?? null,
-                    'status'  => 'pendiente',
+                    'user_id'          => $userId,
+                    'sede_id'          => $sedeId,
+                    'kiosko_device_id' => $kiosko?->id,
+                    'solicitado_por'   => $solicitadoPor,
+                    'origen'           => $data['origen'] ?? 'admin',
+                    'fecha'            => $data['fecha'],
+                    'horas'            => $data['horas'],
+                    'tipo'             => $data['tipo'],
+                    'motivo'           => $data['motivo'] ?? null,
+                    'status'           => 'pendiente',
                 ]);
 
                 $registros->push($horaExtra->load(self::WITH));
