@@ -57,6 +57,7 @@ use App\Http\Controllers\Hseq\HallazgoSeguimientoController;
 use App\Http\Controllers\Hseq\HseqDashboardController;
 use App\Http\Controllers\Hseq\InspeccionHseqController;
 use App\Http\Controllers\Hseq\PreguntaInspeccionController;
+use App\Http\Controllers\Hseq\ReporteBicConttroller;
 use App\Http\Controllers\Hseq\ResiduoController;
 use App\Http\Controllers\Hseq\RespuestaInspeccionController;
 use App\Http\Controllers\Hseq\SoporteTareaController;
@@ -496,6 +497,8 @@ Route::post(
     [RegistroPagoFacturaCompraController::class, 'store']
 );
 
+Route::apiResource('reportes-bic', ReporteBicConttroller::class);
+
 });
 
 //**RUTAS MIDDLEWARE PARA RESPONSABLES DE CADA PROCESOS O DEPARTAMENTO */
@@ -610,3 +613,4 @@ Route::post('/eventos/crear-qr', [EventoController::class, 'crearQr']);
 Route::post('/qrs/productos/pdf', [EventoController::class, 'crearQrMasivoConPdf']);
 
 Route::get('/orden-compras/{orden}/preview-documento', [OrdenCompraController::class, 'previewDocumento']);
+Route::get('obtener-reportes-bic', [ReporteBicConttroller::class, 'index']);
