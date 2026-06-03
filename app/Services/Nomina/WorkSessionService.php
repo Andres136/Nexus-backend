@@ -283,6 +283,7 @@ class WorkSessionService
 
         $jornada = $this->resolverJornadaOperativa($data, $session);
         $this->validarSecuenciaMarcacion($session, $campo);
+        $this->validarDuracionMinimaPausa($session, $campo, $data[$campo], $jornada);
         $this->validarVentanaHorario($campo, $data[$campo], $jornada);
     }
 
@@ -343,6 +344,27 @@ class WorkSessionService
             if ($session->{$vacio}) {
                 throw ValidationException::withMessages([$campo => $regla['mensaje']]);
             }
+        }
+    }
+
+    private function validarDuracionMinimaPausa(WorkSession $session, string $campo, string $hora, ?object $jornada): void
+    {
+        if ($campo !== 'hora_ingreso_brake' || !$session->hora_salida_brake) {
+            return;
+        }
+
+        $minutosPausa = max(1, (int) ($jornada?->duracion_pausa_minutos ?? self::PAUSA_PERMITIDA_MINUTOS));
+        $salidaPausa = Carbon::parse($session->hora_salida_brake);
+        $regresoPausa = Carbon::parse($hora);
+        $regresoPermitido = $salidaPausa->copy()->addMinutes($minutosPausa);
+
+        if ($regresoPausa->lessThan($regresoPermitido)) {
+            $segundosRestantes = $regresoPermitido->getTimestamp() - $regresoPausa->getTimestamp();
+            $minutosRestantes = max(1, (int) ceil($segundosRestantes / 60));
+
+            throw ValidationException::withMessages([
+                'hora_ingreso_brake' => "Aún estás en break. Tu próximo registro será en {$minutosRestantes} minuto(s).",
+            ]);
         }
     }
 
