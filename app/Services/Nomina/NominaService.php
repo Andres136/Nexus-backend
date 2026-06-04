@@ -302,8 +302,11 @@ class NominaService
         );
 
         $valorPermisosNoRemunerados = round(($minutosNoRemunerados / 60) * $valorHoraBase, 2);
+        $salarioBaseSinIncapacidad = round(($valorDia * $diasLiquidables) + ($valorDia * $diasVacacionesCompensadas), 2);
+        $valorIncapacidadReconocido = round($valorDia * $diasIncapacidad * self::PORCENTAJE_INCAPACIDAD, 2);
+        $deduccionIncapacidad = round($valorDia * $diasIncapacidad * (1 - self::PORCENTAJE_INCAPACIDAD), 2);
         $salarioBasePeriodo = round(($valorDia * max(0, $diasLiquidables - $diasIncapacidad))
-            + ($valorDia * $diasIncapacidad * self::PORCENTAJE_INCAPACIDAD)
+            + $valorIncapacidadReconocido
             + ($valorDia * $diasVacacionesCompensadas), 2);
         $auxilioTransportePeriodo = round((float) $contratacion->auxilio_transporte * ($diasLiquidables / 30), 2);
 
@@ -351,6 +354,9 @@ class NominaService
             'horas_esperadas_periodo' => $horasEsperadasPeriodo,
             'horas_trabajadas_periodo' => round($ordinariosMinutos / 60, 2),
             'dias_incapacidad' => $diasIncapacidad,
+            'salario_base_sin_incapacidad' => $salarioBaseSinIncapacidad,
+            'valor_incapacidad_reconocido' => $valorIncapacidadReconocido,
+            'deduccion_incapacidad' => $deduccionIncapacidad,
             'dias_vacaciones_compensadas' => $diasVacacionesCompensadas,
             'minutos_permisos_no_remunerados' => $minutosNoRemunerados,
             'horas_normales' => $horasNormales,
