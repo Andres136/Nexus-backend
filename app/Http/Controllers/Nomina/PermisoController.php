@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Nomina;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Nomina\GestionPermisoRequest;
 use App\Http\Requests\Nomina\StorePermisoRequest;
+use App\Models\Nomina\Permiso;
+use App\Services\Nomina\KioskoDeviceService;
 use App\Services\Nomina\PermisoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,7 +15,8 @@ use Illuminate\Support\Facades\Log;
 class PermisoController extends Controller
 {
     public function __construct(
-        private readonly PermisoService $permisoService
+        private readonly PermisoService $permisoService,
+        private readonly KioskoDeviceService $kioskoDeviceService
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -103,6 +106,36 @@ class PermisoController extends Controller
         } catch (\Exception $e) {
             Log::error('Error al rechazar permiso', ['uuid' => $uuid, 'error' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => 'Error al rechazar el permiso.'], 500);
+        }
+    }
+
+    /**
+     * GET /nomina/kiosko-permisos?user_id=X
+     * Ruta pública — autenticada con headers X-Kiosko-*.
+     * Devuelve permisos aprobados de hoy para el empleado dado.
+     */
+    public function kioskIndex(Request $request): JsonResponse
+    {
+        try {
+            $this->kioskoDeviceService->resolveKioskoDevice($request, $request->ip());
+
+            $userId = $request->query('user_id');
+            if (!$userId) {
+                return response()->json(['success' => false, 'message' => 'user_id requerido.'], 422);
+            }
+
+            $permisos = Permiso::where('user_id', $userId)
+                ->whereDate('fecha', now()->toDateString())
+                ->where('status', 'aprobado')
+                ->whereIn('tipo', ['llegada_tarde', 'ausencia_parcial'])
+                ->get(['uuid', 'tipo', 'hora_inicio', 'hora_fin', 'status', 'fecha']);
+
+            return response()->json(['success' => true, 'data' => $permisos]);
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 403);
+        } catch (\Exception $e) {
+            Log::error('Error al listar permisos desde kiosko', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al obtener permisos.'], 500);
         }
     }
 

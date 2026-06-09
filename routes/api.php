@@ -132,6 +132,7 @@ Route::get('nomina/kiosko-face-photos/{uuid}/image', [UsersFacePhotoController::
 Route::get('nomina/kiosko-work-sessions', [WorkSessionController::class, 'kioskIndex']);
 Route::post('nomina/kiosko-work-sessions', [WorkSessionController::class, 'kioskStore']);
 Route::put('nomina/kiosko-work-sessions/{uuid}', [WorkSessionController::class, 'kioskUpdate']);
+Route::get('nomina/kiosko-permisos', [PermisoController::class, 'kioskIndex']);
 
 Route::middleware('auth:sanctum')->group(function () {
   Route::get('/user', function (Request $request) {
