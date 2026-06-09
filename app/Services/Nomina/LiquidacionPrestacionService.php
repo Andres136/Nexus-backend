@@ -53,15 +53,15 @@ class LiquidacionPrestacionService
         return DB::transaction(function () use ($data) {
             $calculo = $this->calcular($data);
 
-            // Validar duplicado del mismo tipo y período
+            // Validar duplicado o cruce del mismo tipo y período
             $duplicado = LiquidacionPrestacion::where('user_id', $calculo['user_id'])
                 ->where('tipo', $calculo['tipo'])
-                ->whereDate('periodo_inicio', $calculo['periodo_inicio'])
-                ->whereDate('periodo_fin', $calculo['periodo_fin'])
+                ->whereDate('periodo_inicio', '<=', $calculo['periodo_fin'])
+                ->whereDate('periodo_fin', '>=', $calculo['periodo_inicio'])
                 ->exists();
 
             if ($duplicado) {
-                throw new \LogicException('Ya existe una liquidación del mismo tipo para ese período.');
+                throw new \LogicException('Ya existe una liquidación del mismo tipo que se cruza con ese período.');
             }
 
             $liquidacion = LiquidacionPrestacion::create([

@@ -90,6 +90,7 @@ use App\Http\Controllers\Nomina\DescargoController;
 use App\Http\Controllers\Nomina\LicenciaController;
 use App\Http\Controllers\Nomina\LiquidacionPrestacionController;
 use App\Http\Controllers\Nomina\LiquidacionRetiroController;
+use App\Http\Controllers\Nomina\NovedadRetroactivaController;
 use App\Http\Controllers\Nomina\PortalEmpleadoController;
 use App\Http\Controllers\NotificacionOrdenController;
 use App\Http\Controllers\PermissionController;
@@ -600,6 +601,10 @@ Route::prefix('nomina')->group(function () {
      Route::apiResource('comisiones', ComisionController::class)->except(['update']);
      Route::patch('comisiones/{uuid}/aprobar',  [ComisionController::class, 'aprobar']);
      Route::patch('comisiones/{uuid}/rechazar', [ComisionController::class, 'rechazar']);
+
+     Route::apiResource('novedades-retroactivas', NovedadRetroactivaController::class)->except(['update']);
+     Route::patch('novedades-retroactivas/{uuid}/aprobar',  [NovedadRetroactivaController::class, 'aprobar']);
+     Route::patch('novedades-retroactivas/{uuid}/rechazar', [NovedadRetroactivaController::class, 'rechazar']);
 
      Route::apiResource('permisos', PermisoController::class)->except(['update']);
      Route::patch('permisos/{uuid}/aprobar',  [PermisoController::class, 'aprobar']);

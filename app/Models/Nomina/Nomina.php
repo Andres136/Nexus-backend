@@ -42,6 +42,8 @@ class Nomina extends Model
         'salario_base_devengado',
         'auxilio_transporte',
         'total_comisiones',
+        'total_novedades_retroactivas',
+        'detalle_novedades_retroactivas',
         'valor_horas_normales',
         'valor_horas_extras_nocturnas',
         'valor_horas_extras_diurnas',
@@ -76,6 +78,8 @@ class Nomina extends Model
         'salario_base_devengado' => 'decimal:2',
         'auxilio_transporte' => 'decimal:2',
         'total_comisiones' => 'decimal:2',
+        'total_novedades_retroactivas' => 'decimal:2',
+        'detalle_novedades_retroactivas' => 'array',
         'valor_horas_normales' => 'decimal:2',
         'valor_horas_extras_nocturnas' => 'decimal:2',
         'valor_horas_extras_diurnas' => 'decimal:2',
@@ -128,6 +132,11 @@ class Nomina extends Model
     public function comisiones()
     {
         return $this->hasMany(Comision::class, 'nomina_id');
+    }
+
+    public function novedadesRetroactivas()
+    {
+        return $this->hasMany(NovedadRetroactiva::class, 'nomina_id');
     }
 
     public function liquidacionRetiro()

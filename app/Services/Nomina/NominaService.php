@@ -11,6 +11,7 @@ use App\Models\Nomina\Incapacidad;
 use App\Models\Nomina\JornadaLaboral;
 use App\Models\Nomina\LiquidacionRetiro;
 use App\Models\Nomina\Nomina;
+use App\Models\Nomina\NovedadRetroactiva;
 use App\Models\Nomina\Permiso;
 use App\Models\Nomina\Vacacion;
 use App\Models\Nomina\Valor;
@@ -27,6 +28,7 @@ class NominaService
         'contratacion.empresa',
         'descuento',
         'jornadaLaboral',
+        'novedadesRetroactivas',
         'transacionalRegistro',
     ];
 
@@ -157,6 +159,8 @@ class NominaService
                 'salario_base_devengado' => $calculo['salario_base_devengado'],
                 'auxilio_transporte' => $calculo['auxilio_transporte'],
                 'total_comisiones' => $calculo['total_comisiones'],
+                'total_novedades_retroactivas' => $calculo['total_novedades_retroactivas'],
+                'detalle_novedades_retroactivas' => $calculo['detalle_novedades_retroactivas'],
                 'valor_horas_normales' => $calculo['valor_horas_normales'],
                 'valor_horas_extras_nocturnas' => $calculo['valor_horas_extras_nocturnas'],
                 'valor_horas_extras_diurnas' => $calculo['valor_horas_extras_diurnas'],
@@ -175,6 +179,11 @@ class NominaService
             ]);
 
             Comision::whereIn('id', $calculo['comisiones_ids'])->update([
+                'status' => 'aplicada',
+                'nomina_id' => $nomina->id,
+            ]);
+
+            NovedadRetroactiva::whereIn('id', $calculo['novedades_retroactivas_ids'])->update([
                 'status' => 'aplicada',
                 'nomina_id' => $nomina->id,
             ]);
@@ -235,11 +244,7 @@ class NominaService
         $sabadoMinutos = (float) $sessions->sum('sabado_minutos');
         $ordinariosMinutos = max(0, $totalMinutos - $festivoMinutos - $sabadoMinutos);
 
-        $diasLiquidables = min(
-            30,
-            (int) $inicioLiquidable->copy()->startOfDay()
-                ->diffInDays($finLiquidable->copy()->startOfDay()) + 1
-        );
+        $diasLiquidables = $this->diasComerciales($inicioLiquidable, $finLiquidable);
         $horasMensualesJornada = $this->horasMensualesJornada($jornada);
         $horasEsperadasPeriodo = round($horasMensualesJornada * ($diasLiquidables / 30), 2);
         $minutosEsperados = $horasEsperadasPeriodo * 60;
@@ -336,6 +341,7 @@ class NominaService
             ->whereDate('periodo_fin', $fin->toDateString())
             ->get();
         $totalComisiones = round((float) $comisiones->sum('valor'), 2);
+        $novedadesRetroactivas = $this->calcularNovedadesRetroactivas($userId, $inicioLiquidable, $finLiquidable);
 
         // El salario mensual ya remunera las horas ordinarias; se guardan para control, no se suman otra vez.
         $valorHorasNormales = 0;
@@ -348,6 +354,7 @@ class NominaService
             + $auxilioTransportePeriodo
             + $pagoNoPrestacionalPeriodo
             + $totalComisiones
+            + $novedadesRetroactivas['devengos']
             + $valorHorasNormales
             + $valorHorasExtrasDiurnas
             + $valorHorasExtrasNocturnas
@@ -356,6 +363,7 @@ class NominaService
 
         $baseParaDeducciones = $salarioBasePeriodo
             + $totalComisiones
+            + $novedadesRetroactivas['devengos']
             + $valorHorasNormales
             + $valorHorasExtrasDiurnas
             + $valorHorasExtrasNocturnas
@@ -367,7 +375,7 @@ class NominaService
         $deduccionSalud = round($baseParaDeducciones * $porcentajeSalud, 2);
         $deduccionPension = round($baseParaDeducciones * $porcentajePension, 2);
         $descuentosNomina = $this->calcularDescuentos($userId, $inicioLiquidable, $finLiquidable, $data['descuento_id'] ?? null);
-        $totalDescuentosAdicionales = round($descuentosNomina['valor'] + $valorPermisosNoRemunerados, 2);
+        $totalDescuentosAdicionales = round($descuentosNomina['valor'] + $valorPermisosNoRemunerados + $novedadesRetroactivas['deducciones'], 2);
         $totalDeducciones = round($deduccionSalud + $deduccionPension + $totalDescuentosAdicionales, 2);
         $salarioNeto = round($totalDevengado - $totalDeducciones, 2);
 
@@ -406,12 +414,15 @@ class NominaService
             'auxilio_transporte' => $auxilioTransportePeriodo,
             'pago_no_prestacional' => $pagoNoPrestacionalPeriodo,
             'total_comisiones' => $totalComisiones,
+            'total_novedades_retroactivas' => $novedadesRetroactivas['total'],
             'detalle_comisiones' => $comisiones->map(fn ($comision) => [
                 'uuid' => $comision->uuid,
                 'concepto' => $comision->concepto,
                 'valor' => $comision->valor,
             ])->values(),
             'comisiones_ids' => $comisiones->pluck('id')->all(),
+            'detalle_novedades_retroactivas' => $novedadesRetroactivas['detalle'],
+            'novedades_retroactivas_ids' => $novedadesRetroactivas['ids'],
             'valor_horas_normales' => $valorHorasNormales,
             'valor_horas_extras_nocturnas' => $valorHorasExtrasNocturnas,
             'valor_horas_extras_diurnas' => $valorHorasExtrasDiurnas,
@@ -433,14 +444,45 @@ class NominaService
     private function validarPeriodoSinLiquidar(int $userId, string $periodoInicio, string $periodoFin): void
     {
         $existe = Nomina::where('user_id', $userId)
-            ->whereDate('periodo_inicio', $periodoInicio)
-            ->whereDate('periodo_fin', $periodoFin)
+            ->whereDate('periodo_inicio', '<=', $periodoFin)
+            ->whereDate('periodo_fin', '>=', $periodoInicio)
             ->where('liquidada', true)
             ->exists();
 
         if ($existe) {
-            throw new \LogicException('Este empleado ya tiene una nómina liquidada para el período seleccionado.');
+            throw new \LogicException('Este empleado ya tiene una nómina liquidada que se cruza con el período seleccionado.');
         }
+    }
+
+    private function calcularNovedadesRetroactivas(int $userId, Carbon $inicio, Carbon $fin): array
+    {
+        $novedades = NovedadRetroactiva::where('user_id', $userId)
+            ->where('status', 'aprobada')
+            ->whereDate('aplicar_desde', '<=', $fin->toDateString())
+            ->where(function ($query) use ($inicio) {
+                $query->whereNull('aplicar_hasta')
+                    ->orWhereDate('aplicar_hasta', '>=', $inicio->toDateString());
+            })
+            ->get();
+
+        $devengos = round((float) $novedades->where('tipo', 'devengo')->sum('valor'), 2);
+        $deducciones = round((float) $novedades->where('tipo', 'deduccion')->sum('valor'), 2);
+
+        return [
+            'devengos' => $devengos,
+            'deducciones' => $deducciones,
+            'total' => round($devengos - $deducciones, 2),
+            'ids' => $novedades->pluck('id')->all(),
+            'detalle' => $novedades->map(fn ($novedad) => [
+                'uuid' => $novedad->uuid,
+                'tipo' => $novedad->tipo,
+                'concepto' => $novedad->concepto,
+                'fecha_origen' => $novedad->fecha_origen?->toDateString(),
+                'aplicar_desde' => $novedad->aplicar_desde?->toDateString(),
+                'aplicar_hasta' => $novedad->aplicar_hasta?->toDateString(),
+                'valor' => (float) $novedad->valor,
+            ])->values()->all(),
+        ];
     }
 
     private function calcularDescuentos(int $userId, Carbon $inicio, Carbon $fin, ?int $descuentoId = null): array
@@ -588,5 +630,36 @@ class NominaService
     private function horasMensualesJornada(JornadaLaboral $jornada): float
     {
         return max(1, (float) $jornada->horas_semanales * 5);
+    }
+
+    private function diasComerciales(Carbon $inicio, Carbon $fin): int
+    {
+        $inicio = $inicio->copy()->startOfDay();
+        $fin = $fin->copy()->startOfDay();
+
+        if ($inicio->isSameMonth($fin)) {
+            return min(30, $this->diasComercialesMes($inicio, $fin));
+        }
+
+        $dias = $this->diasComercialesMes($inicio, $inicio->copy()->endOfMonth()->startOfDay());
+        $cursor = $inicio->copy()->addMonthNoOverflow()->startOfMonth();
+
+        while ($cursor->lt($fin->copy()->startOfMonth())) {
+            $dias += 30;
+            $cursor->addMonthNoOverflow();
+        }
+
+        $dias += $this->diasComercialesMes($fin->copy()->startOfMonth(), $fin);
+
+        return min(30, max(1, $dias));
+    }
+
+    private function diasComercialesMes(Carbon $inicio, Carbon $fin): int
+    {
+        $ultimoDiaMes = $fin->copy()->endOfMonth()->day;
+        $diaInicio = min($inicio->day, 30);
+        $diaFin = $fin->day === $ultimoDiaMes ? 30 : min($fin->day, 30);
+
+        return max(1, $diaFin - $diaInicio + 1);
     }
 }
