@@ -2,11 +2,11 @@
 
 namespace App\Services\Nomina;
 
-use App\Models\Nomina\WorkSession;
+use App\Models\Nomina\HoraExtra;
 use App\Models\Nomina\HorarioOperacionDiaria;
 use App\Models\Nomina\JornadaLaboral;
-use App\Models\Nomina\HoraExtra;
 use App\Models\Nomina\Permiso;
+use App\Models\Nomina\WorkSession;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -16,8 +16,11 @@ use Illuminate\Validation\ValidationException;
 class WorkSessionService
 {
     private const WITH = ['empleado', 'kiosko', 'jornadaLaboral'];
+
     private const PAUSA_PERMITIDA_MINUTOS = 15;
+
     private const ALMUERZO_PERMITIDO_MINUTOS = 60;
+
     private const CAMPOS_MARCACION = [
         'hora_entrada',
         'hora_salida_brake',
@@ -32,26 +35,23 @@ class WorkSessionService
         $perPage = $filters['per_page'] ?? 15;
 
         return WorkSession::with(self::WITH)
-            ->when(!empty($filters['user_id']), fn($q) => $q->where('user_id', $filters['user_id']))
-            ->when(!empty($filters['fecha']), fn($q) => $q->whereDate('registro_diario', $filters['fecha']))
-            ->when(!empty($filters['fecha_inicio']), fn($q) => $q->whereDate('registro_diario', '>=', $filters['fecha_inicio']))
-            ->when(!empty($filters['fecha_fin']), fn($q) => $q->whereDate('registro_diario', '<=', $filters['fecha_fin']))
-            ->when(!empty($filters['search']), function ($query) use ($filters) {
+            ->when(! empty($filters['user_id']), fn ($q) => $q->where('user_id', $filters['user_id']))
+            ->when(! empty($filters['fecha']), fn ($q) => $q->whereDate('registro_diario', $filters['fecha']))
+            ->when(! empty($filters['fecha_inicio']), fn ($q) => $q->whereDate('registro_diario', '>=', $filters['fecha_inicio']))
+            ->when(! empty($filters['fecha_fin']), fn ($q) => $q->whereDate('registro_diario', '<=', $filters['fecha_fin']))
+            ->when(! empty($filters['search']), function ($query) use ($filters) {
                 $search = trim($filters['search']);
 
                 $query->where(function ($q) use ($search) {
-                    $q->whereHas('empleado', fn ($empleado) =>
-                        $empleado->where('name', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%")
+                    $q->whereHas('empleado', fn ($empleado) => $empleado->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
                     )
-                    ->orWhereHas('kiosko', fn ($kiosko) =>
-                        $kiosko->where('name', 'like', "%{$search}%")
+                        ->orWhereHas('kiosko', fn ($kiosko) => $kiosko->where('name', 'like', "%{$search}%")
                             ->orWhere('code', 'like', "%{$search}%")
-                    );
+                        );
                 });
             })
-            ->when(!empty($filters['sede_id']), fn ($q) =>
-                $q->whereHas('kiosko', fn ($kiosko) => $kiosko->where('sede_id', $filters['sede_id']))
+            ->when(! empty($filters['sede_id']), fn ($q) => $q->whereHas('kiosko', fn ($kiosko) => $kiosko->where('sede_id', $filters['sede_id']))
             )
             ->orderByDesc('registro_diario')
             ->paginate($perPage);
@@ -80,7 +80,7 @@ class WorkSessionService
 
             Log::info('WorkSession creada', [
                 'uuid' => $session->uuid,
-                'dia'  => $session->registro_diario,
+                'dia' => $session->registro_diario,
             ]);
 
             return $session->load(self::WITH);
@@ -102,7 +102,7 @@ class WorkSessionService
 
             Log::info('WorkSession actualizada', [
                 'uuid' => $session->uuid,
-                'dia'  => $session->registro_diario,
+                'dia' => $session->registro_diario,
             ]);
 
             return $session->fresh(self::WITH);
@@ -122,9 +122,9 @@ class WorkSessionService
     private function calcularMinutos(array $data, ?WorkSession $session = null): array
     {
         $jornada = $this->resolverJornadaOperativa($data, $session);
-        $entrada   = $data['hora_entrada']         ?? $session?->hora_entrada;
-        $salida    = $data['hora_salida']           ?? $session?->hora_salida;
-        $pausaSale = $data['hora_salida_brake']     ?? $session?->hora_salida_brake;
+        $entrada = $data['hora_entrada'] ?? $session?->hora_entrada;
+        $salida = $data['hora_salida'] ?? $session?->hora_salida;
+        $pausaSale = $data['hora_salida_brake'] ?? $session?->hora_salida_brake;
         $pausaVuelve = $data['hora_ingreso_brake'] ?? $session?->hora_ingreso_brake;
         $almuerzoSale = $data['hora_salida_almuerzo'] ?? $session?->hora_salida_almuerzo;
         $almuerzoVuelve = $data['hora_ingreso_almuerzo'] ?? $session?->hora_ingreso_almuerzo;
@@ -137,8 +137,8 @@ class WorkSessionService
         if ($entrada) {
             $horaEntradaProgramada = $jornada?->hora_entrada ?? '07:00:00';
             $entradaReal = Carbon::parse($entrada);
-            $entradaBase = Carbon::parse($entradaReal->toDateString() . ' ' . $horaEntradaProgramada);
-            $tardanzaMinutos += $entradaReal->greaterThan($entradaBase) && !$this->tienePermisoEntradaAprobado((int) ($data['user_id'] ?? $session?->user_id), $entradaReal)
+            $entradaBase = Carbon::parse($entradaReal->toDateString().' '.$horaEntradaProgramada);
+            $tardanzaMinutos += $entradaReal->greaterThan($entradaBase) && ! $this->tienePermisoEntradaAprobado((int) ($data['user_id'] ?? $session?->user_id), $entradaReal)
                 ? (int) $entradaBase->diffInMinutes($entradaReal)
                 : 0;
         }
@@ -167,14 +167,14 @@ class WorkSessionService
 
     private function completarJornadaLaboralId(array $data): array
     {
-        if (!empty($data['horario_laboral_id'])) {
+        if (! empty($data['horario_laboral_id'])) {
             return $data;
         }
 
         $jornada = JornadaLaboral::where('status', true)->first()
             ?? JornadaLaboral::query()->first();
 
-        if (!$jornada) {
+        if (! $jornada) {
             throw ValidationException::withMessages([
                 'horario_laboral_id' => 'No hay jornadas laborales configuradas.',
             ]);
@@ -187,11 +187,13 @@ class WorkSessionService
 
     private function tienePermisoEntradaAprobado(int $userId, Carbon $entradaReal): bool
     {
-        if (!$userId) {
+        if (! $userId) {
             return false;
         }
 
-        $horaEntrada = $entradaReal->format('H:i:s');
+        // Los permisos se solicitan con precisión de minutos, por lo que el
+        // minuto final debe quedar cubierto completo.
+        $horaEntrada = $entradaReal->format('H:i:00');
 
         return Permiso::where('user_id', $userId)
             ->whereDate('fecha', $entradaReal->toDateString())
@@ -206,7 +208,7 @@ class WorkSessionService
     {
         $jornadaId = $data['horario_laboral_id'] ?? $session?->horario_laboral_id;
 
-        if (!$jornadaId) {
+        if (! $jornadaId) {
             return null;
         }
 
@@ -222,7 +224,7 @@ class WorkSessionService
         $jornadaBase = $this->resolverJornada($data, $session);
         $fecha = $data['registro_diario'] ?? $session?->registro_diario;
 
-        if (!$fecha) {
+        if (! $fecha) {
             return $jornadaBase ? (object) $jornadaBase->toArray() : null;
         }
 
@@ -243,7 +245,7 @@ class WorkSessionService
         $instruccion = $instruccionQuery->first();
 
         $jornada = $instruccion?->jornadaLaboral ?? $jornadaBase;
-        if (!$jornada) {
+        if (! $jornada) {
             return null;
         }
 
@@ -330,8 +332,8 @@ class WorkSessionService
 
     private function validarSecuenciaMarcacion(WorkSession $session, string $campo): void
     {
-        $pausaAbierta = $session->hora_salida_brake && !$session->hora_ingreso_brake;
-        $almuerzoAbierto = $session->hora_salida_almuerzo && !$session->hora_ingreso_almuerzo;
+        $pausaAbierta = $session->hora_salida_brake && ! $session->hora_ingreso_brake;
+        $almuerzoAbierto = $session->hora_salida_almuerzo && ! $session->hora_ingreso_almuerzo;
 
         if (in_array($campo, ['hora_salida_brake', 'hora_salida_almuerzo'], true) && ($pausaAbierta || $almuerzoAbierto)) {
             throw ValidationException::withMessages([
@@ -371,12 +373,12 @@ class WorkSessionService
         ];
 
         $regla = $reglas[$campo] ?? null;
-        if (!$regla) {
+        if (! $regla) {
             return;
         }
 
         foreach ($regla['requiere_llenos'] ?? [] as $requerido) {
-            if (!$session->{$requerido}) {
+            if (! $session->{$requerido}) {
                 throw ValidationException::withMessages([$campo => $regla['mensaje']]);
             }
         }
@@ -390,7 +392,7 @@ class WorkSessionService
 
     private function validarDuracionMinimaPausa(WorkSession $session, string $campo, string $hora, ?object $jornada): void
     {
-        if ($campo !== 'hora_ingreso_brake' || !$session->hora_salida_brake) {
+        if ($campo !== 'hora_ingreso_brake' || ! $session->hora_salida_brake) {
             return;
         }
 
@@ -411,7 +413,7 @@ class WorkSessionService
 
     private function validarVentanaHorario(string $campo, string $hora, ?object $jornada): void
     {
-        if (!$jornada) {
+        if (! $jornada) {
             return;
         }
 
@@ -457,7 +459,7 @@ class WorkSessionService
 
     private function validarHoraExtraAprobadaParaSalida(WorkSession $session, string $campo, string $hora, ?object $jornada): void
     {
-        if ($campo !== 'hora_salida' || !$jornada?->hora_salida) {
+        if ($campo !== 'hora_salida' || ! $jornada?->hora_salida) {
             return;
         }
 
@@ -499,11 +501,12 @@ class WorkSessionService
 
     private function minutosHora(?string $hora): ?int
     {
-        if (!$hora) {
+        if (! $hora) {
             return null;
         }
 
         $valor = Carbon::parse($hora);
+
         return ($valor->hour * 60) + $valor->minute;
     }
 }
