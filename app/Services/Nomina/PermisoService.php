@@ -5,9 +5,11 @@ namespace App\Services\Nomina;
 use App\Models\Nomina\Permiso;
 use App\RolEnum;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class PermisoService
 {
@@ -15,11 +17,38 @@ class PermisoService
 
     private const ROLES_PRIVILEGIADOS = [RolEnum::ADMINISTRADOR, RolEnum::ADMINISTRATIVO];
 
-    private function resolverUserId(array &$filters): void
+    private function rolesPrivilegiadosIds(): array
+    {
+        return array_map(fn($rol) => $rol->value, self::ROLES_PRIVILEGIADOS);
+    }
+
+    private function usuarioAutenticado()
     {
         $user = Auth::user();
-        $esPrivilegiado = in_array($user->role_id, array_map(fn($r) => $r->value, self::ROLES_PRIVILEGIADOS));
-        if (!$esPrivilegiado) {
+
+        if (!$user) {
+            throw new AuthorizationException('Usuario no autenticado.');
+        }
+
+        return $user;
+    }
+
+    private function esPrivilegiado($user): bool
+    {
+        return in_array((int) $user->role_id, $this->rolesPrivilegiadosIds(), true);
+    }
+
+    private function asegurarPrivilegiado(): void
+    {
+        if (!$this->esPrivilegiado($this->usuarioAutenticado())) {
+            throw new AuthorizationException('No tienes permiso para gestionar solicitudes de permiso.');
+        }
+    }
+
+    private function resolverUserId(array &$filters): void
+    {
+        $user = $this->usuarioAutenticado();
+        if (!$this->esPrivilegiado($user)) {
             $filters['user_id'] = $user->id;
         }
     }
@@ -47,6 +76,14 @@ class PermisoService
     public function store(array $data): Permiso
     {
         return DB::transaction(function () use ($data) {
+            $data['user_id'] = $this->usuarioAutenticado()->id;
+
+            if (empty($data['user_id'])) {
+                throw ValidationException::withMessages([
+                    'user_id' => 'El empleado es obligatorio.',
+                ]);
+            }
+
             $permiso = Permiso::create(array_merge($data, ['status' => 'pendiente']));
 
             Log::info('Permiso registrado', [
@@ -64,6 +101,7 @@ class PermisoService
     public function aprobar(string $uuid, ?string $observacion = null): Permiso
     {
         return DB::transaction(function () use ($uuid, $observacion) {
+            $this->asegurarPrivilegiado();
             $permiso = $this->getByUuid($uuid);
 
             if ($permiso->status !== 'pendiente') {
@@ -91,6 +129,7 @@ class PermisoService
     public function rechazar(string $uuid, ?string $observacion = null): Permiso
     {
         return DB::transaction(function () use ($uuid, $observacion) {
+            $this->asegurarPrivilegiado();
             $permiso = $this->getByUuid($uuid);
 
             if ($permiso->status !== 'pendiente') {

@@ -10,7 +10,9 @@ use App\Services\Nomina\KioskoDeviceService;
 use App\Services\Nomina\PermisoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class PermisoController extends Controller
 {
@@ -61,6 +63,14 @@ class PermisoController extends Controller
                 'message' => 'Permiso registrado exitosamente.',
                 'data'    => $permiso,
             ], 201);
+        } catch (AuthorizationException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 403);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->flatten()->first() ?? 'Datos inválidos.',
+                'errors' => $e->errors(),
+            ], 422);
         } catch (\Exception $e) {
             Log::error('Error al registrar permiso', ['error' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => 'Error al registrar el permiso.'], 500);
@@ -80,6 +90,8 @@ class PermisoController extends Controller
                 'message' => 'Permiso aprobado.',
                 'data'    => $permiso,
             ]);
+        } catch (AuthorizationException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 403);
         } catch (\LogicException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Exception $e) {
@@ -101,6 +113,8 @@ class PermisoController extends Controller
                 'message' => 'Permiso rechazado.',
                 'data'    => $permiso,
             ]);
+        } catch (AuthorizationException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 403);
         } catch (\LogicException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Exception $e) {

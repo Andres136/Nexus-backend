@@ -6,6 +6,7 @@ use App\Models\Nomina\WorkSession;
 use App\Models\Nomina\HorarioOperacionDiaria;
 use App\Models\Nomina\JornadaLaboral;
 use App\Models\Nomina\HoraExtra;
+use App\Models\Nomina\Permiso;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -72,6 +73,7 @@ class WorkSessionService
                 $this->validarCreacionDesdeKiosko($data);
             }
 
+            $data = $this->completarJornadaLaboralId($data);
             $data = $this->calcularMinutos($data);
 
             $session = WorkSession::create($data);
@@ -136,7 +138,7 @@ class WorkSessionService
             $horaEntradaProgramada = $jornada?->hora_entrada ?? '07:00:00';
             $entradaReal = Carbon::parse($entrada);
             $entradaBase = Carbon::parse($entradaReal->toDateString() . ' ' . $horaEntradaProgramada);
-            $tardanzaMinutos += $entradaReal->greaterThan($entradaBase)
+            $tardanzaMinutos += $entradaReal->greaterThan($entradaBase) && !$this->tienePermisoEntradaAprobado((int) ($data['user_id'] ?? $session?->user_id), $entradaReal)
                 ? (int) $entradaBase->diffInMinutes($entradaReal)
                 : 0;
         }
@@ -161,6 +163,43 @@ class WorkSessionService
         }
 
         return $data;
+    }
+
+    private function completarJornadaLaboralId(array $data): array
+    {
+        if (!empty($data['horario_laboral_id'])) {
+            return $data;
+        }
+
+        $jornada = JornadaLaboral::where('status', true)->first()
+            ?? JornadaLaboral::query()->first();
+
+        if (!$jornada) {
+            throw ValidationException::withMessages([
+                'horario_laboral_id' => 'No hay jornadas laborales configuradas.',
+            ]);
+        }
+
+        $data['horario_laboral_id'] = $jornada->id;
+
+        return $data;
+    }
+
+    private function tienePermisoEntradaAprobado(int $userId, Carbon $entradaReal): bool
+    {
+        if (!$userId) {
+            return false;
+        }
+
+        $horaEntrada = $entradaReal->format('H:i:s');
+
+        return Permiso::where('user_id', $userId)
+            ->whereDate('fecha', $entradaReal->toDateString())
+            ->where('status', 'aprobado')
+            ->whereIn('tipo', ['llegada_tarde', 'ausencia_parcial'])
+            ->whereTime('hora_inicio', '<=', $horaEntrada)
+            ->whereTime('hora_fin', '>=', $horaEntrada)
+            ->exists();
     }
 
     private function resolverJornada(array $data, ?WorkSession $session = null): ?JornadaLaboral

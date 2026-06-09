@@ -18,7 +18,7 @@ class StoreWorkSessionRequest extends FormRequest
             'user_id'           => 'required|integer|exists:users,id',
             'kiosko_id'          => 'required|integer|exists:kiosko_devices,id',
             'registro_diario'    => 'required|date',
-            'horario_laboral_id' => 'required|integer|exists:jornada_laborals,id',
+            'horario_laboral_id' => 'nullable|integer|exists:jornada_laborals,id',
 
             // Horas — nullable porque se llenan progresivamente
             'hora_entrada'         => 'nullable|date_format:H:i:s',
@@ -46,7 +46,6 @@ class StoreWorkSessionRequest extends FormRequest
             'kiosko_id.exists'            => 'El kiosko no existe',
             'registro_diario.required'    => 'La fecha del registro es obligatoria',
             'registro_diario.date'        => 'La fecha no es válida',
-            'horario_laboral_id.required' => 'La jornada laboral es obligatoria',
             'horario_laboral_id.exists'   => 'La jornada laboral no existe',
             'hora_salida.after'           => 'La salida debe ser después de la entrada',
         ];
