@@ -133,6 +133,9 @@ table { border-collapse: collapse; width: 100%; }
       @if(($nomina->auxilio_transporte ?? 0) > 0)
       <tr class="fila"><td>Aux. de transporte</td><td>$ {{ number_format($nomina->auxilio_transporte, 0, ',', '.') }}</td></tr>
       @endif
+      @if(($nomina->total_comisiones ?? 0) > 0)
+      <tr class="fila"><td>Comisiones</td><td>$ {{ number_format($nomina->total_comisiones, 0, ',', '.') }}</td></tr>
+      @endif
       @if(($nomina->valor_horas_extras_diurnas ?? 0) > 0)
       <tr class="fila"><td>H. extras diurnas ({{ $nomina->horas_extras_diurnas }}h)</td><td>$ {{ number_format($nomina->valor_horas_extras_diurnas, 0, ',', '.') }}</td></tr>
       @endif

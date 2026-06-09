@@ -91,4 +91,9 @@ class Contratacion extends Model
     {
         return $this->belongsTo(SeguridadSocial::class, 'caja_penciones_id')->withTrashed();
     }
+
+    public function liquidacionRetiro()
+    {
+        return $this->hasOne(LiquidacionRetiro::class, 'contratacion_id');
+    }
 }

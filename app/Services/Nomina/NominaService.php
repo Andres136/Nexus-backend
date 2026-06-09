@@ -2,14 +2,16 @@
 
 namespace App\Services\Nomina;
 
-use App\Models\Nomina\Contratacion;
+use App\Models\Nomina\Comision;
 use App\Models\Nomina\ConfiguracionNomina;
+use App\Models\Nomina\Contratacion;
 use App\Models\Nomina\Descuento;
 use App\Models\Nomina\HoraExtra;
 use App\Models\Nomina\Incapacidad;
 use App\Models\Nomina\JornadaLaboral;
-use App\Models\Nomina\Permiso;
+use App\Models\Nomina\LiquidacionRetiro;
 use App\Models\Nomina\Nomina;
+use App\Models\Nomina\Permiso;
 use App\Models\Nomina\Vacacion;
 use App\Models\Nomina\Valor;
 use App\Models\Nomina\WorkSession;
@@ -29,35 +31,36 @@ class NominaService
     ];
 
     // Porcentajes de ley colombiana sobre la hora normal
-    private const RECARGO_EXTRA_DIURNA     = 0.25; // +25%
-    private const RECARGO_EXTRA_NOCTURNA   = 0.75; // +75%
-    private const RECARGO_FESTIVA          = 0.75; // +75%
+    private const RECARGO_EXTRA_DIURNA = 0.25; // +25%
+
+    private const RECARGO_EXTRA_NOCTURNA = 0.75; // +75%
+
+    private const RECARGO_FESTIVA = 0.75; // +75%
+
     private const RECARGO_NOCTURNA_FESTIVA = 1.10; // +110%
-    private const PORCENTAJE_INCAPACIDAD   = 0.6667;
-    private const HORA_INICIO_NOCTURNA     = '19:00:00';
-    private const HORA_FIN_NOCTURNA        = '06:00:00';
+
+    private const PORCENTAJE_INCAPACIDAD = 0.6667;
+
+    private const HORA_INICIO_NOCTURNA = '19:00:00';
+
+    private const HORA_FIN_NOCTURNA = '06:00:00';
 
     public function getAll(array $filters = []): LengthAwarePaginator
     {
         $perPage = $filters['per_page'] ?? 15;
 
         return Nomina::with(self::WITH)
-            ->when(!empty($filters['user_id']), fn($q) => $q->where('user_id', $filters['user_id']))
-            ->when(!empty($filters['jornada_laboral_id']), fn($q) =>
-                $q->where('jornada_laboral_id', $filters['jornada_laboral_id']))
-            ->when(!empty($filters['periodo_inicio']), fn($q) =>
-                $q->whereDate('periodo_inicio', '>=', $filters['periodo_inicio']))
-            ->when(!empty($filters['periodo_fin']), fn($q) =>
-                $q->whereDate('periodo_fin', '<=', $filters['periodo_fin']))
-            ->when(!empty($filters['search']), function ($q) use ($filters) {
+            ->when(! empty($filters['user_id']), fn ($q) => $q->where('user_id', $filters['user_id']))
+            ->when(! empty($filters['jornada_laboral_id']), fn ($q) => $q->where('jornada_laboral_id', $filters['jornada_laboral_id']))
+            ->when(! empty($filters['periodo_inicio']), fn ($q) => $q->whereDate('periodo_inicio', '>=', $filters['periodo_inicio']))
+            ->when(! empty($filters['periodo_fin']), fn ($q) => $q->whereDate('periodo_fin', '<=', $filters['periodo_fin']))
+            ->when(! empty($filters['search']), function ($q) use ($filters) {
                 $search = $filters['search'];
                 $q->where(function ($query) use ($search) {
-                    $query->whereHas('empleado', fn($empleado) =>
-                        $empleado->where('name', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%"))
-                        ->orWhereHas('contratacion', fn($contrato) =>
-                            $contrato->where('cargo', 'like', "%{$search}%")
-                                ->orWhere('numero_documento', 'like', "%{$search}%"));
+                    $query->whereHas('empleado', fn ($empleado) => $empleado->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%"))
+                        ->orWhereHas('contratacion', fn ($contrato) => $contrato->where('cargo', 'like', "%{$search}%")
+                            ->orWhere('numero_documento', 'like', "%{$search}%"));
                 });
             })
             ->orderByDesc('created_at')
@@ -77,7 +80,7 @@ class NominaService
             $nomina = Nomina::create($data);
 
             Log::info('Nómina creada', [
-                'uuid'    => $nomina->uuid,
+                'uuid' => $nomina->uuid,
                 'user_id' => $nomina->user_id,
             ]);
 
@@ -93,7 +96,7 @@ class NominaService
             $nomina->update($data);
 
             Log::info('Nómina actualizada', [
-                'uuid'    => $nomina->uuid,
+                'uuid' => $nomina->uuid,
                 'user_id' => $nomina->user_id,
             ]);
 
@@ -106,6 +109,14 @@ class NominaService
         DB::transaction(function () use ($uuid) {
             $nomina = $this->getByUuid($uuid);
 
+            if (LiquidacionRetiro::where('nomina_id', $nomina->id)->exists()) {
+                throw new \LogicException('No se puede eliminar una nómina vinculada a una liquidación definitiva.');
+            }
+
+            $nomina->comisiones()->update([
+                'status' => 'aprobada',
+                'nomina_id' => null,
+            ]);
             $nomina->delete();
 
             Log::info('Nómina eliminada', ['uuid' => $nomina->uuid]);
@@ -124,51 +135,57 @@ class NominaService
 
             // ── Persistencia ──────────────────────────────────────────────
             $nomina = Nomina::create([
-                'user_id'            => $calculo['user_id'],
+                'user_id' => $calculo['user_id'],
                 'jornada_laboral_id' => $calculo['jornada_laboral_id'],
-                'contratacion_id'    => $calculo['contratacion_id'],
-                'descuento_id'       => $calculo['descuento_id'],
+                'contratacion_id' => $calculo['contratacion_id'],
+                'descuento_id' => $calculo['descuento_id'],
 
                 'periodo_inicio' => $calculo['periodo_inicio'],
-                'periodo_fin'    => $calculo['periodo_fin'],
+                'periodo_fin' => $calculo['periodo_fin'],
 
-                'horas_normales'          => $calculo['horas_normales'],
-                'horas_extras_nocturnas'  => $calculo['horas_extras_nocturnas'],
-                'horas_extras_diurnas'    => $calculo['horas_extras_diurnas'],
-                'horas_festivas'          => $calculo['horas_festivas'],
-                'horas_nocturnas_festivas'=> $calculo['horas_nocturnas_festivas'],
+                'horas_normales' => $calculo['horas_normales'],
+                'horas_extras_nocturnas' => $calculo['horas_extras_nocturnas'],
+                'horas_extras_diurnas' => $calculo['horas_extras_diurnas'],
+                'horas_festivas' => $calculo['horas_festivas'],
+                'horas_nocturnas_festivas' => $calculo['horas_nocturnas_festivas'],
 
-                'valor_hora_normal'          => $calculo['valor_hora_normal'],
-                'valor_hora_nocturna'        => $calculo['valor_hora_nocturna'],
-                'valor_hora_dominical'       => $calculo['valor_hora_dominical'],
+                'valor_hora_normal' => $calculo['valor_hora_normal'],
+                'valor_hora_nocturna' => $calculo['valor_hora_nocturna'],
+                'valor_hora_dominical' => $calculo['valor_hora_dominical'],
                 'valor_hora_dominical_extra' => $calculo['valor_hora_dominical_extra'],
 
-                'salario_base_devengado'         => $calculo['salario_base_devengado'],
-                'auxilio_transporte'             => $calculo['auxilio_transporte'],
-                'valor_horas_normales'           => $calculo['valor_horas_normales'],
-                'valor_horas_extras_nocturnas'   => $calculo['valor_horas_extras_nocturnas'],
-                'valor_horas_extras_diurnas'     => $calculo['valor_horas_extras_diurnas'],
-                'valor_horas_festivas'           => $calculo['valor_horas_festivas'],
+                'salario_base_devengado' => $calculo['salario_base_devengado'],
+                'auxilio_transporte' => $calculo['auxilio_transporte'],
+                'total_comisiones' => $calculo['total_comisiones'],
+                'valor_horas_normales' => $calculo['valor_horas_normales'],
+                'valor_horas_extras_nocturnas' => $calculo['valor_horas_extras_nocturnas'],
+                'valor_horas_extras_diurnas' => $calculo['valor_horas_extras_diurnas'],
+                'valor_horas_festivas' => $calculo['valor_horas_festivas'],
                 'valor_horas_nocturnas_festivas' => $calculo['valor_horas_nocturnas_festivas'],
-                'total_devengado'                => $calculo['total_devengado'],
+                'total_devengado' => $calculo['total_devengado'],
 
-                'deduccion_salud'              => $calculo['deduccion_salud'],
-                'deduccion_pension'            => $calculo['deduccion_pension'],
+                'deduccion_salud' => $calculo['deduccion_salud'],
+                'deduccion_pension' => $calculo['deduccion_pension'],
                 'total_descuentos_adicionales' => $calculo['total_descuentos_adicionales'],
-                'total_deducciones'            => $calculo['total_deducciones'],
+                'total_deducciones' => $calculo['total_deducciones'],
 
-                'salario_neto'       => $calculo['salario_neto'],
-                'liquidada'          => true,
-                'fecha_liquidacion'  => now(),
+                'salario_neto' => $calculo['salario_neto'],
+                'liquidada' => true,
+                'fecha_liquidacion' => now(),
+            ]);
+
+            Comision::whereIn('id', $calculo['comisiones_ids'])->update([
+                'status' => 'aplicada',
+                'nomina_id' => $nomina->id,
             ]);
 
             Log::info('Nómina liquidada', [
-                'uuid'            => $nomina->uuid,
-                'user_id'         => $calculo['user_id'],
-                'periodo'         => $calculo['periodo_inicio'] . ' → ' . $calculo['periodo_fin'],
+                'uuid' => $nomina->uuid,
+                'user_id' => $calculo['user_id'],
+                'periodo' => $calculo['periodo_inicio'].' → '.$calculo['periodo_fin'],
                 'total_devengado' => $calculo['total_devengado'],
                 'total_deducciones' => $calculo['total_deducciones'],
-                'salario_neto'    => $calculo['salario_neto'],
+                'salario_neto' => $calculo['salario_neto'],
             ]);
 
             return $nomina->load(self::WITH);
@@ -184,7 +201,7 @@ class NominaService
     {
         $userId = $data['user_id'];
         $inicio = Carbon::parse($data['periodo_inicio'])->startOfDay();
-        $fin    = Carbon::parse($data['periodo_fin'])->endOfDay();
+        $fin = Carbon::parse($data['periodo_fin'])->endOfDay();
 
         $contratacion = Contratacion::where('users_id', $userId)
             ->where('status', 1)
@@ -218,7 +235,11 @@ class NominaService
         $sabadoMinutos = (float) $sessions->sum('sabado_minutos');
         $ordinariosMinutos = max(0, $totalMinutos - $festivoMinutos - $sabadoMinutos);
 
-        $diasLiquidables = min(30, $inicioLiquidable->diffInDays($finLiquidable) + 1);
+        $diasLiquidables = min(
+            30,
+            (int) $inicioLiquidable->copy()->startOfDay()
+                ->diffInDays($finLiquidable->copy()->startOfDay()) + 1
+        );
         $horasMensualesJornada = $this->horasMensualesJornada($jornada);
         $horasEsperadasPeriodo = round($horasMensualesJornada * ($diasLiquidables / 30), 2);
         $minutosEsperados = $horasEsperadasPeriodo * 60;
@@ -297,8 +318,7 @@ class NominaService
             ->where('es_remunerado', false)
             ->get();
 
-        $minutosNoRemunerados = $permisosNoRemunerados->sum(fn($p) =>
-            Carbon::parse($p->hora_inicio)->diffInMinutes(Carbon::parse($p->hora_fin))
+        $minutosNoRemunerados = $permisosNoRemunerados->sum(fn ($p) => Carbon::parse($p->hora_inicio)->diffInMinutes(Carbon::parse($p->hora_fin))
         );
 
         $valorPermisosNoRemunerados = round(($minutosNoRemunerados / 60) * $valorHoraBase, 2);
@@ -309,6 +329,13 @@ class NominaService
             + $valorIncapacidadReconocido
             + ($valorDia * $diasVacacionesCompensadas), 2);
         $auxilioTransportePeriodo = round((float) $contratacion->auxilio_transporte * ($diasLiquidables / 30), 2);
+        $pagoNoPrestacionalPeriodo = round((float) $contratacion->no_salarial * ($diasLiquidables / 30), 2);
+        $comisiones = Comision::where('user_id', $userId)
+            ->where('status', 'aprobada')
+            ->whereDate('periodo_inicio', $inicio->toDateString())
+            ->whereDate('periodo_fin', $fin->toDateString())
+            ->get();
+        $totalComisiones = round((float) $comisiones->sum('valor'), 2);
 
         // El salario mensual ya remunera las horas ordinarias; se guardan para control, no se suman otra vez.
         $valorHorasNormales = 0;
@@ -319,6 +346,8 @@ class NominaService
 
         $totalDevengado = $salarioBasePeriodo
             + $auxilioTransportePeriodo
+            + $pagoNoPrestacionalPeriodo
+            + $totalComisiones
             + $valorHorasNormales
             + $valorHorasExtrasDiurnas
             + $valorHorasExtrasNocturnas
@@ -326,6 +355,7 @@ class NominaService
             + $valorHorasNocturnasFestivas;
 
         $baseParaDeducciones = $salarioBasePeriodo
+            + $totalComisiones
             + $valorHorasNormales
             + $valorHorasExtrasDiurnas
             + $valorHorasExtrasNocturnas
@@ -374,6 +404,14 @@ class NominaService
             'valor_hora_dominical_extra' => $valorHoraDominicalExtra,
             'salario_base_devengado' => $salarioBasePeriodo,
             'auxilio_transporte' => $auxilioTransportePeriodo,
+            'pago_no_prestacional' => $pagoNoPrestacionalPeriodo,
+            'total_comisiones' => $totalComisiones,
+            'detalle_comisiones' => $comisiones->map(fn ($comision) => [
+                'uuid' => $comision->uuid,
+                'concepto' => $comision->concepto,
+                'valor' => $comision->valor,
+            ])->values(),
+            'comisiones_ids' => $comisiones->pluck('id')->all(),
             'valor_horas_normales' => $valorHorasNormales,
             'valor_horas_extras_nocturnas' => $valorHorasExtrasNocturnas,
             'valor_horas_extras_diurnas' => $valorHorasExtrasDiurnas,
@@ -449,8 +487,8 @@ class NominaService
         $dias = [];
 
         foreach ($items as $item) {
-            $desde = Carbon::parse($item->{$campoInicio})->startOfDay()->max($inicio);
-            $hasta = Carbon::parse($item->{$campoFin})->endOfDay()->min($fin);
+            $desde = Carbon::parse($item->{$campoInicio})->startOfDay()->max($inicio->copy());
+            $hasta = Carbon::parse($item->{$campoFin})->endOfDay()->min($fin->copy());
 
             while ($desde->lte($hasta)) {
                 $dias[$desde->toDateString()] = true;
@@ -467,7 +505,8 @@ class NominaService
             return 1;
         }
 
-        $diasPeriodo = $inicio->diffInDays($fin) + 1;
+        $diasPeriodo = (int) $inicio->copy()->startOfDay()
+            ->diffInDays($fin->copy()->startOfDay()) + 1;
 
         return $diasPeriodo > 15 ? 2 : 1;
     }
@@ -477,7 +516,7 @@ class NominaService
         $total = 0;
 
         foreach ($sessions as $session) {
-            if (!$session->hora_entrada || !$session->hora_salida) {
+            if (! $session->hora_entrada || ! $session->hora_salida) {
                 continue;
             }
 
@@ -499,7 +538,7 @@ class NominaService
 
     private function minutosNocturnosDeDescanso($inicio, $fin): int
     {
-        if (!$inicio || !$fin) {
+        if (! $inicio || ! $fin) {
             return 0;
         }
 
@@ -518,8 +557,8 @@ class NominaService
         $cursor = $inicio->copy()->startOfDay();
 
         while ($cursor->lte($fin)) {
-            $inicioNoche = Carbon::parse($cursor->toDateString() . ' ' . self::HORA_INICIO_NOCTURNA);
-            $finNoche = Carbon::parse($cursor->copy()->addDay()->toDateString() . ' ' . self::HORA_FIN_NOCTURNA);
+            $inicioNoche = Carbon::parse($cursor->toDateString().' '.self::HORA_INICIO_NOCTURNA);
+            $finNoche = Carbon::parse($cursor->copy()->addDay()->toDateString().' '.self::HORA_FIN_NOCTURNA);
             $desde = $inicio->copy()->max($inicioNoche);
             $hasta = $fin->copy()->min($finNoche);
 

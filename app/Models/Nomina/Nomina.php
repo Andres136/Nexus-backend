@@ -41,6 +41,7 @@ class Nomina extends Model
         // Devengados
         'salario_base_devengado',
         'auxilio_transporte',
+        'total_comisiones',
         'valor_horas_normales',
         'valor_horas_extras_nocturnas',
         'valor_horas_extras_diurnas',
@@ -61,33 +62,34 @@ class Nomina extends Model
     ];
 
     protected $casts = [
-        'periodo_inicio'               => 'date',
-        'periodo_fin'                  => 'date',
-        'horas_normales'               => 'decimal:2',
-        'horas_extras_nocturnas'       => 'decimal:2',
-        'horas_extras_diurnas'         => 'decimal:2',
-        'horas_festivas'               => 'decimal:2',
-        'horas_nocturnas_festivas'     => 'decimal:2',
-        'valor_hora_normal'            => 'decimal:2',
-        'valor_hora_nocturna'          => 'decimal:2',
-        'valor_hora_dominical'         => 'decimal:2',
-        'valor_hora_dominical_extra'   => 'decimal:2',
-        'salario_base_devengado'       => 'decimal:2',
-        'auxilio_transporte'           => 'decimal:2',
-        'valor_horas_normales'         => 'decimal:2',
+        'periodo_inicio' => 'date',
+        'periodo_fin' => 'date',
+        'horas_normales' => 'decimal:2',
+        'horas_extras_nocturnas' => 'decimal:2',
+        'horas_extras_diurnas' => 'decimal:2',
+        'horas_festivas' => 'decimal:2',
+        'horas_nocturnas_festivas' => 'decimal:2',
+        'valor_hora_normal' => 'decimal:2',
+        'valor_hora_nocturna' => 'decimal:2',
+        'valor_hora_dominical' => 'decimal:2',
+        'valor_hora_dominical_extra' => 'decimal:2',
+        'salario_base_devengado' => 'decimal:2',
+        'auxilio_transporte' => 'decimal:2',
+        'total_comisiones' => 'decimal:2',
+        'valor_horas_normales' => 'decimal:2',
         'valor_horas_extras_nocturnas' => 'decimal:2',
-        'valor_horas_extras_diurnas'   => 'decimal:2',
-        'valor_horas_festivas'         => 'decimal:2',
+        'valor_horas_extras_diurnas' => 'decimal:2',
+        'valor_horas_festivas' => 'decimal:2',
         'valor_horas_nocturnas_festivas' => 'decimal:2',
-        'total_devengado'              => 'decimal:2',
-        'deduccion_salud'              => 'decimal:2',
-        'deduccion_pension'            => 'decimal:2',
+        'total_devengado' => 'decimal:2',
+        'deduccion_salud' => 'decimal:2',
+        'deduccion_pension' => 'decimal:2',
         'total_descuentos_adicionales' => 'decimal:2',
-        'total_deducciones'            => 'decimal:2',
-        'salario_neto'                 => 'decimal:2',
-        'liquidada'                    => 'boolean',
-        'fecha_liquidacion'            => 'datetime',
-        'uuid'                         => 'string',
+        'total_deducciones' => 'decimal:2',
+        'salario_neto' => 'decimal:2',
+        'liquidada' => 'boolean',
+        'fecha_liquidacion' => 'datetime',
+        'uuid' => 'string',
     ];
 
     protected static function boot(): void
@@ -121,5 +123,15 @@ class Nomina extends Model
     public function jornadaLaboral()
     {
         return $this->belongsTo(JornadaLaboral::class, 'jornada_laboral_id');
+    }
+
+    public function comisiones()
+    {
+        return $this->hasMany(Comision::class, 'nomina_id');
+    }
+
+    public function liquidacionRetiro()
+    {
+        return $this->hasOne(LiquidacionRetiro::class, 'nomina_id');
     }
 }

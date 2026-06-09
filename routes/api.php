@@ -67,6 +67,7 @@ use App\Http\Controllers\IndicadoresProcesosController;
 use App\Http\Controllers\MacroProcesoController;
 use App\Http\Controllers\Nomina\ContratacionController;
 use App\Http\Controllers\Nomina\ConfiguracionNominaController;
+use App\Http\Controllers\Nomina\ComisionController;
 use App\Http\Controllers\Nomina\DescuentoController;
 use App\Http\Controllers\Nomina\HorarioOperacionDiariaController;
 use App\Http\Controllers\Nomina\IncapacidadController;
@@ -87,6 +88,8 @@ use App\Http\Controllers\Nomina\VacacionController;
 use App\Http\Controllers\Nomina\LlamadoAtencionController;
 use App\Http\Controllers\Nomina\DescargoController;
 use App\Http\Controllers\Nomina\LicenciaController;
+use App\Http\Controllers\Nomina\LiquidacionPrestacionController;
+use App\Http\Controllers\Nomina\LiquidacionRetiroController;
 use App\Http\Controllers\Nomina\PortalEmpleadoController;
 use App\Http\Controllers\NotificacionOrdenController;
 use App\Http\Controllers\PermissionController;
@@ -133,6 +136,7 @@ Route::get('nomina/kiosko-work-sessions', [WorkSessionController::class, 'kioskI
 Route::post('nomina/kiosko-work-sessions', [WorkSessionController::class, 'kioskStore']);
 Route::put('nomina/kiosko-work-sessions/{uuid}', [WorkSessionController::class, 'kioskUpdate']);
 Route::get('nomina/kiosko-permisos', [PermisoController::class, 'kioskIndex']);
+Route::get('nomina/kiosko-horas-extras', [HoraExtraController::class, 'kioskIndex']);
 
 Route::middleware('auth:sanctum')->group(function () {
   Route::get('/user', function (Request $request) {
@@ -574,8 +578,17 @@ Route::prefix('nomina')->group(function () {
     Route::get('transacional-registros/user/{userId}', [TransacionalRegistroController::class, 'byUser']);
     Route::apiResource('work-sessions',    WorkSessionController::class);
      Route::get('nominas/resumen',              [NominaController::class, 'resumen']);
+     Route::get('nominas/exportar-plano',        [NominaController::class, 'exportarPlano']);
      Route::post('nominas/preliquidar',         [NominaController::class, 'preliquidar']);
      Route::post('nominas/liquidar',            [NominaController::class, 'liquidar']);
+     Route::post('nominas/preliquidar-retiro',  [LiquidacionRetiroController::class, 'preliquidar']);
+     Route::post('nominas/liquidar-retiro',      [LiquidacionRetiroController::class, 'liquidar']);
+     Route::get('liquidaciones-retiro', [LiquidacionRetiroController::class, 'index']);
+     Route::get('liquidaciones-retiro/{uuid}/pdf', [LiquidacionRetiroController::class, 'pdf']);
+     Route::get('liquidaciones-prestaciones/tipos', [LiquidacionPrestacionController::class, 'tipos']);
+     Route::post('nominas/preliquidar-prestacion', [LiquidacionPrestacionController::class, 'preliquidar']);
+     Route::post('nominas/liquidar-prestacion',    [LiquidacionPrestacionController::class, 'liquidar']);
+     Route::get('liquidaciones-prestaciones',      [LiquidacionPrestacionController::class, 'index']);
      Route::get('nominas/{uuid}/desprendible', [NominaController::class, 'desprendible']);
      Route::post('nominas/{uuid}/desprendible/enviar', [NominaController::class, 'enviarDesprendible']);
      Route::apiResource('nominas', NominaController::class);
@@ -583,6 +596,10 @@ Route::prefix('nomina')->group(function () {
      Route::apiResource('horas-extras', HoraExtraController::class)->except(['update']);
      Route::patch('horas-extras/{uuid}/aprobar',  [HoraExtraController::class, 'aprobar']);
      Route::patch('horas-extras/{uuid}/rechazar', [HoraExtraController::class, 'rechazar']);
+
+     Route::apiResource('comisiones', ComisionController::class)->except(['update']);
+     Route::patch('comisiones/{uuid}/aprobar',  [ComisionController::class, 'aprobar']);
+     Route::patch('comisiones/{uuid}/rechazar', [ComisionController::class, 'rechazar']);
 
      Route::apiResource('permisos', PermisoController::class)->except(['update']);
      Route::patch('permisos/{uuid}/aprobar',  [PermisoController::class, 'aprobar']);

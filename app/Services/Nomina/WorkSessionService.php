@@ -91,9 +91,10 @@ class WorkSessionService
     {
         return DB::transaction(function () use ($uuid, $data, $validarFlujoKiosko) {
             $session = $this->getByUuid($uuid);
+            $avisoKiosko = null;
 
             if ($validarFlujoKiosko) {
-                $this->validarActualizacionDesdeKiosko($session, $data);
+                [$data, $avisoKiosko] = $this->validarActualizacionDesdeKiosko($session, $data);
             }
 
             $data = $this->calcularMinutos($data, $session);
@@ -105,7 +106,13 @@ class WorkSessionService
                 'dia' => $session->registro_diario,
             ]);
 
-            return $session->fresh(self::WITH);
+            $session = $session->fresh(self::WITH);
+
+            if ($avisoKiosko) {
+                $session->setAttribute('aviso_kiosko', $avisoKiosko);
+            }
+
+            return $session;
         });
     }
 
@@ -296,7 +303,7 @@ class WorkSessionService
         }
     }
 
-    private function validarActualizacionDesdeKiosko(WorkSession $session, array $data): void
+    private function validarActualizacionDesdeKiosko(WorkSession $session, array $data): array
     {
         $campos = array_values(array_filter(
             self::CAMPOS_MARCACION,
@@ -327,7 +334,9 @@ class WorkSessionService
         $this->validarSecuenciaMarcacion($session, $campo);
         $this->validarDuracionMinimaPausa($session, $campo, $data[$campo], $jornada);
         $this->validarVentanaHorario($campo, $data[$campo], $jornada);
-        $this->validarHoraExtraAprobadaParaSalida($session, $campo, $data[$campo], $jornada);
+        $avisoKiosko = $this->ajustarSalidaSegunHoraExtraAprobada($session, $campo, $data, $jornada);
+
+        return [$data, $avisoKiosko];
     }
 
     private function validarSecuenciaMarcacion(WorkSession $session, string $campo): void
@@ -457,17 +466,18 @@ class WorkSessionService
         }
     }
 
-    private function validarHoraExtraAprobadaParaSalida(WorkSession $session, string $campo, string $hora, ?object $jornada): void
+    private function ajustarSalidaSegunHoraExtraAprobada(WorkSession $session, string $campo, array &$data, ?object $jornada): ?string
     {
         if ($campo !== 'hora_salida' || ! $jornada?->hora_salida) {
-            return;
+            return null;
         }
 
+        $hora = $data[$campo];
         $salidaProgramada = $this->minutosHora($jornada->hora_salida);
         $salidaReal = $this->minutosHora($hora);
 
         if ($salidaProgramada === null || $salidaReal === null || $salidaReal <= $salidaProgramada) {
-            return;
+            return null;
         }
 
         $fecha = Carbon::parse($session->registro_diario)->toDateString();
@@ -484,9 +494,11 @@ class WorkSessionService
             ->sum('horas');
 
         if ((float) $horasAprobadas <= 0) {
-            throw ValidationException::withMessages([
-                'hora_salida' => 'No tienes horas extras aprobadas para hoy. La salida tarde debe estar autorizada antes de marcar en el kiosko.',
-            ]);
+            $data['hora_salida'] = Carbon::parse($hora)
+                ->setTimeFromTimeString($jornada->hora_salida)
+                ->toDateTimeString();
+
+            return 'Salida registrada en la hora programada. El tiempo adicional no será reconocido porque no tiene horas extra autorizadas.';
         }
 
         $minutosAprobados = (int) round(((float) $horasAprobadas) * 60);
@@ -497,6 +509,8 @@ class WorkSessionService
                 'hora_salida' => "Tus horas extras aprobadas cubren hasta {$horasAprobadas} hora(s). Solicita aprobación adicional antes de marcar salida.",
             ]);
         }
+
+        return null;
     }
 
     private function minutosHora(?string $hora): ?int

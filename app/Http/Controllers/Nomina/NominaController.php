@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class NominaController extends Controller
 {
@@ -26,12 +27,12 @@ class NominaController extends Controller
     {
         try {
             $filters = [
-                'user_id'            => $request->query('user_id'),
+                'user_id' => $request->query('user_id'),
                 'jornada_laboral_id' => $request->query('jornada_laboral_id'),
-                'periodo_inicio'     => $request->query('periodo_inicio'),
-                'periodo_fin'        => $request->query('periodo_fin'),
-                'search'             => $request->query('search'),
-                'per_page'           => $request->query('per_page', 15),
+                'periodo_inicio' => $request->query('periodo_inicio'),
+                'periodo_fin' => $request->query('periodo_fin'),
+                'search' => $request->query('search'),
+                'per_page' => $request->query('per_page', 15),
             ];
 
             $data = $this->nominaService->getAll($filters);
@@ -39,6 +40,7 @@ class NominaController extends Controller
             return response()->json(['success' => true, 'data' => $data]);
         } catch (\Exception $e) {
             Log::error('Error al listar nóminas', ['error' => $e->getMessage()]);
+
             return response()->json(['success' => false, 'message' => 'Error al obtener las nóminas.'], 500);
         }
     }
@@ -51,6 +53,7 @@ class NominaController extends Controller
             return response()->json(['success' => true, 'data' => $data]);
         } catch (\Exception $e) {
             Log::error('Error al obtener nómina', ['uuid' => $uuid, 'error' => $e->getMessage()]);
+
             return response()->json(['success' => false, 'message' => 'Nómina no encontrada.'], 404);
         }
     }
@@ -63,10 +66,11 @@ class NominaController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Nómina creada exitosamente.',
-                'data'    => $data,
+                'data' => $data,
             ], 201);
         } catch (\Exception $e) {
             Log::error('Error al crear nómina', ['error' => $e->getMessage()]);
+
             return response()->json(['success' => false, 'message' => 'Error al crear la nómina.'], 500);
         }
     }
@@ -79,10 +83,11 @@ class NominaController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Nómina actualizada exitosamente.',
-                'data'    => $data,
+                'data' => $data,
             ]);
         } catch (\Exception $e) {
             Log::error('Error al actualizar nómina', ['uuid' => $uuid, 'error' => $e->getMessage()]);
+
             return response()->json(['success' => false, 'message' => 'Error al actualizar la nómina.'], 500);
         }
     }
@@ -96,8 +101,11 @@ class NominaController extends Controller
                 'success' => true,
                 'message' => 'Nómina eliminada exitosamente.',
             ]);
+        } catch (\LogicException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Exception $e) {
             Log::error('Error al eliminar nómina', ['uuid' => $uuid, 'error' => $e->getMessage()]);
+
             return response()->json(['success' => false, 'message' => 'Error al eliminar la nómina.'], 500);
         }
     }
@@ -113,33 +121,34 @@ class NominaController extends Controller
     {
         try {
             $inicio = $request->query('periodo_inicio');
-            $fin    = $request->query('periodo_fin');
+            $fin = $request->query('periodo_fin');
 
             $empleadosActivos = Contratacion::where('status', 1)->count();
 
             $query = Nomina::query();
             if ($inicio && $fin) {
                 $query->where('periodo_inicio', '>=', $inicio)
-                      ->where('periodo_fin',    '<=', $fin);
+                    ->where('periodo_fin', '<=', $fin);
             }
 
-            $nominaBruta      = (float) $query->sum('total_devengado');
-            $deducciones      = (float) $query->sum('total_deducciones');
-            $nominaNeta       = (float) $query->sum('salario_neto');
-            $pagosRealizados  = (float) $query->where('liquidada', true)->sum('salario_neto');
+            $nominaBruta = (float) $query->sum('total_devengado');
+            $deducciones = (float) $query->sum('total_deducciones');
+            $nominaNeta = (float) $query->sum('salario_neto');
+            $pagosRealizados = (float) $query->where('liquidada', true)->sum('salario_neto');
 
             return response()->json([
                 'success' => true,
-                'data'    => [
+                'data' => [
                     'empleados_activos' => $empleadosActivos,
-                    'nomina_bruta'      => $nominaBruta,
-                    'deducciones'       => $deducciones,
-                    'nomina_neta'       => $nominaNeta,
-                    'pagos_realizados'  => $pagosRealizados,
+                    'nomina_bruta' => $nominaBruta,
+                    'deducciones' => $deducciones,
+                    'nomina_neta' => $nominaNeta,
+                    'pagos_realizados' => $pagosRealizados,
                 ],
             ]);
         } catch (\Exception $e) {
             Log::error('Error al obtener resumen de nómina', ['error' => $e->getMessage()]);
+
             return response()->json(['success' => false, 'message' => 'Error al obtener el resumen.'], 500);
         }
     }
@@ -152,7 +161,7 @@ class NominaController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Nómina liquidada exitosamente.',
-                'data'    => $nomina,
+                'data' => $nomina,
             ], 201);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
@@ -166,6 +175,7 @@ class NominaController extends Controller
             ], 422);
         } catch (\Exception $e) {
             Log::error('Error al liquidar nómina', ['error' => $e->getMessage()]);
+
             return response()->json(['success' => false, 'message' => 'Error al liquidar la nómina.'], 500);
         }
     }
@@ -178,7 +188,7 @@ class NominaController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Preliquidación calculada exitosamente.',
-                'data'    => $data,
+                'data' => $data,
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
@@ -192,8 +202,150 @@ class NominaController extends Controller
             ], 422);
         } catch (\Exception $e) {
             Log::error('Error al preliquidar nómina', ['error' => $e->getMessage()]);
+
             return response()->json(['success' => false, 'message' => 'Error al preliquidar la nómina.'], 500);
         }
+    }
+
+    public function exportarPlano(Request $request): JsonResponse|StreamedResponse
+    {
+        $validator = Validator::make($request->query(), [
+            'periodo_inicio' => 'required|date',
+            'periodo_fin' => 'required|date|after_or_equal:periodo_inicio',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $inicio = $request->query('periodo_inicio');
+        $fin = $request->query('periodo_fin');
+
+        $nominas = Nomina::with([
+            'empleado:id,name,email',
+            'contratacion:id,tipo_documento,numero_documento,cargo',
+        ])
+            ->where('liquidada', true)
+            ->where('periodo_inicio', '>=', $inicio)
+            ->where('periodo_fin', '<=', $fin)
+            ->orderBy('user_id')
+            ->get();
+
+        if ($nominas->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No hay nóminas liquidadas en el período seleccionado.',
+            ], 422);
+        }
+
+        $filename = "nomina_liquidada_{$inicio}_{$fin}.csv";
+        $moneyColumns = [
+            'salario_base_devengado',
+            'auxilio_transporte',
+            'total_comisiones',
+            'valor_horas_normales',
+            'valor_horas_extras_diurnas',
+            'valor_horas_extras_nocturnas',
+            'valor_horas_festivas',
+            'valor_horas_nocturnas_festivas',
+            'total_devengado',
+            'deduccion_salud',
+            'deduccion_pension',
+            'total_descuentos_adicionales',
+            'total_deducciones',
+            'salario_neto',
+        ];
+
+        return response()->streamDownload(function () use ($nominas, $moneyColumns) {
+            $output = fopen('php://output', 'w');
+            fwrite($output, "\xEF\xBB\xBF");
+
+            fputcsv($output, [
+                'Tipo documento',
+                'Documento',
+                'Empleado',
+                'Correo',
+                'Cargo',
+                'Periodo inicio',
+                'Periodo fin',
+                'Horas normales',
+                'Horas extra diurnas',
+                'Horas extra nocturnas',
+                'Horas festivas',
+                'Horas nocturnas festivas',
+                'Salario base devengado',
+                'Auxilio transporte',
+                'Comisiones',
+                'Valor horas normales',
+                'Valor extra diurna',
+                'Valor extra nocturna',
+                'Valor horas festivas',
+                'Valor nocturnas festivas',
+                'Total devengado',
+                'Salud',
+                'Pension',
+                'Otros descuentos',
+                'Total deducciones',
+                'Neto a pagar',
+                'Fecha liquidacion',
+            ], ';', '"', '\\');
+
+            foreach ($nominas as $nomina) {
+                fputcsv($output, [
+                    $nomina->contratacion?->tipo_documento,
+                    $nomina->contratacion?->numero_documento,
+                    $nomina->empleado?->name,
+                    $nomina->empleado?->email,
+                    $nomina->contratacion?->cargo,
+                    $nomina->periodo_inicio?->format('Y-m-d'),
+                    $nomina->periodo_fin?->format('Y-m-d'),
+                    $nomina->horas_normales,
+                    $nomina->horas_extras_diurnas,
+                    $nomina->horas_extras_nocturnas,
+                    $nomina->horas_festivas,
+                    $nomina->horas_nocturnas_festivas,
+                    $nomina->salario_base_devengado,
+                    $nomina->auxilio_transporte,
+                    $nomina->total_comisiones,
+                    $nomina->valor_horas_normales,
+                    $nomina->valor_horas_extras_diurnas,
+                    $nomina->valor_horas_extras_nocturnas,
+                    $nomina->valor_horas_festivas,
+                    $nomina->valor_horas_nocturnas_festivas,
+                    $nomina->total_devengado,
+                    $nomina->deduccion_salud,
+                    $nomina->deduccion_pension,
+                    $nomina->total_descuentos_adicionales,
+                    $nomina->total_deducciones,
+                    $nomina->salario_neto,
+                    $nomina->fecha_liquidacion?->format('Y-m-d H:i:s'),
+                ], ';', '"', '\\');
+            }
+
+            fputcsv($output, [
+                'TOTAL',
+                '',
+                count($nominas).' empleados',
+                '',
+                '',
+                '',
+                '',
+                $nominas->sum('horas_normales'),
+                $nominas->sum('horas_extras_diurnas'),
+                $nominas->sum('horas_extras_nocturnas'),
+                $nominas->sum('horas_festivas'),
+                $nominas->sum('horas_nocturnas_festivas'),
+                ...array_map(fn ($column) => $nominas->sum($column), $moneyColumns),
+                '',
+            ], ';', '"', '\\');
+
+            fclose($output);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 
     public function desprendible($uuid)
@@ -205,7 +357,7 @@ class NominaController extends Controller
         ])->where('uuid', $uuid)->firstOrFail();
 
         $pdf = Pdf::loadView('pdf.desprendible_pago', [
-            'nomina'  => $nomina,
+            'nomina' => $nomina,
             'empresa' => $nomina->contratacion?->empresa,
         ])->setPaper('letter', 'portrait');
 
@@ -226,7 +378,7 @@ class NominaController extends Controller
             'correo' => 'required|email|max:255',
         ], [
             'correo.required' => 'Debes indicar un correo para enviar el desprendible.',
-            'correo.email'    => 'El correo debe ser un correo electrónico válido.',
+            'correo.email' => 'El correo debe ser un correo electrónico válido.',
         ]);
 
         if ($validator->fails()) {
@@ -237,14 +389,14 @@ class NominaController extends Controller
         }
 
         $pdf = Pdf::loadView('pdf.desprendible_pago', [
-            'nomina'  => $nomina,
+            'nomina' => $nomina,
             'empresa' => $nomina->contratacion?->empresa,
         ])->setPaper('letter', 'portrait');
 
         $nombreArchivo = "desprendible_{$nomina->uuid}.pdf";
 
         Mail::raw(
-            "Adjuntamos el desprendible de pago solicitado.",
+            'Adjuntamos el desprendible de pago solicitado.',
             function ($message) use ($correo, $pdf, $nombreArchivo) {
                 $message->to($correo)
                     ->subject('Desprendible de pago')
