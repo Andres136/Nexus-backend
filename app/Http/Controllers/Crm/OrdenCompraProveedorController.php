@@ -52,6 +52,29 @@ public function index(Request $request,OrdenCompraService $estadoService)
         // Los admins ven todo (incluyendo NULL)
     })
 
+    ->when($request->filled('proveedor_id'), function ($q) use ($request) {
+        $q->where('proveedor_id', $request->proveedor_id);
+    })
+    ->orderByRaw("
+        CASE
+            WHEN (
+                SELECT SUM(d.cantidad_entregada)
+                FROM orden_compra_proveedor_detalles d
+                WHERE d.orden_id = orden_compra_proveedores.id
+            ) = 0 OR (
+                SELECT COUNT(*) FROM orden_compra_proveedor_detalles d2
+                WHERE d2.orden_id = orden_compra_proveedores.id
+            ) = 0 THEN 0
+            WHEN (
+                SELECT COUNT(*)
+                FROM orden_compra_proveedor_detalles d3
+                WHERE d3.orden_id = orden_compra_proveedores.id
+                AND d3.cantidad_entregada < d3.cantidad_solicitada
+            ) > 0 THEN 1
+            ELSE 2
+        END
+    ")
+
     ->orderByRaw("CASE WHEN sede_id = ? THEN 0 ELSE 1 END", [$user->sede_id ?? 0])
     ->orderBy('id', 'desc');
 
@@ -92,7 +115,8 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
     });
 }
 
-    $ordenes = $query->paginate(10);
+    $perPage = min(max($request->integer('per_page', 10), 1), 100);
+    $ordenes = $query->paginate($perPage);
 
  
     $ordenes= $estadoService->procesar($ordenes, $user);
