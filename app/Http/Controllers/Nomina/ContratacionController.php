@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Nomina\StoreContratacionRequest;
 use App\Http\Requests\Nomina\UpdateContratacionRequest;
 use App\Models\Nomina\Contratacion;
+use App\Services\Nomina\ConfiguracionNominaService;
 use App\Services\Nomina\ContratacionService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -146,6 +147,7 @@ class ContratacionController extends Controller
             'empresa'      => $contratacion->empresa,
             'dirigido_a'   => $request->input('dirigido_a'),
             'fecha_actual' => now()->locale('es')->translatedFormat('d \d\e F \d\e Y'),
+            'firmaTalentoHumanoPath' => app(ConfiguracionNominaService::class)->firmaTalentoHumanoPath(),
         ])->setPaper('letter', 'portrait');
 
         return $pdf->download("certificado_{$contratacion->uuid}.pdf");
@@ -177,6 +179,7 @@ class ContratacionController extends Controller
             'empresa'      => $contratacion->empresa,
             'dirigido_a'   => $request->input('dirigido_a'),
             'fecha_actual' => now()->locale('es')->translatedFormat('d \d\e F \d\e Y'),
+            'firmaTalentoHumanoPath' => app(ConfiguracionNominaService::class)->firmaTalentoHumanoPath(),
         ])->setPaper('letter', 'portrait');
 
         $nombreArchivo = "certificado_{$contratacion->uuid}.pdf";

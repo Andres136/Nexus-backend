@@ -174,19 +174,31 @@ table { border-collapse: collapse; width: 100%; }
 {{-- Firmas --}}
 <table class="w100" style="margin-top:30px;">
 <tr>
-  <td style="width:45%; text-align:center; border-top:1px solid #999; padding-top:4px;">
+  <td style="width:45%; text-align:center; padding-top:4px;">
+    <div style="border-top:1px solid #999; padding-top:4px;">
     <div style="font-size:9px; color:#555;">Firma Empleado / {{ strtoupper($nomina->empleado->name ?? '') }}</div>
+    </div>
   </td>
   <td style="width:10%;"></td>
-  <td style="width:45%; text-align:center; border-top:1px solid #999; padding-top:4px;">
-    <div style="font-size:9px; color:#555;">Firma Empresa / {{ $empresa->nombre ?? 'SETASPLAST S.A.S.' }}</div>
+  <td style="width:45%; text-align:center; padding-top:4px;">
+    @if(!empty($firmaTalentoHumanoPath))
+      <img src="{{ $firmaTalentoHumanoPath }}" style="max-width:150px; max-height:48px; display:block; margin:0 auto 2px;" alt="Firma Talento Humano">
+    @endif
+    <div style="border-top:1px solid #999; padding-top:4px;">
+      <div style="font-size:9px; color:#555;">Firma Empresa / Talento Humano</div>
+      <div style="font-size:9px; color:#333; line-height:1.45; margin-top:4px; text-transform:uppercase;">
+        <strong style="font-size:10px; color:#111;">KRYSTELL RUIZ SANCHEZ</strong><br>
+        COORDINACION ADMINISTRATIVA Y RECURSOS HUMANOS<br>
+        3134924743<br>
+        WWW.SETASPLAST.COM.CO
+      </div>
+    </div>
   </td>
 </tr>
 </table>
 
 <div class="footer">
-  Generado por el sistema Nexus · {{ now()->format('d/m/Y H:i') }} ·
-  Este comprobante es válido sin firma para fines informativos.
+  Generado por el sistema Nexus · {{ now()->format('d/m/Y H:i') }}
 </div>
 
 </body>

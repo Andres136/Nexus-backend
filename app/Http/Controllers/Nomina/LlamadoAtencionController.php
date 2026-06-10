@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Nomina;
 use App\Http\Controllers\Controller;
 use App\Models\Nomina\Contratacion;
 use App\Models\Nomina\LlamadoAtencion;
+use App\Services\Nomina\ConfiguracionNominaService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -82,6 +83,7 @@ class LlamadoAtencionController extends Controller
             'descripcion' => $descripcion,
             'empresa'     => $llamado->contratacion?->empresa,
             'fecha_actual'=> now()->locale('es')->translatedFormat('d \d\e F \d\e Y'),
+            'firmaTalentoHumanoPath' => app(ConfiguracionNominaService::class)->firmaTalentoHumanoPath(),
         ])->setPaper('letter', 'portrait');
 
         return $pdf->download("llamado_{$llamado->uuid}.pdf");

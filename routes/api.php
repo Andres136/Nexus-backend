@@ -548,6 +548,7 @@ Route::prefix('nomina/portal')->group(function () {
 Route::prefix('nomina')->group(function () {
     Route::get('configuracion', [ConfiguracionNominaController::class, 'show']);
     Route::put('configuracion', [ConfiguracionNominaController::class, 'update']);
+    Route::post('configuracion/firma', [ConfiguracionNominaController::class, 'subirFirma']);
     Route::get('horario-operacion/hoy', [HorarioOperacionDiariaController::class, 'show']);
     Route::put('horario-operacion/hoy', [HorarioOperacionDiariaController::class, 'update']);
     Route::apiResource('empresas', EmpresaController::class);

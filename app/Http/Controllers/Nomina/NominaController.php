@@ -9,6 +9,7 @@ use App\Http\Requests\Nomina\StoreNominaRequest;
 use App\Http\Requests\Nomina\UpdateNominaRequest;
 use App\Models\Nomina\Contratacion;
 use App\Models\Nomina\Nomina;
+use App\Services\Nomina\ConfiguracionNominaService;
 use App\Services\Nomina\NominaService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -259,6 +260,7 @@ class NominaController extends Controller
         $pdf = Pdf::loadView('pdf.desprendible_pago', [
             'nomina' => $nomina,
             'empresa' => $nomina->contratacion?->empresa,
+            'firmaTalentoHumanoPath' => app(ConfiguracionNominaService::class)->firmaTalentoHumanoPath(),
         ])->setPaper('letter', 'portrait');
 
         return $pdf->download("desprendible_{$nomina->uuid}.pdf");
@@ -291,6 +293,7 @@ class NominaController extends Controller
         $pdf = Pdf::loadView('pdf.desprendible_pago', [
             'nomina' => $nomina,
             'empresa' => $nomina->contratacion?->empresa,
+            'firmaTalentoHumanoPath' => app(ConfiguracionNominaService::class)->firmaTalentoHumanoPath(),
         ])->setPaper('letter', 'portrait');
 
         $nombreArchivo = "desprendible_{$nomina->uuid}.pdf";

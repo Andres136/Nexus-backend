@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Nomina\UpdateConfiguracionNominaRequest;
 use App\Services\Nomina\ConfiguracionNominaService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class ConfiguracionNominaController extends Controller
@@ -38,6 +39,28 @@ class ConfiguracionNominaController extends Controller
         } catch (\Exception $e) {
             Log::error('Error al guardar configuración de nómina', ['error' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => 'Error al guardar la configuración de nómina.'], 500);
+        }
+    }
+
+    public function subirFirma(Request $request): JsonResponse
+    {
+        $request->validate([
+            'firma' => 'required|image|mimes:jpg,jpeg,png|max:2048',
+        ], [
+            'firma.required' => 'Debes seleccionar una imagen de firma.',
+            'firma.image' => 'El archivo debe ser una imagen válida.',
+            'firma.mimes' => 'La firma debe ser JPG, JPEG o PNG.',
+        ]);
+
+        try {
+            return response()->json([
+                'success' => true,
+                'message' => 'Firma de Talento Humano guardada correctamente.',
+                'data' => $this->configuracionNominaService->guardarFirma($request->file('firma')),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al guardar firma de Talento Humano', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al guardar la firma de Talento Humano.'], 500);
         }
     }
 }

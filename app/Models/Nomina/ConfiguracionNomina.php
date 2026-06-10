@@ -17,6 +17,7 @@ class ConfiguracionNomina extends Model
         'nombre',
         'porcentaje_salud_empleado',
         'porcentaje_pension_empleado',
+        'firma_talento_humano',
         'status',
     ];
 

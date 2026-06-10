@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Nomina;
 use App\Http\Controllers\Controller;
 use App\Models\Nomina\Contratacion;
 use App\Models\Nomina\Descargo;
+use App\Services\Nomina\ConfiguracionNominaService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -73,6 +74,7 @@ class DescargoController extends Controller
             'descargo'    => $descargo,
             'empresa'     => $descargo->contratacion?->empresa,
             'fecha_actual'=> now()->locale('es')->translatedFormat('d \d\e F \d\e Y'),
+            'firmaTalentoHumanoPath' => app(ConfiguracionNominaService::class)->firmaTalentoHumanoPath(),
         ])->setPaper('letter', 'portrait');
 
         return $pdf->download("descargo_{$descargo->uuid}.pdf");

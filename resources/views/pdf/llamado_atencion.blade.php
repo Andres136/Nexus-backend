@@ -45,7 +45,10 @@ table { border-collapse: collapse; width: 100%; }
 
 .firma-table { margin-top: 50px; }
 .firma-table td { text-align: center; font-size: 9px; color: #555; vertical-align: bottom; padding: 0 20px; }
-.firma-linea { border-top: 1px solid #555; margin-top: 50px; padding-top: 5px; }
+.firma-img { max-width: 150px; max-height: 48px; display: block; margin: 0 auto 2px; }
+.firma-linea { border-top: 1px solid #555; margin-top: 8px; padding-top: 5px; }
+.firma-th { font-size: 9px; color: #333; line-height: 1.45; margin-top: 4px; text-transform: uppercase; }
+.firma-th strong { font-size: 10px; color: #111; }
 
 .footer { margin-top: 20px; border-top: 1px solid {{ $colorBord }}; padding-top: 6px; font-size: 8px; color: #aaa; text-align: center; }
 </style>
@@ -124,8 +127,17 @@ table { border-collapse: collapse; width: 100%; }
     <div style="margin-top:6px; font-size:9px; color:#888;">Fecha: ____ / ____ / ______</div>
   </td>
   <td>
+    @if(!empty($firmaTalentoHumanoPath))
+      <img src="{{ $firmaTalentoHumanoPath }}" class="firma-img" alt="Firma Talento Humano">
+    @endif
     <div class="firma-linea">
-      Firma Empresa<br><strong>{{ $empresa->nombre ?? 'SETASPLAST S.A.S.' }}</strong><br>Gerencia / Recursos Humanos
+      Firma Empresa<br>
+      <div class="firma-th">
+        <strong>KRYSTELL RUIZ SANCHEZ</strong><br>
+        COORDINACION ADMINISTRATIVA Y RECURSOS HUMANOS<br>
+        3134924743<br>
+        WWW.SETASPLAST.COM.CO
+      </div>
     </div>
     <div style="margin-top:6px; font-size:9px; color:#888;">Fecha: ____ / ____ / ______</div>
   </td>

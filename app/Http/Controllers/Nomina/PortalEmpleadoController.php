@@ -9,6 +9,7 @@ use App\Models\Nomina\Licencia;
 use App\Models\Nomina\Nomina;
 use App\Models\Nomina\Permiso;
 use App\Models\Nomina\Vacacion;
+use App\Services\Nomina\ConfiguracionNominaService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -53,6 +54,7 @@ class PortalEmpleadoController extends Controller
                 'empresa'      => $contratacion->empresa,
                 'dirigido_a'   => $request->input('dirigido_a'),
                 'fecha_actual' => now()->locale('es')->translatedFormat('d \d\e F \d\e Y'),
+                'firmaTalentoHumanoPath' => app(ConfiguracionNominaService::class)->firmaTalentoHumanoPath(),
             ])->setPaper('letter', 'portrait');
 
             return $pdf->download("certificado_{$contratacion->uuid}.pdf");
@@ -85,6 +87,7 @@ class PortalEmpleadoController extends Controller
                 'empresa'      => $contratacion->empresa,
                 'dirigido_a'   => $request->input('dirigido_a'),
                 'fecha_actual' => now()->locale('es')->translatedFormat('d \d\e F \d\e Y'),
+                'firmaTalentoHumanoPath' => app(ConfiguracionNominaService::class)->firmaTalentoHumanoPath(),
             ])->setPaper('letter', 'portrait');
 
             $nombreArchivo = "certificado_{$contratacion->uuid}.pdf";
