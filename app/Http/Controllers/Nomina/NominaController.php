@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Nomina;
 
+use App\Exports\NominaPlanoExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Nomina\LiquidarNominaRequest;
 use App\Http\Requests\Nomina\StoreNominaRequest;
@@ -15,7 +16,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class NominaController extends Controller
 {
@@ -207,7 +209,7 @@ class NominaController extends Controller
         }
     }
 
-    public function exportarPlano(Request $request): JsonResponse|StreamedResponse
+    public function exportarPlano(Request $request): JsonResponse|BinaryFileResponse
     {
         $validator = Validator::make($request->query(), [
             'periodo_inicio' => 'required|date',
@@ -241,114 +243,9 @@ class NominaController extends Controller
             ], 422);
         }
 
-        $filename = "nomina_liquidada_{$inicio}_{$fin}.csv";
-        $moneyColumns = [
-            'salario_base_devengado',
-            'auxilio_transporte',
-            'total_comisiones',
-            'total_novedades_retroactivas',
-            'valor_horas_normales',
-            'valor_horas_extras_diurnas',
-            'valor_horas_extras_nocturnas',
-            'valor_horas_festivas',
-            'valor_horas_nocturnas_festivas',
-            'total_devengado',
-            'deduccion_salud',
-            'deduccion_pension',
-            'total_descuentos_adicionales',
-            'total_deducciones',
-            'salario_neto',
-        ];
+        $filename = "nomina_liquidada_{$inicio}_{$fin}.xlsx";
 
-        return response()->streamDownload(function () use ($nominas, $moneyColumns) {
-            $output = fopen('php://output', 'w');
-            fwrite($output, "\xEF\xBB\xBF");
-
-            fputcsv($output, [
-                'Tipo documento',
-                'Documento',
-                'Empleado',
-                'Correo',
-                'Cargo',
-                'Periodo inicio',
-                'Periodo fin',
-                'Horas normales',
-                'Horas extra diurnas',
-                'Horas extra nocturnas',
-                'Horas festivas',
-                'Horas nocturnas festivas',
-                'Salario base devengado',
-                'Auxilio transporte',
-                'Comisiones',
-                'Novedades retroactivas',
-                'Valor horas normales',
-                'Valor extra diurna',
-                'Valor extra nocturna',
-                'Valor horas festivas',
-                'Valor nocturnas festivas',
-                'Total devengado',
-                'Salud',
-                'Pension',
-                'Otros descuentos',
-                'Total deducciones',
-                'Neto a pagar',
-                'Fecha liquidacion',
-            ], ';', '"', '\\');
-
-            foreach ($nominas as $nomina) {
-                fputcsv($output, [
-                    $nomina->contratacion?->tipo_documento,
-                    $nomina->contratacion?->numero_documento,
-                    $nomina->empleado?->name,
-                    $nomina->empleado?->email,
-                    $nomina->contratacion?->cargo,
-                    $nomina->periodo_inicio?->format('Y-m-d'),
-                    $nomina->periodo_fin?->format('Y-m-d'),
-                    $nomina->horas_normales,
-                    $nomina->horas_extras_diurnas,
-                    $nomina->horas_extras_nocturnas,
-                    $nomina->horas_festivas,
-                    $nomina->horas_nocturnas_festivas,
-                    $nomina->salario_base_devengado,
-                    $nomina->auxilio_transporte,
-                    $nomina->total_comisiones,
-                    $nomina->total_novedades_retroactivas,
-                    $nomina->valor_horas_normales,
-                    $nomina->valor_horas_extras_diurnas,
-                    $nomina->valor_horas_extras_nocturnas,
-                    $nomina->valor_horas_festivas,
-                    $nomina->valor_horas_nocturnas_festivas,
-                    $nomina->total_devengado,
-                    $nomina->deduccion_salud,
-                    $nomina->deduccion_pension,
-                    $nomina->total_descuentos_adicionales,
-                    $nomina->total_deducciones,
-                    $nomina->salario_neto,
-                    $nomina->fecha_liquidacion?->format('Y-m-d H:i:s'),
-                ], ';', '"', '\\');
-            }
-
-            fputcsv($output, [
-                'TOTAL',
-                '',
-                count($nominas).' empleados',
-                '',
-                '',
-                '',
-                '',
-                $nominas->sum('horas_normales'),
-                $nominas->sum('horas_extras_diurnas'),
-                $nominas->sum('horas_extras_nocturnas'),
-                $nominas->sum('horas_festivas'),
-                $nominas->sum('horas_nocturnas_festivas'),
-                ...array_map(fn ($column) => $nominas->sum($column), $moneyColumns),
-                '',
-            ], ';', '"', '\\');
-
-            fclose($output);
-        }, $filename, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-        ]);
+        return Excel::download(new NominaPlanoExport($nominas, $inicio, $fin), $filename);
     }
 
     public function desprendible($uuid)
