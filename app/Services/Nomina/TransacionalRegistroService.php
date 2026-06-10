@@ -123,6 +123,7 @@ class TransacionalRegistroService
             $session->horario_laboral_id  = $horarioLaboralId;
             $session->minutos_trabajados  = 0;
             $session->minutos_pausa       = 0;
+            $session->minutos_almuerzo    = 0;
             $session->minutos_tardanza    = 0;
         }
 
@@ -136,6 +137,10 @@ class TransacionalRegistroService
 
         } elseif (str_contains($tipo, 'almuerzo') || str_contains($tipo, 'regreso almuerzo')) {
             $session->hora_ingreso_almuerzo = $cuando;
+            if ($session->hora_salida_almuerzo) {
+                $session->minutos_almuerzo = (int) Carbon::parse($session->hora_salida_almuerzo)
+                    ->diffInMinutes($cuando);
+            }
 
         } elseif (str_contains($tipo, 'pausa') && (str_contains($tipo, 'inicio') || str_contains($tipo, 'salida'))) {
             $session->hora_salida_brake = $cuando;
@@ -151,7 +156,7 @@ class TransacionalRegistroService
             $session->hora_salida = $cuando;
             if ($session->hora_entrada) {
                 $minutos = (int) Carbon::parse($session->hora_entrada)->diffInMinutes($cuando);
-                $session->minutos_trabajados = max(0, $minutos - ($session->minutos_pausa ?? 0));
+                $session->minutos_trabajados = max(0, $minutos - ($session->minutos_almuerzo ?? 0));
             }
         }
 

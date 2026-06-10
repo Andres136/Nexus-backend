@@ -166,7 +166,7 @@ class WorkSessionService
 
         if ($entrada && $salida) {
             $minutos = (int) Carbon::parse($entrada)->diffInMinutes(Carbon::parse($salida));
-            $data['minutos_trabajados'] = max(0, $minutos - $pausaMinutos - $almuerzoMinutos);
+            $data['minutos_trabajados'] = max(0, $minutos - $almuerzoMinutos);
         }
 
         return $data;
