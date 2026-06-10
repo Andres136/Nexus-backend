@@ -80,6 +80,16 @@ class ClienteController extends Controller
             return response()->json(['message' => 'No autorizado'], 403);
         }
 
+        if (!$result['puede_cambiar_estado']) {
+            $faltantes = $result['gestiones_requeridas'] - $result['total_gestiones'];
+
+            return response()->json([
+                'message' => "Debes registrar al menos 3 gestiones propias antes de desactivar este cliente. Te faltan {$faltantes}.",
+                'total_gestiones' => $result['total_gestiones'],
+                'gestiones_requeridas' => $result['gestiones_requeridas'],
+            ], 422);
+        }
+
         return response()->json([
             'message'   => 'Estado del cliente actualizado correctamente',
             'estado_id' => $result['estado_id'],
