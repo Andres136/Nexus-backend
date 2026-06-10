@@ -19,7 +19,6 @@ class Contratacion extends Model
         'id_contrato',
         'users_id',
         'empresa_id',
-        'centro_costo',
         'tipo_documento',
         'numero_documento',
         'correo',

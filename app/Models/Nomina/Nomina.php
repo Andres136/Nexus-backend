@@ -60,11 +60,6 @@ class Nomina extends Model
         // Resultado
         'salario_neto',
         'liquidada',
-        'estado_contable',
-        'aprobado_contabilidad_por',
-        'fecha_aprobacion_contable',
-        'fecha_cierre_contable',
-        'fecha_exportacion_contable',
         'fecha_liquidacion',
     ];
 
@@ -97,9 +92,6 @@ class Nomina extends Model
         'total_deducciones' => 'decimal:2',
         'salario_neto' => 'decimal:2',
         'liquidada' => 'boolean',
-        'fecha_aprobacion_contable' => 'datetime',
-        'fecha_cierre_contable' => 'datetime',
-        'fecha_exportacion_contable' => 'datetime',
         'fecha_liquidacion' => 'datetime',
         'uuid' => 'string',
     ];

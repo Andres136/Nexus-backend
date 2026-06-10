@@ -16,7 +16,6 @@ class StoreContratacionRequest extends FormRequest
             'id_contrato'          => 'required|integer|exists:tipo_contratos,id',
             'users_id'             => 'required|integer|exists:users,id',
             'empresa_id'           => 'required|integer|exists:empresas,id',
-            'centro_costo'         => 'nullable|string|max:80',
             'tipo_documento'       => 'required|string|in:CC,CE,TI,PA,NIT',
             'numero_documento'     => 'required|string|max:20',
             'correo'                => 'nullable|email|max:255',

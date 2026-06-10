@@ -18,26 +18,11 @@ use App\Models\Nomina\Valor;
 use App\Models\Nomina\WorkSession;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 
 class NominaService
 {
-    private const CUENTAS_PUC = [
-        'sueldo' => '510506',
-        'auxilio_transporte' => '510527',
-        'comisiones' => '510518',
-        'horas_extras' => '510515',
-        'novedades_devengo' => '510595',
-        'otros_devengos' => '510548',
-        'salud' => '237005',
-        'pension' => '237010',
-        'descuentos' => '142005',
-        'neto_pagar' => '250505',
-    ];
-
     private const WITH = [
         'empleado.sede',
         'contratacion.empresa',
@@ -137,123 +122,6 @@ class NominaService
             $nomina->delete();
 
             Log::info('Nómina eliminada', ['uuid' => $nomina->uuid]);
-        });
-    }
-
-    public function aprobarContabilidad(string $uuid): Nomina
-    {
-        return DB::transaction(function () use ($uuid) {
-            $nomina = $this->getByUuid($uuid);
-
-            if (! $nomina->liquidada) {
-                throw new \LogicException('Solo se pueden aprobar nóminas liquidadas.');
-            }
-
-            if (in_array($nomina->estado_contable, ['cerrado', 'exportado'], true)) {
-                throw new \LogicException("La nómina ya está en estado contable {$nomina->estado_contable}.");
-            }
-
-            $nomina->update([
-                'estado_contable' => 'aprobado',
-                'aprobado_contabilidad_por' => Auth::id(),
-                'fecha_aprobacion_contable' => now(),
-            ]);
-
-            Log::info('Nómina aprobada contablemente', [
-                'uuid' => $nomina->uuid,
-                'aprobado_por' => Auth::id(),
-            ]);
-
-            return $nomina->fresh(self::WITH);
-        });
-    }
-
-    public function cerrarPeriodoContable(string $periodoInicio, string $periodoFin): array
-    {
-        return DB::transaction(function () use ($periodoInicio, $periodoFin) {
-            $nominas = $this->nominasPeriodo($periodoInicio, $periodoFin)->lockForUpdate()->get();
-
-            if ($nominas->isEmpty()) {
-                throw new \LogicException('No hay nóminas liquidadas en el período seleccionado.');
-            }
-
-            $pendientes = $nominas->filter(fn ($nomina) => ! in_array($nomina->estado_contable, ['aprobado', 'cerrado', 'exportado'], true));
-            if ($pendientes->isNotEmpty()) {
-                throw new \LogicException('Todas las nóminas del período deben estar aprobadas antes de cerrar.');
-            }
-
-            $ids = $nominas
-                ->filter(fn ($nomina) => $nomina->estado_contable === 'aprobado')
-                ->pluck('id');
-
-            Nomina::whereIn('id', $ids)->update([
-                'estado_contable' => 'cerrado',
-                'fecha_cierre_contable' => now(),
-            ]);
-
-            Log::info('Período contable de nómina cerrado', [
-                'periodo_inicio' => $periodoInicio,
-                'periodo_fin' => $periodoFin,
-                'nominas' => $nominas->count(),
-            ]);
-
-            return [
-                'periodo_inicio' => $periodoInicio,
-                'periodo_fin' => $periodoFin,
-                'nominas' => $nominas->count(),
-            ];
-        });
-    }
-
-    public function exportarPuc(string $periodoInicio, string $periodoFin, bool $marcarExportado = true): array
-    {
-        return DB::transaction(function () use ($periodoInicio, $periodoFin, $marcarExportado) {
-            $nominas = $this->nominasPeriodo($periodoInicio, $periodoFin)->get();
-
-            if ($nominas->isEmpty()) {
-                throw new \LogicException('No hay nóminas liquidadas en el período seleccionado.');
-            }
-
-            $noCerradas = $nominas->filter(fn ($nomina) => ! in_array($nomina->estado_contable, ['cerrado', 'exportado'], true));
-            if ($noCerradas->isNotEmpty()) {
-                throw new \LogicException('El período debe estar cerrado antes de exportar el PUC.');
-            }
-
-            $lineas = [];
-            foreach ($nominas as $nomina) {
-                $lineas = array_merge($lineas, $this->lineasPucNomina($nomina));
-            }
-
-            $lineas = array_values(array_filter($lineas, fn ($linea) => ((float) $linea['debito']) > 0 || ((float) $linea['credito']) > 0));
-            $debito = round(array_sum(array_column($lineas, 'debito')), 2);
-            $credito = round(array_sum(array_column($lineas, 'credito')), 2);
-
-            if ($debito !== $credito) {
-                throw new \LogicException('El comprobante PUC no está balanceado. Revise los conceptos de nómina.');
-            }
-
-            if ($marcarExportado) {
-                $update = [];
-                if (Schema::hasColumn('nomina', 'estado_contable')) {
-                    $update['estado_contable'] = 'exportado';
-                }
-                if (Schema::hasColumn('nomina', 'fecha_exportacion_contable')) {
-                    $update['fecha_exportacion_contable'] = now();
-                }
-                if (! empty($update)) {
-                    Nomina::whereIn('id', $nominas->pluck('id'))->update($update);
-                }
-            }
-
-            return [
-                'periodo_inicio' => $periodoInicio,
-                'periodo_fin' => $periodoFin,
-                'lineas' => $lineas,
-                'totales' => [
-                    'debito' => $debito,
-                    'credito' => $credito,
-                ],
-            ];
         });
     }
 
@@ -584,64 +452,6 @@ class NominaService
         if ($existe) {
             throw new \LogicException('Este empleado ya tiene una nómina liquidada que se cruza con el período seleccionado.');
         }
-    }
-
-    private function nominasPeriodo(string $periodoInicio, string $periodoFin)
-    {
-        return Nomina::with(['empleado:id,name,email', 'contratacion:id,users_id,numero_documento,cargo,centro_costo'])
-            ->where('liquidada', true)
-            ->whereDate('periodo_inicio', '>=', $periodoInicio)
-            ->whereDate('periodo_fin', '<=', $periodoFin)
-            ->orderBy('user_id');
-    }
-
-    private function lineasPucNomina(Nomina $nomina): array
-    {
-        $tercero = $nomina->contratacion?->numero_documento ?? $nomina->empleado?->email ?? $nomina->user_id;
-        $centroCosto = $nomina->contratacion?->centro_costo ?? 'NOMINA';
-        $nombre = $nomina->empleado?->name ?? 'Empleado';
-        $horasExtras = round(
-            (float) $nomina->valor_horas_extras_diurnas
-            + (float) $nomina->valor_horas_extras_nocturnas
-            + (float) $nomina->valor_horas_festivas
-            + (float) $nomina->valor_horas_nocturnas_festivas,
-            2
-        );
-        $novedadDevengo = max(0, (float) $nomina->total_novedades_retroactivas);
-        $devengosClasificados = round(
-            (float) $nomina->salario_base_devengado
-            + (float) $nomina->auxilio_transporte
-            + (float) $nomina->total_comisiones
-            + $horasExtras
-            + $novedadDevengo,
-            2
-        );
-        $otrosDevengos = round(max(0, (float) $nomina->total_devengado - $devengosClasificados), 2);
-
-        return [
-            $this->lineaPuc(self::CUENTAS_PUC['sueldo'], "Sueldos {$nombre}", $tercero, $centroCosto, $nomina->salario_base_devengado, 0),
-            $this->lineaPuc(self::CUENTAS_PUC['auxilio_transporte'], "Auxilio de transporte {$nombre}", $tercero, $centroCosto, $nomina->auxilio_transporte, 0),
-            $this->lineaPuc(self::CUENTAS_PUC['comisiones'], "Comisiones {$nombre}", $tercero, $centroCosto, $nomina->total_comisiones, 0),
-            $this->lineaPuc(self::CUENTAS_PUC['horas_extras'], "Horas extras y recargos {$nombre}", $tercero, $centroCosto, $horasExtras, 0),
-            $this->lineaPuc(self::CUENTAS_PUC['novedades_devengo'], "Novedades retroactivas devengo {$nombre}", $tercero, $centroCosto, $novedadDevengo, 0),
-            $this->lineaPuc(self::CUENTAS_PUC['otros_devengos'], "Otros devengos de nómina {$nombre}", $tercero, $centroCosto, $otrosDevengos, 0),
-            $this->lineaPuc(self::CUENTAS_PUC['salud'], "Aporte salud empleado {$nombre}", $tercero, $centroCosto, 0, $nomina->deduccion_salud),
-            $this->lineaPuc(self::CUENTAS_PUC['pension'], "Aporte pensión empleado {$nombre}", $tercero, $centroCosto, 0, $nomina->deduccion_pension),
-            $this->lineaPuc(self::CUENTAS_PUC['descuentos'], "Descuentos y préstamos {$nombre}", $tercero, $centroCosto, 0, $nomina->total_descuentos_adicionales),
-            $this->lineaPuc(self::CUENTAS_PUC['neto_pagar'], "Nómina por pagar {$nombre}", $tercero, $centroCosto, 0, $nomina->salario_neto),
-        ];
-    }
-
-    private function lineaPuc(string $cuenta, string $concepto, string|int $tercero, string $centroCosto, mixed $debito, mixed $credito): array
-    {
-        return [
-            'cuenta' => $cuenta,
-            'concepto' => $concepto,
-            'tercero' => (string) $tercero,
-            'centro_costo' => $centroCosto,
-            'debito' => round((float) $debito, 2),
-            'credito' => round((float) $credito, 2),
-        ];
     }
 
     private function calcularNovedadesRetroactivas(int $userId, Carbon $inicio, Carbon $fin): array

@@ -580,10 +580,6 @@ Route::prefix('nomina')->group(function () {
     Route::apiResource('work-sessions',    WorkSessionController::class);
 	     Route::get('nominas/resumen',              [NominaController::class, 'resumen']);
 	     Route::get('nominas/exportar-plano',        [NominaController::class, 'exportarPlano']);
-	     Route::get('nominas/exportar-puc',          [NominaController::class, 'exportarPuc']);
-	     Route::get('nominas/exportar-puc/pdf',      [NominaController::class, 'exportarPucPdf']);
-	     Route::get('nominas/exportar-puc/excel',    [NominaController::class, 'exportarPucExcel']);
-	     Route::post('nominas/cerrar-periodo',       [NominaController::class, 'cerrarPeriodo']);
 	     Route::post('nominas/preliquidar',         [NominaController::class, 'preliquidar']);
 	     Route::post('nominas/liquidar',            [NominaController::class, 'liquidar']);
      Route::post('nominas/preliquidar-retiro',  [LiquidacionRetiroController::class, 'preliquidar']);
@@ -596,7 +592,6 @@ Route::prefix('nomina')->group(function () {
      Route::get('liquidaciones-prestaciones',      [LiquidacionPrestacionController::class, 'index']);
 	     Route::get('nominas/{uuid}/desprendible', [NominaController::class, 'desprendible']);
 	     Route::post('nominas/{uuid}/desprendible/enviar', [NominaController::class, 'enviarDesprendible']);
-	     Route::patch('nominas/{uuid}/aprobar-contabilidad', [NominaController::class, 'aprobarContabilidad']);
 	     Route::apiResource('nominas', NominaController::class);
 
      Route::apiResource('horas-extras', HoraExtraController::class)->except(['update']);
