@@ -578,10 +578,14 @@ Route::prefix('nomina')->group(function () {
     Route::apiResource('transacional-registros',   TransacionalRegistroController::class);
     Route::get('transacional-registros/user/{userId}', [TransacionalRegistroController::class, 'byUser']);
     Route::apiResource('work-sessions',    WorkSessionController::class);
-     Route::get('nominas/resumen',              [NominaController::class, 'resumen']);
-     Route::get('nominas/exportar-plano',        [NominaController::class, 'exportarPlano']);
-     Route::post('nominas/preliquidar',         [NominaController::class, 'preliquidar']);
-     Route::post('nominas/liquidar',            [NominaController::class, 'liquidar']);
+	     Route::get('nominas/resumen',              [NominaController::class, 'resumen']);
+	     Route::get('nominas/exportar-plano',        [NominaController::class, 'exportarPlano']);
+	     Route::get('nominas/exportar-puc',          [NominaController::class, 'exportarPuc']);
+	     Route::get('nominas/exportar-puc/pdf',      [NominaController::class, 'exportarPucPdf']);
+	     Route::get('nominas/exportar-puc/excel',    [NominaController::class, 'exportarPucExcel']);
+	     Route::post('nominas/cerrar-periodo',       [NominaController::class, 'cerrarPeriodo']);
+	     Route::post('nominas/preliquidar',         [NominaController::class, 'preliquidar']);
+	     Route::post('nominas/liquidar',            [NominaController::class, 'liquidar']);
      Route::post('nominas/preliquidar-retiro',  [LiquidacionRetiroController::class, 'preliquidar']);
      Route::post('nominas/liquidar-retiro',      [LiquidacionRetiroController::class, 'liquidar']);
      Route::get('liquidaciones-retiro', [LiquidacionRetiroController::class, 'index']);
@@ -590,9 +594,10 @@ Route::prefix('nomina')->group(function () {
      Route::post('nominas/preliquidar-prestacion', [LiquidacionPrestacionController::class, 'preliquidar']);
      Route::post('nominas/liquidar-prestacion',    [LiquidacionPrestacionController::class, 'liquidar']);
      Route::get('liquidaciones-prestaciones',      [LiquidacionPrestacionController::class, 'index']);
-     Route::get('nominas/{uuid}/desprendible', [NominaController::class, 'desprendible']);
-     Route::post('nominas/{uuid}/desprendible/enviar', [NominaController::class, 'enviarDesprendible']);
-     Route::apiResource('nominas', NominaController::class);
+	     Route::get('nominas/{uuid}/desprendible', [NominaController::class, 'desprendible']);
+	     Route::post('nominas/{uuid}/desprendible/enviar', [NominaController::class, 'enviarDesprendible']);
+	     Route::patch('nominas/{uuid}/aprobar-contabilidad', [NominaController::class, 'aprobarContabilidad']);
+	     Route::apiResource('nominas', NominaController::class);
 
      Route::apiResource('horas-extras', HoraExtraController::class)->except(['update']);
      Route::patch('horas-extras/{uuid}/aprobar',  [HoraExtraController::class, 'aprobar']);

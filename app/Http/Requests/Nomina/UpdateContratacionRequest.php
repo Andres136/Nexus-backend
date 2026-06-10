@@ -14,6 +14,7 @@ class UpdateContratacionRequest extends FormRequest
             'id_contrato'          => 'sometimes|integer|exists:tipo_contratos,id',
             'users_id'             => 'sometimes|integer|exists:users,id',
             'empresa_id'           => 'sometimes|integer|exists:empresas,id',
+            'centro_costo'         => 'nullable|string|max:80',
             'tipo_documento'       => 'sometimes|string|in:CC,CE,TI,PA,NIT',
             'numero_documento'     => 'sometimes|string|max:20',
             'correo'                => 'nullable|email|max:255',

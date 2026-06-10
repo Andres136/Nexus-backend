@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Nomina;
 
+use App\Exports\NominaPucExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Nomina\LiquidarNominaRequest;
 use App\Http\Requests\Nomina\StoreNominaRequest;
@@ -15,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class NominaController extends Controller
@@ -349,6 +351,125 @@ class NominaController extends Controller
         }, $filename, [
             'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
+    }
+
+    public function aprobarContabilidad(string $uuid): JsonResponse
+    {
+        try {
+            return response()->json([
+                'success' => true,
+                'message' => 'Nómina aprobada contablemente.',
+                'data' => $this->nominaService->aprobarContabilidad($uuid),
+            ]);
+        } catch (\LogicException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Exception $e) {
+            Log::error('Error al aprobar nómina contablemente', ['uuid' => $uuid, 'error' => $e->getMessage()]);
+
+            return response()->json(['success' => false, 'message' => 'Error al aprobar la nómina contablemente.'], 500);
+        }
+    }
+
+    public function cerrarPeriodo(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'periodo_inicio' => 'required|date',
+            'periodo_fin' => 'required|date|after_or_equal:periodo_inicio',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
+        }
+
+        try {
+            return response()->json([
+                'success' => true,
+                'message' => 'Período contable de nómina cerrado.',
+                'data' => $this->nominaService->cerrarPeriodoContable($request->periodo_inicio, $request->periodo_fin),
+            ]);
+        } catch (\LogicException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Exception $e) {
+            Log::error('Error al cerrar período contable de nómina', ['error' => $e->getMessage()]);
+
+            return response()->json(['success' => false, 'message' => 'Error al cerrar el período contable.'], 500);
+        }
+    }
+
+    public function exportarPuc(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->query(), [
+            'periodo_inicio' => 'required|date',
+            'periodo_fin' => 'required|date|after_or_equal:periodo_inicio',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
+        }
+
+        try {
+            return response()->json([
+                'success' => true,
+                'message' => 'PUC de nómina exportado.',
+                'data' => $this->nominaService->exportarPuc($request->query('periodo_inicio'), $request->query('periodo_fin')),
+            ]);
+        } catch (\LogicException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Exception $e) {
+            Log::error('Error al exportar PUC de nómina', ['error' => $e->getMessage()]);
+
+            return response()->json(['success' => false, 'message' => 'Error al exportar el PUC de nómina.'], 500);
+        }
+    }
+
+    public function exportarPucPdf(Request $request)
+    {
+        $validator = Validator::make($request->query(), [
+            'periodo_inicio' => 'required|date',
+            'periodo_fin' => 'required|date|after_or_equal:periodo_inicio',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
+        }
+
+        try {
+            $data = $this->nominaService->exportarPuc($request->query('periodo_inicio'), $request->query('periodo_fin'), false);
+            $pdf = Pdf::loadView('pdf.nomina_puc', $data)->setPaper('letter', 'landscape');
+
+            return $pdf->download("puc_nomina_{$data['periodo_inicio']}_{$data['periodo_fin']}.pdf");
+        } catch (\LogicException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Exception $e) {
+            Log::error('Error al exportar PDF PUC de nómina', ['error' => $e->getMessage()]);
+
+            return response()->json(['success' => false, 'message' => 'Error al exportar el PDF del PUC de nómina.'], 500);
+        }
+    }
+
+    public function exportarPucExcel(Request $request)
+    {
+        $validator = Validator::make($request->query(), [
+            'periodo_inicio' => 'required|date',
+            'periodo_fin' => 'required|date|after_or_equal:periodo_inicio',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
+        }
+
+        try {
+            $data = $this->nominaService->exportarPuc($request->query('periodo_inicio'), $request->query('periodo_fin'));
+            $filename = "puc_nomina_{$data['periodo_inicio']}_{$data['periodo_fin']}.xlsx";
+
+            return Excel::download(new NominaPucExport($data), $filename);
+        } catch (\LogicException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Exception $e) {
+            Log::error('Error al exportar Excel PUC de nómina', ['error' => $e->getMessage()]);
+
+            return response()->json(['success' => false, 'message' => 'Error al exportar el Excel del PUC de nómina.'], 500);
+        }
     }
 
     public function desprendible($uuid)
