@@ -7,6 +7,51 @@ use Illuminate\Support\Facades\DB;
 
 class ComercialDashboardService
 {
+    public function getResumenMesActual(?int $userId = null): array
+    {
+        $mesActual = now()->format('Y-m');
+        $metricas = collect($this->getMesAMes($userId, now()->startOfMonth()->toDateTimeString()))
+            ->where('mes', $mesActual)
+            ->keyBy('user_id');
+
+        $usuarios = DB::table('users')
+            ->join('clientes', 'clientes.user_id', '=', 'users.id')
+            ->when($userId, fn ($query) => $query->where('users.id', $userId))
+            ->select('users.id', 'users.name')
+            ->distinct()
+            ->orderBy('users.name')
+            ->get();
+
+        $clientesActivos = DB::table('clientes')
+            ->where('estado_id', EstadoEnum::ACTIVO->value)
+            ->when($userId, fn ($query) => $query->where('user_id', $userId))
+            ->select('user_id', DB::raw('COUNT(*) as total'))
+            ->groupBy('user_id')
+            ->pluck('total', 'user_id');
+
+        return $usuarios->map(function ($usuario) use ($metricas, $clientesActivos, $mesActual) {
+            $metrica = $metricas->get($usuario->id, []);
+            $asignados = (int) ($clientesActivos[$usuario->id] ?? 0);
+            $gestionados = (int) ($metrica['clientes_gestionados'] ?? 0);
+
+            return [
+                'user_id' => $usuario->id,
+                'usuario' => $usuario->name,
+                'mes' => $mesActual,
+                'clientes_activos' => $asignados,
+                'gestiones' => (int) ($metrica['gestiones'] ?? 0),
+                'clientes_gestionados' => $gestionados,
+                'cobertura_clientes_pct' => $asignados > 0
+                    ? round(($gestionados / $asignados) * 100, 2)
+                    : 0,
+                'cotizaciones' => (int) ($metrica['cotizaciones'] ?? 0),
+                'ordenes' => (int) ($metrica['ordenes'] ?? 0),
+                'valor_ventas' => (float) ($metrica['valor_ventas'] ?? 0),
+                'conversion_pct' => (float) ($metrica['conversion_pct'] ?? 0),
+            ];
+        })->values()->all();
+    }
+
     public function getMesAMes(?int $userId, string $inicio): array
     {
         $inactivo = EstadoEnum::INACTIVO->value;
