@@ -96,4 +96,9 @@ class Contratacion extends Model
     {
         return $this->hasOne(LiquidacionRetiro::class, 'contratacion_id');
     }
+
+    public function historialSalarial()
+    {
+        return $this->hasMany(HistorialSalarialContratacion::class, 'contratacion_id');
+    }
 }

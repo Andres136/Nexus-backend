@@ -78,6 +78,7 @@ use App\Http\Controllers\Nomina\HorarioLaboralController;
 use App\Http\Controllers\Nomina\TransacionalRegistroController;
 use App\Http\Controllers\Nomina\KioskoDeviceController;
 use App\Http\Controllers\Nomina\NominaController;
+use App\Http\Controllers\Nomina\AjusteSalarialContratacionController;
 use App\Http\Controllers\Nomina\TipoRegistroController;
 use App\Http\Controllers\Nomina\UsersFacePhotoController;
 use App\Http\Controllers\Nomina\ValorController;
@@ -558,6 +559,7 @@ Route::prefix('nomina')->group(function () {
     Route::post('contratacion/{uuid}/certificado/enviar', [ContratacionController::class, 'enviarCertificado']);
     Route::patch('contratacion/{uuid}/estado', [ContratacionController::class, 'cambiarEstado']);
     Route::apiResource('contratacion', ContratacionController::class);
+    Route::apiResource('ajustes-salariales', AjusteSalarialContratacionController::class)->only(['index', 'store', 'show', 'destroy']);
     Route::apiResource('seguridad-social', SeguridadSocialController::class);
     Route::get('incapacidades/{uuid}/soporte', [IncapacidadController::class, 'soporte']);
     Route::apiResource('incapacidades', IncapacidadController::class);

@@ -25,7 +25,8 @@ class LiquidacionRetiroService
     ];
 
     public function __construct(
-        private readonly NominaService $nominaService
+        private readonly NominaService $nominaService,
+        private readonly AjusteSalarialContratacionService $ajusteSalarialService
     ) {}
 
     public function getByUuid(string $uuid): LiquidacionRetiro
@@ -172,9 +173,13 @@ class LiquidacionRetiroService
         $promedioVariablePrima = $this->promedioVariableMensual($data['user_id'], $inicioPrima, $fechaRetiro, true);
         $promedioComisionesVacaciones = $this->promedioVariableMensual($data['user_id'], $inicioPromedioVacaciones, $fechaRetiro, false);
 
-        $baseCesantias = round((float) $contratacion->base_salario + (float) $contratacion->auxilio_transporte + $promedioVariableCesantias, 2);
-        $basePrima = round((float) $contratacion->base_salario + (float) $contratacion->auxilio_transporte + $promedioVariablePrima, 2);
-        $baseVacaciones = round((float) $contratacion->base_salario + $promedioComisionesVacaciones, 2);
+        $baseSalarialCesantias = $this->ajusteSalarialService->salarioPromedioPeriodo($contratacion, $inicioCesantias, $fechaRetiro);
+        $baseSalarialPrima = $this->ajusteSalarialService->salarioPromedioPeriodo($contratacion, $inicioPrima, $fechaRetiro);
+        $baseSalarialVacaciones = $this->ajusteSalarialService->salarioPromedioPeriodo($contratacion, $inicioPromedioVacaciones, $fechaRetiro);
+
+        $baseCesantias = round((float) $baseSalarialCesantias['salario_mensual'] + (float) $baseSalarialCesantias['auxilio_transporte'] + $promedioVariableCesantias, 2);
+        $basePrima = round((float) $baseSalarialPrima['salario_mensual'] + (float) $baseSalarialPrima['auxilio_transporte'] + $promedioVariablePrima, 2);
+        $baseVacaciones = round((float) $baseSalarialVacaciones['salario_mensual'] + $promedioComisionesVacaciones, 2);
 
         $cesantias = round($baseCesantias * $diasCesantias / 360, 2);
         $interesesCesantias = round($cesantias * $diasCesantias * 0.12 / 360, 2);

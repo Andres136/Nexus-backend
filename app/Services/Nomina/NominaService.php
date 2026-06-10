@@ -47,6 +47,10 @@ class NominaService
 
     private const HORA_FIN_NOCTURNA = '06:00:00';
 
+    public function __construct(
+        private readonly AjusteSalarialContratacionService $ajusteSalarialService
+    ) {}
+
     public function getAll(array $filters = []): LengthAwarePaginator
     {
         $perPage = $filters['per_page'] ?? 15;
@@ -228,6 +232,12 @@ class NominaService
             throw new \LogicException('El contrato activo no cubre el período seleccionado.');
         }
 
+        $baseSalarial = $this->ajusteSalarialService->salarioPromedioPeriodo(
+            $contratacion,
+            $inicioLiquidable,
+            $finLiquidable->copy()->startOfDay()
+        );
+
         $sessions = WorkSession::where('user_id', $userId)
             ->whereBetween('registro_diario', [$inicioLiquidable->toDateString(), $finLiquidable->toDateString()])
             ->get();
@@ -277,7 +287,7 @@ class NominaService
             $advertencias[] = "Se detectaron {$horasExtrasNocturnasDetectadas} horas extra nocturnas desde asistencia por exceder la jornada después de las 7:00 p. m.";
         }
 
-        $salarioMensual = (float) $contratacion->base_salario;
+        $salarioMensual = (float) $baseSalarial['salario_mensual'];
         $valorDia = round($salarioMensual / 30, 6);
         $valorConfigurado = Valor::where('status', true)->latest()->first();
         $valorHoraCalculado = round($salarioMensual / $horasMensualesJornada, 2);
@@ -333,8 +343,8 @@ class NominaService
         $salarioBasePeriodo = round(($valorDia * max(0, $diasLiquidables - $diasIncapacidad))
             + $valorIncapacidadReconocido
             + ($valorDia * $diasVacacionesCompensadas), 2);
-        $auxilioTransportePeriodo = round((float) $contratacion->auxilio_transporte * ($diasLiquidables / 30), 2);
-        $pagoNoPrestacionalPeriodo = round((float) $contratacion->no_salarial * ($diasLiquidables / 30), 2);
+        $auxilioTransportePeriodo = round((float) $baseSalarial['auxilio_transporte'] * ($diasLiquidables / 30), 2);
+        $pagoNoPrestacionalPeriodo = round((float) $baseSalarial['no_salarial'] * ($diasLiquidables / 30), 2);
         $comisiones = Comision::where('user_id', $userId)
             ->where('status', 'aprobada')
             ->whereDate('periodo_inicio', $inicio->toDateString())
@@ -411,6 +421,7 @@ class NominaService
             'valor_hora_dominical' => $valorHoraDominical,
             'valor_hora_dominical_extra' => $valorHoraDominicalExtra,
             'salario_base_devengado' => $salarioBasePeriodo,
+            'detalle_salario_vigente' => $baseSalarial['tramos'] ?? [],
             'auxilio_transporte' => $auxilioTransportePeriodo,
             'pago_no_prestacional' => $pagoNoPrestacionalPeriodo,
             'total_comisiones' => $totalComisiones,

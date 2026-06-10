@@ -15,6 +15,10 @@ class LiquidacionPrestacionService
 {
     private const WITH = ['empleado:id,name,email', 'contratacion.empresa'];
 
+    public function __construct(
+        private readonly AjusteSalarialContratacionService $ajusteSalarialService
+    ) {}
+
     /**
      * Tipos soportados con sus etiquetas.
      */
@@ -123,8 +127,13 @@ class LiquidacionPrestacionService
         }
 
         $diasLiquidados = $this->diasInclusivos($inicioEfectivo, $finEfectivo->copy()->startOfDay());
-        $salarioMensual = (float) $contratacion->base_salario;
-        $auxilioMensual = (float) $contratacion->auxilio_transporte;
+        $baseSalarial = $this->ajusteSalarialService->salarioPromedioPeriodo(
+            $contratacion,
+            $inicioEfectivo,
+            $finEfectivo->copy()->startOfDay()
+        );
+        $salarioMensual = (float) $baseSalarial['salario_mensual'];
+        $auxilioMensual = (float) $baseSalarial['auxilio_transporte'];
 
         $promedioVariable = $this->promedioVariableMensual($userId, $inicioEfectivo, $finEfectivo->copy()->startOfDay());
 
