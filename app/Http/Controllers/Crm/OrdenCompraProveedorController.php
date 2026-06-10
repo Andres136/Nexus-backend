@@ -51,6 +51,9 @@ public function index(Request $request,OrdenCompraService $estadoService)
     ->when(in_array($user->role_id, [1, 2, 4]), function ($q) {
         // Los admins ven todo (incluyendo NULL)
     })
+    ->when($request->filled('proveedor_id'), function ($q) use ($request) {
+        $q->where('proveedor_id', $request->proveedor_id);
+    })
     ->orderByRaw("
         CASE
             WHEN (
@@ -110,7 +113,8 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
     });
 }
 
-    $ordenes = $query->paginate(10);
+    $perPage = min(max($request->integer('per_page', 10), 1), 100);
+    $ordenes = $query->paginate($perPage);
 
  
     $ordenes= $estadoService->procesar($ordenes, $user);

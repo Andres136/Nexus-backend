@@ -25,12 +25,14 @@ class CosteoController extends Controller
 public function index(Request $request)
 {
     $productoId = $request->input('producto_id');
+    $empresaId = $request->input('empresa_id');
     $search = $request->input('search');
     $fechaInicio = $request->input('fecha_inicio');
     $fechaFin = $request->input('fecha_fin');
 
     $data = $this->costeoService->utilidad(
         $productoId,
+        $empresaId,
         $search,
         $fechaInicio,
         $fechaFin
@@ -77,12 +79,14 @@ public function index(Request $request)
 public function export(Request $request)
 {
     $productoId = $request->input('producto_id');
+    $empresaId = $request->input('empresa_id');
     $search = $request->input('search');
     $fechaInicio = $request->input('fecha_inicio');
     $fechaFin = $request->input('fecha_fin');
 
     $data = $this->costeoService->utilidad(
         $productoId,
+        $empresaId,
         $search,
         $fechaInicio,
         $fechaFin

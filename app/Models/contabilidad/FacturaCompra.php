@@ -4,6 +4,7 @@ namespace App\Models\contabilidad;
 
 use App\Models\Crm\empresa;
 use App\Models\Crm\Proveedor;
+use App\Models\Crm\OrdenCompraProveedor;
 use App\Models\Crm\Sede;
 use App\Models\Estados;
 use App\Models\User;
@@ -42,6 +43,16 @@ protected $attributes = [
     public function proveedor()
     {
         return $this->belongsTo(Proveedor::class, 'proveedor_id');
+    }
+
+    public function ordenesCompraProveedor()
+    {
+        return $this->belongsToMany(
+            OrdenCompraProveedor::class,
+            'factura_compra_ordenes',
+            'factura_compra_id',
+            'orden_compra_proveedor_id'
+        )->withTimestamps();
     }
 
     public function sede()

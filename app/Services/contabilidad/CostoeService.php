@@ -8,19 +8,27 @@ class CostoeService
 {
     public function utilidad(
         $productoId = null,
+        $empresaId = null,
         $search = null,
         $fechaInicio = null,
         $fechaFin = null,
         $perPage = 50
     ) {
+        $costosPromedio = DB::table('detalles_factura_compra as dfc')
+            ->join('factura_compras as fc', 'fc.id', '=', 'dfc.factura_compra_id')
+            ->selectRaw('
+                dfc.producto_id,
+                SUM(dfc.total) / NULLIF(SUM(dfc.cantidad), 0) as costo_promedio
+            ')
+            ->when($empresaId, function ($query) use ($empresaId) {
+                $query->where('fc.empresa_id', $empresaId);
+            })
+            ->groupBy('dfc.producto_id');
+
         $query = DB::table('orden__compra__detalles as ocd')
+            ->join('orden__compras as oc', 'oc.id', '=', 'ocd.orden_compra_id')
             ->joinSub(
-                DB::table('detalles_factura_compra')
-                    ->selectRaw('
-                        producto_id,
-                        SUM(total) / NULLIF(SUM(cantidad), 0) as costo_promedio
-                    ')
-                    ->groupBy('producto_id'),
+                $costosPromedio,
                 'cp',
                 'cp.producto_id',
                 '=',
@@ -93,6 +101,10 @@ class CostoeService
             );
         }
 
+        if ($empresaId) {
+            $query->where('oc.empresa_id', $empresaId);
+        }
+
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where(
@@ -109,13 +121,13 @@ class CostoeService
         }
 
         if ($fechaInicio && $fechaFin) {
-            $query->whereBetween(
-                'ocd.created_at',
-                [
-                    $fechaInicio,
-                    $fechaFin
-                ]
-            );
+            $query
+                ->whereDate('ocd.created_at', '>=', $fechaInicio)
+                ->whereDate('ocd.created_at', '<=', $fechaFin);
+        } elseif ($fechaInicio) {
+            $query->whereDate('ocd.created_at', '>=', $fechaInicio);
+        } elseif ($fechaFin) {
+            $query->whereDate('ocd.created_at', '<=', $fechaFin);
         }
 
         $query->orderByDesc('utilidad');

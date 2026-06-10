@@ -37,6 +37,7 @@ class FacturaCompraService
             'estado_id' => 1,
             'user_id' => auth()->id(),
         ]);
+        $factura->ordenesCompraProveedor()->sync($data['ordenes_compra_proveedor_ids'] ?? []);
 
         // 🔹 3. Detalles + impuestos por detalle
         foreach ($data['detalles'] as $detalle) {
@@ -258,6 +259,7 @@ private function _actualizar(FacturaCompra $factura, array $data)
         $factura->update(array_merge($data['factura'], [
             'subtotal' => $subtotal,
         ]));
+        $factura->ordenesCompraProveedor()->sync($data['ordenes_compra_proveedor_ids'] ?? []);
 
         // =====================================================
         // 🔹 3. DETALLES + IMPUESTOS POR DETALLE
@@ -286,6 +288,7 @@ private function _actualizar(FacturaCompra $factura, array $data)
                 $detalleData = [
                     'bodega_id' => $detalle['bodega_id'] ?? null,
                     'producto_id' => $detalle['producto_id'],
+                    'orden_compra_proveedor_detalle_id' => $detalle['orden_compra_proveedor_detalle_id'] ?? null,
                     'puck_id' => $detalle['puck_id'],
                     'cantidad' => $detalle['cantidad'],
                     'precio_unitario' => $detalle['precio_unitario'],
@@ -661,7 +664,13 @@ public function anular(int $id)
 //oBTENER DETALLES DE UNA FACTURA POR ID
 public function obtenerDetalles(int $id)
 {
-    $factura = FacturaCompra::with(['detalles.impuestos', 'pagos', 'gastos', 'impuestos'])->findOrFail($id);
+    $factura = FacturaCompra::with([
+        'detalles.impuestos',
+        'pagos',
+        'gastos',
+        'impuestos',
+        'ordenesCompraProveedor',
+    ])->findOrFail($id);
         // Forma de pago principal
     $data['forma_pago_id'] = optional($factura->pagos->first())->forma_pago_id;
     $factura->forma_pago_id = $data['forma_pago_id'];
@@ -694,4 +703,3 @@ public function eliminar(int $id)
 // ==========================================
 
 }
-    
