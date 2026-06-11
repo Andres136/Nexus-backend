@@ -276,7 +276,7 @@ public function DepartamentoUsuario($id)
 public function indexUsuarios(Request $request)
 { 
      $search = $request->input('search');
-    $query = User::select('id', 'name')
+    $query = User::select('id', 'name', 'sede_id')
                      ->where('estado_id', 3); // Solo usuarios activos
 
     if ($search && strlen($search) >= 2) {

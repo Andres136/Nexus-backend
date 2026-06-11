@@ -3,6 +3,8 @@
 namespace App\Services\Vsm;
 
 use App\Models\Crm\OrdenDeTrabajo;
+use App\Models\User;
+use App\RolEnum;
 use App\Models\Vsm\Alistamiento;
 use App\Models\Vsm\AlistamientoDetalle;
 use App\Models\Vsm\AlistamientoTiempo;
@@ -71,6 +73,126 @@ public function crearAlistamiento($data, $usuarioAuthId)
         ]);
 
         return $alist;
+    });
+}
+
+public function pausarAlistamiento($alistId, $razon = null)
+{
+    return DB::transaction(function () use ($alistId, $razon) {
+
+        $alist = Alistamiento::with('usuarios')->findOrFail($alistId);
+
+        $alist->estado = 'PAUSADO';
+        $alist->save();
+
+        AlistamientoTiempo::create([
+            'alistamiento_id' => $alistId,
+            'tipo'            => 'PAUSA',
+            'fecha_hora'      => now(),
+            'razon'           => $razon,
+        ]);
+
+        foreach ($alist->usuarios as $usuario) {
+            $pivot = $usuario->pivot;
+
+            if ($pivot->inicio) {
+                $segundos = now()->timestamp - strtotime($pivot->inicio);
+                $alist->usuarios()->updateExistingPivot($usuario->id, [
+                    'estado'          => 'PAUSADO',
+                    'pausado_en'      => now(),
+                    'inicio'          => null,
+                    'tiempo_segundos' => $pivot->tiempo_segundos + $segundos,
+                ]);
+            } elseif ($pivot->estado === 'EN_PROGRESO') {
+                $alist->usuarios()->updateExistingPivot($usuario->id, [
+                    'estado'     => 'PAUSADO',
+                    'pausado_en' => now(),
+                ]);
+            }
+
+            AlistamientoTiempo::create([
+                'alistamiento_id' => $alistId,
+                'user_id'         => $usuario->id,
+                'tipo'            => 'PAUSA',
+                'fecha_hora'      => now(),
+                'razon'           => $razon,
+            ]);
+        }
+    });
+}
+
+public function reanudarAlistamiento($alistId)
+{
+    return DB::transaction(function () use ($alistId) {
+
+        $alist = Alistamiento::with('usuarios')->findOrFail($alistId);
+
+        $alist->estado = 'REANUDADO';
+        $alist->save();
+
+        AlistamientoTiempo::create([
+            'alistamiento_id' => $alistId,
+            'tipo'            => 'REANUDACION',
+            'fecha_hora'      => now(),
+        ]);
+
+        foreach ($alist->usuarios as $usuario) {
+            $alist->usuarios()->updateExistingPivot($usuario->id, [
+                'estado'     => 'EN_PROGRESO',
+                'inicio'     => now(),
+                'pausado_en' => null,
+            ]);
+
+            AlistamientoTiempo::create([
+                'alistamiento_id' => $alistId,
+                'user_id'         => $usuario->id,
+                'tipo'            => 'REANUDACION',
+                'fecha_hora'      => now(),
+            ]);
+        }
+    });
+}
+
+public function agregarUsuario($alistamientoId, $usuarioId)
+{
+    return DB::transaction(function () use ($alistamientoId, $usuarioId) {
+
+        $alist = Alistamiento::with(['detalles', 'ordenTrabajo.ordenCompra'])
+            ->findOrFail($alistamientoId);
+
+        $existe = AlistamientoUsuario::where('alistamiento_id', $alistamientoId)
+            ->where('usuario_id', $usuarioId)
+            ->exists();
+
+        if ($existe) {
+            throw new \Exception('Usuario ya asignado');
+        }
+
+        $usuario = User::findOrFail($usuarioId);
+        $sedeAlistamiento = $alist->ordenTrabajo->ordenCompra->sede_id ?? null;
+
+        if ($usuario->sede_id && $sedeAlistamiento && $usuario->sede_id !== $sedeAlistamiento) {
+            throw new \Exception('El usuario pertenece a otra sede');
+        }
+
+        AlistamientoUsuario::create([
+            'alistamiento_id' => $alistamientoId,
+            'usuario_id'      => $usuarioId,
+            'estado'          => 'EN_PROGRESO',
+            'inicio'          => now(),
+            'tiempo_segundos' => 0,
+        ]);
+
+        foreach ($alist->detalles as $detalle) {
+            AlistamientoUsuarioDetalle::firstOrCreate(
+                [
+                    'alistamiento_id' => $alistamientoId,
+                    'usuario_id'      => $usuarioId,
+                    'detalle_id'      => $detalle->id,
+                ],
+                ['cantidad_alistada' => 0]
+            );
+        }
     });
 }
 
@@ -248,7 +370,12 @@ foreach ($alist->detalles as $detalle) {
 
 public function obtenerAlistamientosActivos($user, $sedeIdFiltro)
 {
-    $sedeId = $sedeIdFiltro ?? $user->sede_id;
+    $puedeVerTodas = in_array((int) $user->role_id, [
+        RolEnum::ADMINISTRADOR->value,
+        RolEnum::ADMINISTRATIVO->value,
+    ]);
+
+    $sedeId = ($puedeVerTodas && $sedeIdFiltro) ? $sedeIdFiltro : $user->sede_id;
 
 $query = Alistamiento::with([
     'ordenTrabajo.ordenCompra.cliente',
@@ -367,19 +494,20 @@ public function registrarProduccion($alistId, $detalleId, $cantidad, $userId)
             throw new \Exception("No puedes registrar producción si estás en pausa");
         }
 
-        // 🔥 AQUÍ ESTÁ LA CORRECCIÓN
+        $detalle = AlistamientoDetalle::findOrFail($detalleId);
+
+        if ((int) $detalle->alistamiento_id !== (int) $alistId) {
+            throw new \Exception('El detalle no pertenece a este alistamiento');
+        }
+
         $registro = AlistamientoUsuarioDetalle::firstOrCreate(
             [
                 'alistamiento_id' => $alistId,
                 'usuario_id'      => $userId,
                 'detalle_id'      => $detalleId,
             ],
-            [
-                'cantidad_alistada' => 0
-            ]
+            ['cantidad_alistada' => 0]
         );
-
-        $detalle = AlistamientoDetalle::findOrFail($detalleId);
 
         // 🔥 UPDATE USUARIO
         $registro->increment('cantidad_alistada', $cantidad);
@@ -404,6 +532,32 @@ public function registrarProduccion($alistId, $detalleId, $cantidad, $userId)
         ];
     });
 }
+public function eliminarUsuario($alistId, $userId)
+{
+    return DB::transaction(function () use ($alistId, $userId) {
+
+        $pivot = AlistamientoUsuario::where('alistamiento_id', $alistId)
+            ->where('usuario_id', $userId)
+            ->firstOrFail();
+
+        if ($pivot->estado === 'EN_PROGRESO' && $pivot->inicio) {
+            $pivot->tiempo_segundos += now()->timestamp - strtotime($pivot->inicio);
+            $pivot->inicio = null;
+            $pivot->save();
+        }
+
+        AlistamientoTiempo::create([
+            'alistamiento_id' => $alistId,
+            'user_id'         => $userId,
+            'tipo'            => 'PAUSA',
+            'fecha_hora'      => now(),
+            'razon'           => 'Usuario removido del alistamiento',
+        ]);
+
+        $pivot->delete();
+    });
+}
+
 public function pausarPorSede($sedeId, $razon = null)
 {
     return DB::transaction(function () use ($sedeId, $razon) {

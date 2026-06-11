@@ -88,6 +88,7 @@ use App\Http\Controllers\Traslados\TrasladosBodegaController;
 use App\Http\Controllers\UpdateDepartamentoController;
 use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\Vsm\AlistamientoController;
+use App\Http\Controllers\Vsm\VsmConfiguracionController;
 use App\Http\Controllers\Vsm\AlistamientoTiempoController;
 use App\Http\Controllers\Vsm\ForecastController;
 use App\Http\Controllers\whatsapp\WhatsappWebhookController;
@@ -363,12 +364,21 @@ Route::delete('/alistamientos/{alistamiento_id}/usuarios/{usuario_id}', [Alistam
 //Traer ordenes de trabajo para alistamiento
 Route::get('ordenes-trabajo-alistamiento', [AlistamientoController::class, 'ordenesTrabajoAlistamiento']);
 //Tiempos por alistamiento
-Route::get('/kpi-productividad', [ForecastController::class, 'kpiProductividad']);
+Route::get('/kpi-productividad',   [ForecastController::class, 'kpiProductividad']);
+Route::get('/vsm/rendimiento',     [ForecastController::class, 'rendimientoPorPeriodo']);
 Route::get('/vsm/pronostico', [ForecastController::class, 'pronostico']);
 Route::get('/vsm/pronostico/{id}', [ForecastController::class, 'pronosticoOT']);
 
 
 Route::get('/vsm/flujo', [ForecastController::class, 'flujo']);
+
+// Configuración de meta de productividad VSM
+Route::get('/vsm/configuracion',                         [VsmConfiguracionController::class, 'vigente']);
+Route::get('/vsm/configuracion/historial',               [VsmConfiguracionController::class, 'historial']);
+Route::post('/vsm/configuracion',                        [VsmConfiguracionController::class, 'store']);
+Route::put('/vsm/configuracion/{id}',                    [VsmConfiguracionController::class, 'update']);
+Route::delete('/vsm/configuracion/{id}',                 [VsmConfiguracionController::class, 'destroy']);
+Route::post('/vsm/configuracion/{id}/restaurar',         [VsmConfiguracionController::class, 'restaurar']);
 
 //Traer ot finalizadas
 Route::get('/vsm/ots-finalizadas', [AlistamientoController::class, 'alistamientosFinalizados']);

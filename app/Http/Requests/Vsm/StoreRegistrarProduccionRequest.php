@@ -22,9 +22,10 @@ class StoreRegistrarProduccionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'alistamiento_id' => 'required|exists:alistamiento,id',
-            'detalle_id'      => 'required|exists:alistamiento_detalles,id',
-            'cantidad_alistada'        => 'required|integer|min:1'
+            'alistamiento_id'  => 'required|exists:alistamiento,id',
+            'detalle_id'       => 'required|exists:alistamiento_detalles,id',
+            'cantidad_alistada' => 'required|integer|min:1',
+            'usuario_id'       => 'required|integer|exists:users,id',
         ];
     }
 
@@ -37,7 +38,9 @@ class StoreRegistrarProduccionRequest extends FormRequest
             'detalle_id.exists' => 'El detalle especificado no existe.',
             'cantidad_alistada.required' => 'La cantidad alistada es obligatoria.',
             'cantidad_alistada.integer' => 'La cantidad alistada debe ser un número entero.',
-            'cantidad_alistada.min' => 'La cantidad alistada debe ser al menos 1.'
+            'cantidad_alistada.min' => 'La cantidad alistada debe ser al menos 1.',
+            'usuario_id.required' => 'El usuario es obligatorio.',
+            'usuario_id.exists' => 'El usuario especificado no existe.',
         ];
     }
 }

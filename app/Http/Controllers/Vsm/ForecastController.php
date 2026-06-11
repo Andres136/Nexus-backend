@@ -9,7 +9,6 @@ use App\Models\Vsm\Alistamiento;
 use App\Services\Vsm\AlistamientoForecastService;
 use App\Services\Vsm\VsmRuntimeService;
 use Illuminate\Http\Request;
-use Mockery\Matcher\Any;
 
 class ForecastController extends Controller
 {
@@ -57,16 +56,31 @@ class ForecastController extends Controller
 
 public function kpiProductividad()
 {
-    $user = auth()->user();
-
-    $sedeId = request('sede_id') ?? $user->sede_id;
-    $fechaInicio = request('fecha_inicio') ?? now()->subDays(7)->toDateString();
-    $fechaFin = request('fecha_fin') ?? now()->toDateString();
-
     $data = $this->runtimeService->obtenerEficienciaPersonal([
-        'sede_id' => $sedeId,
-        'fecha_inicio' => $fechaInicio,
-        'fecha_fin' => $fechaFin,
+        'sede_id'      => request('sede_id'),
+        'fecha_inicio' => request('fecha_inicio') ?? now()->startOfMonth()->toDateString(),
+        'fecha_fin'    => request('fecha_fin')    ?? now()->toDateString(),
+    ]);
+
+    return response()->json($data);
+}
+
+/**
+ * GET /api/vsm/rendimiento?sede_id=&fecha_inicio=&fecha_fin=&tipo_periodo=diario|semanal|mensual
+ *
+ * Retorna producción y rendimiento agrupados por período.
+ * rendimiento = (produccion_período / meta_período) × 100
+ * meta_diaria  = meta_hora × (horas_semanales / 5)
+ * meta_semanal = meta_hora × horas_semanales
+ * meta_mensual = meta_hora × horas_semanales × (52/12)
+ */
+public function rendimientoPorPeriodo()
+{
+    $data = $this->runtimeService->obtenerRendimientoPorPeriodo([
+        'sede_id'      => request('sede_id'),
+        'fecha_inicio' => request('fecha_inicio') ?? now()->startOfMonth()->toDateString(),
+        'fecha_fin'    => request('fecha_fin')    ?? now()->toDateString(),
+        'tipo_periodo' => request('tipo_periodo', 'diario'),
     ]);
 
     return response()->json($data);

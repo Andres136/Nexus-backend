@@ -7,15 +7,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Vsm\AlistamientoCreateRequest;
 use App\Http\Requests\Vsm\StoreRegistrarProduccionRequest;
 use App\Models\Crm\OrdenDeTrabajo;
-use App\Models\Estados;
 use App\Models\User;
 use App\Models\Vsm\Alistamiento;
-use App\Models\Vsm\AlistamientoDetalle;
-use App\Models\Vsm\AlistamientoTiempo;
-use App\Models\Vsm\AlistamientoUsuario;
 use App\Services\Vsm\AlistamientoService;
-use App\Services\Vsm\VsmRuntimeService;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -26,13 +20,10 @@ class AlistamientoController extends Controller
      */
 
 
-    protected $service;
-    protected $runtimeService;
-    protected $alistamientoService;
-   public function __construct()
+    protected AlistamientoService $alistamientoService;
+
+    public function __construct()
     {
-        $this->service = new VsmRuntimeService();
-        $this->runtimeService = new AlistamientoService();
         $this->alistamientoService = new AlistamientoService();
     }
 
@@ -50,7 +41,7 @@ class AlistamientoController extends Controller
     // ------------------------------
 public function store(AlistamientoCreateRequest $request)
 {
-   $alist = $this->runtimeService->crearAlistamiento($request->validated(), auth()->id());
+   $alist = $this->alistamientoService->crearAlistamiento($request->validated(), auth()->id());
 
     return response()->json($alist, 201);
 }
@@ -60,49 +51,11 @@ public function store(AlistamientoCreateRequest $request)
     // ------------------------------
 public function pausar($id, Request $request)
 {
-    $alist = Alistamiento::with('usuarios')->findOrFail($id);
-
-    // Pausar alistamiento principal
-    $alist->estado = 'PAUSADO';
-    $alist->save();
-
-    // Evento general
-    AlistamientoTiempo::create([
-        'alistamiento_id' => $alist->id,
-        'tipo'            => 'PAUSA',
-        'fecha_hora'      => now(),
-        'razon'           => $request->razon
-    ]);
-
-    // Pausar todos los usuarios asociados
-    foreach ($alist->usuarios as $usuario) {
-        // 1. Actualizar pivot
-        $pivot = $usuario->pivot;
-
-    if ($pivot->inicio) {
-        $segundos = now()->timestamp - strtotime($pivot->inicio);
-
-        $alist->usuarios()->updateExistingPivot($usuario->id, [
-            'estado' => 'PAUSADO',
-            'pausado_en' => now(),
-            'inicio' => null, // 🔥 CLAVE
-            'tiempo_segundos' => $pivot->tiempo_segundos + $segundos // 🔥 CLAVE
-        ]);
-    }
-
-        // 2. Registrar evento individual
-        AlistamientoTiempo::create([
-            'alistamiento_id' => $alist->id,
-            'user_id'         => $usuario->id,
-            'tipo'            => 'PAUSA',
-            'fecha_hora'      => now(),
-            'razon'           => $request->razon
-        ]);
-    }
+    $this->alistamientoService->pausarAlistamiento($id, $request->razon);
 
     return response()->json([
-        'status' => 'PAUSADO',
-        'message' => 'Alistamiento y usuarios pausados correctamente'
+        'status'  => 'PAUSADO',
+        'message' => 'Alistamiento y usuarios pausados correctamente',
     ]);
 }
 
@@ -111,32 +64,7 @@ public function pausar($id, Request $request)
     // ------------------------------
 public function reanudar($id)
 {
-    $alist = Alistamiento::with('usuarios')->findOrFail($id);
-
-    $alist->estado = 'REANUDADO';
-    $alist->save();
-
-    AlistamientoTiempo::create([
-        'alistamiento_id' => $alist->id,
-        'tipo'            => 'REANUDACION',
-        'fecha_hora'      => now()
-    ]);
-
-    foreach ($alist->usuarios as $usuario) {
-
-    $alist->usuarios()->updateExistingPivot($usuario->id, [
-        'estado' => 'EN_PROGRESO',
-        'inicio' => now(), // 🔥 CLAVE
-        'pausado_en' => null,
-    ]);
-
-        AlistamientoTiempo::create([
-            'alistamiento_id' => $alist->id,
-            'user_id'         => $usuario->id,
-            'tipo'            => 'REANUDACION',
-            'fecha_hora'      => now()
-        ]);
-    }
+    $this->alistamientoService->reanudarAlistamiento($id);
 
     return response()->json(['status' => 'REANUDADO']);
 }
@@ -375,24 +303,12 @@ return User::whereNotIn('id', $usuariosAsignados)
 
 public function agregarUsuario(Request $request, $alistamientoId)
 {
-    $usuarioId = $request->input('usuario_id');
-
-    // Verificar si el usuario ya está asignado
-    $existe = AlistamientoUsuario::where('alistamiento_id', $alistamientoId)
-        ->where('usuario_id', $usuarioId)
-        ->exists();
-
-    if ($existe) {
-        return response()->json(['message' => 'Usuario ya asignado'], 400);
+    try {
+        $this->alistamientoService->agregarUsuario($alistamientoId, $request->input('usuario_id'));
+        return response()->json(['message' => 'Usuario agregado correctamente'], 201);
+    } catch (\Exception $e) {
+        return response()->json(['message' => $e->getMessage()], 422);
     }
-
-    // Asignar el usuario al alistamiento
-    AlistamientoUsuario::create([
-        'alistamiento_id' => $alistamientoId,
-        'usuario_id'      => $usuarioId,
-    ]);
-
-    return response()->json(['message' => 'Usuario agregado correctamente'], 201);  
 }
 
 
@@ -409,14 +325,13 @@ public function pausarUsuario($alistId, $userId, Request $request)
 
 //Eliminar usuario del alistamiento
 public function eliminarUsuario($alistId, $userId)
-{    $alistamientoUsuario = AlistamientoUsuario::where('alistamiento_id', $alistId)
-        ->where('usuario_id', $userId)
-        ->first();  
-    if (!$alistamientoUsuario) {
+{
+    try {
+        $this->alistamientoService->eliminarUsuario($alistId, $userId);
+        return response()->json(['message' => 'Usuario eliminado del alistamiento']);
+    } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
         return response()->json(['message' => 'Usuario no encontrado en el alistamiento'], 404);
     }
-    $alistamientoUsuario->delete();
-    return response()->json(['message' => 'Usuario eliminado del alistamiento']);
 }
 
 public function reanudarUsuario($alistId, $userId)
