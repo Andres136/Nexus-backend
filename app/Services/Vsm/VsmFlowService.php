@@ -37,14 +37,14 @@ class VsmFlowService
             ->limit(500)
             ->get();
 
-        $etapas = collect([
+        $etapas = [
             'pendientes' => $this->etapa('OT pendientes', 'pendientes'),
             'inventario' => $this->etapa('Preparación inventario', 'inventario'),
             'alistando' => $this->etapa('Alistando', 'alistando'),
             'finalizadas' => $this->etapa('Listas para despacho', 'finalizadas'),
             'delivery' => $this->etapa('En ruta', 'delivery'),
             'entregadas' => $this->etapa('Entregadas', 'entregadas'),
-        ]);
+        ];
 
         $leadTimes = [];
         $tiemposValor = [];
@@ -79,7 +79,7 @@ class VsmFlowService
             }
         }
 
-        $etapas = $etapas->map(function (array $etapa) {
+        $etapas = collect($etapas)->map(function (array $etapa) {
             $tiempos = $etapa['tiempos'];
             unset($etapa['tiempos']);
 
