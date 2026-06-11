@@ -4,21 +4,33 @@ namespace App\Http\Controllers\Vsm;
 
 use App\Http\Controllers\Controller;
 use App\Models\Crm\OrdenDeTrabajo;
-use App\Models\Rutas\DeliveryEvent;
-use App\Models\Vsm\Alistamiento;
 use App\Services\Vsm\AlistamientoForecastService;
+use App\Services\Vsm\VsmFlowService;
 use App\Services\Vsm\VsmRuntimeService;
+use App\Services\Vsm\VsmSupplyCoverageService;
+use App\Services\Vsm\VsmCapacityService;
 use Illuminate\Http\Request;
 
 class ForecastController extends Controller
 {
     protected $service;
     protected $runtimeService;
+    protected VsmFlowService $flowService;
+    protected VsmSupplyCoverageService $supplyCoverageService;
+    protected VsmCapacityService $capacityService;
 
-    public function __construct(AlistamientoForecastService $service)
+    public function __construct(
+        AlistamientoForecastService $service,
+        VsmFlowService $flowService,
+        VsmSupplyCoverageService $supplyCoverageService,
+        VsmCapacityService $capacityService
+    )
     {
         $this->service = $service;
         $this->runtimeService = new VsmRuntimeService();
+        $this->flowService = $flowService;
+        $this->supplyCoverageService = $supplyCoverageService;
+        $this->capacityService = $capacityService;
     }
 
 
@@ -88,59 +100,28 @@ public function rendimientoPorPeriodo()
 
 
 
-public function flujo()
+public function flujo(Request $request)
 {
-    // 🔴 SUBQUERY: órdenes ya entregadas (NO deben aparecer en el flujo)
-    $entregadasSubquery = function ($q) {
-        $q->select('orden_id')
-          ->from('delivery_events')
-          ->where('estado', 'completado');
-    };
+    return response()->json($this->flowService->obtenerFlujo(
+        $request->user(),
+        $request->only(['sede_id', 'fecha_inicio', 'fecha_fin', 'umbral_horas'])
+    ));
+}
 
-    // 🟡 SUBQUERY: órdenes que ya entraron a alistamiento
-    $alistamientoSubquery = function ($q) {
-        $q->select('orden_trabajo_id')
-          ->from('alistamiento');
-    };
+public function coberturaAbastecimiento(Request $request)
+{
+    return response()->json($this->supplyCoverageService->obtenerCobertura(
+        $request->user(),
+        $request->only(['sede_id', 'search', 'estado', 'per_page', 'page'])
+    ));
+}
 
-    // 🔴 1️⃣ PENDIENTES (incluye estado 1 y 5, pero que NO hayan avanzado)
-    $pendientes = OrdenDeTrabajo::whereIn('estado_id', [1, 5])
-        ->whereNotIn('id', $alistamientoSubquery) // ❌ ya no debe estar en pendientes si está en alistamiento
-        ->whereNotIn('id', $entregadasSubquery)   // ❌ excluir entregadas
-        ->with('cliente:id,nombre')
-        ->get();
-
-    // 🟡 2️⃣ ALISTANDO
-    $alistando = Alistamiento::whereIn('estado', [
-            'INICIADO',
-            'EN_PROGRESO',
-            'PAUSADO'
-        ])
-        ->whereNotIn('orden_trabajo_id', $entregadasSubquery) // ❌ excluir entregadas
-        ->with(['ordenTrabajo.cliente:id,nombre', 'detalles'])
-        ->get();
-
-    // 🔵 3️⃣ FINALIZADAS (listas para despacho)
-$finalizadas = Alistamiento::where('estado', 'FINALIZADO')
-    ->whereNotIn('orden_trabajo_id', function ($q) {
-        $q->select('orden_id')->from('delivery_events');
-    })
-    ->select('orden_trabajo_id')
-    ->distinct()
-    ->with(['ordenTrabajo.cliente:id,nombre'])
-    ->get();
-    // 🟢 4️⃣ EN RUTA
-    $delivery = DeliveryEvent::whereIn('estado', ['pendiente', 'en_ruta'])
-        ->whereNotIn('orden_id', $entregadasSubquery) // ❌ excluir entregadas
-        ->with(['orden.cliente:id,nombre'])
-        ->get();
-
-    return response()->json([
-        'pendientes' => $pendientes,
-        'alistando'  => $alistando,
-        'finalizadas'=> $finalizadas,
-        'delivery'   => $delivery,
-    ]);
+public function capacidad(Request $request)
+{
+    return response()->json($this->capacityService->calcular(
+        $request->user(),
+        $request->only(['usuarios', 'dias_objetivo', 'sede_id'])
+    ));
 }
 
 }

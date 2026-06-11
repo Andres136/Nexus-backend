@@ -371,6 +371,8 @@ Route::get('/vsm/pronostico/{id}', [ForecastController::class, 'pronosticoOT']);
 
 
 Route::get('/vsm/flujo', [ForecastController::class, 'flujo']);
+Route::get('/vsm/cobertura-abastecimiento', [ForecastController::class, 'coberturaAbastecimiento']);
+Route::get('/vsm/capacidad', [ForecastController::class, 'capacidad']);
 
 // Configuración de meta de productividad VSM
 Route::get('/vsm/configuracion',                         [VsmConfiguracionController::class, 'vigente']);

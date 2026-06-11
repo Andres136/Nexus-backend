@@ -6,6 +6,7 @@ use App\Models\Estados;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Crm\Cliente;
+use App\Models\Vsm\Alistamiento;
 
 
 class OrdenDeTrabajo extends Model
@@ -76,7 +77,12 @@ class OrdenDeTrabajo extends Model
     public function movimientosStock()
     {
         return $this->hasMany(MovimientoStock::class, 'orden_trabajo_id', 'id');
-    }   
+    }
+
+    public function alistamientos()
+    {
+        return $this->hasMany(Alistamiento::class, 'orden_trabajo_id');
+    }
     //Relacion de usuario quien reviso la orden de trabajo
 public function usuarioRevisor()
 

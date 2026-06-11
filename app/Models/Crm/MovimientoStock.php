@@ -19,7 +19,7 @@ class MovimientoStock extends Model
      'detalle',
      'razon',
      'pdf_path',
-     'anulado '
+     'anulado'
     ];
 
     protected $casts = [
