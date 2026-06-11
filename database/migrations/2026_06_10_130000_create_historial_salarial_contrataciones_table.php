@@ -29,8 +29,8 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index(['contratacion_id', 'fecha_vigencia']);
-            $table->index(['user_id', 'fecha_vigencia']);
+            $table->index(['contratacion_id', 'fecha_vigencia'], 'hist_sal_contrato_fecha_idx');
+            $table->index(['user_id', 'fecha_vigencia'], 'hist_sal_user_fecha_idx');
         });
     }
 
