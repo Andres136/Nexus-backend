@@ -4,8 +4,8 @@ namespace App\Http\Controllers\contabilidad;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\contabilidad\StorePuckRequest;
+use App\Http\Requests\contabilidad\ImportPuckRequest;
 use App\Services\contabilidad\PuckService;
-use Illuminate\Http\Request;
 
 class PuckController extends Controller
 {
@@ -58,22 +58,28 @@ class PuckController extends Controller
             ], 404);
 
         }
-        return response()->json([
-            'message' => 'Puck encontrado',
-            'data' => $data
-        ]);   
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(StorePuckRequest $request, string $id)
     {
-        $data = $request->all();
+        $data = $request->validated();
         $result = $this->puckService->update($data, $id);
         return response()->json([
             'message' => 'Puck actualizado correctamente',
             'data' => $result
+        ]);
+    }
+
+    public function import(ImportPuckRequest $request)
+    {
+        $result = $this->puckService->importar($request->file('file'));
+
+        return response()->json([
+            'message' => 'Importación del PUC completada.',
+            'data' => $result,
         ]);
     }
 

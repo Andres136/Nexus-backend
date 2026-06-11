@@ -485,6 +485,7 @@ Route::apiResource('impuestos', ImpuestoController::class);
 //RUTAS FORMAS DE PAGO
 Route::apiResource('formas-pago', FormaPagoController::class);
 //RUTAS PUCk
+Route::post('cuentas-contables/importar', [PuckController::class, 'import']);
 Route::apiResource('cuentas-contables', PuckController::class);
 Route::apiResource('costeos', CosteoController::class);
 Route::get(

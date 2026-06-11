@@ -3,6 +3,7 @@
 namespace App\Http\Requests\contabilidad;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StorePuckRequest extends FormRequest
 {
@@ -19,15 +20,24 @@ class StorePuckRequest extends FormRequest
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
-// En tu StorePuckRequest.php
-
-
 public function rules(): array
 {
+    $puckId = $this->route('cuentas_contable');
+
     return [
-        // Ahora la regla 'unique' buscará "Puck cuenta123" en la BD
-        'nombre' => 'required|unique:puck,nombre|string|max:255',
-        'numero' => 'required|unique:puck,numero',
+        'nombre' => 'required|string|max:255',
+        'numero' => [
+            'required',
+            'string',
+            'max:20',
+            'regex:/^\d+$/',
+            Rule::unique('puck', 'numero')->ignore($puckId),
+        ],
+        'naturaleza' => 'nullable|in:debito,credito',
+        'descripcion' => 'nullable|string',
+        'dinamica' => 'nullable|string',
+        'permite_movimiento' => 'sometimes|boolean',
+        'activo' => 'sometimes|boolean',
     ];
 }
 
@@ -35,13 +45,12 @@ public function rules(): array
     {
         return [
             'nombre.required' => 'El nombre del puck es obligatorio.',
-            'nombre.unique' => 'El nombre del puck ya existe.',
             'nombre.string' => 'El nombre debe ser una cadena de texto.',
             'nombre.max' => 'El nombre no puede exceder los 255 caracteres.',
-            'numero.required' => 'El número del puck es obligatorio.',
-            'numero.unique' => 'El número del puck ya existe.',
-            'numero.integer' => 'El número debe ser un entero.',
-            'numero.min' => 'El número debe ser al menos 1.',
+            'numero.required' => 'El código de la cuenta es obligatorio.',
+            'numero.unique' => 'El código de la cuenta ya existe.',
+            'numero.regex' => 'El código de la cuenta solo puede contener números.',
+            'naturaleza.in' => 'La naturaleza debe ser débito o crédito.',
         ];
     }   
 }
