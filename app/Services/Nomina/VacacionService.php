@@ -30,10 +30,15 @@ class VacacionService
 
     public function getByUuid(string $uuid): Vacacion
     {
-        $vacacion = Vacacion::with(self::WITH)->where('uuid', $uuid)->firstOrFail();
+        $vacacion = $this->findByUuid($uuid);
         $vacacion->dias_disponibles = $this->getDiasDisponibles($vacacion->user_id);
 
         return $vacacion;
+    }
+
+    private function findByUuid(string $uuid): Vacacion
+    {
+        return Vacacion::with(self::WITH)->where('uuid', $uuid)->firstOrFail();
     }
 
     public function getDiasDisponibles(int $userId): int
@@ -86,7 +91,7 @@ class VacacionService
     public function aprobar(string $uuid, ?string $observacion = null): Vacacion
     {
         return DB::transaction(function () use ($uuid, $observacion) {
-            $vacacion = $this->getByUuid($uuid);
+            $vacacion = $this->findByUuid($uuid);
 
             if ($vacacion->status !== 'pendiente') {
                 throw new \LogicException("La vacación ya fue {$vacacion->status}.");
@@ -112,7 +117,7 @@ class VacacionService
     public function rechazar(string $uuid, ?string $observacion = null): Vacacion
     {
         return DB::transaction(function () use ($uuid, $observacion) {
-            $vacacion = $this->getByUuid($uuid);
+            $vacacion = $this->findByUuid($uuid);
 
             if ($vacacion->status !== 'pendiente') {
                 throw new \LogicException("La vacación ya fue {$vacacion->status}.");

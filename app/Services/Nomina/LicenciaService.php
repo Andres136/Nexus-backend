@@ -30,9 +30,12 @@ class LicenciaService
 
     public function getByUuid(string $uuid): Licencia
     {
-        return $this->withSoporteUrl(
-            Licencia::with(self::WITH)->where('uuid', $uuid)->firstOrFail()
-        );
+        return $this->withSoporteUrl($this->findByUuid($uuid));
+    }
+
+    private function findByUuid(string $uuid): Licencia
+    {
+        return Licencia::with(self::WITH)->where('uuid', $uuid)->firstOrFail();
     }
 
     private function withSoporteUrl(Licencia $licencia): Licencia
@@ -77,7 +80,7 @@ class LicenciaService
     public function aprobar(string $uuid, ?string $observacion = null): Licencia
     {
         return DB::transaction(function () use ($uuid, $observacion) {
-            $licencia = $this->getByUuid($uuid);
+            $licencia = $this->findByUuid($uuid);
 
             if ($licencia->status !== 'pendiente') {
                 throw new \LogicException("La licencia ya fue {$licencia->status}.");
@@ -102,7 +105,7 @@ class LicenciaService
     public function rechazar(string $uuid, ?string $observacion = null): Licencia
     {
         return DB::transaction(function () use ($uuid, $observacion) {
-            $licencia = $this->getByUuid($uuid);
+            $licencia = $this->findByUuid($uuid);
 
             if ($licencia->status !== 'pendiente') {
                 throw new \LogicException("La licencia ya fue {$licencia->status}.");
@@ -127,7 +130,7 @@ class LicenciaService
     public function destroy(string $uuid): void
     {
         DB::transaction(function () use ($uuid) {
-            $licencia = $this->getByUuid($uuid);
+            $licencia = $this->findByUuid($uuid);
 
             if ($licencia->soporte && Storage::disk('public')->exists($licencia->soporte)) {
                 Storage::disk('public')->delete($licencia->soporte);
