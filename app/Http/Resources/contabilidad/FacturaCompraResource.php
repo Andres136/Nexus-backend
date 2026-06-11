@@ -32,6 +32,7 @@ class FacturaCompraResource extends JsonResource
             'impuestos' => $this->impuestos->map(function ($i) {
                 return [
                     'nombre' => $i->nombre,
+                    'operacion' => $i->operacion?->value,
                     'monto' => $i->pivot->monto
                 ];
             }),

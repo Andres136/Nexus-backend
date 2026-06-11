@@ -126,7 +126,7 @@ foreach ($this->detalles ?? [] as $detalle) {
             $impuesto = Impuesto::find($imp['impuesto_id']);
             if (!$impuesto) continue;
 
-            $totalImpuestos += $base * ($impuesto->porcentaje / 100);
+            $totalImpuestos += $impuesto->calcularMonto($base);
         }
     }
 }
@@ -137,7 +137,7 @@ foreach ($this->impuestos ?? [] as $imp) {
     $impuesto = Impuesto::find($imp['impuesto_id']);
     if (!$impuesto) continue;
 
-    $totalImpuestos += $totalFactura * ($impuesto->porcentaje / 100);
+    $totalImpuestos += $impuesto->calcularMonto($totalFactura);
 }
 
 $totalReal = $totalFactura + $totalGastos + $totalImpuestos;

@@ -344,11 +344,7 @@ $grandTotal = $cotizacion->detalles->sum('valor_total');
                         @endif
                     </span>
                 @endif
-                @if($item->peso_bolsa && $item->numero_bolsas)
-                    <br><span style="color:#94a3b8; font-size:8px;">
-                        {{ sinCeros($item->peso_bolsa) }}g/bolsa · {{ $item->numero_bolsas }} 
-                    </span>
-                @endif
+          
             </td>
             <td class="tc">{{ number_format($item->cantidad, 0, ',', '.') }}</td>
             <td class="money">{{ money($item->valor_unitario) }}</td>

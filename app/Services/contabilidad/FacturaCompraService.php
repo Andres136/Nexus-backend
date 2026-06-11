@@ -64,7 +64,7 @@ class FacturaCompraService
                     $impuesto = Impuesto::find($imp['impuesto_id']);
                     if (!$impuesto) continue;
 
-                    $monto = $base * ($impuesto->porcentaje / 100);
+                    $monto = $impuesto->calcularMonto($base);
 
                     $impuestosDetalle += $monto;
                     $totalImpuestos += $monto;
@@ -87,7 +87,7 @@ class FacturaCompraService
                 $impuesto = Impuesto::find($imp['impuesto_id']);
                 if (!$impuesto) continue;
 
-                $monto = $subtotal * ($impuesto->porcentaje / 100);
+                $monto = $impuesto->calcularMonto($subtotal);
 
                 $totalImpuestos += $monto;
 
@@ -295,7 +295,7 @@ private function _actualizar(FacturaCompra $factura, array $data)
                         $impuesto = Impuesto::find($imp['impuesto_id']);
                         if (!$impuesto) continue;
 
-                        $monto = $base * ($impuesto->porcentaje / 100);
+                        $monto = $impuesto->calcularMonto($base);
 
                         $detalleModel->impuestos()->attach($imp['impuesto_id'], [
                             'monto' => $monto
@@ -345,7 +345,7 @@ private function _actualizar(FacturaCompra $factura, array $data)
                 $impuesto = Impuesto::find($imp['impuesto_id']);
                 if (!$impuesto) continue;
 
-                $monto = $subtotal * ($impuesto->porcentaje / 100);
+                $monto = $impuesto->calcularMonto($subtotal);
 
                 $factura->impuestos()->attach($imp['impuesto_id'], [
                     'monto' => $monto

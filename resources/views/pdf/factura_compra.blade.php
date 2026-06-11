@@ -161,7 +161,8 @@
 @foreach($factura->detalles as $det)
     @foreach($det->impuestos as $imp)
         @php
-            $nombre = $imp->nombre;
+            $prefijo = $imp->operacion?->value === 'resta' ? '(-) ' : '(+) ';
+            $nombre = $prefijo . $imp->nombre;
             $monto = $imp->pivot->monto ?? 0;
 
             $impuestosAgrupados[$nombre] = ($impuestosAgrupados[$nombre] ?? 0) + $monto;
@@ -172,7 +173,8 @@
 {{-- 🔥 IMPUESTOS GENERALES (SI EXISTEN) --}}
 @foreach($factura->impuestos as $imp)
     @php
-        $nombre = $imp->nombre;
+        $prefijo = $imp->operacion?->value === 'resta' ? '(-) ' : '(+) ';
+        $nombre = $prefijo . $imp->nombre;
         $monto = $imp->pivot->monto ?? 0;
 
         $impuestosAgrupados[$nombre] = ($impuestosAgrupados[$nombre] ?? 0) + $monto;
