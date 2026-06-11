@@ -2,18 +2,28 @@
 
 namespace App\Services\contabilidad;
 
+use App\EstadoEnum;
 use App\Models\contabilidad\FacturaCompra;
 use App\Models\contabilidad\FacturaPago;
 use Illuminate\Support\Facades\DB;
 
 class RegistroPagoFacturaCompraService
 {
+public function __construct(
+    private readonly FacturaCompraEstadoService $estadoService
+) {
+}
+
 public function registrarPago(int $facturaId, array $data)
 {
     return DB::transaction(function () use ($facturaId, $data) {
 
         // 🔹 Buscar factura
         $factura = FacturaCompra::with('pagos')->findOrFail($facturaId);
+
+        if ((int) $factura->estado_id === EstadoEnum::ANULADA->value) {
+            throw new \Exception('No puedes registrar pagos en una factura anulada.');
+        }
 
         $totalFactura = (float) $factura->total;
         $pagosActuales = (float) $factura->pagos()->sum('monto');
@@ -40,21 +50,9 @@ public function registrarPago(int $facturaId, array $data)
 
         // 🔹 Recalcular pagos
         $totalPagado = $pagosActuales + $nuevoPago;
-        $saldoPendiente = $totalFactura - $totalPagado;
-
-        // 🔹 Determinar estado
-        if ($totalPagado <= 0) {
-            $estado = 1; // Pendiente
-        } elseif ($totalPagado < $totalFactura) {
-            $estado = 5; // Parcial
-        } else {
-            $estado = 4; // Pagado
-        }
-
         // 🔹 Actualizar factura
         $factura->update([
-            'estado_id' => $estado,
-            'saldo_pendiente' => $saldoPendiente,
+            ...$this->estadoService->calcular($totalFactura, $totalPagado),
         ]);
 
         // 🔹 Retornar actualizado
@@ -107,6 +105,10 @@ public function registrarPago(int $facturaId, array $data)
             $pago = FacturaPago::findOrFail($pagoId);
             $factura = $pago->facturaCompra;
 
+            if ((int) $factura->estado_id === EstadoEnum::ANULADA->value) {
+                throw new \Exception('No puedes modificar pagos de una factura anulada.');
+            }
+
             $totalFactura = (float) $factura->total;
             $pagosActuales = (float) $factura->pagos()->where('id', '!=', $pagoId)->sum('monto');
             $nuevoPago = (float) $data['monto'];
@@ -132,20 +134,9 @@ public function registrarPago(int $facturaId, array $data)
 
             // 🔹 Recalcular estado
             $totalPagado = $pagosActuales + $nuevoPago;
-            $saldoPendiente = $totalFactura - $totalPagado;
-
-            if ($totalPagado == 0) {
-                $estado = 1; // Pendiente
-            } elseif ($totalPagado < $totalFactura) {
-                $estado = 5; // Parcial
-            } else {
-                $estado = 4; // Pagado
-            }
-
             // 🔹 Actualizar factura
             $factura->update([
-                'estado_id'       => $estado,
-                'saldo_pendiente' => $saldoPendiente,
+                ...$this->estadoService->calcular($totalFactura, $totalPagado),
             ]);
 
             // 🔹 Retornar modelo actualizado

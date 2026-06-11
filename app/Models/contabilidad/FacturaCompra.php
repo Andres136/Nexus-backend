@@ -21,10 +21,12 @@ class FacturaCompra extends Model
         'empresa_id',
         'sede_id',
         'estado_id',
+        'forma_pago_id',
         'user_id',
         'numero_factura',
         'fecha_emision',
         'fecha_vencimiento',
+        'fecha_anulacion',
         'observaciones',
         'subtotal',
         'total',
@@ -62,6 +64,11 @@ protected $attributes = [
     public function estado()
     {
         return $this->belongsTo(Estados::class, 'estado_id');
+    }
+
+    public function formaPago()
+    {
+        return $this->belongsTo(FormaPago::class, 'forma_pago_id');
     }
 
      public function usuario()

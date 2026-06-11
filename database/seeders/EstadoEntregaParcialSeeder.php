@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\EstadoEnum;
 use App\Models\Estados;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class EstadoEntregaParcialSeeder extends Seeder
@@ -13,6 +13,9 @@ class EstadoEntregaParcialSeeder extends Seeder
      */
     public function run(): void
     {
-        Estados::firstOrCreate(['nombre' => 'Entrega Parcial']);
+        Estados::updateOrCreate(
+            ['id' => EstadoEnum::ENTREGA_PARCIAL->value],
+            ['nombre' => EstadoEnum::ENTREGA_PARCIAL->nombre()]
+        );
     }
 }

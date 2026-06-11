@@ -93,6 +93,7 @@ use App\Http\Controllers\Vsm\ForecastController;
 use App\Http\Controllers\whatsapp\WhatsappWebhookController;
 use App\Models\Pqr;
 use App\Models\Registro_indicadores;
+use App\RolEnum;
 use Illuminate\Container\Attributes\Auth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -479,6 +480,10 @@ Route::patch('analisis-producto-no-conforme/{id}/estado', [AnalisisProductoNoCon
 Route::apiResource('/vsm/ordenes', DashboardOperativoController::class);
 
 //RUTAS  PARA CONTABILIDAD
+Route::delete(
+    'facturas-compra/{id}/eliminar-definitivamente',
+    [FacturaCompraController::class, 'eliminarDefinitivamente']
+)->middleware('role:' . RolEnum::ADMINISTRADOR->value);
 Route::apiResource('facturas-compra', FacturaCompraController::class);
 //RUTAS PARA IMPUESTOS
 Route::apiResource('impuestos', ImpuestoController::class);

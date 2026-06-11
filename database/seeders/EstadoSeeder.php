@@ -2,7 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use App\EstadoEnum;
+use App\Models\Estados;
 use Illuminate\Database\Seeder;
 
 class EstadoSeeder extends Seeder
@@ -13,16 +14,21 @@ class EstadoSeeder extends Seeder
     public function run(): void
     {
         $estados = [
-            'Pendiente',
-            'Completado',
-            'Activo',
-            'Inactivo'
+            EstadoEnum::PENDIENTE,
+            EstadoEnum::COMPLETADO,
+            EstadoEnum::ACTIVO,
+            EstadoEnum::INACTIVO,
+            EstadoEnum::ENTREGA_PARCIAL,
+            EstadoEnum::PAGADA,
+            EstadoEnum::PAGO_PARCIAL,
+            EstadoEnum::ANULADA,
         ];
 
         foreach ($estados as $estado) {
-            \App\Models\Estados::create([
-                'nombre' => $estado
-            ]);
+            Estados::updateOrCreate(
+                ['id' => $estado->value],
+                ['nombre' => $estado->nombre()]
+            );
         }
     }
 }
