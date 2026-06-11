@@ -492,11 +492,11 @@ Route::apiResource('formas-pago', FormaPagoController::class);
 //RUTAS PUCk
 Route::post('cuentas-contables/importar', [PuckController::class, 'import']);
 Route::apiResource('cuentas-contables', PuckController::class);
-Route::apiResource('costeos', CosteoController::class);
 Route::get(
     '/costeos/export',
     [CosteoController::class, 'export']
 );
+Route::get('/costeos', [CosteoController::class, 'index']);
 Route::apiResource('pago-factura-compra', RegistroPagoFacturaCompraController::class);
 Route::post(
     'facturas-compras/{facturaId}/pagos',

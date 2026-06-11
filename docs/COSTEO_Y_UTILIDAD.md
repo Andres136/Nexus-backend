@@ -34,10 +34,10 @@ Un producto solo aparece cuando:
 | --- | --- |
 | Producto | `products` |
 | Cantidad comprada | `detalles_factura_compra.cantidad` |
-| Total de compra por linea | `detalles_factura_compra.total` |
+| Base de compra sin IVA | `cantidad * precio_unitario` |
 | Empresa de la compra | `factura_compras.empresa_id` |
 | Cantidad vendida/ejecutada | `orden__compra__detalles.cantidad_ejecutada_kg` |
-| Ingreso de venta | `orden__compra__detalles.valor_total` |
+| Ingreso de venta sin IVA | `cantidad * valor_unitario` |
 | Empresa de la venta | `orden__compras.empresa_id` |
 | Fecha usada por el filtro | `orden__compra__detalles.created_at` |
 
@@ -46,10 +46,11 @@ orden de trabajo.
 
 ## 4. Formulas actuales
 
-### Costo promedio
+### Costo promedio sin IVA
 
 ```text
-costo_promedio = suma(total de lineas de compra) / suma(cantidad comprada)
+costo_promedio = suma(kilos comprados * precio unitario sin IVA)
+                 / suma(kilos comprados)
 ```
 
 ### Costo total estimado de las ventas
@@ -58,10 +59,10 @@ costo_promedio = suma(total de lineas de compra) / suma(cantidad comprada)
 costo = kg ejecutados * costo_promedio
 ```
 
-### Ingreso
+### Ingreso sin IVA
 
 ```text
-ingreso = suma(valor_total de las lineas de orden de compra)
+ingreso = suma(unidades vendidas * valor unitario sin IVA)
 ```
 
 ### Utilidad bruta estimada
@@ -118,10 +119,9 @@ para la empresa.
 
 ### Criticos
 
-1. **El costo promedio puede incluir impuestos.** Al crear o actualizar una
-   factura, `detalles_factura_compra.total` se guarda como base mas impuestos del
-   detalle. El reporte usa ese total como costo. Esto puede inflar el costo y
-   reducir artificialmente la utilidad.
+1. **El costo se calcula sin IVA.** El reporte usa
+   `detalles_factura_compra.cantidad * precio_unitario`, evitando el campo
+   `total` que puede contener impuestos del detalle.
 
 2. **No se excluyen documentos anulados.** El reporte no filtra facturas de
    compra anuladas ni ordenes de venta anuladas/inactivas. Esos documentos
@@ -134,8 +134,9 @@ para la empresa.
 
 ### Altos
 
-4. **El ingreso puede reconocer toda la linea antes de ejecutarla completamente.**
-   Se suma `valor_total` completo, aunque `cantidad_ejecutada_kg` sea parcial.
+4. **El ingreso se calcula sin IVA, pero puede reconocer toda la linea antes de ejecutarla completamente.**
+   Se suma `cantidad * valor_unitario`, aunque `cantidad_ejecutada_kg` sea
+   parcial.
    Esto puede sobrestimar temporalmente la utilidad. Para una ejecucion parcial,
    el ingreso deberia prorratearse o provenir de una factura de venta.
 
@@ -149,13 +150,11 @@ para la empresa.
 
 ### Medios
 
-7. **La exportacion puede limitarse a la primera pagina.** La consulta se pagina
-   en grupos de 50 y la exportacion reutiliza ese resultado. Debe verificarse o
-   modificarse para exportar todos los productos filtrados.
+7. **La exportacion incluye todos los productos filtrados.** El listado web se
+   pagina, pero la exportacion ejecuta la consulta completa.
 
-8. **Los endpoints de crear, editar y eliminar costeo no hacen nada.** Las rutas
-   existen por usar `apiResource`, pero el modulo solamente implementa listado y
-   exportacion.
+8. **El modulo es exclusivamente de consulta.** Solo expone las rutas de listado
+   y exportacion porque el costeo se calcula a partir de otros movimientos.
 
 9. **La consulta del resumen carga todos los resultados en memoria.** Puede
    volverse costosa cuando aumente el volumen de productos y transacciones.

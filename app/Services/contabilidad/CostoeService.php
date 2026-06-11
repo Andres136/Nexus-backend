@@ -2,6 +2,7 @@
 
 namespace App\Services\contabilidad;
 
+use App\EstadoEnum;
 use Illuminate\Support\Facades\DB;
 
 class CostoeService
@@ -12,14 +13,17 @@ class CostoeService
         $search = null,
         $fechaInicio = null,
         $fechaFin = null,
-        $perPage = 50
+        $perPage = 50,
+        $paginar = true
     ) {
         $costosPromedio = DB::table('detalles_factura_compra as dfc')
             ->join('factura_compras as fc', 'fc.id', '=', 'dfc.factura_compra_id')
             ->selectRaw('
                 dfc.producto_id,
-                SUM(dfc.total) / NULLIF(SUM(dfc.cantidad), 0) as costo_promedio
+                SUM(dfc.cantidad * COALESCE(dfc.precio_unitario, 0))
+                    / NULLIF(SUM(dfc.cantidad), 0) as costo_promedio
             ')
+            ->where('fc.estado_id', '!=', EstadoEnum::ANULADA->value)
             ->when($empresaId, function ($query) use ($empresaId) {
                 $query->where('fc.empresa_id', $empresaId);
             })
@@ -48,7 +52,7 @@ class CostoeService
                 SUM(ocd.cantidad_ejecutada_kg)
                     as total_kg_vendidos,
 
-                SUM(ocd.valor_total)
+                SUM(ocd.cantidad * COALESCE(ocd.valor_unitario, 0))
                     as ingreso,
 
                 cp.costo_promedio,
@@ -59,7 +63,7 @@ class CostoeService
                 ) as costo,
 
                 SUM(
-                    ocd.valor_total -
+                    (ocd.cantidad * COALESCE(ocd.valor_unitario, 0)) -
                     (
                         ocd.cantidad_ejecutada_kg *
                         cp.costo_promedio
@@ -68,13 +72,13 @@ class CostoeService
 
                 (
                     SUM(
-                        ocd.valor_total -
+                        (ocd.cantidad * COALESCE(ocd.valor_unitario, 0)) -
                         (
                             ocd.cantidad_ejecutada_kg *
                             cp.costo_promedio
                         )
                     ) / NULLIF(
-                        SUM(ocd.valor_total),
+                        SUM(ocd.cantidad * COALESCE(ocd.valor_unitario, 0)),
                         0
                     )
                 ) * 100 as margen_porcentaje
@@ -185,7 +189,9 @@ class CostoeService
         | DETALLE PAGINADO
         |--------------------------------------------------------------------------
         */
-        $detalle = $query->paginate($perPage);
+        $detalle = $paginar
+            ? $query->paginate($perPage)
+            : $query->get();
 
         return [
             'detalle' => $detalle,
