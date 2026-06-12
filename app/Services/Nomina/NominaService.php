@@ -558,8 +558,7 @@ class NominaService
             return 1;
         }
 
-        $diasPeriodo = (int) $inicio->copy()->startOfDay()
-            ->diffInDays($fin->copy()->startOfDay()) + 1;
+        $diasPeriodo = $this->diasComerciales($inicio, $fin);
 
         return $diasPeriodo > 15 ? 2 : 1;
     }
@@ -662,7 +661,7 @@ class NominaService
 
         $dias += $this->diasComercialesMes($fin->copy()->startOfMonth(), $fin);
 
-        return min(30, max(1, $dias));
+        return max(1, $dias);
     }
 
     private function diasComercialesMes(Carbon $inicio, Carbon $fin): int

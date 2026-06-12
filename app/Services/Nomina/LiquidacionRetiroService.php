@@ -165,9 +165,9 @@ class LiquidacionRetiroService
         );
         $inicioPromedioVacaciones = $inicioContrato->copy()->max($fechaRetiro->copy()->subYear()->addDay());
 
-        $diasContrato = $this->diasInclusivos($inicioContrato, $fechaRetiro);
-        $diasCesantias = $this->diasInclusivos($inicioCesantias, $fechaRetiro);
-        $diasPrima = $this->diasInclusivos($inicioPrima, $fechaRetiro);
+        $diasContrato = $this->diasComerciales($inicioContrato, $fechaRetiro);
+        $diasCesantias = $this->diasComerciales($inicioCesantias, $fechaRetiro);
+        $diasPrima = $this->diasComerciales($inicioPrima, $fechaRetiro);
 
         $promedioVariableCesantias = $this->promedioVariableMensual($data['user_id'], $inicioCesantias, $fechaRetiro, true);
         $promedioVariablePrima = $this->promedioVariableMensual($data['user_id'], $inicioPrima, $fechaRetiro, true);
@@ -292,12 +292,40 @@ class LiquidacionRetiroService
             ->whereDate('periodo_inicio', '<=', $fin->toDateString())
             ->sum('valor');
 
-        return round(($total / max(1, $this->diasInclusivos($inicio, $fin))) * 30, 2);
+        return round(($total / max(1, $this->diasComerciales($inicio, $fin))) * 30, 2);
     }
 
-    private function diasInclusivos(Carbon $inicio, Carbon $fin): int
+    private function diasComerciales(Carbon $inicio, Carbon $fin): int
     {
-        return max(1, (int) $inicio->copy()->startOfDay()->diffInDays($fin->copy()->startOfDay()) + 1);
+        $inicio = $inicio->copy()->startOfDay();
+        $fin = $fin->copy()->startOfDay();
+
+        if ($inicio->gt($fin)) {
+            return 0;
+        }
+
+        if ($inicio->isSameMonth($fin)) {
+            return min(30, $this->diasComercialesMes($inicio, $fin));
+        }
+
+        $dias = $this->diasComercialesMes($inicio, $inicio->copy()->endOfMonth()->startOfDay());
+        $cursor = $inicio->copy()->addMonthNoOverflow()->startOfMonth();
+
+        while ($cursor->lt($fin->copy()->startOfMonth())) {
+            $dias += 30;
+            $cursor->addMonthNoOverflow();
+        }
+
+        return max(1, $dias + $this->diasComercialesMes($fin->copy()->startOfMonth(), $fin));
+    }
+
+    private function diasComercialesMes(Carbon $inicio, Carbon $fin): int
+    {
+        $ultimoDiaMes = $fin->copy()->endOfMonth()->day;
+        $diaInicio = min($inicio->day, 30);
+        $diaFin = $fin->day === $ultimoDiaMes ? 30 : min($fin->day, 30);
+
+        return max(1, $diaFin - $diaInicio + 1);
     }
 
     private function respuestaPublica(array $calculo): array

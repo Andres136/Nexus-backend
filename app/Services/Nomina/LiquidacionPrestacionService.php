@@ -126,7 +126,7 @@ class LiquidacionPrestacionService
             throw new \LogicException('El contrato activo no cubre el período seleccionado.');
         }
 
-        $diasLiquidados = $this->diasInclusivos($inicioEfectivo, $finEfectivo->copy()->startOfDay());
+        $diasLiquidados = $this->diasComerciales($inicioEfectivo, $finEfectivo->copy()->startOfDay());
         $baseSalarial = $this->ajusteSalarialService->salarioPromedioPeriodo(
             $contratacion,
             $inicioEfectivo,
@@ -195,7 +195,7 @@ class LiquidacionPrestacionService
         $base = round($salarioMensual + $promedioVariable, 2);
 
         // Días ganados en el contrato completo: 15 días por año (Art. 186 CST)
-        $diasTotales = $this->diasInclusivos($inicioContrato, $fin);
+        $diasTotales = $this->diasComerciales($inicioContrato, $fin);
         $diasGanados = round($diasTotales * 15 / 360, 4);
 
         $diasUsados = (float) Vacacion::where('user_id', $userId)
@@ -277,14 +277,42 @@ class LiquidacionPrestacionService
             + (float) $n->valor_horas_nocturnas_festivas
         );
 
-        $dias = $this->diasInclusivos($inicio, $fin);
+        $dias = $this->diasComerciales($inicio, $fin);
 
         return round(($total / max(1, $dias)) * 30, 2);
     }
 
-    private function diasInclusivos(Carbon $inicio, Carbon $fin): int
+    private function diasComerciales(Carbon $inicio, Carbon $fin): int
     {
-        return max(1, (int) $inicio->copy()->startOfDay()->diffInDays($fin->copy()->startOfDay()) + 1);
+        $inicio = $inicio->copy()->startOfDay();
+        $fin = $fin->copy()->startOfDay();
+
+        if ($inicio->gt($fin)) {
+            return 0;
+        }
+
+        if ($inicio->isSameMonth($fin)) {
+            return min(30, $this->diasComercialesMes($inicio, $fin));
+        }
+
+        $dias = $this->diasComercialesMes($inicio, $inicio->copy()->endOfMonth()->startOfDay());
+        $cursor = $inicio->copy()->addMonthNoOverflow()->startOfMonth();
+
+        while ($cursor->lt($fin->copy()->startOfMonth())) {
+            $dias += 30;
+            $cursor->addMonthNoOverflow();
+        }
+
+        return max(1, $dias + $this->diasComercialesMes($fin->copy()->startOfMonth(), $fin));
+    }
+
+    private function diasComercialesMes(Carbon $inicio, Carbon $fin): int
+    {
+        $ultimoDiaMes = $fin->copy()->endOfMonth()->day;
+        $diaInicio = min($inicio->day, 30);
+        $diaFin = $fin->day === $ultimoDiaMes ? 30 : min($fin->day, 30);
+
+        return max(1, $diaFin - $diaInicio + 1);
     }
 
     private function validarTipo(string $tipo): void
