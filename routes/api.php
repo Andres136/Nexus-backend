@@ -96,6 +96,7 @@ use App\Http\Controllers\Nomina\NovedadRetroactivaController;
 use App\Http\Controllers\Nomina\NominaConceptoContableController;
 use App\Http\Controllers\Nomina\NominaParametroLaboralController;
 use App\Http\Controllers\Nomina\PortalEmpleadoController;
+use App\Http\Controllers\Nomina\SolicitudPrestamoController;
 use App\Http\Controllers\NotificacionOrdenController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PqrController;
@@ -566,6 +567,8 @@ Route::prefix('nomina/portal')->group(function () {
     Route::get('permisos',             [PortalEmpleadoController::class, 'permisos']);
     Route::get('incapacidades',        [PortalEmpleadoController::class, 'incapacidades']);
     Route::get('licencias',            [PortalEmpleadoController::class, 'licencias']);
+    Route::get('prestamos',            [SolicitudPrestamoController::class, 'portalIndex']);
+    Route::post('prestamos',           [SolicitudPrestamoController::class, 'store']);
 });
 
 //Rutas tipos de contratos nomina
@@ -590,6 +593,9 @@ Route::prefix('nomina')->group(function () {
     Route::apiResource('incapacidades', IncapacidadController::class);
     Route::patch('incapacidades/{uuid}/revisar', [IncapacidadController::class, 'revisar']);
     Route::apiResource('descuentos', DescuentoController::class);
+    Route::get('solicitudes-prestamos', [SolicitudPrestamoController::class, 'index']);
+    Route::patch('solicitudes-prestamos/{uuid}/aprobar', [SolicitudPrestamoController::class, 'aprobar']);
+    Route::patch('solicitudes-prestamos/{uuid}/rechazar', [SolicitudPrestamoController::class, 'rechazar']);
     Route::apiResource('jornada-laborals', JornadaLaboralController::class);
     Route::apiResource('valores',ValorController::class);
     Route::apiResource('tipo-registros',TipoRegistroController::class);
