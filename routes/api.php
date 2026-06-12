@@ -554,7 +554,6 @@ Route::post(
     [RegistroPagoFacturaCompraController::class, 'store']
 );
 
-<<<<<<< HEAD
 
 // Portal del Empleado — siempre escopa al usuario autenticado, sin distinción de roles
 Route::prefix('nomina/portal')->group(function () {
