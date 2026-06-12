@@ -36,6 +36,63 @@ class VacacionService
         return $vacacion;
     }
 
+    public function resumen(int $userId, ?string $fechaCorte = null): array
+    {
+        $fecha = $fechaCorte ? Carbon::parse($fechaCorte)->endOfDay() : now();
+        $contrato = Contratacion::with('usuario:id,name,email')
+            ->where('users_id', $userId)
+            ->where('status', 1)
+            ->latest('inicio_contratacion')
+            ->first();
+
+        if (!$contrato) {
+            return [
+                'user_id' => $userId,
+                'empleado' => null,
+                'tiene_contrato_activo' => false,
+                'fecha_corte' => $fecha->toDateString(),
+                'inicio_contratacion' => null,
+                'dias_trabajados' => 0,
+                'dias_ganados' => 0,
+                'dias_disfrutados' => 0,
+                'dias_compensados' => 0,
+                'dias_pendientes_solicitados' => 0,
+                'dias_usados' => 0,
+                'dias_disponibles' => 0,
+            ];
+        }
+
+        $inicioContrato = Carbon::parse($contrato->inicio_contratacion)->startOfDay();
+        $diasTrabajados = (int) max(0, $inicioContrato->diffInDays($fecha) + 1);
+        $diasGanados = floor(($diasTrabajados / 365) * 15);
+
+        $aprobadas = Vacacion::where('user_id', $userId)
+            ->where('status', 'aprobada')
+            ->get();
+        $pendientes = Vacacion::where('user_id', $userId)
+            ->where('status', 'pendiente')
+            ->sum('dias_habiles');
+
+        $diasDisfrutados = (int) $aprobadas->where('tipo', 'ordinarias')->sum('dias_habiles');
+        $diasCompensados = (int) $aprobadas->where('tipo', 'compensadas')->sum('dias_habiles');
+        $diasUsados = $diasDisfrutados + $diasCompensados;
+
+        return [
+            'user_id' => $userId,
+            'empleado' => $contrato->usuario,
+            'tiene_contrato_activo' => true,
+            'fecha_corte' => $fecha->toDateString(),
+            'inicio_contratacion' => $inicioContrato->toDateString(),
+            'dias_trabajados' => $diasTrabajados,
+            'dias_ganados' => (int) $diasGanados,
+            'dias_disfrutados' => $diasDisfrutados,
+            'dias_compensados' => $diasCompensados,
+            'dias_pendientes_solicitados' => (int) $pendientes,
+            'dias_usados' => $diasUsados,
+            'dias_disponibles' => max(0, (int) $diasGanados - $diasUsados),
+        ];
+    }
+
     private function findByUuid(string $uuid): Vacacion
     {
         return Vacacion::with(self::WITH)->where('uuid', $uuid)->firstOrFail();

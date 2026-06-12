@@ -617,6 +617,7 @@ Route::prefix('nomina')->group(function () {
      Route::patch('licencias/{uuid}/aprobar',  [LicenciaController::class, 'aprobar']);
      Route::patch('licencias/{uuid}/rechazar', [LicenciaController::class, 'rechazar']);
 
+     Route::get('vacaciones/resumen/{userId}', [VacacionController::class, 'resumen']);
      Route::apiResource('vacaciones', VacacionController::class)->except(['update']);
      Route::patch('vacaciones/{uuid}/aprobar',  [VacacionController::class, 'aprobar']);
      Route::patch('vacaciones/{uuid}/rechazar', [VacacionController::class, 'rechazar']);

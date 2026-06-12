@@ -44,6 +44,29 @@ class VacacionController extends Controller
         }
     }
 
+    public function resumen(Request $request, int $userId): JsonResponse
+    {
+        try {
+            return response()->json([
+                'success' => true,
+                'data' => $this->vacacionService->resumen(
+                    $userId,
+                    $request->query('fecha_corte')
+                ),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener resumen de vacaciones', [
+                'user_id' => $userId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener el resumen de vacaciones.',
+            ], 500);
+        }
+    }
+
     public function store(StoreVacacionRequest $request): JsonResponse
     {
         try {
