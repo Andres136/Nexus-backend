@@ -6,114 +6,128 @@ use App\EstadoEnum;
 use App\Models\Crm\Cliente;
 use App\Models\User;
 use App\RolEnum;
+use App\Services\Crm\ComercialDashboardService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class ClienteService
 {
+    public function __construct(
+        private readonly ComercialDashboardService $comercialDashboardService
+    ) {
+    }
+
     public function index(Request $request)
     {
         $search = $request->input('search');
-
         $user = Auth::user();
-return Cliente::with([
-    'usuario:id,name',
-    'estado',
-
-    'seguimientos' => function ($query) use ($user) {
-
-        if (!in_array($user->role_id, [
+        $rolesConVistaGlobal = [
             RolEnum::ADMINISTRADOR->value,
             RolEnum::ADMINISTRATIVO->value,
             RolEnum::COMERCIAL->value,
-        ])) {
+        ];
+        $puedeVerTodos = in_array($user->role_id, $rolesConVistaGlobal);
+        $usuarioFiltro = $puedeVerTodos && $request->filled('user_id')
+            ? (int) $request->input('user_id')
+            : null;
+        $usuarioEstadistica = $usuarioFiltro ?? ($puedeVerTodos ? null : $user->id);
+        $estadoFiltro = $request->filled('estado_id')
+            ? (int) $request->input('estado_id')
+            : null;
 
-            $query->where('user_id', $user->id);
-        }
+        $clientes = Cliente::with([
+                'usuario:id,name',
+                'estado',
+                'seguimientos' => function ($query) use ($user, $puedeVerTodos) {
+                    if (!$puedeVerTodos) {
+                        $query->where('user_id', $user->id);
+                    }
 
-        $query->latest();
-    },
-
-    'ultimaGestion.usuario:id,name'
-])
-
-    ->withMax('seguimientos', 'created_at')
-
-    ->when($search, function ($query) use ($search) {
-
-        $query->where(function ($q) use ($search) {
-
-            $q->where('nombre', 'LIKE', "%{$search}%")
-              ->orWhere('nit', 'LIKE', "%{$search}%")
-              ->orWhere('email', 'LIKE', "%{$search}%")
-              ->orWhere('telefono', 'LIKE', "%{$search}%");
-
-        });
-
-    })
-
-    ->when(
-        !in_array($user->role_id, [
-            RolEnum::ADMINISTRADOR->value,
-            RolEnum::ADMINISTRATIVO->value,
-            RolEnum::COMERCIAL->value,
-        ]),
-        function ($query) use ($user) {
-
-            $query->where('user_id', $user->id);
-
-        }
-    )
-
-    ->when(
-        !in_array($user->role_id, [
-            RolEnum::ADMINISTRADOR->value,
-            RolEnum::ADMINISTRATIVO->value,
-            RolEnum::COMERCIAL->value,
-        ]),
-        function ($query) {
-
-            $query->where(
-                'estado_id',
-                EstadoEnum::ACTIVO->value
-            );
-
-        }
-    )
-
-    // 🔥 SIN GESTIÓN PRIMERO
-    ->orderByRaw("
-        CASE
-            WHEN seguimientos_max_created_at IS NULL THEN 0
-            ELSE 1
-        END
-    ")
-
-    // 🔥 GESTIONES MÁS ANTIGUAS
-    ->orderBy('seguimientos_max_created_at', 'asc')
-
-    // 🔥 INACTIVOS
-    ->when(
-        in_array($user->role_id, [
-            RolEnum::ADMINISTRADOR->value,
-            RolEnum::ADMINISTRATIVO->value,
-            RolEnum::COMERCIAL->value,
-        ]),
-        function ($query) {
-
-            $query->orderByRaw("
+                    $query->latest();
+                },
+                'seguimientos.usuario:id,name',
+                'ultimaGestion.usuario:id,name',
+            ])
+            ->withCount([
+                'seguimientos as gestiones_usuario_count' => function ($query) use ($usuarioEstadistica) {
+                    $query->when(
+                        $usuarioEstadistica,
+                        fn ($q) => $q->where('user_id', $usuarioEstadistica),
+                        fn ($q) => $q->whereColumn('seguimiento_clientes.user_id', 'clientes.user_id')
+                    );
+                },
+            ])
+            ->withMax('seguimientos', 'created_at')
+            ->when($search, function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('nombre', 'LIKE', "%{$search}%")
+                        ->orWhere('nit', 'LIKE', "%{$search}%")
+                        ->orWhere('email', 'LIKE', "%{$search}%")
+                        ->orWhere('telefono', 'LIKE', "%{$search}%");
+                });
+            })
+            ->when($puedeVerTodos && $usuarioFiltro, function ($query) use ($usuarioFiltro) {
+                $query->where('user_id', $usuarioFiltro);
+            })
+            ->when($puedeVerTodos && $estadoFiltro, function ($query) use ($estadoFiltro) {
+                $query->where('estado_id', $estadoFiltro);
+            })
+            ->when(!$puedeVerTodos, function ($query) use ($user) {
+                $query->where('user_id', $user->id)
+                    ->where('estado_id', EstadoEnum::ACTIVO->value);
+            })
+            ->orderByRaw("
                 CASE
-                    WHEN estado_id = " . EstadoEnum::INACTIVO->value . " THEN 0
+                    WHEN seguimientos_max_created_at IS NULL THEN 0
                     ELSE 1
                 END
-            ");
+            ")
+            ->orderBy('seguimientos_max_created_at')
+            ->orderByDesc('created_at')
+            ->paginate($search ? 25 : 10);
 
-        }
-    )
+        $clientesActivos = Cliente::where('estado_id', EstadoEnum::ACTIVO->value)
+            ->when($usuarioEstadistica, fn ($query) => $query->where('user_id', $usuarioEstadistica))
+            ->withCount([
+                'seguimientos as gestiones_usuario_count' => function ($query) use ($usuarioEstadistica) {
+                    $query->when(
+                        $usuarioEstadistica,
+                        fn ($q) => $q->where('user_id', $usuarioEstadistica),
+                        fn ($q) => $q->whereColumn('seguimiento_clientes.user_id', 'clientes.user_id')
+                    );
+                },
+            ])
+            ->get(['id']);
 
-    ->orderByDesc('created_at')
+        $clientesListos = $clientesActivos
+            ->where('gestiones_usuario_count', '>=', 3)
+            ->count();
+        $gestionesFaltantes = $clientesActivos
+            ->sum(fn ($cliente) => max(0, 3 - $cliente->gestiones_usuario_count));
 
-    ->paginate($search ? 25 : 10);
+        return array_merge($clientes->toArray(), [
+            'estadisticas' => [
+                'usuario_id' => $usuarioEstadistica,
+                'clientes_activos' => $clientesActivos->count(),
+                'clientes_listos' => $clientesListos,
+                'clientes_pendientes' => $clientesActivos->count() - $clientesListos,
+                'gestiones_faltantes' => $gestionesFaltantes,
+            ],
+            'resumen_mensual_usuarios' => $this->comercialDashboardService
+                ->getResumenMesActual($usuarioEstadistica),
+            'filtros' => [
+                'puede_filtrar_usuarios' => $puedeVerTodos,
+                'usuarios' => $puedeVerTodos
+                    ? User::whereIn('id', Cliente::query()->select('user_id')->distinct())
+                        ->orderBy('name')
+                        ->get(['id', 'name'])
+                    : [],
+                'estados' => [
+                    ['id' => EstadoEnum::ACTIVO->value, 'nombre' => 'Activo'],
+                    ['id' => EstadoEnum::INACTIVO->value, 'nombre' => 'Inactivo'],
+                ],
+            ],
+        ]);
     }
 
     public function clientesTodos(Request $request): array
@@ -179,11 +193,27 @@ return Cliente::with([
             RolEnum::ADMINISTRADOR->value,
             RolEnum::ADMINISTRATIVO->value,
             RolEnum::COMERCIAL->value,
+            RolEnum::EJECUTIVO_COMERCIAL->value,
         ])) {
             return ['autorizado' => false];
         }
 
         $cliente = Cliente::findOrFail($id);
+
+        if ($cliente->estado_id == EstadoEnum::ACTIVO->value) {
+            $totalGestiones = $cliente->seguimientos()
+                ->where('user_id', $user->id)
+                ->count();
+
+            if ($totalGestiones < 3) {
+                return [
+                    'autorizado' => true,
+                    'puede_cambiar_estado' => false,
+                    'total_gestiones' => $totalGestiones,
+                    'gestiones_requeridas' => 3,
+                ];
+            }
+        }
 
         $cliente->estado_id = $cliente->estado_id == EstadoEnum::ACTIVO->value
             ? EstadoEnum::INACTIVO->value
@@ -193,6 +223,7 @@ return Cliente::with([
 
         return [
             'autorizado' => true,
+            'puede_cambiar_estado' => true,
             'estado_id'  => $cliente->estado_id,
             'cliente'    => $cliente->nombre,
         ];

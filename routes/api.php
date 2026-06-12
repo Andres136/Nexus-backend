@@ -57,6 +57,7 @@ use App\Http\Controllers\Hseq\HallazgoSeguimientoController;
 use App\Http\Controllers\Hseq\HseqDashboardController;
 use App\Http\Controllers\Hseq\InspeccionHseqController;
 use App\Http\Controllers\Hseq\PreguntaInspeccionController;
+use App\Http\Controllers\Hseq\ReporteBicConttroller;
 use App\Http\Controllers\Hseq\ResiduoController;
 use App\Http\Controllers\Hseq\RespuestaInspeccionController;
 use App\Http\Controllers\Hseq\SoporteTareaController;
@@ -115,11 +116,13 @@ use App\Http\Controllers\Traslados\TrasladosBodegaController;
 use App\Http\Controllers\UpdateDepartamentoController;
 use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\Vsm\AlistamientoController;
+use App\Http\Controllers\Vsm\VsmConfiguracionController;
 use App\Http\Controllers\Vsm\AlistamientoTiempoController;
 use App\Http\Controllers\Vsm\ForecastController;
 use App\Http\Controllers\whatsapp\WhatsappWebhookController;
 use App\Models\Pqr;
 use App\Models\Registro_indicadores;
+use App\RolEnum;
 use Illuminate\Container\Attributes\Auth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -181,6 +184,8 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
   Route::apiResource('encuestas', EncuestaController::class);
   Route::post('encuestas/{id}/enviar', [EncuestaController::class, 'enviar']);
   Route::get('encuestas/{id}/resultados', [EncuestaController::class, 'resultados']);
+  Route::get('encuestas-clientes', [EncuestaController::class, 'clientesParaEncuesta']);
+  Route::get('encuestas-indice-general', [EncuestaController::class, 'indiceGeneral']);
   
 
   
@@ -398,12 +403,23 @@ Route::delete('/alistamientos/{alistamiento_id}/usuarios/{usuario_id}', [Alistam
 //Traer ordenes de trabajo para alistamiento
 Route::get('ordenes-trabajo-alistamiento', [AlistamientoController::class, 'ordenesTrabajoAlistamiento']);
 //Tiempos por alistamiento
-Route::get('/kpi-productividad', [ForecastController::class, 'kpiProductividad']);
+Route::get('/kpi-productividad',   [ForecastController::class, 'kpiProductividad']);
+Route::get('/vsm/rendimiento',     [ForecastController::class, 'rendimientoPorPeriodo']);
 Route::get('/vsm/pronostico', [ForecastController::class, 'pronostico']);
 Route::get('/vsm/pronostico/{id}', [ForecastController::class, 'pronosticoOT']);
 
 
 Route::get('/vsm/flujo', [ForecastController::class, 'flujo']);
+Route::get('/vsm/cobertura-abastecimiento', [ForecastController::class, 'coberturaAbastecimiento']);
+Route::get('/vsm/capacidad', [ForecastController::class, 'capacidad']);
+
+// Configuración de meta de productividad VSM
+Route::get('/vsm/configuracion',                         [VsmConfiguracionController::class, 'vigente']);
+Route::get('/vsm/configuracion/historial',               [VsmConfiguracionController::class, 'historial']);
+Route::post('/vsm/configuracion',                        [VsmConfiguracionController::class, 'store']);
+Route::put('/vsm/configuracion/{id}',                    [VsmConfiguracionController::class, 'update']);
+Route::delete('/vsm/configuracion/{id}',                 [VsmConfiguracionController::class, 'destroy']);
+Route::post('/vsm/configuracion/{id}/restaurar',         [VsmConfiguracionController::class, 'restaurar']);
 
 //Traer ot finalizadas
 Route::get('/vsm/ots-finalizadas', [AlistamientoController::class, 'alistamientosFinalizados']);
@@ -515,24 +531,30 @@ Route::patch('analisis-producto-no-conforme/{id}/estado', [AnalisisProductoNoCon
 Route::apiResource('/vsm/ordenes', DashboardOperativoController::class);
 
 //RUTAS  PARA CONTABILIDAD
+Route::delete(
+    'facturas-compra/{id}/eliminar-definitivamente',
+    [FacturaCompraController::class, 'eliminarDefinitivamente']
+)->middleware('role:' . RolEnum::ADMINISTRADOR->value);
 Route::apiResource('facturas-compra', FacturaCompraController::class);
 //RUTAS PARA IMPUESTOS
 Route::apiResource('impuestos', ImpuestoController::class);
 //RUTAS FORMAS DE PAGO
 Route::apiResource('formas-pago', FormaPagoController::class);
 //RUTAS PUCk
+Route::post('cuentas-contables/importar', [PuckController::class, 'import']);
 Route::apiResource('cuentas-contables', PuckController::class);
-Route::apiResource('costeos', CosteoController::class);
 Route::get(
     '/costeos/export',
     [CosteoController::class, 'export']
 );
+Route::get('/costeos', [CosteoController::class, 'index']);
 Route::apiResource('pago-factura-compra', RegistroPagoFacturaCompraController::class);
 Route::post(
     'facturas-compras/{facturaId}/pagos',
     [RegistroPagoFacturaCompraController::class, 'store']
 );
 
+<<<<<<< HEAD
 
 // Portal del Empleado — siempre escopa al usuario autenticado, sin distinción de roles
 Route::prefix('nomina/portal')->group(function () {
@@ -628,6 +650,9 @@ Route::prefix('nomina')->group(function () {
      Route::get('descargos/{uuid}/pdf', [DescargoController::class, 'pdf']);
      Route::apiResource('descargos', DescargoController::class)->except(['update']);
 });
+=======
+Route::apiResource('reportes-bic', ReporteBicConttroller::class);
+>>>>>>> main
 
 });
 
@@ -743,3 +768,4 @@ Route::post('/eventos/crear-qr', [EventoController::class, 'crearQr']);
 Route::post('/qrs/productos/pdf', [EventoController::class, 'crearQrMasivoConPdf']);
 
 Route::get('/orden-compras/{orden}/preview-documento', [OrdenCompraController::class, 'previewDocumento']);
+Route::get('obtener-reportes-bic', [ReporteBicConttroller::class, 'index']);

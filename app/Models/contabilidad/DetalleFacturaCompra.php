@@ -3,6 +3,7 @@
 namespace App\Models\contabilidad;
 
 use App\Models\Crm\product;
+use App\Models\Crm\OrdenCompraProveedorDetalle;
 use Illuminate\Database\Eloquent\Model;
 
 class DetalleFacturaCompra extends Model
@@ -13,6 +14,7 @@ class DetalleFacturaCompra extends Model
         'factura_compras_id',
         'bodega_id',
         'producto_id',
+        'orden_compra_proveedor_detalle_id',
         'puck_id',
         'cantidad',
         'precio_unitario',
@@ -36,5 +38,13 @@ class DetalleFacturaCompra extends Model
     public function producto()
     {
         return $this->belongsTo(product::class, 'producto_id');
+    }
+
+    public function ordenCompraProveedorDetalle()
+    {
+        return $this->belongsTo(
+            OrdenCompraProveedorDetalle::class,
+            'orden_compra_proveedor_detalle_id'
+        );
     }
 }

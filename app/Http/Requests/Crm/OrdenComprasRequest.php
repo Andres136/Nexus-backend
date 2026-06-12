@@ -25,7 +25,7 @@ class OrdenComprasRequest extends FormRequest
 
         // Validaciones condicionales para detalles
         $rules['detalles'] = 'nullable|array|min:1';
-        $rules['detalles.*.product_id'] = 'sometimes|nullable|exists:products,id';
+        $rules['detalles.*.product_id'] = 'required|exists:products,id';
         $rules['detalles.*.largo_cm'] = 'nullable:detalles|numeric';
         $rules['detalles.*.ancho_cm'] = 'nullable:detalles|numeric';
         $rules['detalles.*.calibre'] = 'required_with:detalles';
@@ -67,6 +67,7 @@ class OrdenComprasRequest extends FormRequest
             // Mensajes de error para detalles
     
             'detalles.min' => 'Debes ingresar mínimo un elemento',
+            'detalles.*.product_id.required' => 'El producto es obligatorio',
             'detalles.*.product_id.exists' => 'El producto seleccionado no es válido',
             'detalles.*.largo_cm.numeric' => 'El largo debe ser un número válido',
             'detalles.*.ancho_cm.numeric' => 'El ancho debe ser un número válido',

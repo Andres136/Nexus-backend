@@ -10,9 +10,10 @@ class AlistamientoTiempo extends Model
   
     protected $fillable = [
         'alistamiento_id',
+        'user_id',
         'tipo',
         'fecha_hora',
-        'razon'
+        'razon',
     ];
 
     protected $casts = [

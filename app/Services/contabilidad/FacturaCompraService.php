@@ -2,16 +2,23 @@
 
 namespace App\Services\contabilidad;
 
+use App\EstadoEnum;
 use App\Http\Resources\contabilidad\FacturaCompraResource;
 use App\Models\contabilidad\FacturaCompra;
 use App\Models\contabilidad\FormaPago;
 use App\Models\contabilidad\Impuesto;
+use App\RolEnum;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class FacturaCompraService
 {
+    public function __construct(
+        private readonly FacturaCompraEstadoService $estadoService
+    ) {
+    }
+
  public function crear(array $data)
 {
     return DB::transaction(function () use ($data) {
@@ -34,9 +41,10 @@ class FacturaCompraService
             'subtotal' => $subtotal,
             'total' => 0,
             'numero_factura' => $numeroFactura,
-            'estado_id' => 1,
+            'estado_id' => EstadoEnum::PENDIENTE->value,
             'user_id' => auth()->id(),
         ]);
+        $factura->ordenesCompraProveedor()->sync($data['ordenes_compra_proveedor_ids'] ?? []);
 
         // 🔹 3. Detalles + impuestos por detalle
         foreach ($data['detalles'] as $detalle) {
@@ -56,7 +64,7 @@ class FacturaCompraService
                     $impuesto = Impuesto::find($imp['impuesto_id']);
                     if (!$impuesto) continue;
 
-                    $monto = $base * ($impuesto->porcentaje / 100);
+                    $monto = $impuesto->calcularMonto($base);
 
                     $impuestosDetalle += $monto;
                     $totalImpuestos += $monto;
@@ -79,7 +87,7 @@ class FacturaCompraService
                 $impuesto = Impuesto::find($imp['impuesto_id']);
                 if (!$impuesto) continue;
 
-                $monto = $subtotal * ($impuesto->porcentaje / 100);
+                $monto = $impuesto->calcularMonto($subtotal);
 
                 $totalImpuestos += $monto;
 
@@ -109,7 +117,11 @@ if (!empty($data['pagos'])) {
     // 👉 Si vienen pagos manuales
     foreach ($data['pagos'] as $pago) {
 
-        $montoPago = $pago['monto'] > 0 ? $pago['monto'] : $total;
+        $montoPago = (float) $pago['monto'];
+
+        if ($montoPago <= 0) {
+            continue;
+        }
 
         $factura->pagos()->create([
             'forma_pago_id' => $pago['forma_pago_id'] ?? $formaPagoId,
@@ -122,43 +134,16 @@ if (!empty($data['pagos'])) {
         $totalPagos += $montoPago;    
     }
 
-} else {
-
-    //  Si NO vienen pagos, igual registrar forma de pago inicial
-    if ($formaPagoId) {
-
-        $formaPago = FormaPago::find($formaPagoId);
-
-        if ($formaPago) {
-
-            $nombreFormaPago = strtolower(
-                trim(
-                    iconv('UTF-8', 'ASCII//TRANSLIT', $formaPago->nombre)
-                )
-            );
-
-            // 🔹 CONTADO = paga total
-            if (str_contains($nombreFormaPago, 'contado')) {
-
-                $montoInicial = $total;
-                $totalPagos = $total;
-
-            } else {
-
-                // 🔹 CRÉDITO / TRANSFERENCIA / OTRO
-                $montoInicial = 0;
-            }
-
-            $factura->pagos()->create([
-                'forma_pago_id' => $formaPagoId,
-                'monto' => $montoInicial,
-                'fecha_pago' => now(),
-                'observaciones' => 'Registro inicial automático',
-                'user_id' => auth()->id(),
-            ]);
-        }
+} elseif ($this->esContado($formaPagoId)) {
+    $factura->pagos()->create([
+        'forma_pago_id' => $formaPagoId,
+        'monto' => $total,
+        'fecha_pago' => now(),
+        'observaciones' => 'Pago automático por compra de contado',
+        'user_id' => auth()->id(),
+    ]);
+    $totalPagos = $total;
     }
-}
 
         // 🔹 7. GASTOS
         if (!empty($data['gastos'])) {
@@ -172,17 +157,8 @@ if (!empty($data['pagos'])) {
             throw new \Exception('Los pagos no pueden ser mayores al total');
         }
 
-        // 🔹 9. Estado
-        if ($totalPagos == 0) {
-            $estado = 1; // Pendiente
-        } elseif ($totalPagos < $total) {
-            $estado = 5; // Parcial
-        } else {
-            $estado = 4; // Pagado
-        }
-
         $factura->update([
-            'estado_id' => $estado
+            ...$this->estadoService->calcular($total, $totalPagos),
         ]);
 
         // 🔹 10. PDF
@@ -233,11 +209,14 @@ public function actualizar(int $id, array $data)
 private function _actualizar(FacturaCompra $factura, array $data)
 {
     return DB::transaction(function () use ($factura, $data) {
-    // ❌ BLOQUEAR FACTURAS PAGADAS
-        if (
-            $factura->estado_id == 4 ||
-            $factura->saldo_pendiente <= 0
-        ) {
+        $totalPagadoActual = (float) $factura->pagos()->where('monto', '>', 0)->sum('monto');
+        $estadoAnulada = EstadoEnum::ANULADA->value;
+
+        if ((int) $factura->estado_id === $estadoAnulada) {
+            throw new \Exception('La factura está anulada y no puede editarse.');
+        }
+
+        if ((float) $factura->total > 0 && $totalPagadoActual >= (float) $factura->total) {
             throw new \Exception(
                 'La factura ya está pagada y no puede editarse.'
             );
@@ -258,6 +237,7 @@ private function _actualizar(FacturaCompra $factura, array $data)
         $factura->update(array_merge($data['factura'], [
             'subtotal' => $subtotal,
         ]));
+        $factura->ordenesCompraProveedor()->sync($data['ordenes_compra_proveedor_ids'] ?? []);
 
         // =====================================================
         // 🔹 3. DETALLES + IMPUESTOS POR DETALLE
@@ -286,6 +266,7 @@ private function _actualizar(FacturaCompra $factura, array $data)
                 $detalleData = [
                     'bodega_id' => $detalle['bodega_id'] ?? null,
                     'producto_id' => $detalle['producto_id'],
+                    'orden_compra_proveedor_detalle_id' => $detalle['orden_compra_proveedor_detalle_id'] ?? null,
                     'puck_id' => $detalle['puck_id'],
                     'cantidad' => $detalle['cantidad'],
                     'precio_unitario' => $detalle['precio_unitario'],
@@ -314,7 +295,7 @@ private function _actualizar(FacturaCompra $factura, array $data)
                         $impuesto = Impuesto::find($imp['impuesto_id']);
                         if (!$impuesto) continue;
 
-                        $monto = $base * ($impuesto->porcentaje / 100);
+                        $monto = $impuesto->calcularMonto($base);
 
                         $detalleModel->impuestos()->attach($imp['impuesto_id'], [
                             'monto' => $monto
@@ -334,38 +315,12 @@ private function _actualizar(FacturaCompra $factura, array $data)
         // =====================================================
         // 🔹 4. PAGOS
         // =====================================================
-        $totalPagos = 0;
+        $totalPagos = $totalPagadoActual;
         $formaPagoId = $data['factura']['forma_pago_id'] ?? null;
 
-        $factura->pagos()->delete();
-
-        if (!empty($data['pagos'])) {
-
-            foreach ($data['pagos'] as $pago) {
-
-                $montoPago = $pago['monto'] > 0 ? $pago['monto'] : 0;
-
-                $factura->pagos()->create([
-                    'forma_pago_id' => $formaPagoId,
-                    'monto' => $montoPago,
-                    'fecha_pago' => $pago['fecha_pago'] ?? now(),
-                    'observaciones' => $pago['observaciones'] ?? null,
-                    'user_id' => auth()->id(),
-                ]);
-
-                $totalPagos += $montoPago;
-            }
-
-        } elseif ($formaPagoId) {
-
-            $factura->pagos()->create([
-                'forma_pago_id' => $formaPagoId,
-                'monto' => 0,
-                'fecha_pago' => now(),
-                'observaciones' => 'Registro inicial automático',
-                'user_id' => auth()->id(),
-            ]);
-        }
+        // La forma de pago pertenece a la factura. Los abonos existentes no se
+        // eliminan al editar datos generales de la factura.
+        $factura->pagos()->where('monto', '<=', 0)->delete();
 
         // =====================================================
         // 🔹 5. GASTOS
@@ -390,7 +345,7 @@ private function _actualizar(FacturaCompra $factura, array $data)
                 $impuesto = Impuesto::find($imp['impuesto_id']);
                 if (!$impuesto) continue;
 
-                $monto = $subtotal * ($impuesto->porcentaje / 100);
+                $monto = $impuesto->calcularMonto($subtotal);
 
                 $factura->impuestos()->attach($imp['impuesto_id'], [
                     'monto' => $monto
@@ -405,26 +360,26 @@ private function _actualizar(FacturaCompra $factura, array $data)
         // =====================================================
         $total = $subtotal + $totalGastos + $totalImpuestos;
 
-        if ($totalPagos > $total) {
-            throw new \Exception('Los pagos no pueden superar el total');
+        if ($totalPagos <= 0 && $this->esContado($formaPagoId)) {
+            $factura->pagos()->create([
+                'forma_pago_id' => $formaPagoId,
+                'monto' => $total,
+                'fecha_pago' => now(),
+                'observaciones' => 'Pago automático por compra de contado',
+                'user_id' => auth()->id(),
+            ]);
+            $totalPagos = $total;
         }
 
-        // =====================================================
-        // 🔹 8. ESTADO
-        // =====================================================
-        if ($totalPagos == 0) {
-            $estado = 1; // Pendiente
-        } elseif ($totalPagos < $total) {
-            $estado = 5; // Parcial
-        } else {
-            $estado = 4; // Pagado
+        if ($totalPagos > $total) {
+            throw new \Exception('Los pagos no pueden superar el total');
         }
 
         $factura->update([
             'total' => $total,
             'total_impuestos' => $totalImpuestos,
             'total_gastos' => $totalGastos,
-            'estado_id' => $estado,
+            ...$this->estadoService->calcular($total, $totalPagos),
         ]);
 
         return new FacturaCompraResource(
@@ -616,8 +571,7 @@ public function anular(int $id)
             'detalles.producto'
         ])->findOrFail($id);
 
-        // ❌ Ya anulada
-        if ($factura->estado_id == 4) {
+        if ((int) $factura->estado_id === EstadoEnum::ANULADA->value) {
             throw new \Exception(
                 'La factura ya está anulada.'
             );
@@ -634,20 +588,12 @@ public function anular(int $id)
             );
         }
 
-        // 🔄 Revertir inventario
-        foreach ($factura->detalles as $detalle) {
-            if ($detalle->producto) {
-                $detalle->producto->stock -= $detalle->cantidad;
-                $detalle->producto->save();
-            }
-        }
-
         // 🗑 Eliminar pagos automáticos en cero
-        $factura->pagos()->delete();
+        $factura->pagos()->where('monto', '<=', 0)->delete();
 
         // ❌ Anular
         $factura->update([
-            'estado_id' => 4,
+            'estado_id' => EstadoEnum::ANULADA->value,
             'fecha_anulacion' => now(),
             'saldo_pendiente' => 0,
         ]);
@@ -658,35 +604,62 @@ public function anular(int $id)
         ];
     });
 }
+
+private function esContado(?int $formaPagoId): bool
+{
+    if (!$formaPagoId) {
+        return false;
+    }
+
+    $nombre = FormaPago::whereKey($formaPagoId)->value('nombre');
+    $normalizado = strtolower(trim(iconv('UTF-8', 'ASCII//TRANSLIT', $nombre ?? '')));
+
+    return str_contains($normalizado, 'contado');
+}
 //oBTENER DETALLES DE UNA FACTURA POR ID
 public function obtenerDetalles(int $id)
 {
-    $factura = FacturaCompra::with(['detalles.impuestos', 'pagos', 'gastos', 'impuestos'])->findOrFail($id);
-        // Forma de pago principal
-    $data['forma_pago_id'] = optional($factura->pagos->first())->forma_pago_id;
-    $factura->forma_pago_id = $data['forma_pago_id'];
+    $factura = FacturaCompra::with([
+        'detalles.impuestos',
+        'pagos',
+        'gastos',
+        'impuestos',
+        'ordenesCompraProveedor',
+    ])->findOrFail($id);
     return $factura;
     
 }
 
-//Anular pasas a estado 4 y no se pueden eliminar, solo anular, para mantener la trazabilidad de los movimientos en el sistema
 public function eliminar(int $id)
 {
-    $factura = FacturaCompra::findOrFail($id);
+    return $this->anular($id);
+}
 
-    if ($factura->estado_id == 4) {
-        return response()->json(['error' => 'La factura ya está anulada'], 400);
+public function eliminarDefinitivamente(int $id): void
+{
+    $user = auth()->user();
+
+    abort_unless(
+        $user && (int) $user->role_id === RolEnum::ADMINISTRADOR->value,
+        403,
+        'Solo un usuario administrador puede eliminar definitivamente una factura.'
+    );
+
+    $pdfPath = DB::transaction(function () use ($id) {
+        $factura = FacturaCompra::findOrFail($id);
+        $pdfPath = $factura->pdf_url;
+
+        // Las relaciones de la factura tienen eliminación en cascada.
+        $factura->delete();
+
+        return $pdfPath;
+    });
+
+    if ($pdfPath) {
+        Storage::disk('public')->delete(
+            preg_replace('#^/?storage/#', '', $pdfPath)
+        );
     }
-
-    if ($factura->pagos()->exists()) {
-        return response()->json(['error' => 'No puedes eliminar una factura con pagos'], 400);
-    }
-
-    $factura->estado_id = 4;
-    $factura->fecha_anulacion = now();
-    $factura->save();
-
-  return $factura;
 }
 
 // ==========================================
@@ -694,4 +667,3 @@ public function eliminar(int $id)
 // ==========================================
 
 }
-    

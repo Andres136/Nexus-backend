@@ -6,8 +6,7 @@ use App\Exports\CosteoUtilidadExport;
 use App\Http\Controllers\Controller;
 use App\Services\contabilidad\CostoeService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Maatwebsite\Excel\Excel;
+use Maatwebsite\Excel\Facades\Excel;
 
 class CosteoController extends Controller
 {
@@ -25,12 +24,14 @@ class CosteoController extends Controller
 public function index(Request $request)
 {
     $productoId = $request->input('producto_id');
+    $empresaId = $request->input('empresa_id');
     $search = $request->input('search');
     $fechaInicio = $request->input('fecha_inicio');
     $fechaFin = $request->input('fecha_fin');
 
     $data = $this->costeoService->utilidad(
         $productoId,
+        $empresaId,
         $search,
         $fechaInicio,
         $fechaFin
@@ -41,64 +42,35 @@ public function index(Request $request)
         'data' => $data
     ]);
 }
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
-    {
-        //
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
-    }
-
-
 public function export(Request $request)
 {
     $productoId = $request->input('producto_id');
+    $empresaId = $request->input('empresa_id');
     $search = $request->input('search');
     $fechaInicio = $request->input('fecha_inicio');
     $fechaFin = $request->input('fecha_fin');
 
     $data = $this->costeoService->utilidad(
         $productoId,
+        $empresaId,
         $search,
         $fechaInicio,
-        $fechaFin
+        $fechaFin,
+        50,
+        false
     );
 
   return Excel::download(
     new CosteoUtilidadExport(
-        collect($data['detalle'])->map(function ($item) {
+        $data['detalle']->map(function ($item) {
             return [
                 'Producto' => $item->name,
                 'Descripción' => $item->description,
                 'KG Vendidos' => $item->total_kg_vendidos,
-                'Ingreso' => $item->ingreso,
-                'Costo Promedio' => $item->costo_promedio,
-                'Costo Total' => $item->costo,
-                'Utilidad' => $item->utilidad,
+                'Ingreso sin IVA' => $item->ingreso,
+                'Costo Promedio KG sin IVA' => $item->costo_promedio,
+                'Costo Total sin IVA' => $item->costo,
+                'Utilidad sin IVA' => $item->utilidad,
                 'Margen %' => $item->margen_porcentaje,
             ];
         })->toArray()

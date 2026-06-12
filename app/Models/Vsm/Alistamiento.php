@@ -3,7 +3,6 @@
 namespace App\Models\Vsm;
 
 use App\Models\Crm\OrdenDeTrabajo;
-use App\Models\Crm\product;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
@@ -84,7 +83,16 @@ public function usuarios()
                 ->withTimestamps();
 }
 
-   
+public function getInicioAttribute(): mixed
+{
+    if ($this->relationLoaded('tiempos')) {
+        return $this->tiempos->where('tipo', 'INICIO')->first()?->fecha_hora;
+    }
+    return $this->tiempos()->where('tipo', 'INICIO')->value('fecha_hora');
+}
 
-
+public function getSegundosEnVivoAttribute(): int
+{
+    return max(0, (int) ($this->duracion_segundos ?? 0));
+}
 }

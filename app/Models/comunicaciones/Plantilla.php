@@ -20,6 +20,7 @@ class Plantilla extends Model
         'descargas',
         'publicada',
         'imagen_principal',
+        'imagen_mascota',
     ];
 
     protected $casts = [

@@ -4,6 +4,7 @@ namespace App\Models\contabilidad;
 
 use App\Models\Crm\empresa;
 use App\Models\Crm\Proveedor;
+use App\Models\Crm\OrdenCompraProveedor;
 use App\Models\Crm\Sede;
 use App\Models\Estados;
 use App\Models\User;
@@ -20,10 +21,12 @@ class FacturaCompra extends Model
         'empresa_id',
         'sede_id',
         'estado_id',
+        'forma_pago_id',
         'user_id',
         'numero_factura',
         'fecha_emision',
         'fecha_vencimiento',
+        'fecha_anulacion',
         'observaciones',
         'subtotal',
         'total',
@@ -44,6 +47,16 @@ protected $attributes = [
         return $this->belongsTo(Proveedor::class, 'proveedor_id');
     }
 
+    public function ordenesCompraProveedor()
+    {
+        return $this->belongsToMany(
+            OrdenCompraProveedor::class,
+            'factura_compra_ordenes',
+            'factura_compra_id',
+            'orden_compra_proveedor_id'
+        )->withTimestamps();
+    }
+
     public function sede()
     {
         return $this->belongsTo(Sede::class, 'sede_id');
@@ -51,6 +64,11 @@ protected $attributes = [
     public function estado()
     {
         return $this->belongsTo(Estados::class, 'estado_id');
+    }
+
+    public function formaPago()
+    {
+        return $this->belongsTo(FormaPago::class, 'forma_pago_id');
     }
 
      public function usuario()

@@ -53,7 +53,7 @@ class FacturaCompraController extends Controller
 
         return response()->json([
             'message' => 'Factura obtenida correctamente',
-                   'forma_pago_id' => optional($factura->pagos->first())->forma_pago_id,
+            'forma_pago_id' => $factura->forma_pago_id,
             'data' => $factura
         ], 200);
     }
@@ -61,7 +61,7 @@ class FacturaCompraController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(StoreFacturaCompreRequest $request, string $id)
     {
         $data = $request->all();
         $factura = $this->facturaCompraService->actualizar((int)$id, $data);
@@ -76,11 +76,25 @@ class FacturaCompraController extends Controller
      */
     public function destroy(string $id)
     {
-        $this->facturaCompraService->anular((int)$id);
-        return response()->json([
-            'message' => 'Factura Anulada correctamente',
-        ], 200);
+        try {
+            $this->facturaCompraService->anular((int)$id);
+
+            return response()->json([
+                'message' => 'Factura anulada correctamente',
+            ], 200);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 422);
+        }
     }
 
+    public function eliminarDefinitivamente(string $id)
+    {
+        $this->facturaCompraService->eliminarDefinitivamente((int) $id);
 
+        return response()->json([
+            'message' => 'Factura eliminada definitivamente',
+        ], 200);
+    }
 }

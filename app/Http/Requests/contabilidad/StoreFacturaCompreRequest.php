@@ -3,6 +3,8 @@
 namespace App\Http\Requests\contabilidad;
 
 use App\Models\contabilidad\Impuesto;
+use App\Models\Crm\OrdenCompraProveedor;
+use App\Models\Crm\OrdenCompraProveedorDetalle;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreFacturaCompreRequest extends FormRequest
@@ -27,6 +29,8 @@ class StoreFacturaCompreRequest extends FormRequest
             // 🔹 FACTURA
             'factura' => 'required|array',
             'factura.proveedor_id' => 'required|exists:proveedores,id',
+            'ordenes_compra_proveedor_ids' => 'nullable|array',
+            'ordenes_compra_proveedor_ids.*' => 'distinct|exists:orden_compra_proveedores,id',
             'factura.empresa_id' => 'required|exists:empresas,id',
             'factura.fecha_emision' => 'required|date',
             'factura.fecha_vencimiento' => 'nullable|date',
@@ -37,6 +41,7 @@ class StoreFacturaCompreRequest extends FormRequest
             // 🔹 DETALLES (PRODUCTOS)
             'detalles' => 'required|array|min:1',
             'detalles.*.producto_id' => 'required|exists:products,id',
+            'detalles.*.orden_compra_proveedor_detalle_id' => 'nullable|exists:orden_compra_proveedor_detalles,id',
             'detalles.*.puck_id' => 'required|exists:puck,id',
 
             'detalles.*.cantidad' => 'required|numeric|min:0.01',
@@ -66,6 +71,38 @@ class StoreFacturaCompreRequest extends FormRequest
     public function withValidator($validator)
 {
     $validator->after(function ($validator) {
+        $ordenIds = collect($this->input('ordenes_compra_proveedor_ids', []));
+        $proveedorId = $this->input('factura.proveedor_id');
+
+        if ($ordenIds->isNotEmpty() && $proveedorId) {
+            $ordenesValidas = OrdenCompraProveedor::whereIn('id', $ordenIds)
+                ->where('proveedor_id', $proveedorId)
+                ->count();
+
+            if ($ordenesValidas !== $ordenIds->unique()->count()) {
+                $validator->errors()->add(
+                    'ordenes_compra_proveedor_ids',
+                    'Todas las órdenes de compra deben pertenecer al proveedor seleccionado.'
+                );
+            }
+        }
+
+        foreach ($this->input('detalles', []) as $index => $detalle) {
+            $ordenDetalleId = $detalle['orden_compra_proveedor_detalle_id'] ?? null;
+            if (!$ordenDetalleId) continue;
+
+            $detalleValido = OrdenCompraProveedorDetalle::whereKey($ordenDetalleId)
+                ->where('producto_id', $detalle['producto_id'] ?? null)
+                ->whereIn('orden_id', $ordenIds)
+                ->exists();
+
+            if (!$detalleValido) {
+                $validator->errors()->add(
+                    "detalles.{$index}.orden_compra_proveedor_detalle_id",
+                    'El detalle no pertenece a una de las órdenes seleccionadas.'
+                );
+            }
+        }
 
         $pagos = collect($this->pagos ?? []);
         $totalPagos = $pagos->sum('monto');
@@ -89,7 +126,7 @@ foreach ($this->detalles ?? [] as $detalle) {
             $impuesto = Impuesto::find($imp['impuesto_id']);
             if (!$impuesto) continue;
 
-            $totalImpuestos += $base * ($impuesto->porcentaje / 100);
+            $totalImpuestos += $impuesto->calcularMonto($base);
         }
     }
 }
@@ -100,7 +137,7 @@ foreach ($this->impuestos ?? [] as $imp) {
     $impuesto = Impuesto::find($imp['impuesto_id']);
     if (!$impuesto) continue;
 
-    $totalImpuestos += $totalFactura * ($impuesto->porcentaje / 100);
+    $totalImpuestos += $impuesto->calcularMonto($totalFactura);
 }
 
 $totalReal = $totalFactura + $totalGastos + $totalImpuestos;
@@ -117,6 +154,7 @@ if ($pagos->count() > 0 && $totalPagos > $totalReal) {
         return [
             'factura.proveedor_id.required' => 'El campo proveedor es obligatorio.',
             'factura.proveedor_id.exists' => 'El proveedor seleccionado no existe.',
+            'ordenes_compra_proveedor_ids.*.exists' => 'Una de las órdenes de compra seleccionadas no existe.',
             'factura.empresa_id.required' => 'El campo empresa es obligatorio.',
             'factura.empresa_id.exists' => 'La empresa seleccionada no existe.',
             'factura.fecha_emision.required' => 'El campo fecha de emisión es obligatorio.',
