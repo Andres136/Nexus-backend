@@ -23,6 +23,8 @@ class Contratacion extends Model
         'numero_documento',
         'correo',
         'cargo',
+        'tipo_salario',
+        'parametro_laboral_id',
         'no_salarial',
         'base_salario',
         'auxilio_transporte',
@@ -100,5 +102,10 @@ class Contratacion extends Model
     public function historialSalarial()
     {
         return $this->hasMany(HistorialSalarialContratacion::class, 'contratacion_id');
+    }
+
+    public function parametroLaboral()
+    {
+        return $this->belongsTo(NominaParametroLaboral::class, 'parametro_laboral_id');
     }
 }

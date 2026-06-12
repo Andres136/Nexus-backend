@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Nomina;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateContratacionRequest extends FormRequest
 {
@@ -18,6 +19,8 @@ class UpdateContratacionRequest extends FormRequest
             'numero_documento'     => 'sometimes|string|max:20',
             'correo'                => 'nullable|email|max:255',
             'cargo'                => 'sometimes|string|max:100',
+            'tipo_salario'          => ['sometimes', 'nullable', Rule::in(['salario_minimo', 'personalizado'])],
+            'parametro_laboral_id'  => 'nullable|integer|exists:nomina_parametros_laborales,id',
             'no_salarial'          => 'sometimes|numeric|min:0',
             'base_salario'         => 'sometimes|numeric|min:0',
             'auxilio_transporte'   => 'nullable|numeric|min:0',
@@ -43,6 +46,8 @@ class UpdateContratacionRequest extends FormRequest
             'correo.email'                   => 'El correo debe ser un correo electrónico válido.',
             'correo.max'                     => 'El correo no puede superar 255 caracteres.',
             'cargo.max'                    => 'El cargo no puede superar 100 caracteres.',
+            'tipo_salario.in'              => 'El tipo de salario no es válido.',
+            'parametro_laboral_id.exists'  => 'El parámetro laboral seleccionado no existe.',
             'inicio_contratacion.date'      => 'La fecha de inicio no es válida.',
             'fin_contrato.date'             => 'La fecha de fin no es válida.',
             'fin_contrato.after_or_equal'   => 'La fecha de fin debe ser igual o posterior a la de inicio.',

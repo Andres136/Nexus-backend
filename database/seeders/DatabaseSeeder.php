@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
         $this->call(DepartamentoSeeder::class);
         $this->call(UserSeeder::class);
         $this->call(CategoriaSeeder::class);
+        $this->call(NominaConceptoContableSeeder::class);
  
     }
 }

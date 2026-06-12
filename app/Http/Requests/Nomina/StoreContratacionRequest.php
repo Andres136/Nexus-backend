@@ -4,6 +4,7 @@ namespace App\Http\Requests\Nomina;
 
 use App\Models\Nomina\Contratacion;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class StoreContratacionRequest extends FormRequest
@@ -20,6 +21,8 @@ class StoreContratacionRequest extends FormRequest
             'numero_documento'     => 'required|string|max:20',
             'correo'                => 'nullable|email|max:255',
             'cargo'                => 'nullable|string|max:100',
+            'tipo_salario'          => ['nullable', Rule::in(['salario_minimo', 'personalizado'])],
+            'parametro_laboral_id'  => 'nullable|integer|exists:nomina_parametros_laborales,id',
             'no_salarial'          => 'required|numeric|min:0',
             'base_salario'         => 'required|numeric|min:0',
             'auxilio_transporte'   => 'nullable|numeric|min:0',
@@ -51,6 +54,8 @@ class StoreContratacionRequest extends FormRequest
             'correo.max'                     => 'El correo no puede superar 255 caracteres.',
             'cargo.required'               => 'El cargo es obligatorio.',
             'cargo.max'                    => 'El cargo no puede superar 100 caracteres.',
+            'tipo_salario.in'              => 'El tipo de salario no es válido.',
+            'parametro_laboral_id.exists'  => 'El parámetro laboral seleccionado no existe.',
             'no_salarial.required'          => 'El componente no salarial es obligatorio.',
             'base_salario.required'         => 'El salario base es obligatorio.',
             'pago_frecuencia.required'      => 'La frecuencia de pago es obligatoria.',

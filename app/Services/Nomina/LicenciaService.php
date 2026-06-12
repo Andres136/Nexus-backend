@@ -20,6 +20,7 @@ class LicenciaService
                 'empleado',
                 fn ($e) => $e->where('name', 'like', "%{$filters['search']}%")
             ))
+            ->when(isset($filters['status']) && $filters['status'] !== '', fn ($q) => $q->where('status', $filters['status']))
             ->orderByDesc('inicio')
             ->paginate($filters['per_page'] ?? 15);
 

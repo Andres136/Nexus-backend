@@ -17,6 +17,7 @@ class ContratacionService
         'usuario:id,name,email,sede_id',
         'usuario.sede:id,nombre',
         'empresa:id,nombre',
+        'parametroLaboral:id,uuid,anio,fecha_vigencia,salario_minimo,auxilio_transporte',
         'eps:id,nombre,nit',
         'arl:id,nombre,nit',
         'fondoPensiones:id,nombre,nit',
@@ -83,6 +84,7 @@ class ContratacionService
                 throw new LogicException('Este empleado ya tiene un contrato activo. Debes inactivar o finalizar el contrato actual antes de registrar uno nuevo.');
             }
 
+            $data = $this->normalizarEconomicos($data, true);
             $contratacion = Contratacion::create($data);
 
             Log::info('Contratación creada', ['uuid' => $contratacion->uuid, 'users_id' => $contratacion->users_id]);
@@ -104,6 +106,7 @@ class ContratacionService
         return DB::transaction(function () use ($uuid, $data) {
             $contratacion = Contratacion::where('uuid', $uuid)->firstOrFail();
 
+            $data = $this->normalizarEconomicos($data);
             $contratacion->update($data);
 
             Log::info('Contratación actualizada', ['uuid' => $contratacion->uuid]);
@@ -137,5 +140,20 @@ class ContratacionService
 
             Log::info('Contratación eliminada', ['uuid' => $contratacion->uuid]);
         });
+    }
+
+    private function normalizarEconomicos(array $data, bool $crear = false): array
+    {
+        if ($crear) {
+            $data['tipo_salario'] ??= 'personalizado';
+            $data['auxilio_transporte'] = $data['auxilio_transporte'] ?? 0;
+            $data['no_salarial'] = $data['no_salarial'] ?? 0;
+        }
+
+        if (($data['tipo_salario'] ?? null) && $data['tipo_salario'] !== 'salario_minimo') {
+            $data['parametro_laboral_id'] = null;
+        }
+
+        return $data;
     }
 }

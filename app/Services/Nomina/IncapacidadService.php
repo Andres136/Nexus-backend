@@ -47,6 +47,17 @@ public function getAll(array $filters = [])
         $query->where('status', $filters['status']);
     }
 
+    if (isset($filters['estado_revision']) && $filters['estado_revision'] !== '') {
+        if ($filters['estado_revision'] === 'pendiente') {
+            $query->where(function ($q) {
+                $q->where('estado_revision', 'pendiente')
+                  ->orWhereNull('estado_revision');
+            });
+        } else {
+            $query->where('estado_revision', $filters['estado_revision']);
+        }
+    }
+
     $query->orderByDesc('created_at');
 
     $perPage = $filters['per_page'] ?? 20;

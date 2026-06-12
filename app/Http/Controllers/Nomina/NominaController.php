@@ -10,6 +10,7 @@ use App\Http\Requests\Nomina\UpdateNominaRequest;
 use App\Models\Nomina\Contratacion;
 use App\Models\Nomina\Nomina;
 use App\Services\Nomina\ConfiguracionNominaService;
+use App\Services\Nomina\NominaPucPayloadService;
 use App\Services\Nomina\NominaService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -247,6 +248,46 @@ class NominaController extends Controller
         $filename = "nomina_liquidada_{$inicio}_{$fin}.xlsx";
 
         return Excel::download(new NominaPlanoExport($nominas, $inicio, $fin), $filename);
+    }
+
+    public function pucPayload(string $uuid, NominaPucPayloadService $payloadService): JsonResponse
+    {
+        try {
+            $payload = $payloadService->generar($uuid);
+
+            if (! $payload['valido']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Faltan cuentas PUC para conceptos de nómina.',
+                    'data' => $payload,
+                ], 422);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $payload,
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Nómina no encontrada.',
+            ], 404);
+        } catch (\LogicException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error al generar payload PUC de nómina', [
+                'uuid' => $uuid,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al generar el payload PUC de nómina.',
+            ], 500);
+        }
     }
 
     public function desprendible($uuid)

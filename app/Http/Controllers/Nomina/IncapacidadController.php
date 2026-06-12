@@ -18,10 +18,12 @@ class IncapacidadController extends Controller
     ) {}
 
     // GET /incapacidades
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         try {
-            $incapacidades = $this->incapacidadService->getAll();
+            $incapacidades = $this->incapacidadService->getAll(
+                $request->only(['search', 'user_id', 'status', 'estado_revision', 'per_page'])
+            );
 
             return response()->json([
                 'success' => true,
