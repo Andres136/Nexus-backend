@@ -88,7 +88,6 @@ class HoraExtraService
                     'origen'           => $data['origen'] ?? 'admin',
                     'fecha'            => $data['fecha'],
                     'horas'            => $data['horas'],
-                    'tipo'             => $data['tipo'],
                     'motivo'           => $data['motivo'] ?? null,
                     'status'           => 'pendiente',
                 ]);
@@ -100,7 +99,6 @@ class HoraExtraService
                 'users'  => $data['users'],
                 'fecha'  => $data['fecha'],
                 'horas'  => $data['horas'],
-                'tipo'   => $data['tipo'],
                 'total'  => $registros->count(),
             ]);
 

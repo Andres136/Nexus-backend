@@ -23,8 +23,7 @@ class StoreHoraExtraRequest extends FormRequest
             'origen'         => 'sometimes|in:admin,kiosko',
             'fecha'          => 'required|date',
             'horas'          => 'required|numeric|min:0.5|max:24',
-            'tipo'           => 'required|in:diurna,nocturna,festiva,nocturna_festiva',
-            'motivo'         => 'nullable|string|max:255',
+            'motivo'         => 'required|string|max:255',
         ];
     }
 
@@ -40,8 +39,7 @@ class StoreHoraExtraRequest extends FormRequest
             'horas.required'    => 'Las horas son obligatorias.',
             'horas.min'         => 'El mínimo es 0.5 horas.',
             'horas.max'         => 'No puede registrar más de 24 horas en un día.',
-            'tipo.required'     => 'El tipo de hora extra es obligatorio.',
-            'tipo.in'           => 'El tipo debe ser: diurna, nocturna, festiva o nocturna_festiva.',
+            "motivo.required"   => 'Debes Registrar un motivo',
         ];
     }
 }

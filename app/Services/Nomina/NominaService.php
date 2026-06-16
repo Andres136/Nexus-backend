@@ -355,12 +355,39 @@ class NominaService
             ->where('status', 'aprobada')
             ->get();
 
-        $horasExtrasDiurnasAprobadas = round((float) $extrasAprobadas->where('tipo', 'diurna')->sum('horas'), 2);
-        $horasExtrasDiurnas = max($horasExtrasDiurnasAprobadas, $horasExtrasDiurnasDetectadas);
-        $horasExtrasNocturnasAprobadas = round((float) $extrasAprobadas->where('tipo', 'nocturna')->sum('horas'), 2);
-        $horasExtrasNocturnas = max($horasExtrasNocturnasAprobadas, $horasExtrasNocturnasDetectadas);
-        $horasNocturnasFestivas = round((float) $extrasAprobadas->where('tipo', 'nocturna_festiva')->sum('horas'), 2);
-        $horasFestivasTotal = round($horasFestivasTotal + (float) $extrasAprobadas->where('tipo', 'festiva')->sum('horas'), 2);
+        $minExtDiurnosAprobados   = 0;
+        $minExtNocturnosAprobados = 0;
+        $minNocturnosFestivos     = 0;
+        $minFestivos              = 0;
+
+        foreach ($extrasAprobadas as $extra) {
+            $fechaExtra       = Carbon::parse($extra->fecha);
+            $inicioExtra      = Carbon::parse($extra->fecha . ' ' . $jornada->hora_salida);
+            $finExtra         = $inicioExtra->copy()->addMinutes((int) round((float) $extra->horas * 60));
+            $totalMin         = (int) round((float) $extra->horas * 60);
+            $minutosNocturnos = $this->minutosNocturnosEntre($inicioExtra, $finExtra);
+            $minutosDiurnos   = max(0, $totalMin - $minutosNocturnos);
+            $esFestivo        = $fechaExtra->isSunday()
+                || WorkSession::where('user_id', $extra->user_id)
+                    ->whereDate('registro_diario', $fechaExtra->toDateString())
+                    ->where('festivo_minutos', '>', 0)
+                    ->exists();
+
+            if ($esFestivo) {
+                $minFestivos          += $minutosDiurnos;
+                $minNocturnosFestivos += $minutosNocturnos;
+            } else {
+                $minExtDiurnosAprobados   += $minutosDiurnos;
+                $minExtNocturnosAprobados += $minutosNocturnos;
+            }
+        }
+
+        $horasExtrasDiurnasAprobadas   = round($minExtDiurnosAprobados / 60, 2);
+        $horasExtrasNocturnasAprobadas = round($minExtNocturnosAprobados / 60, 2);
+        $horasExtrasDiurnas            = max($horasExtrasDiurnasAprobadas, $horasExtrasDiurnasDetectadas);
+        $horasExtrasNocturnas          = max($horasExtrasNocturnasAprobadas, $horasExtrasNocturnasDetectadas);
+        $horasNocturnasFestivas        = round($minNocturnosFestivos / 60, 2);
+        $horasFestivasTotal            = round($horasFestivasTotal + ($minFestivos / 60), 2);
 
         if ($horasExtrasDiurnasDetectadas > $horasExtrasDiurnasAprobadas) {
             $advertencias[] = "Se detectaron {$horasExtrasDiurnasDetectadas} horas extra diurnas desde asistencia por exceder la jornada del período.";
