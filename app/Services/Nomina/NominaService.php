@@ -20,6 +20,7 @@ use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use LogicException;
 
 class NominaService
 {
@@ -208,6 +209,39 @@ class NominaService
     public function preliquidar(array $data): array
     {
         return $this->calcular($data);
+    }
+
+    public function aprobarContabilidad(string $uuid, NominaPucPayloadService $payloadService): Nomina
+    {
+        return DB::transaction(function () use ($uuid, $payloadService) {
+            $nomina = $this->getByUuid($uuid);
+
+            if (! $nomina->liquidada) {
+                throw new LogicException('Solo se pueden aprobar nóminas liquidadas.');
+            }
+
+            if (in_array($nomina->estado_contable, ['aprobado', 'cerrado', 'exportado'], true)) {
+                throw new LogicException('La nómina ya fue aprobada por contabilidad.');
+            }
+
+            $payload = $payloadService->generar($uuid);
+
+            if (! $payload['valido']) {
+                throw new LogicException('La nómina no se puede aprobar porque tiene cuentas PUC pendientes por configurar.');
+            }
+
+            $nomina->update([
+                'estado_contable' => 'aprobado',
+                'fecha_aprobacion_contable' => now(),
+            ]);
+
+            Log::info('Nómina aprobada por contabilidad', [
+                'uuid' => $nomina->uuid,
+                'user_id' => $nomina->user_id,
+            ]);
+
+            return $nomina->fresh(self::WITH);
+        });
     }
 
     private function calcular(array $data): array

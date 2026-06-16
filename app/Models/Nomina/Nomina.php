@@ -61,6 +61,9 @@ class Nomina extends Model
         'salario_neto',
         'liquidada',
         'fecha_liquidacion',
+        'estado_contable',
+        'fecha_aprobacion_contable',
+        'fecha_cierre_contable',
     ];
 
     protected $casts = [
@@ -93,6 +96,8 @@ class Nomina extends Model
         'salario_neto' => 'decimal:2',
         'liquidada' => 'boolean',
         'fecha_liquidacion' => 'datetime',
+        'fecha_aprobacion_contable' => 'datetime',
+        'fecha_cierre_contable' => 'datetime',
         'uuid' => 'string',
     ];
 

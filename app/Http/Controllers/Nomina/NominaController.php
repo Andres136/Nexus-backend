@@ -290,6 +290,39 @@ class NominaController extends Controller
         }
     }
 
+    public function aprobarContabilidad(string $uuid, NominaPucPayloadService $payloadService): JsonResponse
+    {
+        try {
+            $nomina = $this->nominaService->aprobarContabilidad($uuid, $payloadService);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Nómina aprobada por contabilidad.',
+                'data' => $nomina,
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Nómina no encontrada.',
+            ], 404);
+        } catch (\LogicException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error al aprobar contabilidad de nómina', [
+                'uuid' => $uuid,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al aprobar la nómina en contabilidad.',
+            ], 500);
+        }
+    }
+
     public function desprendible($uuid)
     {
         $nomina = Nomina::with([

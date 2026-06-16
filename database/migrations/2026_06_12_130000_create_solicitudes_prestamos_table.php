@@ -15,7 +15,7 @@ return new class extends Migration
             $table->foreignId('descuento_id')->nullable()->constrained('descuentos')->nullOnDelete();
             $table->foreignId('gestionado_por_id')->nullable()->constrained('users')->nullOnDelete();
             $table->decimal('monto_solicitado', 12, 2);
-            $table->integer('numero_cuotas_solicitadas');
+            $table->integer('numero_cuotas_solicitadas')->nullable();
             $table->enum('frecuencia_pago_solicitada', ['quincenal', 'mensual'])->default('quincenal');
             $table->text('motivo')->nullable();
             $table->enum('status', ['pendiente', 'aprobada', 'rechazada'])->default('pendiente');

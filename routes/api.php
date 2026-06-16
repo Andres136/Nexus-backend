@@ -630,6 +630,7 @@ Route::prefix('nomina')->group(function () {
     Route::get('nominas/{uuid}/desprendible', [NominaController::class, 'desprendible']);
     Route::post('nominas/{uuid}/desprendible/enviar', [NominaController::class, 'enviarDesprendible']);
     Route::get('nominas/{uuid}/puc-payload', [NominaController::class, 'pucPayload']);
+    Route::patch('nominas/{uuid}/aprobar-contabilidad', [NominaController::class, 'aprobarContabilidad']);
     Route::apiResource('nominas', NominaController::class);
 
     Route::apiResource('horas-extras', HoraExtraController::class)->except(['update']);

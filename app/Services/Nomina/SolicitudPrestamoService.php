@@ -36,7 +36,7 @@ class SolicitudPrestamoService
         $solicitud = SolicitudPrestamo::create([
             'user_id' => $userId ?? Auth::id(),
             'monto_solicitado' => $data['monto_solicitado'],
-            'numero_cuotas_solicitadas' => $data['numero_cuotas_solicitadas'],
+            'numero_cuotas_solicitadas' => $data['numero_cuotas_solicitadas'] ?? null,
             'frecuencia_pago_solicitada' => $data['frecuencia_pago_solicitada'],
             'motivo' => $data['motivo'] ?? null,
             'status' => 'pendiente',

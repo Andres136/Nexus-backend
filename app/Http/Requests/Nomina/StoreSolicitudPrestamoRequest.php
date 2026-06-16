@@ -15,7 +15,6 @@ class StoreSolicitudPrestamoRequest extends FormRequest
     {
         return [
             'monto_solicitado' => 'required|numeric|min:1',
-            'numero_cuotas_solicitadas' => 'required|integer|min:1|max:60',
             'frecuencia_pago_solicitada' => 'required|in:quincenal,mensual',
             'motivo' => 'nullable|string|max:1000',
         ];
