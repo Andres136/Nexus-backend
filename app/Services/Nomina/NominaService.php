@@ -348,7 +348,12 @@ class NominaService
         $minutosExtrasDiurnosDetectados = max(0, $minutosExtrasDetectados - $minutosExtrasNocturnosDetectados);
         $horasExtrasDiurnasDetectadas = round($minutosExtrasDiurnosDetectados / 60, 2);
         $horasExtrasNocturnasDetectadas = round($minutosExtrasNocturnosDetectados / 60, 2);
-        $horasFestivasTotal = round(($festivoMinutos + $sabadoMinutos) / 60, 2);
+        $minutosFestivosDetectados = (int) round($festivoMinutos + $sabadoMinutos);
+        $minutosNocturnosFestivosDetectados = $this->minutosNocturnosFestivosTrabajados($sessions);
+        $minutosFestivosDiurnosDetectados = max(0, $minutosFestivosDetectados - $minutosNocturnosFestivosDetectados);
+        $horasFestivasDetectadas = round($minutosFestivosDiurnosDetectados / 60, 2);
+        $horasNocturnasFestivasDetectadas = round($minutosNocturnosFestivosDetectados / 60, 2);
+        $horasFestivasTotal = $horasFestivasDetectadas;
 
         $extrasAprobadas = HoraExtra::where('user_id', $userId)
             ->whereBetween('fecha', [$inicioLiquidable->toDateString(), $finLiquidable->toDateString()])
@@ -384,10 +389,12 @@ class NominaService
 
         $horasExtrasDiurnasAprobadas   = round($minExtDiurnosAprobados / 60, 2);
         $horasExtrasNocturnasAprobadas = round($minExtNocturnosAprobados / 60, 2);
-        $horasExtrasDiurnas            = max($horasExtrasDiurnasAprobadas, $horasExtrasDiurnasDetectadas);
-        $horasExtrasNocturnas          = max($horasExtrasNocturnasAprobadas, $horasExtrasNocturnasDetectadas);
-        $horasNocturnasFestivas        = round($minNocturnosFestivos / 60, 2);
-        $horasFestivasTotal            = round($horasFestivasTotal + ($minFestivos / 60), 2);
+        $horasFestivasAprobadas        = round($minFestivos / 60, 2);
+        $horasNocturnasFestivasAprobadas = round($minNocturnosFestivos / 60, 2);
+        $horasExtrasDiurnas            = min($horasExtrasDiurnasAprobadas, $horasExtrasDiurnasDetectadas);
+        $horasExtrasNocturnas          = min($horasExtrasNocturnasAprobadas, $horasExtrasNocturnasDetectadas);
+        $horasNocturnasFestivas        = min($horasNocturnasFestivasAprobadas, $horasNocturnasFestivasDetectadas);
+        $horasFestivasTotal            = min($horasFestivasAprobadas, $horasFestivasDetectadas);
 
         if ($horasExtrasDiurnasDetectadas > $horasExtrasDiurnasAprobadas) {
             $advertencias[] = "Se detectaron {$horasExtrasDiurnasDetectadas} horas extra diurnas desde asistencia por exceder la jornada del período.";
@@ -395,6 +402,30 @@ class NominaService
 
         if ($horasExtrasNocturnasDetectadas > $horasExtrasNocturnasAprobadas) {
             $advertencias[] = "Se detectaron {$horasExtrasNocturnasDetectadas} horas extra nocturnas desde asistencia por exceder la jornada después de las 7:00 p. m.";
+        }
+
+        if ($horasExtrasDiurnasAprobadas > $horasExtrasDiurnasDetectadas) {
+            $advertencias[] = "Hay {$horasExtrasDiurnasAprobadas} horas extra diurnas autorizadas, pero solo {$horasExtrasDiurnasDetectadas} fueron trabajadas.";
+        }
+
+        if ($horasExtrasNocturnasAprobadas > $horasExtrasNocturnasDetectadas) {
+            $advertencias[] = "Hay {$horasExtrasNocturnasAprobadas} horas extra nocturnas autorizadas, pero solo {$horasExtrasNocturnasDetectadas} fueron trabajadas.";
+        }
+
+        if ($horasFestivasDetectadas > $horasFestivasAprobadas) {
+            $advertencias[] = "Se detectaron {$horasFestivasDetectadas} horas festivas diurnas, pero solo {$horasFestivasAprobadas} estan autorizadas para pago.";
+        }
+
+        if ($horasFestivasAprobadas > $horasFestivasDetectadas) {
+            $advertencias[] = "Hay {$horasFestivasAprobadas} horas festivas diurnas autorizadas, pero solo {$horasFestivasDetectadas} fueron trabajadas.";
+        }
+
+        if ($horasNocturnasFestivasDetectadas > $horasNocturnasFestivasAprobadas) {
+            $advertencias[] = "Se detectaron {$horasNocturnasFestivasDetectadas} horas festivas nocturnas, pero solo {$horasNocturnasFestivasAprobadas} estan autorizadas para pago.";
+        }
+
+        if ($horasNocturnasFestivasAprobadas > $horasNocturnasFestivasDetectadas) {
+            $advertencias[] = "Hay {$horasNocturnasFestivasAprobadas} horas festivas nocturnas autorizadas, pero solo {$horasNocturnasFestivasDetectadas} fueron trabajadas.";
         }
 
         $salarioMensual = (float) $baseSalarial['salario_mensual'];
@@ -693,6 +724,36 @@ class NominaService
             $minutos -= $this->minutosNocturnosDeDescanso($session->hora_salida_almuerzo, $session->hora_ingreso_almuerzo);
 
             $total += max(0, $minutos);
+        }
+
+        return max(0, $total);
+    }
+
+    private function minutosNocturnosFestivosTrabajados($sessions): int
+    {
+        $total = 0;
+
+        foreach ($sessions as $session) {
+            if (! $session->hora_entrada || ! $session->hora_salida) {
+                continue;
+            }
+
+            $minutosFestivosSesion = (int) round((float) ($session->festivo_minutos ?? 0) + (float) ($session->sabado_minutos ?? 0));
+            if ($minutosFestivosSesion <= 0) {
+                continue;
+            }
+
+            $entrada = Carbon::parse($session->hora_entrada);
+            $salida = Carbon::parse($session->hora_salida);
+            if ($salida->lessThanOrEqualTo($entrada)) {
+                $salida->addDay();
+            }
+
+            $minutosNocturnos = $this->minutosNocturnosEntre($entrada, $salida);
+            $minutosNocturnos -= $this->minutosNocturnosDeDescanso($session->hora_salida_brake, $session->hora_ingreso_brake);
+            $minutosNocturnos -= $this->minutosNocturnosDeDescanso($session->hora_salida_almuerzo, $session->hora_ingreso_almuerzo);
+
+            $total += min($minutosFestivosSesion, max(0, $minutosNocturnos));
         }
 
         return max(0, $total);

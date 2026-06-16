@@ -17,6 +17,8 @@ class WorkSessionService
 {
     private const WITH = ['empleado', 'kiosko', 'jornadaLaboral'];
 
+    private const TOLERANCIA_ENTRADA_MINUTOS = 15;
+
     private const PAUSA_PERMITIDA_MINUTOS = 15;
 
     private const ALMUERZO_PERMITIDO_MINUTOS = 60;
@@ -143,10 +145,14 @@ class WorkSessionService
 
         if ($entrada) {
             $horaEntradaProgramada = $jornada?->hora_entrada ?? '07:00:00';
+            $horaEntradaLimite = $jornada?->hora_entrada_limite;
             $entradaReal = Carbon::parse($entrada);
             $entradaBase = Carbon::parse($entradaReal->toDateString().' '.$horaEntradaProgramada);
-            $tardanzaMinutos += $entradaReal->greaterThan($entradaBase) && ! $this->tienePermisoEntradaAprobado((int) ($data['user_id'] ?? $session?->user_id), $entradaReal)
-                ? (int) $entradaBase->diffInMinutes($entradaReal)
+            $entradaLimite = $horaEntradaLimite
+                ? Carbon::parse($entradaReal->toDateString().' '.$horaEntradaLimite)
+                : $entradaBase->copy()->addMinutes(self::TOLERANCIA_ENTRADA_MINUTOS);
+            $tardanzaMinutos += $entradaReal->greaterThan($entradaLimite) && ! $this->tienePermisoEntradaAprobado((int) ($data['user_id'] ?? $session?->user_id), $entradaReal)
+                ? (int) $entradaLimite->diffInMinutes($entradaReal)
                 : 0;
         }
 
@@ -159,7 +165,19 @@ class WorkSessionService
         if ($almuerzoSale && $almuerzoVuelve) {
             $almuerzoMinutos = (int) Carbon::parse($almuerzoSale)->diffInMinutes(Carbon::parse($almuerzoVuelve));
             $data['minutos_almuerzo'] = $almuerzoMinutos;
-            $tardanzaMinutos += max(0, $almuerzoMinutos - $almuerzoPermitido);
+
+            $regresoProgramado = $jornada?->hora_ingreso_almuerzo
+                ? Carbon::parse(Carbon::parse($almuerzoVuelve)->toDateString().' '.$jornada->hora_ingreso_almuerzo)
+                : null;
+            $regresoReal = Carbon::parse($almuerzoVuelve);
+
+            $tardanzaAlmuerzoHorario = $regresoProgramado && $regresoReal->greaterThan($regresoProgramado)
+                ? (int) $regresoProgramado->diffInMinutes($regresoReal)
+                : 0;
+
+            $tardanzaAlmuerzoDuracion = max(0, $almuerzoMinutos - $almuerzoPermitido);
+
+            $tardanzaMinutos += max($tardanzaAlmuerzoHorario, $tardanzaAlmuerzoDuracion);
         }
 
         $data['minutos_tardanza'] = $tardanzaMinutos;
@@ -494,23 +512,17 @@ class WorkSessionService
             ->sum('horas');
 
         if ((float) $horasAprobadas <= 0) {
-            $data['hora_salida'] = Carbon::parse($hora)
-                ->setTimeFromTimeString($jornada->hora_salida)
-                ->toDateTimeString();
-
-            return 'Salida registrada en la hora programada. El tiempo adicional no será reconocido porque no tiene horas extra autorizadas.';
+            return 'Salida registrada. El tiempo adicional no sera reconocido porque no tiene horas extra autorizadas.';
         }
 
         $minutosAprobados = (int) round(((float) $horasAprobadas) * 60);
         $salidaMaximaAutorizada = $salidaProgramada + $minutosAprobados;
 
         if ($salidaReal > $salidaMaximaAutorizada) {
-            throw ValidationException::withMessages([
-                'hora_salida' => "Tus horas extras aprobadas cubren hasta {$horasAprobadas} hora(s). Solicita aprobación adicional antes de marcar salida.",
-            ]);
+            return "Salida registrada. Tus horas extras aprobadas cubren hasta {$horasAprobadas} hora(s); el excedente no sera reconocido sin aprobacion adicional.";
         }
 
-        return null;
+        return 'Salida registrada dentro del tiempo de horas extra autorizado.';
     }
 
     private function minutosHora(?string $hora): ?int
