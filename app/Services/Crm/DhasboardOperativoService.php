@@ -2,6 +2,7 @@
 
 namespace App\Services\Crm;
 
+use App\EstadoEnum;
 use App\Models\Crm\AlistamientoOt;
 use App\Models\Crm\Inventario;
 use App\Models\Crm\Orden_Compra;
@@ -38,7 +39,7 @@ class DhasboardOperativoService
             'ordenes_trabajo_pendientes' => 5,
             'ordenes_trabajo_en_proceso' => 3,
             'ordenes_trabajo_completadas' => 2,
-            // Agrega más datos según sea necesario
+           
         ];
     }
 
@@ -54,7 +55,11 @@ $ordenes = Orden_Compra::with([
         'detalles.product',
         'sede'
     ])
-    ->whereIn('estado_id', [1, 5])
+    ->whereIn('estado_id', [
+        EstadoEnum::PENDIENTE->value,
+        EstadoEnum::ENTREGA_PARCIAL->value,
+    ])
+    ->whereNot('estado_id', EstadoEnum::INACTIVO->value)
 
     ->when(!empty($filters['producto_id']), function ($query) use ($filters) {
         $query->whereHas('detalles', function ($q) use ($filters) {

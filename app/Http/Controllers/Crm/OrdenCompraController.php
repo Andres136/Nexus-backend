@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Crm;
 
+use App\EstadoEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\NotificacionOrdenController;
 use App\Http\Requests\Crm\OrdenComprasRequest;
@@ -234,6 +235,7 @@ public function obtenerOrdenesTrabajo(Request $request)
         'entregas.usuario:id,name',
         'movimientosStock:id,orden_trabajo_id,created_at,usuario_id',
     ])
+        ->whereNot('estado_id', EstadoEnum::INACTIVO->value)
 
         // Restricción por rol (excepto admin)
         ->when(!in_array($user->role_id, [1, 4]), function ($query) use ($user) {
