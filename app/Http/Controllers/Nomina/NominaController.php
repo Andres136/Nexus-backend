@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Nomina;
 
+use App\Exports\NominaPucExport;
 use App\Exports\NominaPlanoExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Nomina\LiquidarNominaRequest;
@@ -15,6 +16,7 @@ use App\Services\Nomina\NominaService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
@@ -321,6 +323,166 @@ class NominaController extends Controller
                 'message' => 'Error al aprobar la nómina en contabilidad.',
             ], 500);
         }
+    }
+
+    public function cerrarPeriodo(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'periodo_inicio' => 'required|date',
+            'periodo_fin' => 'required|date|after_or_equal:periodo_inicio',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        try {
+            $count = $this->nominaService->cerrarPeriodo(
+                $request->input('periodo_inicio'),
+                $request->input('periodo_fin')
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => "Período cerrado correctamente. Nóminas afectadas: {$count}.",
+            ]);
+        } catch (\LogicException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error al cerrar período contable de nómina', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al cerrar el período contable.',
+            ], 500);
+        }
+    }
+
+    public function exportarPucExcel(Request $request, NominaPucPayloadService $payloadService): JsonResponse|BinaryFileResponse
+    {
+        $validator = Validator::make($request->query(), [
+            'periodo_inicio' => 'required|date',
+            'periodo_fin' => 'required|date|after_or_equal:periodo_inicio',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        try {
+            $inicio = $request->query('periodo_inicio');
+            $fin = $request->query('periodo_fin');
+            [$nominas, $rows] = $this->buildPucRows($inicio, $fin, $payloadService);
+
+            $this->nominaService->marcarPeriodoExportado($nominas);
+
+            return Excel::download(
+                new NominaPucExport($rows),
+                "puc_nomina_{$inicio}_{$fin}.xlsx"
+            );
+        } catch (\LogicException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error al exportar PUC de nómina en Excel', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al exportar el PUC en Excel.',
+            ], 500);
+        }
+    }
+
+    public function exportarPucPdf(Request $request, NominaPucPayloadService $payloadService): JsonResponse|BinaryFileResponse
+    {
+        $validator = Validator::make($request->query(), [
+            'periodo_inicio' => 'required|date',
+            'periodo_fin' => 'required|date|after_or_equal:periodo_inicio',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        try {
+            $inicio = $request->query('periodo_inicio');
+            $fin = $request->query('periodo_fin');
+            [$nominas, $rows] = $this->buildPucRows($inicio, $fin, $payloadService);
+
+            $pdf = Pdf::loadView('pdf.nomina_puc', [
+                'rows' => $rows,
+                'periodoInicio' => $inicio,
+                'periodoFin' => $fin,
+            ])->setPaper('letter', 'landscape');
+
+            $this->nominaService->marcarPeriodoExportado($nominas);
+
+            return $pdf->download("puc_nomina_{$inicio}_{$fin}.pdf");
+        } catch (\LogicException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error al exportar PUC de nómina en PDF', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al exportar el PUC en PDF.',
+            ], 500);
+        }
+    }
+
+    private function buildPucRows(string $periodoInicio, string $periodoFin, NominaPucPayloadService $payloadService): array
+    {
+        $nominas = $this->nominaService->getNominasPeriodoContable($periodoInicio, $periodoFin);
+
+        if ($nominas->isEmpty()) {
+            throw new \LogicException('No hay nóminas liquidadas en el período seleccionado.');
+        }
+
+        $rows = collect();
+
+        foreach ($nominas as $nomina) {
+            $payload = $payloadService->generar($nomina->uuid);
+
+            if (! $payload['valido']) {
+                throw new \LogicException("La nómina {$nomina->uuid} tiene cuentas PUC pendientes por configurar.");
+            }
+
+            $asientos = collect($payload['contabilidad']['asientos'] ?? []);
+            $rows = $rows->merge($asientos->map(function ($asiento) use ($nomina) {
+                return [
+                    'nomina_uuid' => $nomina->uuid,
+                    'empleado' => $nomina->empleado?->name ?? '—',
+                    'documento' => $nomina->contratacion?->numero_documento ?? '—',
+                    'periodo_inicio' => $nomina->periodo_inicio?->format('Y-m-d'),
+                    'periodo_fin' => $nomina->periodo_fin?->format('Y-m-d'),
+                    'concepto' => $asiento['concepto'] ?? '',
+                    'codigo' => $asiento['codigo'] ?? '',
+                    'cuenta_puc' => $asiento['cuenta_puc']['numero'] ?? '',
+                    'cuenta_nombre' => $asiento['cuenta_puc']['nombre'] ?? '',
+                    'naturaleza' => $asiento['naturaleza'] ?? '',
+                    'valor' => (float) ($asiento['valor'] ?? 0),
+                ];
+            }));
+        }
+
+        return [$nominas, $rows];
     }
 
     public function desprendible($uuid)

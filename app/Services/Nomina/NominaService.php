@@ -18,6 +18,7 @@ use App\Models\Nomina\Valor;
 use App\Models\Nomina\WorkSession;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use LogicException;
@@ -211,6 +212,16 @@ class NominaService
         return $this->calcular($data);
     }
 
+    public function getNominasPeriodoContable(string $periodoInicio, string $periodoFin): Collection
+    {
+        return Nomina::with(self::WITH)
+            ->where('liquidada', true)
+            ->whereDate('periodo_inicio', '>=', $periodoInicio)
+            ->whereDate('periodo_fin', '<=', $periodoFin)
+            ->orderBy('user_id')
+            ->get();
+    }
+
     public function aprobarContabilidad(string $uuid, NominaPucPayloadService $payloadService): Nomina
     {
         return DB::transaction(function () use ($uuid, $payloadService) {
@@ -242,6 +253,44 @@ class NominaService
 
             return $nomina->fresh(self::WITH);
         });
+    }
+
+    public function cerrarPeriodo(string $periodoInicio, string $periodoFin): int
+    {
+        return DB::transaction(function () use ($periodoInicio, $periodoFin) {
+            $nominas = $this->getNominasPeriodoContable($periodoInicio, $periodoFin);
+
+            if ($nominas->isEmpty()) {
+                throw new LogicException('No hay nóminas liquidadas en el período seleccionado.');
+            }
+
+            $pendientes = $nominas->filter(fn ($nomina) => ! in_array($nomina->estado_contable, ['aprobado', 'cerrado', 'exportado'], true));
+            if ($pendientes->isNotEmpty()) {
+                throw new LogicException('No se puede cerrar el período porque hay nóminas sin aprobar en contabilidad.');
+            }
+
+            Nomina::whereIn('id', $nominas->pluck('id'))
+                ->update([
+                    'estado_contable' => 'cerrado',
+                    'fecha_cierre_contable' => now(),
+                ]);
+
+            Log::info('Período de nómina cerrado en contabilidad', [
+                'periodo_inicio' => $periodoInicio,
+                'periodo_fin' => $periodoFin,
+                'nominas' => $nominas->count(),
+            ]);
+
+            return $nominas->count();
+        });
+    }
+
+    public function marcarPeriodoExportado(Collection $nominas): void
+    {
+        Nomina::whereIn('id', $nominas->pluck('id'))
+            ->update([
+                'estado_contable' => 'exportado',
+            ]);
     }
 
     private function calcular(array $data): array

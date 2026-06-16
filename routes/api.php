@@ -631,6 +631,9 @@ Route::prefix('nomina')->group(function () {
     Route::post('nominas/{uuid}/desprendible/enviar', [NominaController::class, 'enviarDesprendible']);
     Route::get('nominas/{uuid}/puc-payload', [NominaController::class, 'pucPayload']);
     Route::patch('nominas/{uuid}/aprobar-contabilidad', [NominaController::class, 'aprobarContabilidad']);
+    Route::post('nominas/cerrar-periodo', [NominaController::class, 'cerrarPeriodo']);
+    Route::get('nominas/exportar-puc/excel', [NominaController::class, 'exportarPucExcel']);
+    Route::get('nominas/exportar-puc/pdf', [NominaController::class, 'exportarPucPdf']);
     Route::apiResource('nominas', NominaController::class);
 
     Route::apiResource('horas-extras', HoraExtraController::class)->except(['update']);
