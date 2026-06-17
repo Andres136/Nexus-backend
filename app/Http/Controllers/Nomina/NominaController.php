@@ -16,6 +16,7 @@ use App\Services\Nomina\NominaService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -404,7 +405,7 @@ class NominaController extends Controller
         }
     }
 
-    public function exportarPucPdf(Request $request, NominaPucPayloadService $payloadService): JsonResponse|BinaryFileResponse
+    public function exportarPucPdf(Request $request, NominaPucPayloadService $payloadService): JsonResponse|Response
     {
         $validator = Validator::make($request->query(), [
             'periodo_inicio' => 'required|date',
