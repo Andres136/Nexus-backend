@@ -711,7 +711,7 @@ public function dividirOrden(Request $request, $id)
     DB::beginTransaction();
 
     try {
-        $ordenOriginal = OrdenCompraProveedor::with("detalles")->findOrFail($id);
+        $ordenOriginal = OrdenCompraProveedor::with("detalles.observaciones")->findOrFail($id);
 
         // Agrupar por proveedor destino
         $grupos = collect($request->items)
@@ -736,9 +736,9 @@ public function dividirOrden(Request $request, $id)
 
             // Asociar los detalles correspondientes
             foreach ($itemsProveedor as $item) {
-                $detalle = OrdenCompraProveedorDetalle::find($item['detalle_id']);
+                $detalle = OrdenCompraProveedorDetalle::with('observaciones')->findOrFail($item['detalle_id']);
        
-                $newOrden->detalles()->create([
+                $nuevoDetalle = $newOrden->detalles()->create([
                     'item' => $detalle->item,
                     'descripcion' => $detalle->descripcion,
                     'cantidad_solicitada' => $detalle->cantidad_solicitada,
@@ -748,12 +748,23 @@ public function dividirOrden(Request $request, $id)
                     'proveedor_id' => $proveedorId,
                     'proceso_bolsas_id' => $detalle->proceso_bolsas_id,
                 ]);
+
+                foreach ($detalle->observaciones as $observacion) {
+                    OrdenDetalleObservaciones::create([
+                        'orden_detalle_id' => $nuevoDetalle->id,
+                        'proceso_bolsas_id' => $observacion->proceso_bolsas_id,
+                        'proveedor_id' => $observacion->proveedor_id,
+                        'observacion' => $observacion->observacion,
+                        'estado' => 'pendiente',
+                        'usuario_id' => $observacion->usuario_id ?? auth()->id(),
+                    ]);
+                }
             }// Cargar relaciones necesarias para PDF y frontend
 $newOrden->load([
     'empresa',
     'proveedor',
     'usuario',
-    'detalles'
+    'detalles.observaciones'
 ]);
 
 $nuevasOrdenes[] = $newOrden;

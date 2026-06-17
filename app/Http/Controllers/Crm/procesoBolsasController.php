@@ -39,7 +39,9 @@ class procesoBolsasController extends Controller
        $observacion = OrdenDetalleObservaciones::create([
         ...$request->validated(),
         'usuario_id' => auth()->id(),
+        'observacion'=> $request->observacion ?? 'Sin observaciones',
         'estado' => $request->estado ?? 'pendiente', // Asegúrate de que el estado se guarde correctamente
+        
        ]);
 
        return response()->json(['message' => 'Observación registrada con éxito', 'data' => $observacion], 201);

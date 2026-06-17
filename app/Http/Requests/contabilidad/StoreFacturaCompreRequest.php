@@ -34,7 +34,7 @@ class StoreFacturaCompreRequest extends FormRequest
             'factura.empresa_id' => 'required|exists:empresas,id',
             'factura.fecha_emision' => 'required|date',
             'factura.fecha_vencimiento' => 'nullable|date',
-            'factura.numero_factura_proveedor' => 'required|string|max:100',
+  'factura.numero_factura_proveedor' => 'required|string|max:100|unique:factura_compras,numero_factura_proveedor',
             'factura.sede_id' => 'required|exists:sedes,id',
             'factura.forma_pago_id' => 'required|exists:formas_pago,id',
 
@@ -163,6 +163,7 @@ if ($pagos->count() > 0 && $totalPagos > $totalReal) {
             'factura.numero_factura_proveedor.required' => 'El campo número de factura del proveedor es obligatorio.',
             'factura.numero_factura_proveedor.string' => 'El número de factura del proveedor debe ser una cadena de texto.',
             'factura.numero_factura_proveedor.max' => 'El número de factura del proveedor no puede exceder los 100 caracteres.',
+            'factura.numero_factura_proveedor.unique'=> 'Ya existe una factura registratada con este numero.',
             'factura.sede_id.required' => 'El campo sede es obligatorio.',
             'factura.sede_id.exists' => 'La sede seleccionada no existe.',
             'factura.forma_pago_id.required' => 'La forma de pago es obligatoria.',
