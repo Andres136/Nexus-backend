@@ -34,19 +34,14 @@ class NominaService
         'transacionalRegistro',
     ];
 
-    // Porcentajes de ley colombiana sobre la hora normal
-    private const RECARGO_EXTRA_DIURNA = 0.25; // +25%
+    private const RECARGO_EXTRA_DIURNA = 0.25; // 25%
+    private const RECARGO_EXTRA_NOCTURNA = 0.75; // 75%
+    private const RECARGO_FESTIVA = 0.75; // 75%
+    private const RECARGO_NOCTURNA_FESTIVA = 1.10; // 110%
 
-    private const RECARGO_EXTRA_NOCTURNA = 0.75; // +75%
-
-    private const RECARGO_FESTIVA = 0.75; // +75%
-
-    private const RECARGO_NOCTURNA_FESTIVA = 1.10; // +110%
-
-    private const PORCENTAJE_INCAPACIDAD = 0.6667;
+    private const PORCENTAJE_INCAPACIDAD = 0.6667; // 66.67%
 
     private const HORA_INICIO_NOCTURNA = '19:00:00';
-
     private const HORA_FIN_NOCTURNA = '06:00:00';
 
     public function __construct(
@@ -304,6 +299,11 @@ class NominaService
             ->latest('inicio_contratacion')
             ->firstOrFail();
         $configuracion = $this->configuracionActual();
+        $porcentajeIncapacidad = $this->decimalConfiguracion($configuracion, 'porcentaje_incapacidad', self::PORCENTAJE_INCAPACIDAD);
+        $recargoExtraDiurna = $this->decimalConfiguracion($configuracion, 'recargo_extra_diurna', self::RECARGO_EXTRA_DIURNA);
+        $recargoExtraNocturna = $this->decimalConfiguracion($configuracion, 'recargo_extra_nocturna', self::RECARGO_EXTRA_NOCTURNA);
+        $recargoFestiva = $this->decimalConfiguracion($configuracion, 'recargo_festiva', self::RECARGO_FESTIVA);
+        $recargoNocturnaFestiva = $this->decimalConfiguracion($configuracion, 'recargo_nocturna_festiva', self::RECARGO_NOCTURNA_FESTIVA);
 
         $inicioLiquidable = $inicio->copy()->max(Carbon::parse($contratacion->inicio_contratacion)->startOfDay());
         $finLiquidable = $fin->copy();
@@ -343,13 +343,13 @@ class NominaService
         $minutosEsperados = $horasEsperadasPeriodo * 60;
         $horasNormales = round(min($ordinariosMinutos, $minutosEsperados) / 60, 2);
         $minutosExtrasDetectados = max(0, $ordinariosMinutos - $minutosEsperados);
-        $minutosNocturnosTrabajados = $this->minutosNocturnosTrabajados($sessions);
+        $minutosNocturnosTrabajados = $this->minutosNocturnosTrabajados($sessions, $configuracion);
         $minutosExtrasNocturnosDetectados = min($minutosExtrasDetectados, $minutosNocturnosTrabajados);
         $minutosExtrasDiurnosDetectados = max(0, $minutosExtrasDetectados - $minutosExtrasNocturnosDetectados);
         $horasExtrasDiurnasDetectadas = round($minutosExtrasDiurnosDetectados / 60, 2);
         $horasExtrasNocturnasDetectadas = round($minutosExtrasNocturnosDetectados / 60, 2);
         $minutosFestivosDetectados = (int) round($festivoMinutos + $sabadoMinutos);
-        $minutosNocturnosFestivosDetectados = $this->minutosNocturnosFestivosTrabajados($sessions);
+        $minutosNocturnosFestivosDetectados = $this->minutosNocturnosFestivosTrabajados($sessions, $configuracion);
         $minutosFestivosDiurnosDetectados = max(0, $minutosFestivosDetectados - $minutosNocturnosFestivosDetectados);
         $horasFestivasDetectadas = round($minutosFestivosDiurnosDetectados / 60, 2);
         $horasNocturnasFestivasDetectadas = round($minutosNocturnosFestivosDetectados / 60, 2);
@@ -370,7 +370,7 @@ class NominaService
             $inicioExtra      = Carbon::parse($extra->fecha . ' ' . $jornada->hora_salida);
             $finExtra         = $inicioExtra->copy()->addMinutes((int) round((float) $extra->horas * 60));
             $totalMin         = (int) round((float) $extra->horas * 60);
-            $minutosNocturnos = $this->minutosNocturnosEntre($inicioExtra, $finExtra);
+            $minutosNocturnos = $this->minutosNocturnosEntre($inicioExtra, $finExtra, $configuracion);
             $minutosDiurnos   = max(0, $totalMin - $minutosNocturnos);
             $esFestivo        = $fechaExtra->isSunday()
                 || WorkSession::where('user_id', $extra->user_id)
@@ -479,8 +479,8 @@ class NominaService
 
         $valorPermisosNoRemunerados = round(($minutosNoRemunerados / 60) * $valorHoraBase, 2);
         $salarioBaseSinIncapacidad = round(($valorDia * $diasLiquidables) + ($valorDia * $diasVacacionesCompensadas), 2);
-        $valorIncapacidadReconocido = round($valorDia * $diasIncapacidad * self::PORCENTAJE_INCAPACIDAD, 2);
-        $deduccionIncapacidad = round($valorDia * $diasIncapacidad * (1 - self::PORCENTAJE_INCAPACIDAD), 2);
+        $valorIncapacidadReconocido = round($valorDia * $diasIncapacidad * $porcentajeIncapacidad, 2);
+        $deduccionIncapacidad = round($valorDia * $diasIncapacidad * (1 - $porcentajeIncapacidad), 2);
         $salarioBasePeriodo = round(($valorDia * max(0, $diasLiquidables - $diasIncapacidad))
             + $valorIncapacidadReconocido
             + ($valorDia * $diasVacacionesCompensadas), 2);
@@ -496,10 +496,10 @@ class NominaService
 
         // El salario mensual ya remunera las horas ordinarias; se guardan para control, no se suman otra vez.
         $valorHorasNormales = 0;
-        $valorHorasExtrasDiurnas = round($horasExtrasDiurnas * $valorHoraBase * (1 + self::RECARGO_EXTRA_DIURNA), 2);
-        $valorHorasExtrasNocturnas = round($horasExtrasNocturnas * $valorHoraBase * (1 + self::RECARGO_EXTRA_NOCTURNA), 2);
-        $valorHorasFestivas = round($horasFestivasTotal * $valorHoraBase * (1 + self::RECARGO_FESTIVA), 2);
-        $valorHorasNocturnasFestivas = round($horasNocturnasFestivas * $valorHoraBase * (1 + self::RECARGO_NOCTURNA_FESTIVA), 2);
+        $valorHorasExtrasDiurnas = round($horasExtrasDiurnas * $valorHoraBase * (1 + $recargoExtraDiurna), 2);
+        $valorHorasExtrasNocturnas = round($horasExtrasNocturnas * $valorHoraBase * (1 + $recargoExtraNocturna), 2);
+        $valorHorasFestivas = round($horasFestivasTotal * $valorHoraBase * (1 + $recargoFestiva), 2);
+        $valorHorasNocturnasFestivas = round($horasNocturnasFestivas * $valorHoraBase * (1 + $recargoNocturnaFestiva), 2);
 
         $totalDevengado = $salarioBasePeriodo
             + $auxilioTransportePeriodo
@@ -585,6 +585,13 @@ class NominaService
             'deduccion_pension' => $deduccionPension,
             'porcentaje_salud_empleado' => (float) $configuracion->porcentaje_salud_empleado,
             'porcentaje_pension_empleado' => (float) $configuracion->porcentaje_pension_empleado,
+            'recargo_extra_diurna' => $recargoExtraDiurna,
+            'recargo_extra_nocturna' => $recargoExtraNocturna,
+            'recargo_festiva' => $recargoFestiva,
+            'recargo_nocturna_festiva' => $recargoNocturnaFestiva,
+            'porcentaje_incapacidad' => $porcentajeIncapacidad,
+            'hora_inicio_nocturna' => $this->horaConfiguracion($configuracion, 'hora_inicio_nocturna', self::HORA_INICIO_NOCTURNA),
+            'hora_fin_nocturna' => $this->horaConfiguracion($configuracion, 'hora_fin_nocturna', self::HORA_FIN_NOCTURNA),
             'total_descuentos_adicionales' => $totalDescuentosAdicionales,
             'total_deducciones' => $totalDeducciones,
             'salario_neto' => $salarioNeto,
@@ -704,7 +711,7 @@ class NominaService
         return $diasPeriodo > 15 ? 2 : 1;
     }
 
-    private function minutosNocturnosTrabajados($sessions): int
+    private function minutosNocturnosTrabajados($sessions, ConfiguracionNomina $configuracion): int
     {
         $total = 0;
 
@@ -719,9 +726,9 @@ class NominaService
                 $salida->addDay();
             }
 
-            $minutos = $this->minutosNocturnosEntre($entrada, $salida);
-            $minutos -= $this->minutosNocturnosDeDescanso($session->hora_salida_brake, $session->hora_ingreso_brake);
-            $minutos -= $this->minutosNocturnosDeDescanso($session->hora_salida_almuerzo, $session->hora_ingreso_almuerzo);
+            $minutos = $this->minutosNocturnosEntre($entrada, $salida, $configuracion);
+            $minutos -= $this->minutosNocturnosDeDescanso($session->hora_salida_brake, $session->hora_ingreso_brake, $configuracion);
+            $minutos -= $this->minutosNocturnosDeDescanso($session->hora_salida_almuerzo, $session->hora_ingreso_almuerzo, $configuracion);
 
             $total += max(0, $minutos);
         }
@@ -729,7 +736,7 @@ class NominaService
         return max(0, $total);
     }
 
-    private function minutosNocturnosFestivosTrabajados($sessions): int
+    private function minutosNocturnosFestivosTrabajados($sessions, ConfiguracionNomina $configuracion): int
     {
         $total = 0;
 
@@ -749,9 +756,9 @@ class NominaService
                 $salida->addDay();
             }
 
-            $minutosNocturnos = $this->minutosNocturnosEntre($entrada, $salida);
-            $minutosNocturnos -= $this->minutosNocturnosDeDescanso($session->hora_salida_brake, $session->hora_ingreso_brake);
-            $minutosNocturnos -= $this->minutosNocturnosDeDescanso($session->hora_salida_almuerzo, $session->hora_ingreso_almuerzo);
+            $minutosNocturnos = $this->minutosNocturnosEntre($entrada, $salida, $configuracion);
+            $minutosNocturnos -= $this->minutosNocturnosDeDescanso($session->hora_salida_brake, $session->hora_ingreso_brake, $configuracion);
+            $minutosNocturnos -= $this->minutosNocturnosDeDescanso($session->hora_salida_almuerzo, $session->hora_ingreso_almuerzo, $configuracion);
 
             $total += min($minutosFestivosSesion, max(0, $minutosNocturnos));
         }
@@ -759,7 +766,7 @@ class NominaService
         return max(0, $total);
     }
 
-    private function minutosNocturnosDeDescanso($inicio, $fin): int
+    private function minutosNocturnosDeDescanso($inicio, $fin, ConfiguracionNomina $configuracion): int
     {
         if (! $inicio || ! $fin) {
             return 0;
@@ -771,17 +778,19 @@ class NominaService
             $hasta->addDay();
         }
 
-        return $this->minutosNocturnosEntre($desde, $hasta);
+        return $this->minutosNocturnosEntre($desde, $hasta, $configuracion);
     }
 
-    private function minutosNocturnosEntre(Carbon $inicio, Carbon $fin): int
+    private function minutosNocturnosEntre(Carbon $inicio, Carbon $fin, ConfiguracionNomina $configuracion): int
     {
         $total = 0;
         $cursor = $inicio->copy()->startOfDay();
+        $horaInicioNocturna = $this->horaConfiguracion($configuracion, 'hora_inicio_nocturna', self::HORA_INICIO_NOCTURNA);
+        $horaFinNocturna = $this->horaConfiguracion($configuracion, 'hora_fin_nocturna', self::HORA_FIN_NOCTURNA);
 
         while ($cursor->lte($fin)) {
-            $inicioNoche = Carbon::parse($cursor->toDateString().' '.self::HORA_INICIO_NOCTURNA);
-            $finNoche = Carbon::parse($cursor->copy()->addDay()->toDateString().' '.self::HORA_FIN_NOCTURNA);
+            $inicioNoche = Carbon::parse($cursor->toDateString().' '.$horaInicioNocturna);
+            $finNoche = Carbon::parse($cursor->copy()->addDay()->toDateString().' '.$horaFinNocturna);
             $desde = $inicio->copy()->max($inicioNoche);
             $hasta = $fin->copy()->min($finNoche);
 
@@ -795,6 +804,20 @@ class NominaService
         return $total;
     }
 
+    private function decimalConfiguracion(ConfiguracionNomina $configuracion, string $campo, float $fallback): float
+    {
+        $valor = $configuracion->{$campo};
+
+        return is_numeric($valor) ? (float) $valor : $fallback;
+    }
+
+    private function horaConfiguracion(ConfiguracionNomina $configuracion, string $campo, string $fallback): string
+    {
+        $valor = $configuracion->{$campo};
+
+        return $valor ? Carbon::parse($valor)->format('H:i:s') : $fallback;
+    }
+
     private function configuracionActual(): ConfiguracionNomina
     {
         return ConfiguracionNomina::where('status', true)
@@ -804,6 +827,13 @@ class NominaService
                 'nombre' => 'Configuración general',
                 'porcentaje_salud_empleado' => 4,
                 'porcentaje_pension_empleado' => 4,
+                'recargo_extra_diurna' => self::RECARGO_EXTRA_DIURNA,
+                'recargo_extra_nocturna' => self::RECARGO_EXTRA_NOCTURNA,
+                'recargo_festiva' => self::RECARGO_FESTIVA,
+                'recargo_nocturna_festiva' => self::RECARGO_NOCTURNA_FESTIVA,
+                'porcentaje_incapacidad' => self::PORCENTAJE_INCAPACIDAD,
+                'hora_inicio_nocturna' => self::HORA_INICIO_NOCTURNA,
+                'hora_fin_nocturna' => self::HORA_FIN_NOCTURNA,
                 'status' => true,
             ]);
     }

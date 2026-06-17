@@ -17,6 +17,13 @@ class UpdateConfiguracionNominaRequest extends FormRequest
             'nombre' => 'nullable|string|max:120',
             'porcentaje_salud_empleado' => 'required|numeric|min:0|max:100',
             'porcentaje_pension_empleado' => 'required|numeric|min:0|max:100',
+            'recargo_extra_diurna' => 'required|numeric|min:0|max:5',
+            'recargo_extra_nocturna' => 'required|numeric|min:0|max:5',
+            'recargo_festiva' => 'required|numeric|min:0|max:5',
+            'recargo_nocturna_festiva' => 'required|numeric|min:0|max:5',
+            'porcentaje_incapacidad' => 'required|numeric|min:0|max:1',
+            'hora_inicio_nocturna' => 'required|date_format:H:i',
+            'hora_fin_nocturna' => 'required|date_format:H:i',
             'status' => 'nullable|boolean',
         ];
     }
@@ -28,6 +35,14 @@ class UpdateConfiguracionNominaRequest extends FormRequest
             'porcentaje_salud_empleado.numeric' => 'El porcentaje de salud debe ser numérico.',
             'porcentaje_pension_empleado.required' => 'El porcentaje de pensión es obligatorio.',
             'porcentaje_pension_empleado.numeric' => 'El porcentaje de pensión debe ser numérico.',
+            'recargo_extra_diurna.required' => 'El recargo extra diurno es obligatorio.',
+            'recargo_extra_nocturna.required' => 'El recargo extra nocturno es obligatorio.',
+            'recargo_festiva.required' => 'El recargo festivo es obligatorio.',
+            'recargo_nocturna_festiva.required' => 'El recargo nocturno festivo es obligatorio.',
+            'porcentaje_incapacidad.required' => 'El porcentaje reconocido por incapacidad es obligatorio.',
+            'porcentaje_incapacidad.max' => 'El porcentaje de incapacidad debe estar entre 0 y 1.',
+            'hora_inicio_nocturna.date_format' => 'La hora de inicio nocturna debe tener formato HH:mm.',
+            'hora_fin_nocturna.date_format' => 'La hora de fin nocturna debe tener formato HH:mm.',
         ];
     }
 }
