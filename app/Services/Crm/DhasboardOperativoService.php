@@ -70,11 +70,11 @@ $ordenes = Orden_Compra::with([
 ->when(!empty($filters['sede_id']), function ($q) use ($filters) {
     $q->where(function ($sub) use ($filters) {
         $sub->where('sede_id', $filters['sede_id'])
-            ->orWhereNull('sede_id'); // 🔥 incluye las que no tienen sede
+            ->orWhereNull('sede_id'); //  incluye las que no tienen sede
     });
 })
 
-    // 🔥 AQUÍ VA EL CLIENTE
+  
     ->when(!empty($filters['cliente']), function ($query) use ($filters) {
         $query->where('cliente_id', $filters['cliente']);
     })
@@ -84,13 +84,13 @@ $ordenes = Orden_Compra::with([
     });
 })
 
-    ->get(); // 🔥 SIEMPRE AL FINAL     
+    ->get();   
 
     
     $ordenIds = $ordenes->pluck('id');
     $detalleIds = $ordenes->flatMap(fn($oc) => $oc->detalles->pluck('id'))->unique();
 
-    // 🔥 HISTORIAL (BULK - SIN N+1)
+
 $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
     ->orderBy('created_at', 'desc')
     ->get()

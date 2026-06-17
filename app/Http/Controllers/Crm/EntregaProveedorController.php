@@ -265,6 +265,14 @@ public function referenciasFaltantesbyId($ordenId)
 public function descargarPendientes(Request $request)
 {
     $proveedorId = $request->query('proveedor_id');
+    $fechaInicio = $request->query('fecha_inicio');
+    $fechaFin = $request->query('fecha_fin');
+
+    if ($fechaInicio && $fechaFin && $fechaInicio > $fechaFin) {
+        return response()->json([
+            'error' => 'La fecha inicial no puede ser mayor a la fecha final.'
+        ], 422);
+    }
 
     $detalles = OrdenCompraProveedorDetalle::with([
         'orden.proveedor',
@@ -277,11 +285,28 @@ public function descargarPendientes(Request $request)
             $qq->where('proveedor_id', $proveedorId);
         });
     })
-    ->limit(300) // 🔥 CONTROL DE CARGA
+    ->when($fechaInicio || $fechaFin, function ($q) use ($fechaInicio, $fechaFin) {
+        $q->whereHas('orden', function ($qq) use ($fechaInicio, $fechaFin) {
+            if ($fechaInicio) {
+                $qq->whereDate('fecha', '>=', $fechaInicio);
+            }
+
+            if ($fechaFin) {
+                $qq->whereDate('fecha', '<=', $fechaFin);
+            }
+        });
+    })
+    ->limit(301) // Control de carga: 301 permite detectar exceso antes de generar el PDF
     ->get();
 
     if ($detalles->isEmpty()) {
         return response()->json(['mensaje' => 'No hay ítems pendientes.'], 404);
+    }
+
+    if ($detalles->count() > 300) {
+        return response()->json([
+            'error' => 'Demasiados datos para generar el PDF. Filtra por proveedor o por un rango de fechas más corto.'
+        ], 400);
     }
 
     $itemsPendientes = $detalles->map(function ($d) {
@@ -315,16 +340,13 @@ public function descargarPendientes(Request $request)
         ];
     });
 
-    // 🔥 VALIDACIÓN DE SEGURIDAD
-    if ($itemsPendientes->count() > 300) {
-        return response()->json([
-            'error' => 'Demasiados datos para generar el PDF. Filtra por proveedor.'
-        ], 400);
-    }
-
     $pdf = Pdf::loadView('pdf.items_pendientes', [
         'items'    => $itemsPendientes,
         'generado' => now()->format('Y-m-d H:i:s'),
+        'filtros'  => [
+            'fecha_inicio' => $fechaInicio,
+            'fecha_fin'    => $fechaFin,
+        ],
     ]);
 
     return response($pdf->output(), 200, [
