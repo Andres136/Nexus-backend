@@ -174,22 +174,6 @@ class NominaService
                 'total_descuentos_adicionales' => $calculo['total_descuentos_adicionales'],
                 'total_deducciones' => $calculo['total_deducciones'],
 
-                'base_aportes_empleador' => $calculo['base_aportes_empleador'],
-                'porcentaje_salud_empleador' => $calculo['porcentaje_salud_empleador'],
-                'porcentaje_pension_empleador' => $calculo['porcentaje_pension_empleador'],
-                'porcentaje_arl' => $calculo['porcentaje_arl'],
-                'porcentaje_sena' => $calculo['porcentaje_sena'],
-                'porcentaje_icbf' => $calculo['porcentaje_icbf'],
-                'porcentaje_caja_compensacion' => $calculo['porcentaje_caja_compensacion'],
-                'costo_salud_empleador' => $calculo['costo_salud_empleador'],
-                'costo_pension_empleador' => $calculo['costo_pension_empleador'],
-                'costo_arl' => $calculo['costo_arl'],
-                'costo_sena' => $calculo['costo_sena'],
-                'costo_icbf' => $calculo['costo_icbf'],
-                'costo_caja_compensacion' => $calculo['costo_caja_compensacion'],
-                'costo_parafiscales' => $calculo['costo_parafiscales'],
-                'costo_total_empleador' => $calculo['costo_total_empleador'],
-
                 'salario_neto' => $calculo['salario_neto'],
                 'liquidada' => true,
                 'fecha_liquidacion' => now(),
@@ -216,81 +200,6 @@ class NominaService
 
             return $nomina->load(self::WITH);
         });
-    }
-
-    public function liquidarMasivo(array $data): array
-    {
-        $inicio = Carbon::parse($data['periodo_inicio'])->startOfDay();
-        $fin = Carbon::parse($data['periodo_fin'])->endOfDay();
-
-        $contratos = Contratacion::with(['usuario:id,name,email', 'empresa:id,nombre'])
-            ->where('status', true)
-            ->when(! empty($data['empresa_id']), fn ($q) => $q->where('empresa_id', $data['empresa_id']))
-            ->whereDate('inicio_contratacion', '<=', $fin->toDateString())
-            ->where(function ($q) use ($inicio) {
-                $q->whereNull('fin_contrato')
-                    ->orWhereDate('fin_contrato', '>=', $inicio->toDateString());
-            })
-            ->orderBy('empresa_id')
-            ->orderBy('users_id')
-            ->get()
-            ->unique('users_id')
-            ->values();
-
-        if ($contratos->isEmpty()) {
-            throw new LogicException('No hay empleados activos para los filtros seleccionados.');
-        }
-
-        $resultados = [];
-
-        foreach ($contratos as $contrato) {
-            $nombre = $contrato->usuario?->name ?? "Contrato #{$contrato->id}";
-
-            if ($this->periodoLiquidado($contrato->users_id, $data['periodo_inicio'], $data['periodo_fin'])) {
-                $resultados[] = [
-                    'nombre' => $nombre,
-                    'empresa' => $contrato->empresa?->nombre,
-                    'status' => 'omitido',
-                    'message' => 'El empleado ya tiene una nómina liquidada que se cruza con el período seleccionado.',
-                ];
-                continue;
-            }
-
-            try {
-                $nomina = $this->liquidar([
-                    'user_id' => $contrato->users_id,
-                    'jornada_laboral_id' => $data['jornada_laboral_id'],
-                    'periodo_inicio' => $data['periodo_inicio'],
-                    'periodo_fin' => $data['periodo_fin'],
-                ]);
-
-                $resultados[] = [
-                    'nombre' => $nombre,
-                    'empresa' => $contrato->empresa?->nombre,
-                    'status' => 'ok',
-                    'uuid' => $nomina->uuid,
-                    'neto' => (float) $nomina->salario_neto,
-                ];
-            } catch (\Throwable $e) {
-                $resultados[] = [
-                    'nombre' => $nombre,
-                    'empresa' => $contrato->empresa?->nombre,
-                    'status' => 'error',
-                    'message' => $e->getMessage() ?: 'Error al liquidar',
-                ];
-            }
-        }
-
-        return [
-            'periodo_inicio' => $data['periodo_inicio'],
-            'periodo_fin' => $data['periodo_fin'],
-            'empresa_id' => $data['empresa_id'] ?? null,
-            'total' => count($resultados),
-            'liquidadas' => collect($resultados)->where('status', 'ok')->count(),
-            'omitidas' => collect($resultados)->where('status', 'omitido')->count(),
-            'errores' => collect($resultados)->where('status', 'error')->count(),
-            'resultados' => $resultados,
-        ];
     }
 
     public function preliquidar(array $data): array
@@ -458,7 +367,9 @@ class NominaService
 
         foreach ($extrasAprobadas as $extra) {
             $fechaExtra       = Carbon::parse($extra->fecha);
-            $inicioExtra      = Carbon::parse($extra->fecha . ' ' . $jornada->hora_salida);
+            $inicioExtra = Carbon::parse(
+            $extra->fecha->toDateString() . ' ' . $jornada->hora_salida
+            );       
             $finExtra         = $inicioExtra->copy()->addMinutes((int) round((float) $extra->horas * 60));
             $totalMin         = (int) round((float) $extra->horas * 60);
             $minutosNocturnos = $this->minutosNocturnosEntre($inicioExtra, $finExtra, $configuracion);
@@ -579,8 +490,8 @@ class NominaService
         $pagoNoPrestacionalPeriodo = round((float) $baseSalarial['no_salarial'] * ($diasLiquidables / 30), 2);
         $comisiones = Comision::where('user_id', $userId)
             ->where('status', 'aprobada')
-            ->whereDate('periodo_inicio', '<=', $fin->toDateString())
-            ->whereDate('periodo_fin', '>=', $inicio->toDateString())
+            ->whereDate('periodo_inicio', $inicio->toDateString())
+            ->whereDate('periodo_fin', $fin->toDateString())
             ->get();
         $totalComisiones = round((float) $comisiones->sum('valor'), 2);
         $novedadesRetroactivas = $this->calcularNovedadesRetroactivas($userId, $inicioLiquidable, $finLiquidable);
@@ -620,24 +531,6 @@ class NominaService
         $totalDescuentosAdicionales = round($descuentosNomina['valor'] + $valorPermisosNoRemunerados + $novedadesRetroactivas['deducciones'], 2);
         $totalDeducciones = round($deduccionSalud + $deduccionPension + $totalDescuentosAdicionales, 2);
         $salarioNeto = round($totalDevengado - $totalDeducciones, 2);
-        $baseAportesEmpleador = round($baseParaDeducciones, 2);
-        $porcentajeSaludEmpleador = (float) ($configuracion->porcentaje_salud_empleador ?? 8.5);
-        $porcentajePensionEmpleador = (float) ($configuracion->porcentaje_pension_empleador ?? 12);
-        $porcentajeArl = (float) ($configuracion->porcentaje_arl ?? 2.436);
-        $porcentajeSena = (float) ($configuracion->porcentaje_sena ?? 2);
-        $porcentajeIcbf = (float) ($configuracion->porcentaje_icbf ?? 3);
-        $porcentajeCajaCompensacion = (float) ($configuracion->porcentaje_caja_compensacion ?? 4);
-        $costoSaludEmpleador = round($baseAportesEmpleador * ($porcentajeSaludEmpleador / 100), 2);
-        $costoPensionEmpleador = round($baseAportesEmpleador * ($porcentajePensionEmpleador / 100), 2);
-        $costoArl = round($baseAportesEmpleador * ($porcentajeArl / 100), 2);
-        $costoSena = round($baseAportesEmpleador * ($porcentajeSena / 100), 2);
-        $costoIcbf = round($baseAportesEmpleador * ($porcentajeIcbf / 100), 2);
-        $costoCajaCompensacion = round($baseAportesEmpleador * ($porcentajeCajaCompensacion / 100), 2);
-        $costoParafiscales = round($costoSena + $costoIcbf + $costoCajaCompensacion, 2);
-        $costoTotalEmpleador = round(
-            $costoSaludEmpleador + $costoPensionEmpleador + $costoArl + $costoParafiscales,
-            2
-        );
 
         return [
             'user_id' => $userId,
@@ -704,21 +597,6 @@ class NominaService
             'total_descuentos_adicionales' => $totalDescuentosAdicionales,
             'total_deducciones' => $totalDeducciones,
             'salario_neto' => $salarioNeto,
-            'base_aportes_empleador' => $baseAportesEmpleador,
-            'porcentaje_salud_empleador' => $porcentajeSaludEmpleador,
-            'porcentaje_pension_empleador' => $porcentajePensionEmpleador,
-            'porcentaje_arl' => $porcentajeArl,
-            'porcentaje_sena' => $porcentajeSena,
-            'porcentaje_icbf' => $porcentajeIcbf,
-            'porcentaje_caja_compensacion' => $porcentajeCajaCompensacion,
-            'costo_salud_empleador' => $costoSaludEmpleador,
-            'costo_pension_empleador' => $costoPensionEmpleador,
-            'costo_arl' => $costoArl,
-            'costo_sena' => $costoSena,
-            'costo_icbf' => $costoIcbf,
-            'costo_caja_compensacion' => $costoCajaCompensacion,
-            'costo_parafiscales' => $costoParafiscales,
-            'costo_total_empleador' => $costoTotalEmpleador,
             'detalle_descuentos' => $descuentosNomina['detalle'],
             'advertencias' => $advertencias,
         ];
@@ -726,18 +604,15 @@ class NominaService
 
     private function validarPeriodoSinLiquidar(int $userId, string $periodoInicio, string $periodoFin): void
     {
-        if ($this->periodoLiquidado($userId, $periodoInicio, $periodoFin)) {
-            throw new \LogicException('Este empleado ya tiene una nómina liquidada que se cruza con el período seleccionado.');
-        }
-    }
-
-    private function periodoLiquidado(int $userId, string $periodoInicio, string $periodoFin): bool
-    {
-        return Nomina::where('user_id', $userId)
+        $existe = Nomina::where('user_id', $userId)
             ->whereDate('periodo_inicio', '<=', $periodoFin)
             ->whereDate('periodo_fin', '>=', $periodoInicio)
             ->where('liquidada', true)
             ->exists();
+
+        if ($existe) {
+            throw new \LogicException('Este empleado ya tiene una nómina liquidada que se cruza con el período seleccionado.');
+        }
     }
 
     private function calcularNovedadesRetroactivas(int $userId, Carbon $inicio, Carbon $fin): array
@@ -943,14 +818,6 @@ class NominaService
         $valor = $configuracion->{$campo};
 
         return $valor ? Carbon::parse($valor)->format('H:i:s') : $fallback;
-    }
-
-    private function fechaConHora($fecha, $hora, string $horaFallback): Carbon
-    {
-        $fechaTexto = Carbon::parse($fecha)->toDateString();
-        $horaTexto = $hora ? Carbon::parse($hora)->format('H:i:s') : $horaFallback;
-
-        return Carbon::parse("{$fechaTexto} {$horaTexto}");
     }
 
     private function configuracionActual(): ConfiguracionNomina
