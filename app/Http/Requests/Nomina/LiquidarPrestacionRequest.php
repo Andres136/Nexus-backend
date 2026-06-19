@@ -20,6 +20,12 @@ class LiquidarPrestacionRequest extends FormRequest
             'tipo'           => ['required', Rule::in(array_keys(LiquidacionPrestacionService::tipos()))],
             'periodo_inicio' => ['required', 'date'],
             'periodo_fin'    => ['required', 'date', 'after_or_equal:periodo_inicio'],
+            'vacacion_uuid'  => [
+                'nullable',
+                'required_if:tipo,vacaciones_compensadas',
+                'uuid',
+                'exists:vacaciones,uuid',
+            ],
         ];
     }
 
@@ -27,6 +33,7 @@ class LiquidarPrestacionRequest extends FormRequest
     {
         return [
             'tipo.in' => 'El tipo debe ser: ' . implode(', ', array_keys(LiquidacionPrestacionService::tipos())),
+            'vacacion_uuid.required_if' => 'Debe seleccionar una solicitud de vacaciones aprobada.',
         ];
     }
 }

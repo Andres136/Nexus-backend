@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Storage;
 
 class LicenciaService
 {
-    private const WITH = ['empleado:id,name,email', 'autorizador:id,name'];
+    private const WITH = ['empleado:id,name,email,sede_id', 'empleado.sede:id,nombre', 'autorizador:id,name'];
 
     public function getAll(array $filters = []): LengthAwarePaginator
     {
@@ -20,7 +20,11 @@ class LicenciaService
                 'empleado',
                 fn ($e) => $e->where('name', 'like', "%{$filters['search']}%")
             ))
+            ->when(!empty($filters['user_id']), fn ($q) => $q->where('user_id', $filters['user_id']))
+            ->when(!empty($filters['sede_id']), fn ($q) => $q->whereHas('empleado', fn ($empleado) => $empleado->where('sede_id', $filters['sede_id'])))
             ->when(isset($filters['status']) && $filters['status'] !== '', fn ($q) => $q->where('status', $filters['status']))
+            ->when(!empty($filters['fecha_desde']), fn ($q) => $q->whereDate('fin', '>=', $filters['fecha_desde']))
+            ->when(!empty($filters['fecha_hasta']), fn ($q) => $q->whereDate('inicio', '<=', $filters['fecha_hasta']))
             ->orderByDesc('inicio')
             ->paginate($filters['per_page'] ?? 15);
 

@@ -22,7 +22,10 @@ class IncapacidadController extends Controller
     {
         try {
             $incapacidades = $this->incapacidadService->getAll(
-                $request->only(['search', 'user_id', 'status', 'estado_revision', 'per_page'])
+                $request->only([
+                    'search', 'user_id', 'sede_id', 'status', 'estado_revision',
+                    'fecha_desde', 'fecha_hasta', 'per_page',
+                ])
             );
 
             return response()->json([

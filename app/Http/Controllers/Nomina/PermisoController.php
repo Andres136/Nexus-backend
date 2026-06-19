@@ -26,6 +26,8 @@ class PermisoController extends Controller
         try {
             $filters = [
                 'user_id'     => $request->query('user_id'),
+                'sede_id'     => $request->query('sede_id'),
+                'search'      => $request->query('search'),
                 'status'      => $request->query('status'),
                 'tipo'        => $request->query('tipo'),
                 'fecha_desde' => $request->query('fecha_desde'),

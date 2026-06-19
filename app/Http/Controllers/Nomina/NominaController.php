@@ -14,6 +14,7 @@ use App\Models\Nomina\Nomina;
 use App\Services\Nomina\ConfiguracionNominaService;
 use App\Services\Nomina\NominaPucPayloadService;
 use App\Services\Nomina\NominaService;
+use App\Services\Nomina\PreliquidacionNominaService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,7 +29,8 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 class NominaController extends Controller
 {
     public function __construct(
-        private readonly NominaService $nominaService
+        private readonly NominaService $nominaService,
+        private readonly PreliquidacionNominaService $preliquidacionService,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -133,7 +135,7 @@ class NominaController extends Controller
 
             $empleadosActivos = Contratacion::where('status', 1)->count();
 
-            $query = Nomina::query();
+            $query = Nomina::where('liquidada', true);
             if ($inicio && $fin) {
                 $query->where('periodo_inicio', '>=', $inicio)
                     ->where('periodo_fin', '<=', $fin);
@@ -142,7 +144,7 @@ class NominaController extends Controller
             $nominaBruta = (float) $query->sum('total_devengado');
             $deducciones = (float) $query->sum('total_deducciones');
             $nominaNeta = (float) $query->sum('salario_neto');
-            $pagosRealizados = (float) $query->where('liquidada', true)->sum('salario_neto');
+            $pagosRealizados = (float) (clone $query)->sum('salario_neto');
 
             return response()->json([
                 'success' => true,
@@ -213,12 +215,12 @@ class NominaController extends Controller
     public function preliquidar(LiquidarNominaRequest $request): JsonResponse
     {
         try {
-            $data = $this->nominaService->preliquidar($request->validated());
+            $preliquidacion = $this->preliquidacionService->guardar($request->validated());
 
             return response()->json([
                 'success' => true,
-                'message' => 'Preliquidación calculada exitosamente.',
-                'data' => $data,
+                'message' => 'Preliquidación guardada como borrador.',
+                'data' => $this->preliquidacionPayload($preliquidacion),
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
@@ -235,6 +237,120 @@ class NominaController extends Controller
 
             return response()->json(['success' => false, 'message' => 'Error al preliquidar la nómina.'], 500);
         }
+    }
+
+    public function showPreliquidacion(string $uuid): JsonResponse
+    {
+        $preliquidacion = $this->preliquidacionService->getByUuid($uuid);
+
+        return response()->json([
+            'success' => true,
+            'data' => $this->preliquidacionPayload($preliquidacion),
+        ]);
+    }
+
+    public function agregarAjustePreliquidacion(Request $request, string $uuid): JsonResponse
+    {
+        $validated = $request->validate([
+            'tipo' => 'required|in:devengo,deduccion',
+            'concepto' => 'required|string|max:255',
+            'valor' => 'required|numeric|min:0.01',
+            'afecta_base_aportes' => 'nullable|boolean',
+            'motivo' => 'required|string|max:2000',
+        ]);
+
+        try {
+            $preliquidacion = $this->preliquidacionService->agregarAjuste($uuid, $validated);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Ajuste agregado con trazabilidad.',
+                'data' => $this->preliquidacionPayload($preliquidacion),
+            ]);
+        } catch (\LogicException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+    }
+
+    public function eliminarAjustePreliquidacion(string $uuid, string $ajusteUuid): JsonResponse
+    {
+        try {
+            $preliquidacion = $this->preliquidacionService->eliminarAjuste($uuid, $ajusteUuid);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Ajuste eliminado.',
+                'data' => $this->preliquidacionPayload($preliquidacion),
+            ]);
+        } catch (\LogicException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+    }
+
+    public function enviarRevisionPreliquidacion(Request $request, string $uuid): JsonResponse
+    {
+        $validated = $request->validate(['observacion' => 'nullable|string|max:2000']);
+
+        try {
+            $preliquidacion = $this->preliquidacionService->enviarRevision($uuid, $validated['observacion'] ?? null);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Preliquidación marcada en revisión.',
+                'data' => $this->preliquidacionPayload($preliquidacion),
+            ]);
+        } catch (\LogicException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+    }
+
+    public function aprobarPreliquidacion(Request $request, string $uuid): JsonResponse
+    {
+        $validated = $request->validate(['observacion' => 'nullable|string|max:2000']);
+
+        try {
+            $preliquidacion = $this->preliquidacionService->aprobar($uuid, $validated['observacion'] ?? null);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Preliquidación aprobada.',
+                'data' => $this->preliquidacionPayload($preliquidacion),
+            ]);
+        } catch (\LogicException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+    }
+
+    public function liquidarPreliquidacion(string $uuid): JsonResponse
+    {
+        try {
+            $nomina = $this->preliquidacionService->liquidar($uuid);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Nómina liquidada desde la preliquidación aprobada.',
+                'data' => $nomina,
+            ], 201);
+        } catch (\LogicException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+    }
+
+    private function preliquidacionPayload($preliquidacion): array
+    {
+        return [
+            ...$preliquidacion->calculo_ajustado,
+            'preliquidacion_uuid' => $preliquidacion->uuid,
+            'estado_preliquidacion' => $preliquidacion->estado,
+            'calculo_original' => $preliquidacion->calculo_original,
+            'ajustes_revision' => $preliquidacion->ajustes,
+            'generado_por' => $preliquidacion->generadoPor,
+            'revisado_por' => $preliquidacion->revisadoPor,
+            'aprobado_por' => $preliquidacion->aprobadoPor,
+            'fecha_revision' => $preliquidacion->fecha_revision,
+            'fecha_aprobacion' => $preliquidacion->fecha_aprobacion,
+            'observacion_revision' => $preliquidacion->observacion_revision,
+        ];
     }
 
     public function exportarPlano(Request $request): JsonResponse|BinaryFileResponse

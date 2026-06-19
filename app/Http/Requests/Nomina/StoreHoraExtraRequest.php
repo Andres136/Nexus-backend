@@ -22,7 +22,10 @@ class StoreHoraExtraRequest extends FormRequest
             'kiosko_device_id' => 'nullable|integer|exists:kiosko_devices,id',
             'origen'         => 'sometimes|in:admin,kiosko',
             'fecha'          => 'required|date',
-            'horas'          => 'required|numeric|min:0.5|max:24',
+            'hora_inicio'     => 'required|date_format:H:i',
+            'hora_fin'        => 'required|date_format:H:i|different:hora_inicio',
+            'horas'           => 'nullable|numeric|min:0.5|max:24',
+            'tipo'            => 'required|in:diurna,nocturna,festiva,nocturna_festiva',
             'motivo'         => 'required|string|max:255',
         ];
     }
@@ -36,9 +39,15 @@ class StoreHoraExtraRequest extends FormRequest
             'users.*.exists'    => 'Uno o más empleados no existen.',
             'fecha.required'    => 'La fecha es obligatoria.',
             'fecha.date'        => 'La fecha debe ser una fecha válida.',
-            'horas.required'    => 'Las horas son obligatorias.',
+            'hora_inicio.required' => 'La hora de inicio es obligatoria.',
+            'hora_inicio.date_format' => 'La hora de inicio debe tener formato HH:MM.',
+            'hora_fin.required' => 'La hora final es obligatoria.',
+            'hora_fin.date_format' => 'La hora final debe tener formato HH:MM.',
+            'hora_fin.different' => 'La hora final debe ser diferente de la hora inicial.',
             'horas.min'         => 'El mínimo es 0.5 horas.',
             'horas.max'         => 'No puede registrar más de 24 horas en un día.',
+            'tipo.required'     => 'El tipo de hora extra es obligatorio.',
+            'tipo.in'           => 'El tipo de hora extra no es válido.',
             "motivo.required"   => 'Debes Registrar un motivo',
         ];
     }

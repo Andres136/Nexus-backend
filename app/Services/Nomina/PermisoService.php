@@ -13,7 +13,7 @@ use Illuminate\Validation\ValidationException;
 
 class PermisoService
 {
-    private const WITH = ['empleado:id,name,email', 'supervisor:id,name,email'];
+    private const WITH = ['empleado:id,name,email,sede_id', 'empleado.sede:id,nombre', 'supervisor:id,name,email'];
 
     private const ROLES_PRIVILEGIADOS = [RolEnum::ADMINISTRADOR, RolEnum::ADMINISTRATIVO];
 
@@ -60,6 +60,10 @@ class PermisoService
 
         return Permiso::with(self::WITH)
             ->when(!empty($filters['user_id']),    fn($q) => $q->where('user_id', $filters['user_id']))
+            ->when(!empty($filters['sede_id']), fn ($q) => $q->whereHas('empleado', fn ($empleado) => $empleado->where('sede_id', $filters['sede_id'])))
+            ->when(!empty($filters['search']), fn ($q) => $q->whereHas('empleado', fn ($empleado) => $empleado
+                ->where('name', 'like', "%{$filters['search']}%")
+                ->orWhere('email', 'like', "%{$filters['search']}%")))
             ->when(!empty($filters['status']),     fn($q) => $q->where('status', $filters['status']))
             ->when(!empty($filters['tipo']),       fn($q) => $q->where('tipo', $filters['tipo']))
             ->when(!empty($filters['fecha_desde']),fn($q) => $q->whereDate('fecha', '>=', $filters['fecha_desde']))

@@ -11,28 +11,18 @@ class ConfiguracionNominaService
 {
     public function actual(): ConfiguracionNomina
     {
-        return ConfiguracionNomina::where('status', true)
+        $configuracion = ConfiguracionNomina::where('status', true)
             ->latest()
-            ->first()
-            ?? ConfiguracionNomina::create([
-                'nombre' => 'Configuración general',
-                'porcentaje_salud_empleado' => 4,
-                'porcentaje_pension_empleado' => 4,
-                'porcentaje_salud_empleador' => 8.5,
-                'porcentaje_pension_empleador' => 12,
-                'porcentaje_arl' => 2.436,
-                'porcentaje_sena' => 2,
-                'porcentaje_icbf' => 3,
-                'porcentaje_caja_compensacion' => 4,
-                'recargo_extra_diurna' => 0.25,
-                'recargo_extra_nocturna' => 0.75,
-                'recargo_festiva' => 0.75,
-                'recargo_nocturna_festiva' => 1.10,
-                'porcentaje_incapacidad' => 0.6667,
-                'hora_inicio_nocturna' => '19:00',
-                'hora_fin_nocturna' => '06:00',
-                'status' => true,
-            ]);
+            ->first();
+
+        if ($configuracion) {
+            return $configuracion;
+        }
+
+        return ConfiguracionNomina::create([
+            'nombre' => 'Configuración general',
+            'status' => true,
+        ])->refresh();
     }
 
     public function guardar(array $data): ConfiguracionNomina

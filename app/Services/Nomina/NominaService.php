@@ -20,6 +20,7 @@ use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use LogicException;
 
@@ -32,20 +33,13 @@ class NominaService
         'jornadaLaboral',
         'novedadesRetroactivas',
         'transacionalRegistro',
+        'liquidador:id,name,email',
+        'preliquidacion:id,uuid,estado,generado_por,revisado_por,aprobado_por',
     ];
 
-    private const RECARGO_EXTRA_DIURNA = 0.25; // 25%
-    private const RECARGO_EXTRA_NOCTURNA = 0.75; // 75%
-    private const RECARGO_FESTIVA = 0.75; // 75%
-    private const RECARGO_NOCTURNA_FESTIVA = 1.10; // 110%
-
-    private const PORCENTAJE_INCAPACIDAD = 0.6667; // 66.67%
-
-    private const HORA_INICIO_NOCTURNA = '19:00:00';
-    private const HORA_FIN_NOCTURNA = '06:00:00';
-
     public function __construct(
-        private readonly AjusteSalarialContratacionService $ajusteSalarialService
+        private readonly AjusteSalarialContratacionService $ajusteSalarialService,
+        private readonly ConfiguracionNominaService $configuracionNominaService,
     ) {}
 
     public function getAll(array $filters = []): LengthAwarePaginator
@@ -53,6 +47,7 @@ class NominaService
         $perPage = $filters['per_page'] ?? 15;
 
         return Nomina::with(self::WITH)
+            ->where('liquidada', true)
             ->when(! empty($filters['user_id']), fn ($q) => $q->where('user_id', $filters['user_id']))
             ->when(! empty($filters['jornada_laboral_id']), fn ($q) => $q->where('jornada_laboral_id', $filters['jornada_laboral_id']))
             ->when(! empty($filters['periodo_inicio']), fn ($q) => $q->whereDate('periodo_inicio', '>=', $filters['periodo_inicio']))
@@ -136,11 +131,26 @@ class NominaService
             $this->validarPeriodoSinLiquidar($data['user_id'], $data['periodo_inicio'], $data['periodo_fin']);
             $calculo = $this->calcular($data);
 
-            // ── Persistencia ──────────────────────────────────────────────
-            $nomina = Nomina::create([
+            return $this->persistirCalculo($calculo);
+        });
+    }
+
+    public function liquidarCalculoAprobado(array $calculo, int $preliquidacionId): Nomina
+    {
+        return DB::transaction(function () use ($calculo, $preliquidacionId) {
+            $this->validarPeriodoSinLiquidar($calculo['user_id'], $calculo['periodo_inicio'], $calculo['periodo_fin']);
+
+            return $this->persistirCalculo($calculo, $preliquidacionId);
+        });
+    }
+
+    private function persistirCalculo(array $calculo, ?int $preliquidacionId = null): Nomina
+    {
+        $nomina = Nomina::create([
                 'user_id' => $calculo['user_id'],
                 'jornada_laboral_id' => $calculo['jornada_laboral_id'],
                 'contratacion_id' => $calculo['contratacion_id'],
+                'preliquidacion_id' => $preliquidacionId,
                 'descuento_id' => $calculo['descuento_id'],
 
                 'periodo_inicio' => $calculo['periodo_inicio'],
@@ -174,37 +184,103 @@ class NominaService
                 'total_descuentos_adicionales' => $calculo['total_descuentos_adicionales'],
                 'total_deducciones' => $calculo['total_deducciones'],
 
+                'base_aportes_empleador' => $calculo['base_aportes_empleador'],
+                'porcentaje_salud_empleador' => $calculo['porcentaje_salud_empleador'],
+                'porcentaje_pension_empleador' => $calculo['porcentaje_pension_empleador'],
+                'porcentaje_arl' => $calculo['porcentaje_arl'],
+                'porcentaje_sena' => $calculo['porcentaje_sena'],
+                'porcentaje_icbf' => $calculo['porcentaje_icbf'],
+                'porcentaje_caja_compensacion' => $calculo['porcentaje_caja_compensacion'],
+                'costo_salud_empleador' => $calculo['costo_salud_empleador'],
+                'costo_pension_empleador' => $calculo['costo_pension_empleador'],
+                'costo_arl' => $calculo['costo_arl'],
+                'costo_sena' => $calculo['costo_sena'],
+                'costo_icbf' => $calculo['costo_icbf'],
+                'costo_caja_compensacion' => $calculo['costo_caja_compensacion'],
+                'costo_parafiscales' => $calculo['costo_parafiscales'],
+                'costo_total_empleador' => $calculo['costo_total_empleador'],
+
                 'salario_neto' => $calculo['salario_neto'],
                 'liquidada' => true,
                 'fecha_liquidacion' => now(),
+                'liquidado_por' => Auth::id(),
             ]);
 
-            Comision::whereIn('id', $calculo['comisiones_ids'])->update([
+        Comision::whereIn('id', $calculo['comisiones_ids'] ?? [])->update([
                 'status' => 'aplicada',
                 'nomina_id' => $nomina->id,
             ]);
 
-            NovedadRetroactiva::whereIn('id', $calculo['novedades_retroactivas_ids'])->update([
+        NovedadRetroactiva::whereIn('id', $calculo['novedades_retroactivas_ids'] ?? [])->update([
                 'status' => 'aplicada',
                 'nomina_id' => $nomina->id,
             ]);
 
-            Log::info('Nómina liquidada', [
+        Log::info('Nómina liquidada', [
                 'uuid' => $nomina->uuid,
                 'user_id' => $calculo['user_id'],
+                'liquidado_por' => Auth::id(),
+                'preliquidacion_id' => $preliquidacionId,
                 'periodo' => $calculo['periodo_inicio'].' → '.$calculo['periodo_fin'],
                 'total_devengado' => $calculo['total_devengado'],
                 'total_deducciones' => $calculo['total_deducciones'],
                 'salario_neto' => $calculo['salario_neto'],
             ]);
 
-            return $nomina->load(self::WITH);
-        });
+        return $nomina->load(self::WITH);
     }
 
     public function preliquidar(array $data): array
     {
         return $this->calcular($data);
+    }
+
+    public function liquidarMasivo(array $data): array
+    {
+        $contrataciones = Contratacion::where('status', true)
+            ->when(! empty($data['empresa_id']), fn ($query) => $query->where('empresa_id', $data['empresa_id']))
+            ->orderBy('users_id')
+            ->get();
+
+        $resultado = [
+            'procesadas' => $contrataciones->count(),
+            'liquidadas' => 0,
+            'omitidas' => 0,
+            'errores' => 0,
+            'detalle_errores' => [],
+        ];
+
+        foreach ($contrataciones as $contratacion) {
+            $existe = Nomina::where('user_id', $contratacion->users_id)
+                ->where('liquidada', true)
+                ->whereDate('periodo_inicio', '<=', $data['periodo_fin'])
+                ->whereDate('periodo_fin', '>=', $data['periodo_inicio'])
+                ->exists();
+
+            if ($existe) {
+                $resultado['omitidas']++;
+                continue;
+            }
+
+            try {
+                $this->liquidar([
+                    'user_id' => $contratacion->users_id,
+                    'jornada_laboral_id' => $data['jornada_laboral_id'],
+                    'periodo_inicio' => $data['periodo_inicio'],
+                    'periodo_fin' => $data['periodo_fin'],
+                ]);
+                $resultado['liquidadas']++;
+            } catch (\Throwable $e) {
+                $resultado['errores']++;
+                $resultado['detalle_errores'][] = [
+                    'user_id' => $contratacion->users_id,
+                    'contratacion_uuid' => $contratacion->uuid,
+                    'mensaje' => $e->getMessage(),
+                ];
+            }
+        }
+
+        return $resultado;
     }
 
     public function getNominasPeriodoContable(string $periodoInicio, string $periodoFin): Collection
@@ -298,12 +374,12 @@ class NominaService
             ->where('status', 1)
             ->latest('inicio_contratacion')
             ->firstOrFail();
-        $configuracion = $this->configuracionActual();
-        $porcentajeIncapacidad = $this->decimalConfiguracion($configuracion, 'porcentaje_incapacidad', self::PORCENTAJE_INCAPACIDAD);
-        $recargoExtraDiurna = $this->decimalConfiguracion($configuracion, 'recargo_extra_diurna', self::RECARGO_EXTRA_DIURNA);
-        $recargoExtraNocturna = $this->decimalConfiguracion($configuracion, 'recargo_extra_nocturna', self::RECARGO_EXTRA_NOCTURNA);
-        $recargoFestiva = $this->decimalConfiguracion($configuracion, 'recargo_festiva', self::RECARGO_FESTIVA);
-        $recargoNocturnaFestiva = $this->decimalConfiguracion($configuracion, 'recargo_nocturna_festiva', self::RECARGO_NOCTURNA_FESTIVA);
+        $configuracion = $this->configuracionNominaService->actual();
+        $porcentajeIncapacidad = (float) $configuracion->porcentaje_incapacidad;
+        $recargoExtraDiurna = (float) $configuracion->recargo_extra_diurna;
+        $recargoExtraNocturna = (float) $configuracion->recargo_extra_nocturna;
+        $recargoFestiva = (float) $configuracion->recargo_festiva;
+        $recargoNocturnaFestiva = (float) $configuracion->recargo_nocturna_festiva;
 
         $inicioLiquidable = $inicio->copy()->max(Carbon::parse($contratacion->inicio_contratacion)->startOfDay());
         $finLiquidable = $fin->copy();
@@ -368,9 +444,14 @@ class NominaService
         foreach ($extrasAprobadas as $extra) {
             $fechaExtra       = Carbon::parse($extra->fecha);
             $inicioExtra = Carbon::parse(
-            $extra->fecha->toDateString() . ' ' . $jornada->hora_salida
-            );       
-            $finExtra         = $inicioExtra->copy()->addMinutes((int) round((float) $extra->horas * 60));
+                $extra->fecha->toDateString().' '.($extra->hora_inicio ?: $jornada->hora_salida)
+            );
+            $finExtra = $extra->hora_fin
+                ? Carbon::parse($extra->fecha->toDateString().' '.$extra->hora_fin)
+                : $inicioExtra->copy()->addMinutes((int) round((float) $extra->horas * 60));
+            if ($finExtra->lessThanOrEqualTo($inicioExtra)) {
+                $finExtra->addDay();
+            }
             $totalMin         = (int) round((float) $extra->horas * 60);
             $minutosNocturnos = $this->minutosNocturnosEntre($inicioExtra, $finExtra, $configuracion);
             $minutosDiurnos   = max(0, $totalMin - $minutosNocturnos);
@@ -436,15 +517,15 @@ class NominaService
         $valorHoraCalculado = round($salarioMensual / $horasMensualesJornada, 2);
         $valorHoraBase = max($valorHoraCalculado, (float) ($valorConfigurado?->valor_hora_normal ?? 0));
         $valorHoraNocturna = max(
-            round($valorHoraBase * (1 + self::RECARGO_EXTRA_NOCTURNA), 2),
+            round($valorHoraBase * (1 + $recargoExtraNocturna), 2),
             (float) ($valorConfigurado?->valor_hora_nocturna ?? 0)
         );
         $valorHoraDominical = max(
-            round($valorHoraBase * (1 + self::RECARGO_FESTIVA), 2),
+            round($valorHoraBase * (1 + $recargoFestiva), 2),
             (float) ($valorConfigurado?->valor_hora_dominical ?? 0)
         );
         $valorHoraDominicalExtra = max(
-            round($valorHoraBase * (1 + self::RECARGO_NOCTURNA_FESTIVA), 2),
+            round($valorHoraBase * (1 + $recargoNocturnaFestiva), 2),
             (float) ($valorConfigurado?->valor_hora_dominical_extra ?? 0)
         );
 
@@ -531,6 +612,28 @@ class NominaService
         $totalDescuentosAdicionales = round($descuentosNomina['valor'] + $valorPermisosNoRemunerados + $novedadesRetroactivas['deducciones'], 2);
         $totalDeducciones = round($deduccionSalud + $deduccionPension + $totalDescuentosAdicionales, 2);
         $salarioNeto = round($totalDevengado - $totalDeducciones, 2);
+        $baseAportesEmpleador = round($baseParaDeducciones, 2);
+        $porcentajeSaludEmpleador = (float) $configuracion->porcentaje_salud_empleador;
+        $porcentajePensionEmpleador = (float) $configuracion->porcentaje_pension_empleador;
+        $porcentajeArl = (float) $configuracion->porcentaje_arl;
+        $porcentajeSena = (float) $configuracion->porcentaje_sena;
+        $porcentajeIcbf = (float) $configuracion->porcentaje_icbf;
+        $porcentajeCajaCompensacion = (float) $configuracion->porcentaje_caja_compensacion;
+        $costoSaludEmpleador = round($baseAportesEmpleador * ($porcentajeSaludEmpleador / 100), 2);
+        $costoPensionEmpleador = round($baseAportesEmpleador * ($porcentajePensionEmpleador / 100), 2);
+        $costoArl = round($baseAportesEmpleador * ($porcentajeArl / 100), 2);
+        $costoSena = round($baseAportesEmpleador * ($porcentajeSena / 100), 2);
+        $costoIcbf = round($baseAportesEmpleador * ($porcentajeIcbf / 100), 2);
+        $costoCajaCompensacion = round($baseAportesEmpleador * ($porcentajeCajaCompensacion / 100), 2);
+        $costoParafiscales = round($costoSena + $costoIcbf + $costoCajaCompensacion, 2);
+        $costoTotalEmpleador = round(
+            $totalDevengado
+            + $costoSaludEmpleador
+            + $costoPensionEmpleador
+            + $costoArl
+            + $costoParafiscales,
+            2
+        );
 
         return [
             'user_id' => $userId,
@@ -592,10 +695,25 @@ class NominaService
             'recargo_festiva' => $recargoFestiva,
             'recargo_nocturna_festiva' => $recargoNocturnaFestiva,
             'porcentaje_incapacidad' => $porcentajeIncapacidad,
-            'hora_inicio_nocturna' => $this->horaConfiguracion($configuracion, 'hora_inicio_nocturna', self::HORA_INICIO_NOCTURNA),
-            'hora_fin_nocturna' => $this->horaConfiguracion($configuracion, 'hora_fin_nocturna', self::HORA_FIN_NOCTURNA),
+            'hora_inicio_nocturna' => $this->horaConfiguracion($configuracion, 'hora_inicio_nocturna'),
+            'hora_fin_nocturna' => $this->horaConfiguracion($configuracion, 'hora_fin_nocturna'),
             'total_descuentos_adicionales' => $totalDescuentosAdicionales,
             'total_deducciones' => $totalDeducciones,
+            'base_aportes_empleador' => $baseAportesEmpleador,
+            'porcentaje_salud_empleador' => $porcentajeSaludEmpleador,
+            'porcentaje_pension_empleador' => $porcentajePensionEmpleador,
+            'porcentaje_arl' => $porcentajeArl,
+            'porcentaje_sena' => $porcentajeSena,
+            'porcentaje_icbf' => $porcentajeIcbf,
+            'porcentaje_caja_compensacion' => $porcentajeCajaCompensacion,
+            'costo_salud_empleador' => $costoSaludEmpleador,
+            'costo_pension_empleador' => $costoPensionEmpleador,
+            'costo_arl' => $costoArl,
+            'costo_sena' => $costoSena,
+            'costo_icbf' => $costoIcbf,
+            'costo_caja_compensacion' => $costoCajaCompensacion,
+            'costo_parafiscales' => $costoParafiscales,
+            'costo_total_empleador' => $costoTotalEmpleador,
             'salario_neto' => $salarioNeto,
             'detalle_descuentos' => $descuentosNomina['detalle'],
             'advertencias' => $advertencias,
@@ -787,8 +905,8 @@ class NominaService
     {
         $total = 0;
         $cursor = $inicio->copy()->startOfDay();
-        $horaInicioNocturna = $this->horaConfiguracion($configuracion, 'hora_inicio_nocturna', self::HORA_INICIO_NOCTURNA);
-        $horaFinNocturna = $this->horaConfiguracion($configuracion, 'hora_fin_nocturna', self::HORA_FIN_NOCTURNA);
+        $horaInicioNocturna = $this->horaConfiguracion($configuracion, 'hora_inicio_nocturna');
+        $horaFinNocturna = $this->horaConfiguracion($configuracion, 'hora_fin_nocturna');
 
         while ($cursor->lte($fin)) {
             $inicioNoche = Carbon::parse($cursor->toDateString().' '.$horaInicioNocturna);
@@ -806,38 +924,9 @@ class NominaService
         return $total;
     }
 
-    private function decimalConfiguracion(ConfiguracionNomina $configuracion, string $campo, float $fallback): float
+    private function horaConfiguracion(ConfiguracionNomina $configuracion, string $campo): string
     {
-        $valor = $configuracion->{$campo};
-
-        return is_numeric($valor) ? (float) $valor : $fallback;
-    }
-
-    private function horaConfiguracion(ConfiguracionNomina $configuracion, string $campo, string $fallback): string
-    {
-        $valor = $configuracion->{$campo};
-
-        return $valor ? Carbon::parse($valor)->format('H:i:s') : $fallback;
-    }
-
-    private function configuracionActual(): ConfiguracionNomina
-    {
-        return ConfiguracionNomina::where('status', true)
-            ->latest()
-            ->first()
-            ?? ConfiguracionNomina::create([
-                'nombre' => 'Configuración general',
-                'porcentaje_salud_empleado' => 4,
-                'porcentaje_pension_empleado' => 4,
-                'recargo_extra_diurna' => self::RECARGO_EXTRA_DIURNA,
-                'recargo_extra_nocturna' => self::RECARGO_EXTRA_NOCTURNA,
-                'recargo_festiva' => self::RECARGO_FESTIVA,
-                'recargo_nocturna_festiva' => self::RECARGO_NOCTURNA_FESTIVA,
-                'porcentaje_incapacidad' => self::PORCENTAJE_INCAPACIDAD,
-                'hora_inicio_nocturna' => self::HORA_INICIO_NOCTURNA,
-                'hora_fin_nocturna' => self::HORA_FIN_NOCTURNA,
-                'status' => true,
-            ]);
+        return Carbon::parse($configuracion->{$campo})->format('H:i:s');
     }
 
     private function horasMensualesJornada(JornadaLaboral $jornada): float

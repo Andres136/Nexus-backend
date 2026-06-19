@@ -56,4 +56,9 @@ class Vacacion extends Model
     {
         return $this->belongsTo(User::class, 'autorizado_por');
     }
+
+    public function liquidacionPrestacion()
+    {
+        return $this->hasOne(LiquidacionPrestacion::class, 'vacacion_id');
+    }
 }

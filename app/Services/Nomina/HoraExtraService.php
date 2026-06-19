@@ -10,6 +10,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class HoraExtraService
 {
@@ -71,6 +72,19 @@ class HoraExtraService
     {
         return DB::transaction(function () use ($data) {
             $registros = collect();
+            $inicio = Carbon::parse($data['fecha'].' '.$data['hora_inicio']);
+            $fin = Carbon::parse($data['fecha'].' '.$data['hora_fin']);
+            if ($fin->lessThanOrEqualTo($inicio)) {
+                $fin->addDay();
+            }
+            $horas = round($inicio->diffInMinutes($fin) / 60, 2);
+
+            if ($horas < 0.5 || $horas > 24) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'hora_fin' => 'El rango debe representar entre 0.5 y 24 horas.',
+                ]);
+            }
+
             $kiosko = !empty($data['kiosko_device_id'])
                 ? KioskoDevice::select('id', 'sede_id')->find($data['kiosko_device_id'])
                 : null;
@@ -87,7 +101,10 @@ class HoraExtraService
                     'solicitado_por'   => $solicitadoPor,
                     'origen'           => $data['origen'] ?? 'admin',
                     'fecha'            => $data['fecha'],
-                    'horas'            => $data['horas'],
+                    'hora_inicio'      => $data['hora_inicio'],
+                    'hora_fin'         => $data['hora_fin'],
+                    'horas'            => $horas,
+                    'tipo'             => $data['tipo'],
                     'motivo'           => $data['motivo'] ?? null,
                     'status'           => 'pendiente',
                 ]);

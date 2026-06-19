@@ -14,6 +14,7 @@ class LiquidacionPrestacion extends Model
         'uuid',
         'user_id',
         'contratacion_id',
+        'vacacion_id',
         'tipo',
         'periodo_inicio',
         'periodo_fin',
@@ -63,5 +64,10 @@ class LiquidacionPrestacion extends Model
     public function contratacion()
     {
         return $this->belongsTo(Contratacion::class, 'contratacion_id');
+    }
+
+    public function vacacion()
+    {
+        return $this->belongsTo(Vacacion::class, 'vacacion_id');
     }
 }

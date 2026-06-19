@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Log;
 
 class VacacionService
 {
-    private const WITH = ['empleado:id,name,email', 'supervisor:id,name,email'];
+    private const WITH = ['empleado:id,name,email,sede_id', 'empleado.sede:id,nombre', 'supervisor:id,name,email'];
 
     public function getAll(array $filters = []): LengthAwarePaginator
     {
@@ -20,9 +20,13 @@ class VacacionService
 
         return Vacacion::with(self::WITH)
             ->when(!empty($filters['user_id']),     fn($q) => $q->where('user_id', $filters['user_id']))
+            ->when(!empty($filters['sede_id']), fn ($q) => $q->whereHas('empleado', fn ($empleado) => $empleado->where('sede_id', $filters['sede_id'])))
+            ->when(!empty($filters['search']), fn ($q) => $q->whereHas('empleado', fn ($empleado) => $empleado
+                ->where('name', 'like', "%{$filters['search']}%")
+                ->orWhere('email', 'like', "%{$filters['search']}%")))
             ->when(!empty($filters['status']),      fn($q) => $q->where('status', $filters['status']))
             ->when(!empty($filters['tipo']),        fn($q) => $q->where('tipo', $filters['tipo']))
-            ->when(!empty($filters['fecha_desde']), fn($q) => $q->whereDate('fecha_inicio', '>=', $filters['fecha_desde']))
+            ->when(!empty($filters['fecha_desde']), fn($q) => $q->whereDate('fecha_fin', '>=', $filters['fecha_desde']))
             ->when(!empty($filters['fecha_hasta']), fn($q) => $q->whereDate('fecha_inicio', '<=', $filters['fecha_hasta']))
             ->orderByDesc('fecha_inicio')
             ->paginate($perPage);
@@ -142,6 +146,40 @@ class VacacionService
             ]);
 
             return $vacacion->load(self::WITH);
+        });
+    }
+
+    public function update(string $uuid, array $data): Vacacion
+    {
+        return DB::transaction(function () use ($uuid, $data) {
+            $vacacion = $this->findByUuid($uuid);
+
+            if ($vacacion->status === 'aprobada') {
+                throw new \LogicException('No se puede editar una vacación ya aprobada.');
+            }
+
+            $disponibles = $this->getDiasDisponibles($data['user_id']);
+
+            if ($data['dias_habiles'] > $disponibles) {
+                throw new \LogicException(
+                    "El empleado solo tiene {$disponibles} días de vacaciones disponibles."
+                );
+            }
+
+            $vacacion->update(array_merge($data, [
+                'status'              => 'pendiente',
+                'autorizado_por'      => null,
+                'fecha_gestion'       => null,
+                'observacion_gestion' => null,
+            ]));
+
+            Log::info('Vacación actualizada', [
+                'uuid'       => $vacacion->uuid,
+                'user_id'    => $vacacion->user_id,
+                'editado_por' => Auth::id(),
+            ]);
+
+            return $vacacion->fresh(self::WITH);
         });
     }
 

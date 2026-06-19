@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Nomina;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Nomina\GestionVacacionRequest;
 use App\Http\Requests\Nomina\StoreVacacionRequest;
+use App\Http\Requests\Nomina\UpdateVacacionRequest;
 use App\Services\Nomina\VacacionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,6 +22,8 @@ class VacacionController extends Controller
         try {
             $filters = [
                 'user_id'     => $request->query('user_id'),
+                'sede_id'     => $request->query('sede_id'),
+                'search'      => $request->query('search'),
                 'status'      => $request->query('status'),
                 'tipo'        => $request->query('tipo'),
                 'fecha_desde' => $request->query('fecha_desde'),
@@ -82,6 +85,31 @@ class VacacionController extends Controller
         } catch (\Exception $e) {
             Log::error('Error al registrar vacación', ['error' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => 'Error al registrar la vacación.'], 500);
+        }
+    }
+
+    public function update(UpdateVacacionRequest $request, string $uuid): JsonResponse
+    {
+        try {
+            $vacacion = $this->vacacionService->update($uuid, $request->validated());
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Vacación actualizada exitosamente.',
+                'data'    => $vacacion,
+            ]);
+        } catch (\LogicException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Exception $e) {
+            Log::error('Error al actualizar vacación', [
+                'uuid' => $uuid,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al actualizar la vacación.',
+            ], 500);
         }
     }
 

@@ -104,6 +104,11 @@ class Contratacion extends Model
         return $this->hasMany(HistorialSalarialContratacion::class, 'contratacion_id');
     }
 
+    public function nominas()
+    {
+        return $this->hasMany(Nomina::class, 'contratacion_id');
+    }
+
     public function parametroLaboral()
     {
         return $this->belongsTo(NominaParametroLaboral::class, 'parametro_laboral_id');

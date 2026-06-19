@@ -18,6 +18,7 @@ class Nomina extends Model
         'user_id',
         'jornada_laboral_id',
         'contratacion_id',
+        'preliquidacion_id',
         'descuento_id',
         'transacional_registros_id',
 
@@ -78,6 +79,7 @@ class Nomina extends Model
         'salario_neto',
         'liquidada',
         'fecha_liquidacion',
+        'liquidado_por',
         'estado_contable',
         'fecha_aprobacion_contable',
         'fecha_cierre_contable',
@@ -179,5 +181,15 @@ class Nomina extends Model
     public function liquidacionRetiro()
     {
         return $this->hasOne(LiquidacionRetiro::class, 'nomina_id');
+    }
+
+    public function preliquidacion()
+    {
+        return $this->belongsTo(PreliquidacionNomina::class, 'preliquidacion_id');
+    }
+
+    public function liquidador()
+    {
+        return $this->belongsTo(User::class, 'liquidado_por');
     }
 }

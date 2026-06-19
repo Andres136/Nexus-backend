@@ -42,6 +42,18 @@ public function getAll(array $filters = [])
         $query->where('user_id', $filters['user_id']);
     }
 
+    if (!empty($filters['sede_id'])) {
+        $query->whereHas('empleado', fn ($empleado) => $empleado->where('sede_id', $filters['sede_id']));
+    }
+
+    if (!empty($filters['fecha_desde'])) {
+        $query->whereDate('fin', '>=', $filters['fecha_desde']);
+    }
+
+    if (!empty($filters['fecha_hasta'])) {
+        $query->whereDate('inicio', '<=', $filters['fecha_hasta']);
+    }
+
     // Estado
     if (isset($filters['status']) && $filters['status'] !== '') {
         $query->where('status', $filters['status']);

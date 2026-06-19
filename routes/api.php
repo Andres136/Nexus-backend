@@ -618,6 +618,12 @@ Route::prefix('nomina')->group(function () {
     Route::get('nominas/resumen',              [NominaController::class, 'resumen']);
     Route::get('nominas/exportar-plano',        [NominaController::class, 'exportarPlano']);
     Route::post('nominas/preliquidar',         [NominaController::class, 'preliquidar']);
+    Route::get('nominas/preliquidaciones/{uuid}', [NominaController::class, 'showPreliquidacion']);
+    Route::post('nominas/preliquidaciones/{uuid}/ajustes', [NominaController::class, 'agregarAjustePreliquidacion']);
+    Route::delete('nominas/preliquidaciones/{uuid}/ajustes/{ajusteUuid}', [NominaController::class, 'eliminarAjustePreliquidacion']);
+    Route::patch('nominas/preliquidaciones/{uuid}/revision', [NominaController::class, 'enviarRevisionPreliquidacion']);
+    Route::patch('nominas/preliquidaciones/{uuid}/aprobar', [NominaController::class, 'aprobarPreliquidacion']);
+    Route::post('nominas/preliquidaciones/{uuid}/liquidar', [NominaController::class, 'liquidarPreliquidacion']);
     Route::post('nominas/liquidar-masivo',      [NominaController::class, 'liquidarMasivo']);
     Route::post('nominas/liquidar',            [NominaController::class, 'liquidar']);
     Route::post('nominas/preliquidar-retiro',  [LiquidacionRetiroController::class, 'preliquidar']);
@@ -625,6 +631,7 @@ Route::prefix('nomina')->group(function () {
     Route::get('liquidaciones-retiro', [LiquidacionRetiroController::class, 'index']);
     Route::get('liquidaciones-retiro/{uuid}/pdf', [LiquidacionRetiroController::class, 'pdf']);
     Route::get('liquidaciones-prestaciones/tipos', [LiquidacionPrestacionController::class, 'tipos']);
+    Route::get('liquidaciones-prestaciones/vacaciones-aprobadas/{userId}', [LiquidacionPrestacionController::class, 'vacacionesAprobadas']);
     Route::post('nominas/preliquidar-prestacion', [LiquidacionPrestacionController::class, 'preliquidar']);
     Route::post('nominas/liquidar-prestacion',    [LiquidacionPrestacionController::class, 'liquidar']);
     Route::get('liquidaciones-prestaciones',      [LiquidacionPrestacionController::class, 'index']);
@@ -658,7 +665,7 @@ Route::prefix('nomina')->group(function () {
      Route::patch('licencias/{uuid}/rechazar', [LicenciaController::class, 'rechazar']);
 
      Route::get('vacaciones/resumen/{userId}', [VacacionController::class, 'resumen']);
-     Route::apiResource('vacaciones', VacacionController::class)->except(['update']);
+     Route::apiResource('vacaciones', VacacionController::class);
      Route::patch('vacaciones/{uuid}/aprobar',  [VacacionController::class, 'aprobar']);
      Route::patch('vacaciones/{uuid}/rechazar', [VacacionController::class, 'rechazar']);
 

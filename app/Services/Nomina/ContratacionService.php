@@ -27,8 +27,18 @@ class ContratacionService
     public function getAll(array $filters = []): LengthAwarePaginator
     {
         $perPage = min(max((int) ($filters['per_page'] ?? 10), 1), 100);
+        $periodoInicio = $filters['periodo_inicio'] ?? null;
+        $periodoFin = $filters['periodo_fin'] ?? null;
 
-        return Contratacion::with(self::WITH)
+        $query = Contratacion::with(self::WITH)
+            ->when($periodoInicio && $periodoFin, fn ($query) => $query->with([
+                'nominas' => fn ($nominas) => $nominas
+                    ->with('liquidador:id,name,email')
+                    ->where('liquidada', true)
+                    ->whereDate('periodo_inicio', '<=', $periodoFin)
+                    ->whereDate('periodo_fin', '>=', $periodoInicio)
+                    ->latest('fecha_liquidacion'),
+            ]))
             ->when(!empty($filters['search']), function ($query) use ($filters) {
                 $search = trim($filters['search']);
                 $query->where(function ($q) use ($search) {
@@ -52,8 +62,18 @@ class ContratacionService
                 $q->where('empresa_id', $filters['empresa_id']))
             ->when(isset($filters['status']), fn($q) =>
                 $q->where('status', $filters['status']))
-            ->orderByDesc('created_at')
-            ->paginate($perPage);
+            ->orderByDesc('created_at');
+
+        $paginator = $query->paginate($perPage);
+
+        if ($periodoInicio && $periodoFin) {
+            $paginator->getCollection()->each(function (Contratacion $contratacion) {
+                $contratacion->setRelation('nomina_periodo', $contratacion->nominas->first());
+                $contratacion->unsetRelation('nominas');
+            });
+        }
+
+        return $paginator;
     }
 
     public function getByUuid(string $uuid): Contratacion

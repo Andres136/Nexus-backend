@@ -11,6 +11,7 @@ use App\Services\Nomina\KioskoDeviceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class HoraExtraController extends Controller
 {
@@ -75,7 +76,7 @@ class HoraExtraController extends Controller
                     $query->whereNull('kiosko_device_id')
                         ->orWhere('kiosko_device_id', $device->id);
                 })
-                ->get(['uuid', 'fecha', 'horas', 'tipo', 'status', 'observacion_gestion']);
+                ->get(['uuid', 'fecha', 'hora_inicio', 'hora_fin', 'horas', 'tipo', 'status', 'observacion_gestion']);
 
             return response()->json([
                 'success' => true,
@@ -109,6 +110,12 @@ class HoraExtraController extends Controller
                 'message' => "Se registraron horas extras para {$registros->count()} empleado(s).",
                 'data' => $registros,
             ], 201);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->flatten()->first(),
+                'errors' => $e->errors(),
+            ], 422);
         } catch (\Exception $e) {
             Log::error('Error al registrar horas extras', ['error' => $e->getMessage()]);
 

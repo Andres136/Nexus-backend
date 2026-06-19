@@ -21,6 +21,8 @@ class HoraExtra extends Model
         'solicitado_por',
         'origen',
         'fecha',
+        'hora_inicio',
+        'hora_fin',
         'horas',
         'tipo',
         'motivo',

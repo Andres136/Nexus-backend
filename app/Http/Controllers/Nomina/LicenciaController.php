@@ -20,7 +20,10 @@ class LicenciaController extends Controller
         try {
             return response()->json([
                 'success' => true,
-                'data'    => $this->service->getAll($request->only(['search', 'status', 'per_page'])),
+                'data'    => $this->service->getAll($request->only([
+                    'search', 'user_id', 'sede_id', 'status',
+                    'fecha_desde', 'fecha_hasta', 'per_page',
+                ])),
             ]);
         } catch (\Exception $e) {
             Log::error('Error al listar licencias', ['error' => $e->getMessage()]);
