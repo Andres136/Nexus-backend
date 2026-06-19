@@ -64,6 +64,34 @@ class ComisionService
         });
     }
 
+    public function update(string $uuid, array $data): Comision
+    {
+        return DB::transaction(function () use ($uuid, $data) {
+            $comision = $this->getByUuid($uuid);
+
+            if ($comision->status === 'rechazada') {
+                $data = [
+                    ...$data,
+                    'status' => 'pendiente',
+                    'autorizado_por' => null,
+                    'fecha_gestion' => null,
+                    'observacion_gestion' => null,
+                ];
+            }
+
+            $comision->update($data);
+
+            Log::info('Comisión actualizada', [
+                'uuid' => $comision->uuid,
+                'status' => $comision->status,
+                'nomina_id' => $comision->nomina_id,
+                'liquidacion_retiro_id' => $comision->liquidacion_retiro_id,
+            ]);
+
+            return $comision->fresh(self::WITH);
+        });
+    }
+
     public function aprobar(string $uuid, ?string $observacion = null): Comision
     {
         return $this->gestionar($uuid, 'aprobada', $observacion);

@@ -618,6 +618,7 @@ Route::prefix('nomina')->group(function () {
     Route::get('nominas/resumen',              [NominaController::class, 'resumen']);
     Route::get('nominas/exportar-plano',        [NominaController::class, 'exportarPlano']);
     Route::post('nominas/preliquidar',         [NominaController::class, 'preliquidar']);
+    Route::post('nominas/liquidar-masivo',      [NominaController::class, 'liquidarMasivo']);
     Route::post('nominas/liquidar',            [NominaController::class, 'liquidar']);
     Route::post('nominas/preliquidar-retiro',  [LiquidacionRetiroController::class, 'preliquidar']);
     Route::post('nominas/liquidar-retiro',      [LiquidacionRetiroController::class, 'liquidar']);
@@ -640,7 +641,7 @@ Route::prefix('nomina')->group(function () {
     Route::patch('horas-extras/{uuid}/aprobar',  [HoraExtraController::class, 'aprobar']);
      Route::patch('horas-extras/{uuid}/rechazar', [HoraExtraController::class, 'rechazar']);
 
-     Route::apiResource('comisiones', ComisionController::class)->except(['update']);
+     Route::apiResource('comisiones', ComisionController::class);
      Route::patch('comisiones/{uuid}/aprobar',  [ComisionController::class, 'aprobar']);
      Route::patch('comisiones/{uuid}/rechazar', [ComisionController::class, 'rechazar']);
 

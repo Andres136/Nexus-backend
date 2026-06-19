@@ -67,12 +67,16 @@ class NominaConceptoContableService
             $cuenta = $cuentas->get($definicion['puck_numero']);
 
             if (! $concepto) {
-                $faltantes[] = [
+                $concepto = NominaConceptoContable::create([
                     'codigo' => $codigo,
-                    'puck_numero' => $definicion['puck_numero'],
-                    'motivo' => 'concepto_no_configurado',
-                ];
-                continue;
+                    'nombre' => $definicion['nombre'],
+                    'tipo' => $definicion['tipo'],
+                    'puck_id' => null,
+                    'naturaleza' => $definicion['naturaleza'],
+                    'requiere_tercero' => $definicion['requiere_tercero'] ?? true,
+                    'requiere_centro_costo' => $definicion['requiere_centro_costo'] ?? false,
+                    'activo' => true,
+                ]);
             }
 
             if (! $cuenta) {

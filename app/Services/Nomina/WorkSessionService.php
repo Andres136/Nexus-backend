@@ -145,7 +145,7 @@ class WorkSessionService
 
         if ($entrada) {
             $horaEntradaProgramada = $jornada?->hora_entrada ?? '07:00:00';
-            $horaEntradaLimite = $jornada?->hora_entrada_limite;
+            $horaEntradaLimite = $jornada->hora_entrada_limite ?? null;
             $entradaReal = Carbon::parse($entrada);
             $entradaBase = Carbon::parse($entradaReal->toDateString().' '.$horaEntradaProgramada);
             $entradaLimite = $horaEntradaLimite
@@ -286,6 +286,10 @@ class WorkSessionService
             'duracion_pausa_minutos',
             'duracion_almuerzo_minutos',
         ] as $campo) {
+            if (! property_exists($operativa, $campo)) {
+                $operativa->{$campo} = null;
+            }
+
             if ($instruccion && $instruccion->{$campo} !== null) {
                 $operativa->{$campo} = $instruccion->{$campo};
             }

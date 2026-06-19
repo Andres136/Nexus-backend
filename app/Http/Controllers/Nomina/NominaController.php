@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Nomina;
 use App\Exports\NominaPucExport;
 use App\Exports\NominaPlanoExport;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Nomina\LiquidarNominaMasivaRequest;
 use App\Http\Requests\Nomina\LiquidarNominaRequest;
 use App\Http\Requests\Nomina\StoreNominaRequest;
 use App\Http\Requests\Nomina\UpdateNominaRequest;
@@ -187,6 +188,28 @@ class NominaController extends Controller
         }
     }
 
+    public function liquidarMasivo(LiquidarNominaMasivaRequest $request): JsonResponse
+    {
+        try {
+            $resultado = $this->nominaService->liquidarMasivo($request->validated());
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Liquidación masiva procesada.',
+                'data' => $resultado,
+            ], 201);
+        } catch (\LogicException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error al liquidar nómina masiva', ['error' => $e->getMessage()]);
+
+            return response()->json(['success' => false, 'message' => 'Error al liquidar la nómina masiva.'], 500);
+        }
+    }
+
     public function preliquidar(LiquidarNominaRequest $request): JsonResponse
     {
         try {
@@ -219,6 +242,7 @@ class NominaController extends Controller
         $validator = Validator::make($request->query(), [
             'periodo_inicio' => 'required|date',
             'periodo_fin' => 'required|date|after_or_equal:periodo_inicio',
+            'empresa_id' => 'nullable|integer|exists:empresas,id',
         ]);
 
         if ($validator->fails()) {
@@ -230,14 +254,16 @@ class NominaController extends Controller
 
         $inicio = $request->query('periodo_inicio');
         $fin = $request->query('periodo_fin');
+        $empresaId = $request->query('empresa_id');
 
         $nominas = Nomina::with([
             'empleado:id,name,email',
-            'contratacion:id,tipo_documento,numero_documento,cargo',
+            'contratacion:id,tipo_documento,numero_documento,cargo,empresa_id',
         ])
             ->where('liquidada', true)
             ->where('periodo_inicio', '>=', $inicio)
             ->where('periodo_fin', '<=', $fin)
+            ->when($empresaId, fn ($q) => $q->whereHas('contratacion', fn ($contrato) => $contrato->where('empresa_id', $empresaId)))
             ->orderBy('user_id')
             ->get();
 
@@ -248,7 +274,8 @@ class NominaController extends Controller
             ], 422);
         }
 
-        $filename = "nomina_liquidada_{$inicio}_{$fin}.xlsx";
+        $empresaSuffix = $empresaId ? "_empresa_{$empresaId}" : '';
+        $filename = "nomina_liquidada_{$inicio}_{$fin}{$empresaSuffix}.xlsx";
 
         return Excel::download(new NominaPlanoExport($nominas, $inicio, $fin), $filename);
     }

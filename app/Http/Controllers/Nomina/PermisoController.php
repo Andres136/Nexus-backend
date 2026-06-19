@@ -51,7 +51,7 @@ class PermisoController extends Controller
 
     /**
      * POST /nomina/permisos
-     * Body: { user_id, fecha, tipo, hora_inicio, hora_fin, es_remunerado, motivo? }
+     * Body: { user_id, fecha, tipo, hora_inicio, hora_fin, motivo? }
      */
     public function store(StorePermisoRequest $request): JsonResponse
     {
@@ -83,7 +83,19 @@ class PermisoController extends Controller
     public function aprobar(GestionPermisoRequest $request, string $uuid): JsonResponse
     {
         try {
-            $permiso = $this->permisoService->aprobar($uuid, $request->input('observacion'));
+            if (! $request->has('es_remunerado')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Debes indicar si el permiso aprobado es remunerado o no remunerado.',
+                    'errors' => ['es_remunerado' => ['Debes indicar si el permiso aprobado es remunerado o no remunerado.']],
+                ], 422);
+            }
+
+            $permiso = $this->permisoService->aprobar(
+                $uuid,
+                $request->boolean('es_remunerado'),
+                $request->input('observacion')
+            );
 
             return response()->json([
                 'success' => true,

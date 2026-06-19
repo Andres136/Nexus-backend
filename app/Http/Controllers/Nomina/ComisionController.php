@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Nomina;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Nomina\GestionComisionRequest;
 use App\Http\Requests\Nomina\StoreComisionRequest;
+use App\Http\Requests\Nomina\UpdateComisionRequest;
 use App\Services\Nomina\ComisionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -60,6 +61,21 @@ class ComisionController extends Controller
             Log::error('Error al registrar comisión', ['error' => $e->getMessage()]);
 
             return response()->json(['success' => false, 'message' => 'Error al registrar la comisión.'], 500);
+        }
+    }
+
+    public function update(UpdateComisionRequest $request, string $uuid): JsonResponse
+    {
+        try {
+            return response()->json([
+                'success' => true,
+                'message' => 'Comisión actualizada exitosamente.',
+                'data' => $this->comisionService->update($uuid, $request->validated()),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al actualizar comisión', ['uuid' => $uuid, 'error' => $e->getMessage()]);
+
+            return response()->json(['success' => false, 'message' => 'Error al actualizar la comisión.'], 500);
         }
     }
 

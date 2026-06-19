@@ -15,6 +15,7 @@ class GestionPermisoRequest extends FormRequest
     {
         return [
             'observacion' => 'nullable|string|max:255',
+            'es_remunerado' => 'nullable|boolean',
         ];
     }
 }

@@ -98,9 +98,9 @@ class PermisoService
         });
     }
 
-    public function aprobar(string $uuid, ?string $observacion = null): Permiso
+    public function aprobar(string $uuid, bool $esRemunerado, ?string $observacion = null): Permiso
     {
-        return DB::transaction(function () use ($uuid, $observacion) {
+        return DB::transaction(function () use ($uuid, $esRemunerado, $observacion) {
             $this->asegurarPrivilegiado();
             $permiso = $this->getByUuid($uuid);
 
@@ -110,6 +110,7 @@ class PermisoService
 
             $permiso->update([
                 'status'              => 'aprobado',
+                'es_remunerado'       => $esRemunerado,
                 'autorizado_por'      => Auth::id(),
                 'fecha_gestion'       => now(),
                 'observacion_gestion' => $observacion,

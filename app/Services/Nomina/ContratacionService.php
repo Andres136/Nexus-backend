@@ -48,6 +48,8 @@ class ContratacionService
                 $q->whereDate('inicio_contratacion', '<=', $filters['fecha_fin']))
             ->when(!empty($filters['user_id']), fn($q) =>
                 $q->where('users_id', $filters['user_id']))
+            ->when(!empty($filters['empresa_id']), fn($q) =>
+                $q->where('empresa_id', $filters['empresa_id']))
             ->when(isset($filters['status']), fn($q) =>
                 $q->where('status', $filters['status']))
             ->orderByDesc('created_at')

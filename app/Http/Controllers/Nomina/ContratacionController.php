@@ -29,6 +29,7 @@ class ContratacionController extends Controller
                 'fecha_inicio' => $request->query('fecha_inicio'),
                 'fecha_fin'    => $request->query('fecha_fin'),
                 'user_id'      => $request->query('user_id'),
+                'empresa_id'   => $request->query('empresa_id'),
                 'status'       => $request->query('status'),
                 'per_page'     => $request->query('per_page', 10),
             ];

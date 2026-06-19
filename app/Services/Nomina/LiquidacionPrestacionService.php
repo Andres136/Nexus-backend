@@ -3,6 +3,7 @@
 namespace App\Services\Nomina;
 
 use App\Models\Nomina\Contratacion;
+use App\Models\Nomina\Comision;
 use App\Models\Nomina\LiquidacionPrestacion;
 use App\Models\Nomina\Nomina;
 use App\Models\Nomina\Vacacion;
@@ -258,8 +259,8 @@ class LiquidacionPrestacionService
     }
 
     /**
-     * Promedio mensual de comisiones aplicadas en nóminas del período.
-     * Para prima y cesantías también incluye horas extra.
+     * Promedio mensual de variables salariales del período.
+     * Incluye comisiones ya aplicadas en nómina y comisiones aprobadas pendientes.
      */
     private function promedioVariableMensual(int $userId, Carbon $inicio, Carbon $fin): float
     {
@@ -270,6 +271,11 @@ class LiquidacionPrestacionService
             ->get();
 
         $total = (float) $nominas->sum('total_comisiones');
+        $total += (float) Comision::where('user_id', $userId)
+            ->where('status', 'aprobada')
+            ->whereDate('periodo_fin', '>=', $inicio->toDateString())
+            ->whereDate('periodo_inicio', '<=', $fin->toDateString())
+            ->sum('valor');
         $total += (float) $nominas->sum(fn ($n) =>
             (float) $n->valor_horas_extras_diurnas
             + (float) $n->valor_horas_extras_nocturnas
