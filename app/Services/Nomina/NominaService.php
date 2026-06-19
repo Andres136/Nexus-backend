@@ -367,7 +367,9 @@ class NominaService
 
         foreach ($extrasAprobadas as $extra) {
             $fechaExtra       = Carbon::parse($extra->fecha);
-            $inicioExtra      = Carbon::parse($extra->fecha . ' ' . $jornada->hora_salida);
+            $inicioExtra = Carbon::parse(
+            $extra->fecha->toDateString() . ' ' . $jornada->hora_salida
+            );       
             $finExtra         = $inicioExtra->copy()->addMinutes((int) round((float) $extra->horas * 60));
             $totalMin         = (int) round((float) $extra->horas * 60);
             $minutosNocturnos = $this->minutosNocturnosEntre($inicioExtra, $finExtra, $configuracion);
