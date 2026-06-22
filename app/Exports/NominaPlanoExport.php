@@ -55,13 +55,14 @@ class NominaPlanoExport implements FromArray, ShouldAutoSize, WithColumnFormatti
     public function __construct(
         private readonly Collection $nominas,
         private readonly string $periodoInicio,
-        private readonly string $periodoFin
+        private readonly string $periodoFin,
+        private readonly string $empresaNombre
     ) {}
 
     public function array(): array
     {
         $rows = [
-            ['NOMINA LIQUIDADA'],
+            ["NOMINA LIQUIDADA - {$this->empresaNombre}"],
             ["Periodo: {$this->periodoInicio} a {$this->periodoFin}"],
             [
                 'Identificacion',

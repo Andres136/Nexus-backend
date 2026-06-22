@@ -9,6 +9,7 @@ use App\Http\Requests\Nomina\LiquidarNominaMasivaRequest;
 use App\Http\Requests\Nomina\LiquidarNominaRequest;
 use App\Http\Requests\Nomina\StoreNominaRequest;
 use App\Http\Requests\Nomina\UpdateNominaRequest;
+use App\Models\Crm\empresa as Empresa;
 use App\Models\Nomina\Contratacion;
 use App\Models\Nomina\Nomina;
 use App\Services\Nomina\ConfiguracionNominaService;
@@ -23,6 +24,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -371,6 +373,8 @@ class NominaController extends Controller
         $inicio = $request->query('periodo_inicio');
         $fin = $request->query('periodo_fin');
         $empresaId = $request->query('empresa_id');
+        $empresa = $empresaId ? Empresa::findOrFail($empresaId) : null;
+        $empresaNombre = $empresa?->nombre ?? 'Todas las empresas';
 
         $nominas = Nomina::with([
             'empleado:id,name,email',
@@ -390,10 +394,13 @@ class NominaController extends Controller
             ], 422);
         }
 
-        $empresaSuffix = $empresaId ? "_empresa_{$empresaId}" : '';
-        $filename = "nomina_liquidada_{$inicio}_{$fin}{$empresaSuffix}.xlsx";
+        $empresaArchivo = Str::slug($empresaNombre, '_') ?: 'empresa';
+        $filename = "nomina_liquidada_{$empresaArchivo}_{$inicio}_{$fin}.xlsx";
 
-        return Excel::download(new NominaPlanoExport($nominas, $inicio, $fin), $filename);
+        return Excel::download(
+            new NominaPlanoExport($nominas, $inicio, $fin, $empresaNombre),
+            $filename
+        );
     }
 
     public function pucPayload(string $uuid, NominaPucPayloadService $payloadService): JsonResponse
