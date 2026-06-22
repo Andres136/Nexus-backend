@@ -1,12 +1,12 @@
 @php
   $nombreEmp = strtolower($empresa->nombre ?? '');
   $esGlobal  = str_contains($nombreEmp, 'global');
-  $logoFile  = $esGlobal ? public_path('images/GLOBAL.png') : public_path('images/SETAS.png');
+  $logoFile  = !empty($empresa?->logo) ? public_path('storage/' . ltrim($empresa->logo, '/')) : null;
   $colorPrim = $esGlobal ? '#1e3a5f' : '#2d7a27';
   $colorBord = $esGlobal ? '#b8cfe8' : '#c5e0c3';
-  $dirEmp    = $empresa->direccion ?? 'Calle 55 # 64-14, Villa del Río';
-  $telEmp    = $empresa->telefono  ?? '3112690067';
-  $emailEmp  = $empresa->email     ?? 'comercial@setasplast.com.co';
+  $dirEmp    = $empresa?->direccion;
+  $telEmp    = $empresa?->telefono;
+  $emailEmp  = $empresa?->email;
 @endphp
 <!DOCTYPE html>
 <html lang="es">
@@ -45,13 +45,20 @@ table { border-collapse: collapse; width: 100%; }
 <table class="header-table">
 <tr>
   <td style="width:120px;">
+    @if($logoFile && file_exists($logoFile))
     <img src="{{ $logoFile }}" class="logo" alt="{{ $empresa->nombre ?? '' }}">
+    @endif
   </td>
   <td>
-    <div class="empresa-nombre">{{ $empresa->nombre ?? 'SETASPLAST S.A.S.' }}</div>
+    <div class="empresa-nombre">{{ $empresa?->nombre }}</div>
     <div class="empresa-info">
-      NIT: {{ $empresa->nit ?? 'N/A' }} &nbsp;|&nbsp; {{ $dirEmp }}<br>
-      {{ $emailEmp }} &nbsp;·&nbsp; {{ $telEmp }}
+      @if($empresa?->nit) NIT: {{ $empresa->nit }} @endif
+      @if($empresa?->nit && $dirEmp) &nbsp;|&nbsp; @endif
+      {{ $dirEmp }}
+      @if(($empresa?->nit || $dirEmp) && ($emailEmp || $telEmp))<br>@endif
+      {{ $emailEmp }}
+      @if($emailEmp && $telEmp) &nbsp;·&nbsp; @endif
+      {{ $telEmp }}
     </div>
   </td>
   <td style="width:80px; text-align:right; vertical-align:top;">
@@ -67,7 +74,7 @@ table { border-collapse: collapse; width: 100%; }
 <div class="titulo">CERTIFICADO LABORAL</div>
 
 <div class="fecha-ciudad">
-  Villa del Río, {{ $fecha_actual }}
+  {{ $fecha_actual }}
 </div>
 
 <div class="destinatario">
@@ -76,7 +83,7 @@ table { border-collapse: collapse; width: 100%; }
 </div>
 
 <div class="cuerpo">
-  <strong>{{ $empresa->nombre ?? 'SETASPLAST S.A.S.' }}</strong>,
+  <strong>{{ $empresa?->nombre }}</strong>,
   con NIT <strong>{{ $empresa->nit ?? 'N/A' }}</strong>, certifica que
   <strong>{{ strtoupper($contratacion->usuario->name ?? '—') }}</strong>,
   identificado(a) con cédula de ciudadanía No.
@@ -119,8 +126,7 @@ table { border-collapse: collapse; width: 100%; }
     <div class="firma-th">
       <strong>KRYSTELL RUIZ SANCHEZ</strong><br>
       COORDINACION ADMINISTRATIVA Y RECURSOS HUMANOS<br>
-      3134924743<br>
-      WWW.SETASPLAST.COM.CO
+      3134924743
     </div>
   </div>
 </div>

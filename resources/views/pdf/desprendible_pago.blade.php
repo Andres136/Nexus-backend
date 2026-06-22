@@ -1,13 +1,13 @@
 @php
   $nombreEmp = strtolower($empresa->nombre ?? '');
   $esGlobal  = str_contains($nombreEmp, 'global');
-  $logoFile  = $esGlobal ? public_path('images/GLOBAL.png') : public_path('images/SETAS.png');
+  $logoFile  = !empty($empresa?->logo) ? public_path('storage/' . ltrim($empresa->logo, '/')) : null;
   $colorPrim = $esGlobal ? '#1e3a5f' : '#2d7a27';
   $colorBg   = $esGlobal ? '#e8f0f8' : '#e8f5e3';
   $colorBord = $esGlobal ? '#b8cfe8' : '#c5e0c3';
-  $dirEmp    = $empresa->direccion ?? 'Calle 55 # 64-14, Villa del Río';
-  $telEmp    = $empresa->telefono  ?? '3112690067';
-  $emailEmp  = $empresa->email     ?? 'comercial@setasplast.com.co';
+  $dirEmp    = $empresa?->direccion;
+  $telEmp    = $empresa?->telefono;
+  $emailEmp  = $empresa?->email;
 @endphp
 <!DOCTYPE html>
 <html lang="es">
@@ -68,14 +68,20 @@ table { border-collapse: collapse; width: 100%; }
 <table class="header-table w100">
 <tr>
   <td style="width:120px;" class="va-top">
+    @if($logoFile && file_exists($logoFile))
     <img src="{{ $logoFile }}" class="logo" alt="{{ $empresa->nombre ?? '' }}">
+    @endif
   </td>
   <td class="va-top">
-    <div class="empresa-nombre">{{ $empresa->nombre ?? 'SETASPLAST S.A.S.' }}</div>
+    <div class="empresa-nombre">{{ $empresa?->nombre }}</div>
     <div class="empresa-info">
-      NIT: {{ $empresa->nit ?? 'N/A' }}<br>
-      {{ $dirEmp }}<br>
-      {{ $emailEmp }} · {{ $telEmp }}
+      @if($empresa?->nit) NIT: {{ $empresa->nit }} @endif
+      @if($empresa?->nit && $dirEmp)<br>@endif
+      {{ $dirEmp }}
+      @if(($empresa?->nit || $dirEmp) && ($emailEmp || $telEmp))<br>@endif
+      {{ $emailEmp }}
+      @if($emailEmp && $telEmp) · @endif
+      {{ $telEmp }}
     </div>
   </td>
   <td style="width:140px;" class="va-top tr">
@@ -189,8 +195,7 @@ table { border-collapse: collapse; width: 100%; }
       <div style="font-size:9px; color:#333; line-height:1.45; margin-top:4px; text-transform:uppercase;">
         <strong style="font-size:10px; color:#111;">KRYSTELL RUIZ SANCHEZ</strong><br>
         COORDINACION ADMINISTRATIVA Y RECURSOS HUMANOS<br>
-        3134924743<br>
-        WWW.SETASPLAST.COM.CO
+        3134924743
       </div>
     </div>
   </td>

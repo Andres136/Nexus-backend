@@ -1,11 +1,12 @@
 @php
   $nombreEmp = strtolower($empresa->nombre ?? '');
   $esGlobal  = str_contains($nombreEmp, 'global');
-  $logoFile  = $esGlobal ? public_path('images/GLOBAL.png') : public_path('images/SETAS.png');
+  $logoFile  = !empty($empresa?->logo) ? public_path('storage/' . ltrim($empresa->logo, '/')) : null;
   $colorPrim = $esGlobal ? '#1e3a5f' : '#2d7a27';
   $colorBord = $esGlobal ? '#b8cfe8' : '#c5e0c3';
-  $dirEmp    = $empresa->direccion ?? 'Calle 55 # 64-14, Villa del Río';
-  $telEmp    = $empresa->telefono  ?? '3112690067';
+  $dirEmp    = $empresa?->direccion;
+  $telEmp    = $empresa?->telefono;
+  $emailEmp  = $empresa?->email;
 @endphp
 <!DOCTYPE html>
 <html lang="es">
@@ -58,13 +59,20 @@ table { border-collapse: collapse; width: 100%; }
 <table>
 <tr>
   <td style="width:120px;" class="va-top">
+    @if($logoFile && file_exists($logoFile))
     <img src="{{ $logoFile }}" class="logo" alt="{{ $empresa->nombre ?? '' }}">
+    @endif
   </td>
   <td class="va-top">
-    <div class="empresa-nombre">{{ $empresa->nombre ?? 'SETASPLAST S.A.S.' }}</div>
+    <div class="empresa-nombre">{{ $empresa?->nombre }}</div>
     <div class="empresa-info">
-      NIT: {{ $empresa->nit ?? 'N/A' }} &nbsp;|&nbsp; Calle 55 # 64-14, Villa del Río<br>
-      comercial@setasplast.com &nbsp;·&nbsp; 3112690067
+      @if($empresa?->nit) NIT: {{ $empresa->nit }} @endif
+      @if($empresa?->nit && $dirEmp) &nbsp;|&nbsp; @endif
+      {{ $dirEmp }}
+      @if(($empresa?->nit || $dirEmp) && ($emailEmp || $telEmp))<br>@endif
+      {{ $emailEmp }}
+      @if($emailEmp && $telEmp) &nbsp;·&nbsp; @endif
+      {{ $telEmp }}
     </div>
   </td>
   <td style="width:100px; text-align:right; vertical-align:top; font-size:9px; color:#888;">
@@ -110,7 +118,7 @@ table { border-collapse: collapse; width: 100%; }
   Por medio del presente documento se notifica formalmente a
   <strong>{{ strtoupper($llamado->empleado->name ?? '—') }}</strong>
   que los hechos descritos constituyen una falta a las obligaciones laborales y al reglamento interno de
-  <strong>{{ $empresa->nombre ?? 'SETASPLAST S.A.S.' }}</strong>.
+  <strong>{{ $empresa?->nombre }}</strong>.
   Se insta al empleado a corregir dicha conducta y se advierte que la reincidencia podrá dar lugar a medidas disciplinarias más severas de conformidad con el Código Sustantivo del Trabajo.
 </div>
 
@@ -135,8 +143,7 @@ table { border-collapse: collapse; width: 100%; }
       <div class="firma-th">
         <strong>KRYSTELL RUIZ SANCHEZ</strong><br>
         COORDINACION ADMINISTRATIVA Y RECURSOS HUMANOS<br>
-        3134924743<br>
-        WWW.SETASPLAST.COM.CO
+        3134924743
       </div>
     </div>
     <div style="margin-top:6px; font-size:9px; color:#888;">Fecha: ____ / ____ / ______</div>

@@ -1,11 +1,12 @@
 @php
   $nombreEmp = strtolower($empresa->nombre ?? '');
   $esGlobal  = str_contains($nombreEmp, 'global');
-  $logoFile  = $esGlobal ? public_path('images/GLOBAL.png') : public_path('images/SETAS.png');
+  $logoFile  = !empty($empresa?->logo) ? public_path('storage/' . ltrim($empresa->logo, '/')) : null;
   $colorPrim = $esGlobal ? '#1e3a5f' : '#2d7a27';
   $colorBord = $esGlobal ? '#b8cfe8' : '#c5e0c3';
-  $dirEmp    = $empresa->direccion ?? 'Calle 55 # 64-14, Villa del Río';
-  $telEmp    = $empresa->telefono  ?? '3112690067';
+  $dirEmp    = $empresa?->direccion;
+  $telEmp    = $empresa?->telefono;
+  $emailEmp  = $empresa?->email;
 @endphp
 <!DOCTYPE html>
 <html lang="es">
@@ -53,13 +54,20 @@ table { border-collapse: collapse; width: 100%; }
 <table>
 <tr>
   <td style="width:120px;" class="va-top">
+    @if($logoFile && file_exists($logoFile))
     <img src="{{ $logoFile }}" class="logo" alt="{{ $empresa->nombre ?? '' }}">
+    @endif
   </td>
   <td class="va-top">
-    <div class="empresa-nombre">{{ $empresa->nombre ?? 'SETASPLAST S.A.S.' }}</div>
+    <div class="empresa-nombre">{{ $empresa?->nombre }}</div>
     <div class="empresa-info">
-      NIT: {{ $empresa->nit ?? 'N/A' }} &nbsp;|&nbsp; Calle 55 # 64-14, Villa del Río<br>
-      comercial@setasplast.com &nbsp;·&nbsp; 3112690067
+      @if($empresa?->nit) NIT: {{ $empresa->nit }} @endif
+      @if($empresa?->nit && $dirEmp) &nbsp;|&nbsp; @endif
+      {{ $dirEmp }}
+      @if(($empresa?->nit || $dirEmp) && ($emailEmp || $telEmp))<br>@endif
+      {{ $emailEmp }}
+      @if($emailEmp && $telEmp) &nbsp;·&nbsp; @endif
+      {{ $telEmp }}
     </div>
   </td>
   <td style="width:100px; text-align:right; vertical-align:top; font-size:9px; color:#888;">
@@ -86,7 +94,7 @@ table { border-collapse: collapse; width: 100%; }
     <td class="info-label">Identificación:</td>
     <td class="info-val">{{ $descargo->contratacion->numero_documento ?? '—' }}</td>
     <td class="info-label" style="padding-left:20px;">Empresa:</td>
-    <td class="info-val">{{ $empresa->nombre ?? 'SETASPLAST S.A.S.' }}</td>
+    <td class="info-val">{{ $empresa?->nombre }}</td>
   </tr>
   <tr>
     <td class="info-label">Fecha del hecho:</td>
@@ -130,8 +138,7 @@ table { border-collapse: collapse; width: 100%; }
       <div class="firma-th">
         <strong>KRYSTELL RUIZ SANCHEZ</strong><br>
         COORDINACION ADMINISTRATIVA Y RECURSOS HUMANOS<br>
-        3134924743<br>
-        WWW.SETASPLAST.COM.CO
+        3134924743
       </div>
     </div>
     <div style="margin-top:6px; font-size:9px; color:#888;">Fecha: ____ / ____ / ______</div>
