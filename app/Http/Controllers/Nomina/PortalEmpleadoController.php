@@ -10,6 +10,13 @@ use App\Models\Nomina\Nomina;
 use App\Models\Nomina\Permiso;
 use App\Models\Nomina\Vacacion;
 use App\Http\Requests\Nomina\StorePortalVacacionRequest;
+use App\Http\Requests\Nomina\StoreIncapacidadRequest;
+use App\Http\Requests\Nomina\StoreLicenciaRequest;
+use App\Http\Requests\Nomina\StorePermisoRequest;
+use App\Models\Nomina\SeguridadSocial;
+use App\Services\Nomina\IncapacidadService;
+use App\Services\Nomina\LicenciaService;
+use App\Services\Nomina\PermisoService;
 use App\Services\Nomina\VacacionService;
 use App\Services\Nomina\ConfiguracionNominaService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -18,6 +25,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
 class PortalEmpleadoController extends Controller
@@ -181,6 +189,17 @@ class PortalEmpleadoController extends Controller
         }
     }
 
+    public function solicitarPermiso(StorePermisoRequest $request, PermisoService $service): JsonResponse
+    {
+        $permiso = $service->store($request->validated());
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Permiso registrado exitosamente.',
+            'data' => $permiso,
+        ], 201);
+    }
+
     // ─── Licencias ────────────────────────────────────────────────────────────
 
     public function licencias(Request $request): JsonResponse
@@ -202,6 +221,20 @@ class PortalEmpleadoController extends Controller
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'Error al obtener las licencias.'], 500);
         }
+    }
+
+    public function solicitarLicencia(StoreLicenciaRequest $request, LicenciaService $service): JsonResponse
+    {
+        $data = $request->validated();
+        $data['user_id'] = (int) Auth::id();
+        $data['soporte'] = $request->file('soporte');
+        $licencia = $service->store($data);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Licencia registrada exitosamente.',
+            'data' => $licencia,
+        ], 201);
     }
 
     // ─── Incapacidades ────────────────────────────────────────────────────────
@@ -234,5 +267,47 @@ class PortalEmpleadoController extends Controller
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'Error al obtener las incapacidades.'], 500);
         }
+    }
+
+    public function registrarIncapacidad(
+        StoreIncapacidadRequest $request,
+        IncapacidadService $service
+    ): JsonResponse {
+        $incapacidad = $service->store($request->validated(), $request->file('soporte'));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Incapacidad registrada exitosamente.',
+            'data' => $incapacidad,
+        ], 201);
+    }
+
+    public function soporteIncapacidad(string $uuid)
+    {
+        $incapacidad = Incapacidad::where('uuid', $uuid)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        abort_unless(
+            $incapacidad->soporte && Storage::disk('public')->exists($incapacidad->soporte),
+            404,
+            'Soporte no encontrado.'
+        );
+
+        return response()->file(Storage::disk('public')->path($incapacidad->soporte), [
+            'Content-Type' => Storage::disk('public')->mimeType($incapacidad->soporte) ?: 'application/octet-stream',
+            'Content-Disposition' => 'inline; filename="'.basename($incapacidad->soporte).'"',
+        ]);
+    }
+
+    public function entidadesMedicas(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => SeguridadSocial::query()
+                ->where('status', true)
+                ->orderBy('nombre')
+                ->get(['id', 'uuid', 'nombre', 'tipo']),
+        ]);
     }
 }

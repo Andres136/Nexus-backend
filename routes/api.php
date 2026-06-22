@@ -567,14 +567,19 @@ Route::prefix('nomina/portal')->group(function () {
     Route::get('vacaciones/resumen',   [PortalEmpleadoController::class, 'resumenVacaciones']);
     Route::post('vacaciones',          [PortalEmpleadoController::class, 'solicitarVacaciones']);
     Route::get('permisos',             [PortalEmpleadoController::class, 'permisos']);
+    Route::post('permisos',            [PortalEmpleadoController::class, 'solicitarPermiso']);
     Route::get('incapacidades',        [PortalEmpleadoController::class, 'incapacidades']);
+    Route::post('incapacidades',       [PortalEmpleadoController::class, 'registrarIncapacidad']);
+    Route::get('incapacidades/{uuid}/soporte', [PortalEmpleadoController::class, 'soporteIncapacidad']);
+    Route::get('entidades-medicas',     [PortalEmpleadoController::class, 'entidadesMedicas']);
     Route::get('licencias',            [PortalEmpleadoController::class, 'licencias']);
+    Route::post('licencias',           [PortalEmpleadoController::class, 'solicitarLicencia']);
     Route::get('prestamos',            [SolicitudPrestamoController::class, 'portalIndex']);
     Route::post('prestamos',           [SolicitudPrestamoController::class, 'store']);
 });
 
 //Rutas tipos de contratos nomina
-Route::prefix('nomina')->group(function () {
+Route::prefix('nomina')->middleware('es_responsable_del_departamento')->group(function () {
     Route::get('configuracion', [ConfiguracionNominaController::class, 'show']);
     Route::put('configuracion', [ConfiguracionNominaController::class, 'update']);
     Route::post('configuracion/firma', [ConfiguracionNominaController::class, 'subirFirma']);
