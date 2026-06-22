@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Nomina;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Nomina\StorefirmaTalentoHumanoRequest;
 use App\Http\Requests\Nomina\UpdateConfiguracionNominaRequest;
 use App\Services\Nomina\ConfiguracionNominaService;
 use Illuminate\Http\JsonResponse;
@@ -42,15 +43,9 @@ class ConfiguracionNominaController extends Controller
         }
     }
 
-    public function subirFirma(Request $request): JsonResponse
+    public function subirFirma(StorefirmaTalentoHumanoRequest $request): JsonResponse
     {
-        $request->validate([
-            'firma' => 'required|image|mimes:jpg,jpeg,png|max:2048',
-        ], [
-            'firma.required' => 'Debes seleccionar una imagen de firma.',
-            'firma.image' => 'El archivo debe ser una imagen válida.',
-            'firma.mimes' => 'La firma debe ser JPG, JPEG o PNG.',
-        ]);
+       
 
         try {
             return response()->json([
