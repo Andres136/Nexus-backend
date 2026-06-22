@@ -631,8 +631,6 @@ Route::prefix('nomina')->middleware('es_responsable_del_departamento')->group(fu
     Route::patch('nominas/preliquidaciones/{uuid}/revision', [NominaController::class, 'enviarRevisionPreliquidacion']);
     Route::patch('nominas/preliquidaciones/{uuid}/aprobar', [NominaController::class, 'aprobarPreliquidacion']);
     Route::post('nominas/preliquidaciones/{uuid}/liquidar', [NominaController::class, 'liquidarPreliquidacion']);
-    Route::post('nominas/liquidar-masivo',      [NominaController::class, 'liquidarMasivo']);
-    Route::post('nominas/liquidar',            [NominaController::class, 'liquidar']);
     Route::post('nominas/preliquidar-retiro',  [LiquidacionRetiroController::class, 'preliquidar']);
     Route::post('nominas/liquidar-retiro',      [LiquidacionRetiroController::class, 'liquidar']);
     Route::get('liquidaciones-retiro', [LiquidacionRetiroController::class, 'index']);
@@ -647,11 +645,12 @@ Route::prefix('nomina')->middleware('es_responsable_del_departamento')->group(fu
     Route::get('nominas/{uuid}/desprendible', [NominaController::class, 'desprendible']);
     Route::post('nominas/{uuid}/desprendible/enviar', [NominaController::class, 'enviarDesprendible']);
     Route::get('nominas/{uuid}/puc-payload', [NominaController::class, 'pucPayload']);
+    Route::post('nominas/{uuid}/revertir', [NominaController::class, 'revertir']);
     Route::patch('nominas/{uuid}/aprobar-contabilidad', [NominaController::class, 'aprobarContabilidad']);
     Route::post('nominas/cerrar-periodo', [NominaController::class, 'cerrarPeriodo']);
     Route::get('nominas/exportar-puc/excel', [NominaController::class, 'exportarPucExcel']);
     Route::get('nominas/exportar-puc/pdf', [NominaController::class, 'exportarPucPdf']);
-    Route::apiResource('nominas', NominaController::class);
+    Route::apiResource('nominas', NominaController::class)->only(['index', 'show']);
 
     Route::apiResource('horas-extras', HoraExtraController::class)->except(['update']);
     Route::patch('horas-extras/{uuid}/aprobar',  [HoraExtraController::class, 'aprobar']);

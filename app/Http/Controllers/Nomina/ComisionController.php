@@ -72,6 +72,8 @@ class ComisionController extends Controller
                 'message' => 'Comisión actualizada exitosamente.',
                 'data' => $this->comisionService->update($uuid, $request->validated()),
             ]);
+        } catch (\LogicException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Exception $e) {
             Log::error('Error al actualizar comisión', ['uuid' => $uuid, 'error' => $e->getMessage()]);
 

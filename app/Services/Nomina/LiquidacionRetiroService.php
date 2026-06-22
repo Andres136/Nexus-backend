@@ -72,7 +72,7 @@ class LiquidacionRetiroService
 
             $nomina = null;
             if ($calculo['_nomina_payload']) {
-                $nomina = $this->nominaService->liquidar($calculo['_nomina_payload']);
+                $nomina = $this->nominaService->liquidarNominaRetiro($calculo['_nomina_payload']);
             }
 
             $liquidacion = LiquidacionRetiro::create([
@@ -128,6 +128,7 @@ class LiquidacionRetiroService
 
         $ultimaNomina = Nomina::where('contratacion_id', $contratacion->id)
             ->where('liquidada', true)
+            ->operativas()
             ->orderByDesc('periodo_fin')
             ->first();
 
@@ -287,6 +288,7 @@ class LiquidacionRetiroService
     private function promedioVariableMensual(int $userId, Carbon $inicio, Carbon $fin, bool $incluirHorasExtra): float
     {
         $nominas = Nomina::where('user_id', $userId)
+            ->operativas()
             ->where('liquidada', true)
             ->whereDate('periodo_fin', '>=', $inicio->toDateString())
             ->whereDate('periodo_inicio', '<=', $fin->toDateString())

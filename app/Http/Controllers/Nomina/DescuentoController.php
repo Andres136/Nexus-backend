@@ -115,6 +115,13 @@ public function store(StoreDescuentoRequest $request): JsonResponse
 
     private function errorResponse(\Exception $e): JsonResponse
     {
+        if ($e instanceof \LogicException) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+
         Log::error('Error en DescuentoController', [
             'message' => $e->getMessage(),
         ]);

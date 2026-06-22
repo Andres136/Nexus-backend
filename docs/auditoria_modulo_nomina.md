@@ -75,6 +75,9 @@ corrección posterior debe realizarse mediante reversión o novedad retroactiva.
 - [x] Validación de períodos de nómina cruzados.
 - [x] Preliquidación con estados de revisión y aprobación.
 - [x] Integración contable PUC para la nómina ordinaria.
+- [x] Nóminas aprobadas, exportadas y cerradas protegidas contra edición y
+  eliminación.
+- [x] Comisiones, descuentos y novedades aplicadas protegidas contra cambios.
 
 ### 4.2 Validación disponible
 
@@ -122,11 +125,22 @@ middleware.
 
 ## 1.2 Inmutabilidad de nóminas
 
-- [ ] Bloquear edición cuando `estado_contable` sea `aprobado`.
-- [ ] Bloquear edición cuando `estado_contable` sea `exportado`.
-- [ ] Bloquear edición cuando `estado_contable` sea `cerrado`.
-- [ ] Bloquear eliminación en esos estados.
-- [ ] Bloquear modificaciones de comisiones, descuentos y novedades aplicadas.
+- [x] Bloquear edición cuando `estado_contable` sea `aprobado`.
+- [x] Bloquear edición cuando `estado_contable` sea `exportado`.
+- [x] Bloquear edición cuando `estado_contable` sea `cerrado`.
+- [x] Bloquear eliminación en esos estados.
+- [x] Bloquear modificaciones de comisiones, descuentos y novedades aplicadas.
+
+### Implementación
+
+- Regla centralizada en `NominaIntegridadService`.
+- `NominaService::update` y `NominaService::destroy` validan la inmutabilidad
+  antes de escribir.
+- Los servicios de comisiones, descuentos y novedades rechazan cambios cuando
+  el registro ya está vinculado a una nómina.
+- Los controladores devuelven estado HTTP `422` con el motivo funcional.
+- Prueba unitaria para estados `aprobado`, `exportado` y `cerrado`.
+- Resultado automatizado al completar esta fase: 10 pruebas y 16 aserciones.
 
 ### Criterio de aceptación
 
@@ -135,11 +149,30 @@ de servicio.
 
 ## 1.3 Eliminar persistencia financiera manual
 
-- [ ] Deshabilitar `POST /nominas` para creación directa.
-- [ ] Deshabilitar actualización manual de valores calculados.
-- [ ] Persistir nómina solamente desde una preliquidación aprobada.
-- [ ] Evaluar si la liquidación directa individual debe eliminarse.
-- [ ] Mantener ajustes únicamente dentro del flujo auditado.
+- [x] Deshabilitar `POST /nominas` para creación directa.
+- [x] Deshabilitar actualización manual de valores calculados.
+- [x] Persistir nómina solamente desde una preliquidación aprobada.
+- [x] Eliminar la liquidación directa individual y masiva.
+- [x] Mantener ajustes únicamente dentro del flujo auditado.
+
+### Implementación
+
+- El recurso REST de nómina conserva solamente consulta y detalle; la
+  eliminación fue reemplazada por reversión formal.
+- Se eliminaron las rutas de liquidación ordinaria directa individual y masiva.
+- Se eliminaron los `FormRequest`, métodos de controlador y métodos de servicio
+  que permitían crear o actualizar nóminas directamente.
+- `NominaService` vuelve a consultar la preliquidación con bloqueo y exige estado
+  `aprobada` antes de persistir la nómina ordinaria.
+- El cálculo persistido se toma de `calculo_ajustado`; el cliente no envía los
+  totales financieros definitivos.
+- El frontend individual ya utiliza preliquidación, revisión, aprobación y
+  liquidación.
+- El panel masivo dejó de liquidar y ahora solamente exporta nóminas ya
+  procesadas.
+- Las liquidaciones de retiro y prestaciones permanecen como procesos
+  especializados independientes.
+- Resultado automatizado al completar esta fase: 13 pruebas y 22 aserciones.
 
 ### Criterio de aceptación
 
@@ -148,12 +181,33 @@ para crear una nómina.
 
 ## 1.4 Reversión formal
 
-- [ ] Definir estados `anulada` y `reversada`.
-- [ ] Crear motivo obligatorio.
-- [ ] Registrar usuario y fecha de reversión.
-- [ ] Restaurar comisiones y novedades asociadas.
-- [ ] Generar movimiento contable inverso cuando aplique.
-- [ ] Conservar siempre el registro original.
+- [x] Definir estados `anulada` y `reversada`.
+- [x] Crear motivo obligatorio.
+- [x] Registrar usuario y fecha de reversión.
+- [x] Restaurar comisiones y novedades asociadas.
+- [x] Generar movimiento contable inverso cuando aplique.
+- [x] Conservar siempre el registro original.
+
+### Implementación
+
+- Nueva operación `POST /api/nomina/nominas/{uuid}/revertir`.
+- El motivo es obligatorio y debe tener al menos 10 caracteres.
+- Una nómina sin contabilizar cambia a `anulada`.
+- Una nómina aprobada, exportada o cerrada cambia a `reversada`.
+- Se conserva el estado contable anterior, usuario, fecha y motivo.
+- Para nóminas contabilizadas se genera y almacena un snapshot de los asientos
+  inversos, intercambiando débito y crédito.
+- Las comisiones y novedades retroactivas vuelven al estado `aprobada` y se
+  desvinculan de la nómina.
+- La preliquidación queda `rechazada` con la explicación de la reversión.
+- El período vuelve a estar disponible para una nueva preliquidación.
+- Las nóminas anuladas o reversadas no participan en resúmenes, prestaciones,
+  retiro, exportaciones, PUC, desprendibles ni validación de cruces.
+- La nómina original continúa visible en el historial, marcada con su estado.
+- Se eliminó la ruta `DELETE /nominas/{uuid}` y el frontend solicita el motivo.
+- Migración pendiente de ejecutar en una base MySQL disponible:
+  `2026_06_22_000004_add_reversion_to_nomina_table.php`.
+- Resultado automatizado al completar el código: 15 pruebas y 28 aserciones.
 
 ### Criterio de aceptación
 
@@ -163,10 +217,12 @@ normal de corrección.
 ## Validación de la fase 1
 
 - [ ] Prueba de acceso no autorizado.
-- [ ] Prueba de nómina aprobada inmutable.
-- [ ] Prueba de período cerrado inmutable.
-- [ ] Prueba de reversión.
-- [ ] Prueba de restauración de novedades.
+- [x] Prueba de nómina aprobada inmutable.
+- [x] Prueba de período cerrado inmutable.
+- [x] Prueba de generación del asiento contable inverso.
+- [x] Prueba de existencia de reversión y ausencia de borrado.
+- [ ] Prueba de integración en MySQL para restauración de novedades y
+  comisiones.
 
 ---
 
@@ -547,10 +603,10 @@ Actualizar estos indicadores después de cada fase:
 |---|---:|---:|
 | Rutas administrativas con middleware | Completado | 100 % |
 | `FormRequest` sensibles autorizados | Bajo | 100 % |
-| Nóminas cerradas inmutables | No | Sí |
-| Flujos con reversión formal | 0 | 100 % críticos |
-| Pruebas automatizadas | 5 | Cobertura de flujos críticos |
-| Aserciones automatizadas | 7 | Incremento por fase |
+| Nóminas cerradas inmutables | Completado | Sí |
+| Flujos con reversión formal | Nómina ordinaria | 100 % críticos |
+| Pruebas automatizadas | 15 | Cobertura de flujos críticos |
+| Aserciones automatizadas | 28 | Incremento por fase |
 | Servicios principales divididos | No | Sí |
 | Prestaciones integradas a PUC | No | Sí |
 | Estado real de pago | No | Sí |
@@ -571,9 +627,9 @@ Una tarea solamente se marca `[x]` cuando:
 
 El siguiente bloque que debe implementarse es:
 
-**Fase 1.2: inmutabilidad de nóminas aprobadas, exportadas y cerradas.**
+**Fase 1.1: completar la segunda capa de autorización en políticas y
+`FormRequest`.**
 
-Después:
+En paralelo, cuando MySQL esté disponible:
 
-**Fase 1.3: eliminar creación y edición financiera manual.**
-
+**Ejecutar migraciones y validar la reversión completa con datos reales.**

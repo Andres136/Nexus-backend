@@ -85,6 +85,11 @@ class Nomina extends Model
         'estado_contable',
         'fecha_aprobacion_contable',
         'fecha_cierre_contable',
+        'motivo_reversion',
+        'reversado_por',
+        'fecha_reversion',
+        'estado_contable_anterior',
+        'detalle_reversion',
     ];
 
     protected $casts = [
@@ -136,6 +141,8 @@ class Nomina extends Model
         'fecha_liquidacion' => 'datetime',
         'fecha_aprobacion_contable' => 'datetime',
         'fecha_cierre_contable' => 'datetime',
+        'fecha_reversion' => 'datetime',
+        'detalle_reversion' => 'array',
         'uuid' => 'string',
     ];
 
@@ -195,5 +202,18 @@ class Nomina extends Model
     public function liquidador()
     {
         return $this->belongsTo(User::class, 'liquidado_por');
+    }
+
+    public function reversor()
+    {
+        return $this->belongsTo(User::class, 'reversado_por');
+    }
+
+    public function scopeOperativas($query)
+    {
+        return $query->where(function ($estado) {
+            $estado->whereNull('estado_contable')
+                ->orWhereNotIn('estado_contable', ['anulada', 'reversada']);
+        });
     }
 }

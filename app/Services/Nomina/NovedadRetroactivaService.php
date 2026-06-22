@@ -14,8 +14,12 @@ class NovedadRetroactivaService
         'empleado:id,name,email',
         'registrador:id,name,email',
         'supervisor:id,name,email',
-        'nomina:id,uuid,periodo_inicio,periodo_fin',
+        'nomina:id,uuid,periodo_inicio,periodo_fin,estado_contable',
     ];
+
+    public function __construct(
+        private readonly NominaIntegridadService $integridadService,
+    ) {}
 
     public function getAll(array $filters = []): LengthAwarePaginator
     {
@@ -85,6 +89,7 @@ class NovedadRetroactivaService
     {
         DB::transaction(function () use ($uuid) {
             $novedad = $this->getByUuid($uuid);
+            $this->integridadService->asegurarRegistroNoAplicado($novedad->nomina, 'la novedad retroactiva');
 
             if ($novedad->status !== 'pendiente') {
                 throw new \LogicException('Solo se pueden eliminar novedades retroactivas pendientes.');
@@ -100,6 +105,7 @@ class NovedadRetroactivaService
     {
         return DB::transaction(function () use ($uuid, $status, $observacion) {
             $novedad = $this->getByUuid($uuid);
+            $this->integridadService->asegurarRegistroNoAplicado($novedad->nomina, 'la novedad retroactiva');
 
             if ($novedad->status !== 'pendiente') {
                 throw new \LogicException("La novedad retroactiva ya fue {$novedad->status}.");

@@ -11,6 +11,10 @@ use Illuminate\Support\Facades\Log;
 
 class DescuentoService
 {
+    public function __construct(
+        private readonly NominaIntegridadService $integridadService,
+    ) {}
+
     // =====================
     // TRAER TODOS
     // =====================
@@ -135,6 +139,7 @@ public function store(array $data): Descuento
         return DB::transaction(function () use ($request, $uuid) {
 
             $descuento = $this->getByUuid($uuid);
+            $this->integridadService->asegurarDescuentoNoAplicado($descuento);
             $data      = $request->validated();
 
             $monto         = $data['monto']         ?? $descuento->monto;
@@ -170,6 +175,7 @@ public function store(array $data): Descuento
         return DB::transaction(function () use ($uuid) {
 
             $descuento = $this->getByUuid($uuid);    
+            $this->integridadService->asegurarDescuentoNoAplicado($descuento);
 
             $descuento->delete();
 

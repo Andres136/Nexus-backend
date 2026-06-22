@@ -14,8 +14,12 @@ class ComisionService
         'empleado:id,name,email',
         'registrador:id,name,email',
         'supervisor:id,name,email',
-        'nomina:id,uuid,periodo_inicio,periodo_fin',
+        'nomina:id,uuid,periodo_inicio,periodo_fin,estado_contable',
     ];
+
+    public function __construct(
+        private readonly NominaIntegridadService $integridadService,
+    ) {}
 
     public function getAll(array $filters = []): LengthAwarePaginator
     {
@@ -68,6 +72,7 @@ class ComisionService
     {
         return DB::transaction(function () use ($uuid, $data) {
             $comision = $this->getByUuid($uuid);
+            $this->integridadService->asegurarRegistroNoAplicado($comision->nomina, 'la comisión');
 
             if ($comision->status === 'rechazada') {
                 $data = [
@@ -106,6 +111,7 @@ class ComisionService
     {
         DB::transaction(function () use ($uuid) {
             $comision = $this->getByUuid($uuid);
+            $this->integridadService->asegurarRegistroNoAplicado($comision->nomina, 'la comisión');
 
             if ($comision->status !== 'pendiente') {
                 throw new \LogicException('Solo se pueden eliminar comisiones pendientes.');
@@ -121,6 +127,7 @@ class ComisionService
     {
         return DB::transaction(function () use ($uuid, $status, $observacion) {
             $comision = $this->getByUuid($uuid);
+            $this->integridadService->asegurarRegistroNoAplicado($comision->nomina, 'la comisión');
 
             if ($comision->status !== 'pendiente') {
                 throw new \LogicException("La comisión ya fue {$comision->status}.");

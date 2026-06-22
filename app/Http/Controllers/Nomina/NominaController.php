@@ -5,10 +5,8 @@ namespace App\Http\Controllers\Nomina;
 use App\Exports\NominaPucExport;
 use App\Exports\NominaPlanoExport;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Nomina\LiquidarNominaMasivaRequest;
 use App\Http\Requests\Nomina\LiquidarNominaRequest;
-use App\Http\Requests\Nomina\StoreNominaRequest;
-use App\Http\Requests\Nomina\UpdateNominaRequest;
+use App\Http\Requests\Nomina\RevertirNominaRequest;
 use App\Models\Crm\empresa as Empresa;
 use App\Models\Nomina\Contratacion;
 use App\Models\Nomina\Nomina;
@@ -70,65 +68,35 @@ class NominaController extends Controller
         }
     }
 
-    public function store(StoreNominaRequest $request): JsonResponse
+    public function revertir(
+        RevertirNominaRequest $request,
+        string $uuid,
+        NominaPucPayloadService $payloadService
+    ): JsonResponse
     {
         try {
-            $data = $this->nominaService->store($request->validated());
+            $nomina = $this->nominaService->revertir(
+                $uuid,
+                $request->validated('motivo'),
+                $payloadService
+            );
 
             return response()->json([
                 'success' => true,
-                'message' => 'Nómina creada exitosamente.',
-                'data' => $data,
-            ], 201);
-        } catch (\Exception $e) {
-            Log::error('Error al crear nómina', ['error' => $e->getMessage()]);
-
-            return response()->json(['success' => false, 'message' => 'Error al crear la nómina.'], 500);
-        }
-    }
-
-    public function update(UpdateNominaRequest $request, string $uuid): JsonResponse
-    {
-        try {
-            $data = $this->nominaService->update($uuid, $request->validated());
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Nómina actualizada exitosamente.',
-                'data' => $data,
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Error al actualizar nómina', ['uuid' => $uuid, 'error' => $e->getMessage()]);
-
-            return response()->json(['success' => false, 'message' => 'Error al actualizar la nómina.'], 500);
-        }
-    }
-
-    public function destroy(string $uuid): JsonResponse
-    {
-        try {
-            $this->nominaService->destroy($uuid);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Nómina eliminada exitosamente.',
+                'message' => $nomina->estado_contable === 'reversada'
+                    ? 'Nómina reversada y asiento contable inverso generado.'
+                    : 'Nómina anulada correctamente.',
+                'data' => $nomina,
             ]);
         } catch (\LogicException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Exception $e) {
-            Log::error('Error al eliminar nómina', ['uuid' => $uuid, 'error' => $e->getMessage()]);
+            Log::error('Error al revertir nómina', ['uuid' => $uuid, 'error' => $e->getMessage()]);
 
-            return response()->json(['success' => false, 'message' => 'Error al eliminar la nómina.'], 500);
+            return response()->json(['success' => false, 'message' => 'Error al revertir la nómina.'], 500);
         }
     }
 
-    /**
-     * Calcula y liquida la nómina de un empleado para el período dado.
-     * Las horas se obtienen automáticamente de las WorkSessions del período.
-     *
-     * POST /nomina/nominas/liquidar
-     * Body: { user_id, periodo_inicio, periodo_fin, jornada_laboral_id, descuento_id? }
-     */
     public function resumen(Request $request): JsonResponse
     {
         try {
@@ -137,7 +105,7 @@ class NominaController extends Controller
 
             $empleadosActivos = Contratacion::where('status', 1)->count();
 
-            $query = Nomina::where('liquidada', true);
+            $query = Nomina::where('liquidada', true)->operativas();
             if ($inicio && $fin) {
                 $query->where('periodo_inicio', '>=', $inicio)
                     ->where('periodo_fin', '<=', $fin);
@@ -162,55 +130,6 @@ class NominaController extends Controller
             Log::error('Error al obtener resumen de nómina', ['error' => $e->getMessage()]);
 
             return response()->json(['success' => false, 'message' => 'Error al obtener el resumen.'], 500);
-        }
-    }
-
-    public function liquidar(LiquidarNominaRequest $request): JsonResponse
-    {
-        try {
-            $nomina = $this->nominaService->liquidar($request->validated());
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Nómina liquidada exitosamente.',
-                'data' => $nomina,
-            ], 201);
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No se encontró contrato activo o configuración de tarifas para el empleado.',
-            ], 422);
-        } catch (\LogicException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 422);
-        } catch (\Exception $e) {
-            Log::error('Error al liquidar nómina', ['error' => $e->getMessage()]);
-
-            return response()->json(['success' => false, 'message' => 'Error al liquidar la nómina.'], 500);
-        }
-    }
-
-    public function liquidarMasivo(LiquidarNominaMasivaRequest $request): JsonResponse
-    {
-        try {
-            $resultado = $this->nominaService->liquidarMasivo($request->validated());
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Liquidación masiva procesada.',
-                'data' => $resultado,
-            ], 201);
-        } catch (\LogicException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 422);
-        } catch (\Exception $e) {
-            Log::error('Error al liquidar nómina masiva', ['error' => $e->getMessage()]);
-
-            return response()->json(['success' => false, 'message' => 'Error al liquidar la nómina masiva.'], 500);
         }
     }
 
@@ -381,6 +300,7 @@ class NominaController extends Controller
             'contratacion:id,tipo_documento,numero_documento,cargo,empresa_id',
         ])
             ->where('liquidada', true)
+            ->operativas()
             ->where('periodo_inicio', '>=', $inicio)
             ->where('periodo_fin', '<=', $fin)
             ->when($empresaId, fn ($q) => $q->whereHas('contratacion', fn ($contrato) => $contrato->where('empresa_id', $empresaId)))
@@ -642,7 +562,7 @@ class NominaController extends Controller
             'empleado',
             'contratacion.empresa',
             'descuento',
-        ])->where('uuid', $uuid)->firstOrFail();
+        ])->operativas()->where('uuid', $uuid)->firstOrFail();
 
         $pdf = Pdf::loadView('pdf.desprendible_pago', [
             'nomina' => $nomina,
@@ -659,7 +579,7 @@ class NominaController extends Controller
             'empleado',
             'contratacion.empresa',
             'descuento',
-        ])->where('uuid', $uuid)->firstOrFail();
+        ])->operativas()->where('uuid', $uuid)->firstOrFail();
 
         $correo = $request->input('correo', $nomina->contratacion?->correo);
 

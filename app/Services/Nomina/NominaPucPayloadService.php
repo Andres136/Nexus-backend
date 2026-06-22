@@ -20,6 +20,10 @@ class NominaPucPayloadService
             throw new \LogicException('Solo se puede generar payload contable para nóminas liquidadas.');
         }
 
+        if (in_array($nomina->estado_contable, ['anulada', 'reversada'], true)) {
+            throw new \LogicException('No se puede generar un payload contable normal para una nómina anulada o reversada.');
+        }
+
         $conceptos = NominaConceptoContable::with('puck')
             ->where('activo', true)
             ->get()

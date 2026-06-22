@@ -13,6 +13,7 @@ use App\Models\Nomina\LiquidacionRetiro;
 use App\Models\Nomina\Nomina;
 use App\Models\Nomina\NovedadRetroactiva;
 use App\Models\Nomina\Permiso;
+use App\Models\Nomina\PreliquidacionNomina;
 use App\Models\Nomina\Valor;
 use App\Models\Nomina\Vacacion;
 use App\Models\Nomina\WorkSession;
@@ -34,6 +35,7 @@ class NominaService
         'novedadesRetroactivas',
         'transacionalRegistro',
         'liquidador:id,name,email',
+        'reversor:id,name,email',
         'preliquidacion:id,uuid,estado,generado_por,revisado_por,aprobado_por',
     ];
 
@@ -72,60 +74,104 @@ class NominaService
             ->firstOrFail();
     }
 
-    public function store(array $data): Nomina
+    public function revertir(string $uuid, string $motivo, NominaPucPayloadService $payloadService): Nomina
     {
-        return DB::transaction(function () use ($data) {
-            $nomina = Nomina::create($data);
+        return DB::transaction(function () use ($uuid, $motivo, $payloadService) {
+            $nomina = Nomina::with(['comisiones', 'novedadesRetroactivas', 'preliquidacion'])
+                ->where('uuid', $uuid)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-            Log::info('Nómina creada', [
-                'uuid' => $nomina->uuid,
-                'user_id' => $nomina->user_id,
-            ]);
-
-            return $nomina->load(self::WITH);
-        });
-    }
-
-    public function update(string $uuid, array $data): Nomina
-    {
-        return DB::transaction(function () use ($uuid, $data) {
-            $nomina = $this->getByUuid($uuid);
-
-            $nomina->update($data);
-
-            Log::info('Nómina actualizada', [
-                'uuid' => $nomina->uuid,
-                'user_id' => $nomina->user_id,
-            ]);
-
-            return $nomina->fresh(self::WITH);
-        });
-    }
-
-    public function destroy(string $uuid): void
-    {
-        DB::transaction(function () use ($uuid) {
-            $nomina = $this->getByUuid($uuid);
+            if (in_array($nomina->estado_contable, ['anulada', 'reversada'], true)) {
+                throw new LogicException('Esta nómina ya fue anulada o reversada.');
+            }
 
             if (LiquidacionRetiro::where('nomina_id', $nomina->id)->exists()) {
-                throw new \LogicException('No se puede eliminar una nómina vinculada a una liquidación definitiva.');
+                throw new LogicException('La nómina pertenece a una liquidación definitiva y no puede reversarse por este flujo.');
+            }
+
+            $estadoAnterior = $nomina->estado_contable ?: 'pendiente';
+            $requiereAsientoInverso = in_array($estadoAnterior, ['aprobado', 'exportado', 'cerrado'], true);
+            $detalleReversion = [
+                'tipo' => $requiereAsientoInverso ? 'reversion_contable' : 'anulacion_operativa',
+                'estado_anterior' => $estadoAnterior,
+                'motivo' => $motivo,
+                'totales_originales' => [
+                    'total_devengado' => (float) $nomina->total_devengado,
+                    'total_deducciones' => (float) $nomina->total_deducciones,
+                    'salario_neto' => (float) $nomina->salario_neto,
+                    'costo_total_empleador' => (float) $nomina->costo_total_empleador,
+                ],
+                'asientos_inversos' => [],
+            ];
+
+            if ($requiereAsientoInverso) {
+                $payload = $payloadService->generar($uuid);
+                if (! $payload['valido']) {
+                    throw new LogicException('No se puede generar el asiento inverso porque existen cuentas PUC sin configurar.');
+                }
+
+                $detalleReversion['asientos_inversos'] = $this->invertirAsientos(
+                    $payload['contabilidad']['asientos'] ?? []
+                );
             }
 
             $nomina->comisiones()->update([
                 'status' => 'aprobada',
                 'nomina_id' => null,
             ]);
-            $nomina->delete();
+            $nomina->novedadesRetroactivas()->update([
+                'status' => 'aprobada',
+                'nomina_id' => null,
+            ]);
 
-            Log::info('Nómina eliminada', ['uuid' => $nomina->uuid]);
+            if ($nomina->preliquidacion) {
+                $nomina->preliquidacion->update([
+                    'estado' => 'rechazada',
+                    'observacion_revision' => "Nómina revertida: {$motivo}",
+                ]);
+            }
+
+            $nomina->update([
+                'estado_contable' => $requiereAsientoInverso ? 'reversada' : 'anulada',
+                'motivo_reversion' => $motivo,
+                'reversado_por' => Auth::id(),
+                'fecha_reversion' => now(),
+                'estado_contable_anterior' => $estadoAnterior,
+                'detalle_reversion' => $detalleReversion,
+            ]);
+
+            Log::warning('Nómina revertida', [
+                'uuid' => $nomina->uuid,
+                'estado_anterior' => $estadoAnterior,
+                'estado_nuevo' => $nomina->estado_contable,
+                'reversado_por' => Auth::id(),
+                'motivo' => $motivo,
+            ]);
+
+            return $nomina->fresh(self::WITH);
         });
     }
 
+    private function invertirAsientos(array $asientos): array
+    {
+        return collect($asientos)->map(function (array $asiento) {
+            $asiento['naturaleza_original'] = $asiento['naturaleza'] ?? null;
+            $asiento['naturaleza'] = match ($asiento['naturaleza'] ?? null) {
+                'debito' => 'credito',
+                'credito' => 'debito',
+                default => $asiento['naturaleza'] ?? null,
+            };
+
+            return $asiento;
+        })->values()->all();
+    }
+
     /**
-     * Calcula y persiste la nómina de un empleado para el período indicado.
-     * Las horas se obtienen automáticamente de WorkSessions.
+     * Genera únicamente la nómina parcial asociada a una liquidación definitiva.
+     * La nómina ordinaria debe persistirse desde una preliquidación aprobada.
      */
-    public function liquidar(array $data): Nomina
+    public function liquidarNominaRetiro(array $data): Nomina
     {
         return DB::transaction(function () use ($data) {
             $this->validarPeriodoSinLiquidar($data['user_id'], $data['periodo_inicio'], $data['periodo_fin']);
@@ -135,12 +181,21 @@ class NominaService
         });
     }
 
-    public function liquidarCalculoAprobado(array $calculo, int $preliquidacionId): Nomina
+    public function liquidarPreliquidacionAprobada(PreliquidacionNomina $preliquidacion): Nomina
     {
-        return DB::transaction(function () use ($calculo, $preliquidacionId) {
+        return DB::transaction(function () use ($preliquidacion) {
+            $preliquidacion = PreliquidacionNomina::query()
+                ->lockForUpdate()
+                ->findOrFail($preliquidacion->id);
+
+            if ($preliquidacion->estado !== 'aprobada') {
+                throw new LogicException('La nómina solo puede persistirse desde una preliquidación aprobada.');
+            }
+
+            $calculo = $preliquidacion->calculo_ajustado;
             $this->validarPeriodoSinLiquidar($calculo['user_id'], $calculo['periodo_inicio'], $calculo['periodo_fin']);
 
-            return $this->persistirCalculo($calculo, $preliquidacionId);
+            return $this->persistirCalculo($calculo, $preliquidacion->id);
         });
     }
 
@@ -237,58 +292,11 @@ class NominaService
         return $this->calcular($data);
     }
 
-    public function liquidarMasivo(array $data): array
-    {
-        $contrataciones = Contratacion::where('status', true)
-            ->when(! empty($data['empresa_id']), fn ($query) => $query->where('empresa_id', $data['empresa_id']))
-            ->orderBy('users_id')
-            ->get();
-
-        $resultado = [
-            'procesadas' => $contrataciones->count(),
-            'liquidadas' => 0,
-            'omitidas' => 0,
-            'errores' => 0,
-            'detalle_errores' => [],
-        ];
-
-        foreach ($contrataciones as $contratacion) {
-            $existe = Nomina::where('user_id', $contratacion->users_id)
-                ->where('liquidada', true)
-                ->whereDate('periodo_inicio', '<=', $data['periodo_fin'])
-                ->whereDate('periodo_fin', '>=', $data['periodo_inicio'])
-                ->exists();
-
-            if ($existe) {
-                $resultado['omitidas']++;
-                continue;
-            }
-
-            try {
-                $this->liquidar([
-                    'user_id' => $contratacion->users_id,
-                    'jornada_laboral_id' => $data['jornada_laboral_id'],
-                    'periodo_inicio' => $data['periodo_inicio'],
-                    'periodo_fin' => $data['periodo_fin'],
-                ]);
-                $resultado['liquidadas']++;
-            } catch (\Throwable $e) {
-                $resultado['errores']++;
-                $resultado['detalle_errores'][] = [
-                    'user_id' => $contratacion->users_id,
-                    'contratacion_uuid' => $contratacion->uuid,
-                    'mensaje' => $e->getMessage(),
-                ];
-            }
-        }
-
-        return $resultado;
-    }
-
     public function getNominasPeriodoContable(string $periodoInicio, string $periodoFin): Collection
     {
         return Nomina::with(self::WITH)
             ->where('liquidada', true)
+            ->operativas()
             ->whereDate('periodo_inicio', '>=', $periodoInicio)
             ->whereDate('periodo_fin', '<=', $periodoFin)
             ->orderBy('user_id')
@@ -753,6 +761,7 @@ class NominaService
             ->whereDate('periodo_inicio', '<=', $periodoFin)
             ->whereDate('periodo_fin', '>=', $periodoInicio)
             ->where('liquidada', true)
+            ->operativas()
             ->exists();
 
         if ($existe) {

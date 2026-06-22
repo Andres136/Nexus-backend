@@ -39,6 +39,7 @@ class PortalEmpleadoController extends Controller
 
             $data = Nomina::with(['empleado:id,name,email', 'contratacion:id,uuid,cargo'])
                 ->where('user_id', Auth::id())
+                ->operativas()
                 ->orderByDesc('created_at')
                 ->paginate($perPage);
 

@@ -357,6 +357,7 @@ class LiquidacionPrestacionService
     private function promedioVariableMensual(int $userId, Carbon $inicio, Carbon $fin): float
     {
         $nominas = Nomina::where('user_id', $userId)
+            ->operativas()
             ->where('liquidada', true)
             ->whereDate('periodo_fin', '>=', $inicio->toDateString())
             ->whereDate('periodo_inicio', '<=', $fin->toDateString())

@@ -145,10 +145,7 @@ class PreliquidacionNominaService
                 throw new LogicException('La preliquidación debe estar aprobada antes de liquidar.');
             }
 
-            $nomina = $this->nominaService->liquidarCalculoAprobado(
-                $preliquidacion->calculo_ajustado,
-                $preliquidacion->id
-            );
+            $nomina = $this->nominaService->liquidarPreliquidacionAprobada($preliquidacion);
             $preliquidacion->update(['estado' => 'liquidada']);
 
             return $nomina;

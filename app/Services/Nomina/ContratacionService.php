@@ -35,6 +35,7 @@ class ContratacionService
                 'nominas' => fn ($nominas) => $nominas
                     ->with('liquidador:id,name,email')
                     ->where('liquidada', true)
+                    ->operativas()
                     ->whereDate('periodo_inicio', '<=', $periodoFin)
                     ->whereDate('periodo_fin', '>=', $periodoInicio)
                     ->latest('fecha_liquidacion'),
