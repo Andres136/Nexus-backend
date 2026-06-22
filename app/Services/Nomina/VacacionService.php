@@ -2,7 +2,6 @@
 
 namespace App\Services\Nomina;
 
-use App\Models\Nomina\Contratacion;
 use App\Models\Nomina\Vacacion;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -13,6 +12,10 @@ use Illuminate\Support\Facades\Log;
 class VacacionService
 {
     private const WITH = ['empleado:id,name,email,sede_id', 'empleado.sede:id,nombre', 'supervisor:id,name,email'];
+
+    public function __construct(
+        private readonly VacacionSaldoService $saldoService
+    ) {}
 
     public function getAll(array $filters = []): LengthAwarePaginator
     {
@@ -42,59 +45,10 @@ class VacacionService
 
     public function resumen(int $userId, ?string $fechaCorte = null): array
     {
-        $fecha = $fechaCorte ? Carbon::parse($fechaCorte)->endOfDay() : now();
-        $contrato = Contratacion::with('usuario:id,name,email')
-            ->where('users_id', $userId)
-            ->where('status', 1)
-            ->latest('inicio_contratacion')
-            ->first();
-
-        if (!$contrato) {
-            return [
-                'user_id' => $userId,
-                'empleado' => null,
-                'tiene_contrato_activo' => false,
-                'fecha_corte' => $fecha->toDateString(),
-                'inicio_contratacion' => null,
-                'dias_trabajados' => 0,
-                'dias_ganados' => 0,
-                'dias_disfrutados' => 0,
-                'dias_compensados' => 0,
-                'dias_pendientes_solicitados' => 0,
-                'dias_usados' => 0,
-                'dias_disponibles' => 0,
-            ];
-        }
-
-        $inicioContrato = Carbon::parse($contrato->inicio_contratacion)->startOfDay();
-        $diasTrabajados = (int) max(0, $inicioContrato->diffInDays($fecha) + 1);
-        $diasGanados = floor(($diasTrabajados / 365) * 15);
-
-        $aprobadas = Vacacion::where('user_id', $userId)
-            ->where('status', 'aprobada')
-            ->get();
-        $pendientes = Vacacion::where('user_id', $userId)
-            ->where('status', 'pendiente')
-            ->sum('dias_habiles');
-
-        $diasDisfrutados = (int) $aprobadas->where('tipo', 'ordinarias')->sum('dias_habiles');
-        $diasCompensados = (int) $aprobadas->where('tipo', 'compensadas')->sum('dias_habiles');
-        $diasUsados = $diasDisfrutados + $diasCompensados;
-
-        return [
-            'user_id' => $userId,
-            'empleado' => $contrato->usuario,
-            'tiene_contrato_activo' => true,
-            'fecha_corte' => $fecha->toDateString(),
-            'inicio_contratacion' => $inicioContrato->toDateString(),
-            'dias_trabajados' => $diasTrabajados,
-            'dias_ganados' => (int) $diasGanados,
-            'dias_disfrutados' => $diasDisfrutados,
-            'dias_compensados' => $diasCompensados,
-            'dias_pendientes_solicitados' => (int) $pendientes,
-            'dias_usados' => $diasUsados,
-            'dias_disponibles' => max(0, (int) $diasGanados - $diasUsados),
-        ];
+        return $this->saldoService->resumen(
+            $userId,
+            $fechaCorte ? Carbon::parse($fechaCorte) : null
+        );
     }
 
     private function findByUuid(string $uuid): Vacacion
@@ -104,29 +58,23 @@ class VacacionService
 
     public function getDiasDisponibles(int $userId): int
     {
-        $contrato = Contratacion::where('users_id', $userId)
-            ->where('status', 1)
-            ->latest('inicio_contratacion')
-            ->first();
-
-        if (!$contrato) {
-            return 0;
-        }
-
-        // Ley colombiana: 15 días hábiles por año trabajado
-        $diasGanados = Carbon::parse($contrato->inicio_contratacion)->diffInDays(now()) / 365 * 15;
-
-        $diasUsados = Vacacion::where('user_id', $userId)
-            ->whereIn('status', ['aprobada'])
-            ->sum('dias_habiles');
-
-        return max(0, (int) floor($diasGanados) - (int) $diasUsados);
+        return (int) floor($this->saldoService->resumen($userId)['dias_disponibles']);
     }
 
     public function store(array $data): Vacacion
     {
         return DB::transaction(function () use ($data) {
-            $disponibles = $this->getDiasDisponibles($data['user_id']);
+            $contrato = $this->saldoService->contratoActivo($data['user_id']);
+
+            if (! $contrato) {
+                throw new \LogicException('El empleado no tiene un contrato activo.');
+            }
+
+            $this->validarFechasContrato($data, $contrato);
+
+            $saldo = $this->saldoService->resumen($data['user_id'], null, null, true);
+            $this->validarCruce($data);
+            $disponibles = (float) $saldo['dias_disponibles'];
 
             if ($data['dias_habiles'] > $disponibles) {
                 throw new \LogicException(
@@ -134,7 +82,10 @@ class VacacionService
                 );
             }
 
-            $vacacion = Vacacion::create(array_merge($data, ['status' => 'pendiente']));
+            $vacacion = Vacacion::create(array_merge($data, [
+                'contratacion_id' => $contrato->id,
+                'status' => 'pendiente',
+            ]));
 
             Log::info('Vacación solicitada', [
                 'uuid'         => $vacacion->uuid,
@@ -158,7 +109,17 @@ class VacacionService
                 throw new \LogicException('No se puede editar una vacación ya aprobada.');
             }
 
-            $disponibles = $this->getDiasDisponibles($data['user_id']);
+            $contrato = $this->saldoService->contratoActivo($data['user_id']);
+
+            if (! $contrato) {
+                throw new \LogicException('El empleado no tiene un contrato activo.');
+            }
+
+            $this->validarFechasContrato($data, $contrato);
+
+            $saldo = $this->saldoService->resumen($data['user_id'], null, $vacacion->id, true);
+            $this->validarCruce($data, $vacacion->id);
+            $disponibles = (float) $saldo['dias_disponibles'];
 
             if ($data['dias_habiles'] > $disponibles) {
                 throw new \LogicException(
@@ -167,6 +128,7 @@ class VacacionService
             }
 
             $vacacion->update(array_merge($data, [
+                'contratacion_id'     => $contrato->id,
                 'status'              => 'pendiente',
                 'autorizado_por'      => null,
                 'fecha_gestion'       => null,
@@ -186,13 +148,35 @@ class VacacionService
     public function aprobar(string $uuid, ?string $observacion = null): Vacacion
     {
         return DB::transaction(function () use ($uuid, $observacion) {
-            $vacacion = $this->findByUuid($uuid);
+            $vacacion = Vacacion::where('uuid', $uuid)->lockForUpdate()->firstOrFail();
 
             if ($vacacion->status !== 'pendiente') {
                 throw new \LogicException("La vacación ya fue {$vacacion->status}.");
             }
 
+            $contrato = $this->saldoService->contratoActivo($vacacion->user_id);
+            if (! $contrato) {
+                throw new \LogicException('El empleado no tiene un contrato activo.');
+            }
+
+            $this->validarFechasContrato($vacacion->toArray(), $contrato);
+
+            $saldo = $this->saldoService->resumen(
+                $vacacion->user_id,
+                null,
+                $vacacion->id,
+                true
+            );
+
+            if ($vacacion->dias_habiles > $saldo['dias_disponibles']) {
+                throw new \LogicException(
+                    "La solicitud tiene {$vacacion->dias_habiles} días, pero el empleado solo tiene "
+                    ."{$saldo['dias_disponibles']} días disponibles."
+                );
+            }
+
             $vacacion->update([
+                'contratacion_id'     => $vacacion->contratacion_id ?: $contrato->id,
                 'status'              => 'aprobada',
                 'autorizado_por'      => Auth::id(),
                 'fecha_gestion'       => now(),
@@ -247,5 +231,39 @@ class VacacionService
 
             Log::info('Vacación eliminada', ['uuid' => $vacacion->uuid]);
         });
+    }
+
+    private function validarFechasContrato(array $data, $contrato): void
+    {
+        $inicio = Carbon::parse($data['fecha_inicio'])->startOfDay();
+        $fin = Carbon::parse($data['fecha_fin'])->startOfDay();
+        $inicioContrato = Carbon::parse($contrato->inicio_contratacion)->startOfDay();
+
+        if ($inicio->lt($inicioContrato)) {
+            throw new \LogicException('Las vacaciones no pueden iniciar antes del contrato activo.');
+        }
+
+        if ($contrato->fin_contrato && $fin->gt(Carbon::parse($contrato->fin_contrato)->endOfDay())) {
+            throw new \LogicException('Las vacaciones no pueden finalizar después del contrato.');
+        }
+
+        $diasCalendario = $inicio->diffInDays($fin) + 1;
+        if ($data['dias_habiles'] > $diasCalendario) {
+            throw new \LogicException('Los días hábiles no pueden superar los días calendario del período.');
+        }
+    }
+
+    private function validarCruce(array $data, ?int $excluirId = null): void
+    {
+        $existeCruce = Vacacion::where('user_id', $data['user_id'])
+            ->whereIn('status', ['pendiente', 'aprobada'])
+            ->when($excluirId, fn ($query) => $query->where('id', '!=', $excluirId))
+            ->whereDate('fecha_inicio', '<=', $data['fecha_fin'])
+            ->whereDate('fecha_fin', '>=', $data['fecha_inicio'])
+            ->exists();
+
+        if ($existeCruce) {
+            throw new \LogicException('Ya existe una solicitud pendiente o aprobada que se cruza con esas fechas.');
+        }
     }
 }

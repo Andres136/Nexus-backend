@@ -13,8 +13,8 @@ use App\Models\Nomina\LiquidacionRetiro;
 use App\Models\Nomina\Nomina;
 use App\Models\Nomina\NovedadRetroactiva;
 use App\Models\Nomina\Permiso;
-use App\Models\Nomina\Vacacion;
 use App\Models\Nomina\Valor;
+use App\Models\Nomina\Vacacion;
 use App\Models\Nomina\WorkSession;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -155,6 +155,8 @@ class NominaService
 
                 'periodo_inicio' => $calculo['periodo_inicio'],
                 'periodo_fin' => $calculo['periodo_fin'],
+                'dias_salario' => $calculo['dias_liquidados'],
+                'dias_vacaciones_ordinarias' => $calculo['dias_vacaciones_ordinarias'],
 
                 'horas_normales' => $calculo['horas_normales'],
                 'horas_extras_nocturnas' => $calculo['horas_extras_nocturnas'],
@@ -414,8 +416,38 @@ class NominaService
         $ordinariosMinutos = max(0, $totalMinutos - $festivoMinutos - $sabadoMinutos);
 
         $diasLiquidables = $this->diasComerciales($inicioLiquidable, $finLiquidable);
+        $vacacionesOrdinarias = Vacacion::with('liquidacionPrestacion:id,vacacion_id,tipo')
+            ->where('user_id', $userId)
+            ->where('status', 'aprobada')
+            ->where('tipo', 'ordinarias')
+            ->whereDate('fecha_inicio', '<=', $finLiquidable->toDateString())
+            ->whereDate('fecha_fin', '>=', $inicioLiquidable->toDateString())
+            ->get();
+
+        $vacacionSinLiquidar = $vacacionesOrdinarias->first(
+            fn (Vacacion $vacacion) => $vacacion->liquidacionPrestacion === null
+                || $vacacion->liquidacionPrestacion->tipo !== 'vacaciones_ordinarias'
+        );
+
+        if ($vacacionSinLiquidar) {
+            throw new \LogicException(
+                'La vacación ordinaria aprobada del '
+                .$vacacionSinLiquidar->fecha_inicio->toDateString().' al '
+                .$vacacionSinLiquidar->fecha_fin->toDateString()
+                .' debe liquidarse por prestaciones antes de procesar esta nómina.'
+            );
+        }
+
+        $diasVacacionesOrdinarias = (int) $vacacionesOrdinarias->sum(
+            fn (Vacacion $vacacion) => $this->diasVacacionEnPeriodo(
+                $vacacion,
+                $inicioLiquidable,
+                $finLiquidable
+            )
+        );
+        $diasSalario = max(0, $diasLiquidables - $diasVacacionesOrdinarias);
         $horasMensualesJornada = $this->horasMensualesJornada($jornada);
-        $horasEsperadasPeriodo = round($horasMensualesJornada * ($diasLiquidables / 30), 2);
+        $horasEsperadasPeriodo = round($horasMensualesJornada * ($diasSalario / 30), 2);
         $minutosEsperados = $horasEsperadasPeriodo * 60;
         $horasNormales = round(min($ordinariosMinutos, $minutosEsperados) / 60, 2);
         $minutosExtrasDetectados = max(0, $ordinariosMinutos - $minutosEsperados);
@@ -541,15 +573,9 @@ class NominaService
             'fin'
         );
 
-        $vacacionesAprobadas = Vacacion::where('user_id', $userId)
-            ->where('status', 'aprobada')
-            ->whereDate('fecha_inicio', '<=', $finLiquidable->toDateString())
-            ->whereDate('fecha_fin', '>=', $inicioLiquidable->toDateString())
-            ->get();
-
-        $diasVacacionesCompensadas = (int) $vacacionesAprobadas
-            ->where('tipo', 'compensadas')
-            ->sum('dias_habiles');
+        // Las vacaciones compensadas se pagan exclusivamente desde liquidación
+        // de prestaciones. Sumarlas aquí produciría un doble pago.
+        $diasVacacionesCompensadas = 0;
 
         $permisosNoRemunerados = Permiso::where('user_id', $userId)
             ->whereBetween('fecha', [$inicioLiquidable->toDateString(), $finLiquidable->toDateString()])
@@ -561,14 +587,13 @@ class NominaService
         );
 
         $valorPermisosNoRemunerados = round(($minutosNoRemunerados / 60) * $valorHoraBase, 2);
-        $salarioBaseSinIncapacidad = round(($valorDia * $diasLiquidables) + ($valorDia * $diasVacacionesCompensadas), 2);
+        $salarioBaseSinIncapacidad = round($valorDia * $diasSalario, 2);
         $valorIncapacidadReconocido = round($valorDia * $diasIncapacidad * $porcentajeIncapacidad, 2);
         $deduccionIncapacidad = round($valorDia * $diasIncapacidad * (1 - $porcentajeIncapacidad), 2);
-        $salarioBasePeriodo = round(($valorDia * max(0, $diasLiquidables - $diasIncapacidad))
-            + $valorIncapacidadReconocido
-            + ($valorDia * $diasVacacionesCompensadas), 2);
-        $auxilioTransportePeriodo = round((float) $baseSalarial['auxilio_transporte'] * ($diasLiquidables / 30), 2);
-        $pagoNoPrestacionalPeriodo = round((float) $baseSalarial['no_salarial'] * ($diasLiquidables / 30), 2);
+        $salarioBasePeriodo = round(($valorDia * max(0, $diasSalario - $diasIncapacidad))
+            + $valorIncapacidadReconocido, 2);
+        $auxilioTransportePeriodo = round((float) $baseSalarial['auxilio_transporte'] * ($diasSalario / 30), 2);
+        $pagoNoPrestacionalPeriodo = round((float) $baseSalarial['no_salarial'] * ($diasSalario / 30), 2);
         $comisiones = Comision::where('user_id', $userId)
             ->where('status', 'aprobada')
             ->whereDate('periodo_inicio', $inicio->toDateString())
@@ -642,7 +667,9 @@ class NominaService
             'descuento_id' => $descuentosNomina['descuento_id'],
             'periodo_inicio' => $inicio->toDateString(),
             'periodo_fin' => $fin->toDateString(),
-            'dias_liquidados' => $diasLiquidables,
+            'dias_liquidados' => $diasSalario,
+            'dias_periodo' => $diasLiquidables,
+            'dias_vacaciones_ordinarias' => $diasVacacionesOrdinarias,
             'horas_semanales_jornada' => (int) $jornada->horas_semanales,
             'horas_mensuales_jornada' => $horasMensualesJornada,
             'horas_esperadas_periodo' => $horasEsperadasPeriodo,
@@ -954,6 +981,27 @@ class NominaService
         $dias += $this->diasComercialesMes($fin->copy()->startOfMonth(), $fin);
 
         return max(1, $dias);
+    }
+
+    private function diasVacacionEnPeriodo(
+        Vacacion $vacacion,
+        Carbon $inicioPeriodo,
+        Carbon $finPeriodo
+    ): int {
+        $inicioVacacion = Carbon::parse($vacacion->fecha_inicio)->startOfDay();
+        $finVacacion = Carbon::parse($vacacion->fecha_fin)->startOfDay();
+        $inicioPeriodo = $inicioPeriodo->copy()->startOfDay();
+        $finPeriodo = $finPeriodo->copy()->startOfDay();
+        $inicioCruce = $inicioVacacion->copy()->max($inicioPeriodo);
+        $finCruce = $finVacacion->copy()->min($finPeriodo);
+
+        if ($inicioCruce->gt($finCruce)) {
+            return 0;
+        }
+
+        // Para nómina se excluyen los días calendario comerciales cubiertos por
+        // el descanso. Los días hábiles aprobados determinan el pago separado.
+        return $this->diasComerciales($inicioCruce, $finCruce);
     }
 
     private function diasComercialesMes(Carbon $inicio, Carbon $fin): int

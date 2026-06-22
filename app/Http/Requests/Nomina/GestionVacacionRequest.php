@@ -8,7 +8,10 @@ class GestionVacacionRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        $user = $this->user();
+
+        return $user
+            && ($user->role_id == 1 || $user->esResponsableDeSuDepartamento());
     }
 
     public function rules(): array

@@ -16,6 +16,7 @@ class Vacacion extends Model
     protected $fillable = [
         'uuid',
         'user_id',
+        'contratacion_id',
         'fecha_inicio',
         'fecha_fin',
         'dias_habiles',
@@ -50,6 +51,11 @@ class Vacacion extends Model
     public function empleado()
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function contratacion()
+    {
+        return $this->belongsTo(Contratacion::class, 'contratacion_id');
     }
 
     public function supervisor()

@@ -43,11 +43,14 @@ class LiquidacionPrestacionController extends Controller
         ]);
     }
 
-    public function vacacionesAprobadas(int $userId): JsonResponse
+    public function vacacionesAprobadas(Request $request, int $userId): JsonResponse
     {
         return response()->json([
             'success' => true,
-            'data' => $this->service->vacacionesAprobadasPendientes($userId),
+            'data' => $this->service->vacacionesAprobadasPendientes(
+                $userId,
+                $request->query('tipo')
+            ),
         ]);
     }
 

@@ -25,6 +25,8 @@ class Nomina extends Model
         // Período
         'periodo_inicio',
         'periodo_fin',
+        'dias_salario',
+        'dias_vacaciones_ordinarias',
 
         // Horas trabajadas por tipo
         'horas_normales',
@@ -88,6 +90,8 @@ class Nomina extends Model
     protected $casts = [
         'periodo_inicio' => 'date',
         'periodo_fin' => 'date',
+        'dias_salario' => 'decimal:4',
+        'dias_vacaciones_ordinarias' => 'decimal:4',
         'horas_normales' => 'decimal:2',
         'horas_extras_nocturnas' => 'decimal:2',
         'horas_extras_diurnas' => 'decimal:2',

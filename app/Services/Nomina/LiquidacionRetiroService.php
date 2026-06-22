@@ -188,6 +188,20 @@ class LiquidacionRetiroService
         $diasVacacionesGanados = $diasContrato * 15 / 360;
         $diasVacacionesUsados = (float) Vacacion::where('user_id', $data['user_id'])
             ->where('status', 'aprobada')
+            ->where(function ($query) {
+                $query->where('tipo', 'ordinarias')
+                    ->orWhere(function ($compensadas) {
+                        $compensadas->where('tipo', 'compensadas')
+                            ->whereHas('liquidacionPrestacion');
+                    });
+            })
+            ->where(function ($query) use ($contratacion, $inicioContrato) {
+                $query->where('contratacion_id', $contratacion->id)
+                    ->orWhere(function ($legacy) use ($inicioContrato) {
+                        $legacy->whereNull('contratacion_id')
+                            ->whereDate('fecha_inicio', '>=', $inicioContrato->toDateString());
+                    });
+            })
             ->whereDate('fecha_inicio', '>=', $inicioContrato->toDateString())
             ->whereDate('fecha_inicio', '<=', $fechaRetiro->toDateString())
             ->sum('dias_habiles');

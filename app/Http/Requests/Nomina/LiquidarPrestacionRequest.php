@@ -22,7 +22,7 @@ class LiquidarPrestacionRequest extends FormRequest
             'periodo_fin'    => ['required', 'date', 'after_or_equal:periodo_inicio'],
             'vacacion_uuid'  => [
                 'nullable',
-                'required_if:tipo,vacaciones_compensadas',
+                'required_if:tipo,vacaciones_ordinarias,vacaciones_compensadas',
                 'uuid',
                 'exists:vacaciones,uuid',
             ],

@@ -9,6 +9,8 @@ use App\Models\Nomina\Licencia;
 use App\Models\Nomina\Nomina;
 use App\Models\Nomina\Permiso;
 use App\Models\Nomina\Vacacion;
+use App\Http\Requests\Nomina\StorePortalVacacionRequest;
+use App\Services\Nomina\VacacionService;
 use App\Services\Nomina\ConfiguracionNominaService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -110,7 +112,11 @@ class PortalEmpleadoController extends Controller
     public function vacaciones(Request $request): JsonResponse
     {
         try {
-            $data = Vacacion::with(['empleado:id,name,email', 'supervisor:id,name,email'])
+            $data = Vacacion::with([
+                'empleado:id,name,email,sede_id',
+                'empleado.sede:id,nombre',
+                'supervisor:id,name,email',
+            ])
                 ->where('user_id', Auth::id())
                 ->orderByDesc('created_at')
                 ->paginate($request->query('per_page', 15));
@@ -118,6 +124,44 @@ class PortalEmpleadoController extends Controller
             return response()->json(['success' => true, 'data' => $data]);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'Error al obtener las vacaciones.'], 500);
+        }
+    }
+
+    public function resumenVacaciones(VacacionService $vacacionService): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => $vacacionService->resumen((int) Auth::id()),
+        ]);
+    }
+
+    public function solicitarVacaciones(
+        StorePortalVacacionRequest $request,
+        VacacionService $vacacionService
+    ): JsonResponse {
+        try {
+            $vacacion = $vacacionService->store(array_merge(
+                $request->validated(),
+                ['user_id' => (int) Auth::id()]
+            ));
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Solicitud de vacaciones registrada.',
+                'data' => $vacacion,
+            ], 201);
+        } catch (\LogicException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Exception $e) {
+            Log::error('Portal: error al solicitar vacaciones', [
+                'user_id' => Auth::id(),
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al registrar la solicitud de vacaciones.',
+            ], 500);
         }
     }
 

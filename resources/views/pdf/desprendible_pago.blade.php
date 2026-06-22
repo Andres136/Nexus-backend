@@ -116,6 +116,14 @@ table { border-collapse: collapse; width: 100%; }
     <td class="info-label" style="padding-left:30px;">Salario básico:</td>
     <td class="info-val">$ {{ number_format($nomina->salario_base_devengado ?? 0, 0, ',', '.') }}</td>
   </tr>
+  @if(($nomina->dias_salario ?? null) !== null)
+  <tr>
+    <td class="info-label">Días pagados en nómina:</td>
+    <td class="info-val">{{ number_format($nomina->dias_salario, 0, ',', '.') }}</td>
+    <td class="info-label" style="padding-left:30px;">Días excluidos por vacaciones:</td>
+    <td class="info-val">{{ number_format($nomina->dias_vacaciones_ordinarias ?? 0, 0, ',', '.') }}</td>
+  </tr>
+  @endif
   </table>
 </div>
 

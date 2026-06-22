@@ -17,7 +17,8 @@ class LiquidacionPrestacionService
     private const WITH = ['empleado:id,name,email', 'contratacion.empresa', 'vacacion'];
 
     public function __construct(
-        private readonly AjusteSalarialContratacionService $ajusteSalarialService
+        private readonly AjusteSalarialContratacionService $ajusteSalarialService,
+        private readonly VacacionSaldoService $vacacionSaldoService,
     ) {}
 
     /**
@@ -28,6 +29,7 @@ class LiquidacionPrestacionService
         return [
             'prima'                  => 'Prima de servicios',
             'cesantias'              => 'Cesantías',
+            'vacaciones_ordinarias'  => 'Vacaciones ordinarias',
             'vacaciones_compensadas' => 'Vacaciones compensadas',
         ];
     }
@@ -53,13 +55,34 @@ class LiquidacionPrestacionService
         return $this->calcular($data);
     }
 
-    public function vacacionesAprobadasPendientes(int $userId)
+    public function vacacionesAprobadasPendientes(int $userId, ?string $tipoLiquidacion = null)
     {
+        $contrato = $this->vacacionSaldoService->contratoActivo($userId);
+
+        if (! $contrato) {
+            return collect();
+        }
+
+        $inicioContrato = Carbon::parse($contrato->inicio_contratacion)->toDateString();
+
+        $tipoVacacion = match ($tipoLiquidacion) {
+            'vacaciones_ordinarias' => 'ordinarias',
+            'vacaciones_compensadas' => 'compensadas',
+            default => null,
+        };
+
         return Vacacion::query()
             ->select(['id', 'uuid', 'user_id', 'fecha_inicio', 'fecha_fin', 'dias_habiles', 'tipo', 'motivo'])
             ->where('user_id', $userId)
+            ->where(function ($query) use ($contrato, $inicioContrato) {
+                $query->where('contratacion_id', $contrato->id)
+                    ->orWhere(function ($legacy) use ($inicioContrato) {
+                        $legacy->whereNull('contratacion_id')
+                            ->whereDate('fecha_inicio', '>=', $inicioContrato);
+                    });
+            })
             ->where('status', 'aprobada')
-            ->where('tipo', 'compensadas')
+            ->when($tipoVacacion, fn ($query) => $query->where('tipo', $tipoVacacion))
             ->whereDoesntHave('liquidacionPrestacion')
             ->orderBy('fecha_inicio')
             ->get();
@@ -128,16 +151,17 @@ class LiquidacionPrestacionService
         $userId   = (int) $data['user_id'];
         $vacacion = null;
 
-        if ($tipo === 'vacaciones_compensadas') {
+        if (in_array($tipo, ['vacaciones_ordinarias', 'vacaciones_compensadas'], true)) {
+            $tipoVacacion = $tipo === 'vacaciones_ordinarias' ? 'ordinarias' : 'compensadas';
             $vacacion = Vacacion::where('uuid', $data['vacacion_uuid'])
                 ->where('user_id', $userId)
                 ->where('status', 'aprobada')
-                ->where('tipo', 'compensadas')
+                ->where('tipo', $tipoVacacion)
                 ->first();
 
             if (! $vacacion) {
                 throw new \LogicException(
-                    'La solicitud seleccionada no corresponde a unas vacaciones compensadas aprobadas del empleado.'
+                    'La solicitud seleccionada no corresponde al tipo de vacaciones aprobado para el empleado.'
                 );
             }
 
@@ -159,6 +183,10 @@ class LiquidacionPrestacionService
             ->latest('inicio_contratacion')
             ->firstOrFail();
 
+        if ($vacacion && $vacacion->contratacion_id && $vacacion->contratacion_id !== $contratacion->id) {
+            throw new \LogicException('La solicitud de vacaciones no pertenece al contrato activo del empleado.');
+        }
+
         $inicioContrato = Carbon::parse($contratacion->inicio_contratacion)->startOfDay();
         $inicioEfectivo = $inicio->copy()->max($inicioContrato);
         $finEfectivo    = $fin->copy();
@@ -172,20 +200,36 @@ class LiquidacionPrestacionService
         }
 
         $diasLiquidados = $this->diasComerciales($inicioEfectivo, $finEfectivo->copy()->startOfDay());
-        $baseSalarial = $this->ajusteSalarialService->salarioPromedioPeriodo(
-            $contratacion,
-            $inicioEfectivo,
-            $finEfectivo->copy()->startOfDay()
-        );
+        $esVacaciones = in_array($tipo, ['vacaciones_ordinarias', 'vacaciones_compensadas'], true);
+        $baseSalarial = $esVacaciones
+            ? $this->ajusteSalarialService->salarioVigente($contratacion, $inicioEfectivo)
+            : $this->ajusteSalarialService->salarioPromedioPeriodo(
+                $contratacion,
+                $inicioEfectivo,
+                $finEfectivo->copy()->startOfDay()
+            );
         $salarioMensual = (float) $baseSalarial['salario_mensual'];
         $auxilioMensual = (float) $baseSalarial['auxilio_transporte'];
 
-        $promedioVariable = $this->promedioVariableMensual($userId, $inicioEfectivo, $finEfectivo->copy()->startOfDay());
+        if ($esVacaciones) {
+            $finPromedioVariable = $inicioEfectivo->copy()->subDay();
+            $inicioPromedioVariable = $finPromedioVariable->copy()->subYear()->addDay()->max($inicioContrato);
+            $promedioVariable = $inicioPromedioVariable->lte($finPromedioVariable)
+                ? $this->promedioVariableMensual($userId, $inicioPromedioVariable, $finPromedioVariable)
+                : 0;
+        } else {
+            $promedioVariable = $this->promedioVariableMensual(
+                $userId,
+                $inicioEfectivo,
+                $finEfectivo->copy()->startOfDay()
+            );
+        }
 
         return match ($tipo) {
             'prima'                  => $this->calcularPrima($userId, $contratacion->id, $diasLiquidados, $salarioMensual, $auxilioMensual, $promedioVariable, $inicioEfectivo, $finEfectivo->copy()->startOfDay()),
             'cesantias'              => $this->calcularCesantias($userId, $contratacion->id, $diasLiquidados, $salarioMensual, $auxilioMensual, $promedioVariable, $inicioEfectivo, $finEfectivo->copy()->startOfDay()),
-            'vacaciones_compensadas' => $this->calcularVacaciones($vacacion, $contratacion->id, (int) $vacacion->dias_habiles, $salarioMensual, $promedioVariable, $inicioEfectivo, $finEfectivo->copy()->startOfDay(), $inicioContrato),
+            'vacaciones_ordinarias',
+            'vacaciones_compensadas' => $this->calcularVacaciones($tipo, $vacacion, $contratacion->id, (int) $vacacion->dias_habiles, $salarioMensual, $promedioVariable, $inicioEfectivo, $finEfectivo->copy()->startOfDay()),
         };
     }
 
@@ -227,6 +271,7 @@ class LiquidacionPrestacionService
     }
 
     private function calcularVacaciones(
+        string $tipoLiquidacion,
         Vacacion $vacacion,
         int $contratacionId,
         int $diasPeriodo,
@@ -234,48 +279,35 @@ class LiquidacionPrestacionService
         float $promedioVariable,
         Carbon $inicio,
         Carbon $fin,
-        Carbon $inicioContrato,
     ): array {
         $userId = (int) $vacacion->user_id;
 
         // Vacaciones: solo salario base + promedio comisiones (sin auxilio) — Art. 192 CST
         $base = round($salarioMensual + $promedioVariable, 2);
 
-        // Días ganados en el contrato completo: 15 días por año (Art. 186 CST)
-        $diasTotales = $this->diasComerciales($inicioContrato, $fin);
-        $diasGanados = round($diasTotales * 15 / 360, 4);
-
-        $diasUsados = (float) Vacacion::where('user_id', $userId)
-            ->where('status', 'aprobada')
-            ->where('tipo', 'ordinarias')
-            ->whereDate('fecha_inicio', '>=', $inicioContrato->toDateString())
-            ->whereDate('fecha_inicio', '<=', $fin->toDateString())
-            ->sum('dias_habiles');
-
-        // Restar vacaciones ya liquidadas como compensadas
-        $diasYaLiquidados = (float) LiquidacionPrestacion::where('user_id', $userId)
-            ->where('tipo', 'vacaciones_compensadas')
-            ->whereDate('periodo_fin', '<=', $fin->toDateString())
-            ->sum('dias_vacaciones');
-
         $diasSolicitud = (float) $vacacion->dias_habiles;
-        $diasPendientes = round(max(0, $diasGanados - $diasUsados - $diasYaLiquidados), 4);
+        $saldo = $this->vacacionSaldoService->resumen(
+            $userId,
+            now(),
+            $vacacion->id
+        );
+        $diasPendientes = (float) $saldo['dias_disponibles'];
 
         if ($diasSolicitud > $diasPendientes) {
             throw new \LogicException(
-                "La solicitud aprobada tiene {$diasSolicitud} días, pero solo quedan {$diasPendientes} días disponibles para compensar."
+                "La solicitud aprobada tiene {$diasSolicitud} días, pero solo quedan {$diasPendientes} días disponibles."
             );
         }
 
         $valor = round(($base / 30) * $diasSolicitud, 2);
 
-        return $this->respuesta('vacaciones_compensadas', $userId, $contratacionId, $diasPeriodo, $salarioMensual, 0, $promedioVariable, $base, $valor, 0, $diasSolicitud, $valor, $inicio, $fin, [
+        return $this->respuesta($tipoLiquidacion, $userId, $contratacionId, $diasPeriodo, $salarioMensual, 0, $promedioVariable, $base, $valor, 0, $diasSolicitud, $valor, $inicio, $fin, [
             'vacacion_id'           => $vacacion->id,
             'vacacion_uuid'         => $vacacion->uuid,
             'vacacion_motivo'       => $vacacion->motivo,
-            'dias_ganados_total'   => $diasGanados,
-            'dias_usados'          => $diasUsados,
-            'dias_ya_liquidados'   => $diasYaLiquidados,
+            'dias_ganados_total'   => $saldo['dias_ganados'],
+            'dias_usados'          => $saldo['dias_usados'],
+            'dias_comprometidos'   => $saldo['dias_comprometidos'],
             'dias_disponibles'     => $diasPendientes,
             'dias_solicitud'       => $diasSolicitud,
         ]);

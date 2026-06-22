@@ -564,6 +564,8 @@ Route::prefix('nomina/portal')->group(function () {
     Route::get('certificado',          [PortalEmpleadoController::class, 'certificado']);
     Route::post('certificado/enviar',  [PortalEmpleadoController::class, 'enviarCertificado']);
     Route::get('vacaciones',           [PortalEmpleadoController::class, 'vacaciones']);
+    Route::get('vacaciones/resumen',   [PortalEmpleadoController::class, 'resumenVacaciones']);
+    Route::post('vacaciones',          [PortalEmpleadoController::class, 'solicitarVacaciones']);
     Route::get('permisos',             [PortalEmpleadoController::class, 'permisos']);
     Route::get('incapacidades',        [PortalEmpleadoController::class, 'incapacidades']);
     Route::get('licencias',            [PortalEmpleadoController::class, 'licencias']);
@@ -630,11 +632,13 @@ Route::prefix('nomina')->group(function () {
     Route::post('nominas/liquidar-retiro',      [LiquidacionRetiroController::class, 'liquidar']);
     Route::get('liquidaciones-retiro', [LiquidacionRetiroController::class, 'index']);
     Route::get('liquidaciones-retiro/{uuid}/pdf', [LiquidacionRetiroController::class, 'pdf']);
-    Route::get('liquidaciones-prestaciones/tipos', [LiquidacionPrestacionController::class, 'tipos']);
-    Route::get('liquidaciones-prestaciones/vacaciones-aprobadas/{userId}', [LiquidacionPrestacionController::class, 'vacacionesAprobadas']);
-    Route::post('nominas/preliquidar-prestacion', [LiquidacionPrestacionController::class, 'preliquidar']);
-    Route::post('nominas/liquidar-prestacion',    [LiquidacionPrestacionController::class, 'liquidar']);
-    Route::get('liquidaciones-prestaciones',      [LiquidacionPrestacionController::class, 'index']);
+    Route::middleware('es_responsable_del_departamento')->group(function () {
+        Route::get('liquidaciones-prestaciones/tipos', [LiquidacionPrestacionController::class, 'tipos']);
+        Route::get('liquidaciones-prestaciones/vacaciones-aprobadas/{userId}', [LiquidacionPrestacionController::class, 'vacacionesAprobadas']);
+        Route::post('nominas/preliquidar-prestacion', [LiquidacionPrestacionController::class, 'preliquidar']);
+        Route::post('nominas/liquidar-prestacion',    [LiquidacionPrestacionController::class, 'liquidar']);
+        Route::get('liquidaciones-prestaciones',      [LiquidacionPrestacionController::class, 'index']);
+    });
     Route::get('nominas/{uuid}/desprendible', [NominaController::class, 'desprendible']);
     Route::post('nominas/{uuid}/desprendible/enviar', [NominaController::class, 'enviarDesprendible']);
     Route::get('nominas/{uuid}/puc-payload', [NominaController::class, 'pucPayload']);
@@ -664,10 +668,12 @@ Route::prefix('nomina')->group(function () {
      Route::patch('licencias/{uuid}/aprobar',  [LicenciaController::class, 'aprobar']);
      Route::patch('licencias/{uuid}/rechazar', [LicenciaController::class, 'rechazar']);
 
-     Route::get('vacaciones/resumen/{userId}', [VacacionController::class, 'resumen']);
-     Route::apiResource('vacaciones', VacacionController::class);
-     Route::patch('vacaciones/{uuid}/aprobar',  [VacacionController::class, 'aprobar']);
-     Route::patch('vacaciones/{uuid}/rechazar', [VacacionController::class, 'rechazar']);
+     Route::middleware('es_responsable_del_departamento')->group(function () {
+         Route::get('vacaciones/resumen/{userId}', [VacacionController::class, 'resumen']);
+         Route::apiResource('vacaciones', VacacionController::class);
+         Route::patch('vacaciones/{uuid}/aprobar',  [VacacionController::class, 'aprobar']);
+         Route::patch('vacaciones/{uuid}/rechazar', [VacacionController::class, 'rechazar']);
+     });
 
      Route::get('llamados-atencion/{uuid}/pdf', [LlamadoAtencionController::class, 'pdf']);
      Route::apiResource('llamados-atencion', LlamadoAtencionController::class)->except(['update']);
