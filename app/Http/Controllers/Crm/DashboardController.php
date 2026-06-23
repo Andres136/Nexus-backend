@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Crm;
 
+use App\EstadoEnum;
 use App\Exports\OrdenesCriticasExport;
 use App\Http\Controllers\Controller;
 use App\Models\Crm\Cliente;
@@ -41,7 +42,7 @@ public function kpis(Request $request)
 }
     public function getDashboardData()
 {
-    // 🔥 Carga optimizada (menos columnas)
+    //  Carga optimizada (menos columnas)
     $ordenes = Orden_Compra::with([
         'ordenTrabajo:id,orden_compra_id,updated_at',
         'detalles:orden_compra_id,faltantes,cantidad_enviada',
@@ -49,16 +50,17 @@ public function kpis(Request $request)
         'creador:id,name'
     ])
     ->select('id', 'cliente_id', 'user_id', 'fecha_entrega', 'estado_id')
+    ->whereNot('estado_id', EstadoEnum::INACTIVO->value)
     ->get();
 
-    // 🔥 INDEXACIÓN (CLAVE DE PERFORMANCE)
+    //  INDEXACIÓN (CLAVE DE PERFORMANCE)
     $ordenesIndexadas = $ordenes->keyBy('id');
 
     $hoy = now()->startOfDay();
 
     $ordenesConEstado = $ordenes->map(function ($orden) use ($hoy) {
 
-        // 🔥 Optimización: calcular una sola vez
+        //  Optimización: calcular una sola vez
         $fechaEntrega = $orden->fecha_entrega
             ? Carbon::parse($orden->fecha_entrega)->startOfDay()
             : null;
@@ -72,7 +74,7 @@ public function kpis(Request $request)
 
         $fechaVencida = $fechaEntrega && $fechaEntrega->lt($hoy) && !$tieneEnviados && $orden->estado_id !== 5;
 
-        // 🔥 Clasificación optimizada
+        //  Clasificación optimizada
         if ($orden->estado_id === 5) {
             $estado = 'Entrega Parcial';
         } elseif ($fechaVencida) {
@@ -96,12 +98,12 @@ public function kpis(Request $request)
         ];
     });
 
-    // 🔥 Agrupaciones (se mantienen)
+    //  Agrupaciones (se mantienen)
     $agrupadoPorEstado = $ordenesConEstado->groupBy('estado');
     $porCliente = $ordenesConEstado->groupBy('cliente')->map->count();
     $porUsuario = $ordenesConEstado->groupBy('usuario')->map->count();
 
-    // 🔥 OPTIMIZACIÓN CRÍTICA (sin firstWhere)
+    //  OPTIMIZACIÓN CRÍTICA (sin firstWhere)
     $listasRecientes = $agrupadoPorEstado->get('Lista', collect())
         ->filter(function ($o) use ($ordenesIndexadas) {
             $orden = $ordenesIndexadas[$o['id']] ?? null;
@@ -144,13 +146,14 @@ public function getMonthlyStats(Request $request)
     $year  = $request->input('year', now()->year);
     $month = $request->input('month', now()->month);
 
-    $start = Carbon::create($year, $month, 1)->startOfMonth();
-    $end   = Carbon::create($year, $month, 1)->endOfMonth();
+    $start = Carbon::create($year, $month, 1)->startOfMonth()->startOfDay();
+    $end   = Carbon::create($year, $month, 1)->endOfMonth()->endOfDay();
 
     // Órdenes cuyo compromiso de entrega es en el mes
-    $ordenes = Orden_Compra::with('detalles')
+    $ordenes = Orden_Compra::with('detalles.entregas')
         ->whereBetween('fecha_entrega', [$start, $end])
-        ->where('estado_id', '!=', 5) // excluir parciales
+        ->where('estado_id', '!=', EstadoEnum::ENTREGA_PARCIAL->value)
+        ->whereNot('estado_id', EstadoEnum::INACTIVO->value)
         ->get();
 
     $totalOrdenes = $ordenes->count();
@@ -162,14 +165,25 @@ public function getMonthlyStats(Request $request)
 
     foreach ($ordenes as $orden) {
 
-        $fechaEntrega  = $orden->fecha_entrega ? Carbon::parse($orden->fecha_entrega) : null;
-        $fechaDespacho = $orden->fecha_despacho ? Carbon::parse($orden->fecha_despacho) : null;
+        $fechaEntrega  = $orden->fecha_entrega ? Carbon::parse($orden->fecha_entrega)->endOfDay() : null;
+        $ultimaEntrega = $orden->detalles
+            ->flatMap(fn ($detalle) => $detalle->entregas)
+            ->max('fecha_entrega');
+        $fechaDespacho = null;
+
+        if ($orden->fecha_despacho) {
+            $fechaDespacho = Carbon::parse($orden->fecha_despacho);
+        } elseif ($ultimaEntrega) {
+            $fechaDespacho = Carbon::parse($ultimaEntrega);
+        } elseif ((int) $orden->estado_id === EstadoEnum::COMPLETADO->value && $orden->updated_at) {
+            $fechaDespacho = Carbon::parse($orden->updated_at);
+        }
 
         // Si no tiene despacho
         if (!$fechaDespacho) {
 
             // si la fecha de entrega ya pasó → pendiente vencida
-            if ($fechaEntrega && $fechaEntrega->lt(now())) {
+            if ($fechaEntrega && $fechaEntrega->lt(now()->startOfDay())) {
                 $pendientes++;
             }
 
@@ -186,7 +200,9 @@ public function getMonthlyStats(Request $request)
         }
     }
 
-    // KPI cumplimiento general
+    $ordenesVencidas = $entregadasTarde + $pendientes;
+
+    // KPI documento: (órdenes entregadas a tiempo / total órdenes) * 100
     $cumplimientoTotal = $totalOrdenes > 0
         ? ($entregadasATiempo / $totalOrdenes) * 100
         : 0;
@@ -206,14 +222,10 @@ public function getMonthlyStats(Request $request)
         'entregadas_a_tiempo' => $entregadasATiempo,
         'entregadas_tarde' => $entregadasTarde,
         'pendientes_vencidas' => $pendientes,
+        'ordenes_vencidas' => $ordenesVencidas,
 
-        'cumplimiento_total_pct' => round($cumplimientoTotal, 2),
         'cumplimiento_logistico_pct' => round($cumplimientoLogistico, 2),
-
-        // KPI doc: (órdenes no vencidas / total) × 100 — meta 80%
-        'cumplimiento_ot_pct' => $totalOrdenes > 0
-            ? round((($totalOrdenes - $pendientes) / $totalOrdenes) * 100, 2)
-            : 0,
+        'cumplimiento_ot_pct' => round($cumplimientoTotal, 2),
     ]);
 }
 

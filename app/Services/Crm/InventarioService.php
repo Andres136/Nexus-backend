@@ -495,16 +495,17 @@ if ($stockTotal < $cantidad) {
         // 🟢 3) Registrar movimiento consolidado (resumen)
         MovimientoStock::create([
             'tipo'            => 'traslado_multiple',
+            'envio_interno_id'=> $envio->id,
             'usuario_id'      => $user->id,
             'sede_origen_id'  => $sedeOrigen,
             'sede_destino_id' => $data['sede_destino_id'],
             'cantidad'        => collect($movimientos)->sum('cantidad'),
-            'detalle'         => json_encode([
+            'detalle'         => [
                 'envio_id' => $envio->id,
                 'detalles' => $movimientos,
                 'fecha'    => now()->toDateTimeString(),
                 'observacion' => $data['notas'] ?? 'Traslado interno entre sedes',
-            ]),
+            ],
             'pdf_path'      => $pdfPath ?? null,
         ]);
 
@@ -552,6 +553,20 @@ private function generarPdfEnvio($envio, $detalles)
     Storage::disk('public')->put($filePath, $pdf->output());
 
     return $filePath;
+}
+
+public function regenerarPdfEnvio(Envio_internos $envio): string
+{
+    $envio->load([
+        'empresa',
+        'usuario',
+        'sedeOrigen',
+        'sedeDestino',
+        'detalles.product',
+        'detalles.ordenCompra',
+    ]);
+
+    return $this->generarPdfEnvio($envio, $envio->detalles);
 }
 
 

@@ -2,6 +2,7 @@
 
 namespace App\Services\Crm;
 
+use App\EstadoEnum;
 use App\Models\Crm\AlistamientoOt;
 use App\Models\Crm\Inventario;
 use App\Models\Crm\Orden_Compra;
@@ -38,7 +39,7 @@ class DhasboardOperativoService
             'ordenes_trabajo_pendientes' => 5,
             'ordenes_trabajo_en_proceso' => 3,
             'ordenes_trabajo_completadas' => 2,
-            // Agrega más datos según sea necesario
+           
         ];
     }
 
@@ -54,7 +55,11 @@ $ordenes = Orden_Compra::with([
         'detalles.product',
         'sede'
     ])
-    ->whereIn('estado_id', [1, 5])
+    ->whereIn('estado_id', [
+        EstadoEnum::PENDIENTE->value,
+        EstadoEnum::ENTREGA_PARCIAL->value,
+    ])
+    ->whereNot('estado_id', EstadoEnum::INACTIVO->value)
 
     ->when(!empty($filters['producto_id']), function ($query) use ($filters) {
         $query->whereHas('detalles', function ($q) use ($filters) {
@@ -65,11 +70,11 @@ $ordenes = Orden_Compra::with([
 ->when(!empty($filters['sede_id']), function ($q) use ($filters) {
     $q->where(function ($sub) use ($filters) {
         $sub->where('sede_id', $filters['sede_id'])
-            ->orWhereNull('sede_id'); // 🔥 incluye las que no tienen sede
+            ->orWhereNull('sede_id'); //  incluye las que no tienen sede
     });
 })
 
-    // 🔥 AQUÍ VA EL CLIENTE
+  
     ->when(!empty($filters['cliente']), function ($query) use ($filters) {
         $query->where('cliente_id', $filters['cliente']);
     })
@@ -79,13 +84,13 @@ $ordenes = Orden_Compra::with([
     });
 })
 
-    ->get(); // 🔥 SIEMPRE AL FINAL     
+    ->get();   
 
     
     $ordenIds = $ordenes->pluck('id');
     $detalleIds = $ordenes->flatMap(fn($oc) => $oc->detalles->pluck('id'))->unique();
 
-    // 🔥 HISTORIAL (BULK - SIN N+1)
+
 $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
     ->orderBy('created_at', 'desc')
     ->get()

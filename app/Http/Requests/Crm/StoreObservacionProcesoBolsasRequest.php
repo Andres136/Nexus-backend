@@ -19,11 +19,11 @@ class StoreObservacionProcesoBolsasRequest extends FormRequest
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
-    public function rules(): array
+    public function rules(): array 
     {
         return [
             'orden_detalle_id' => 'required|exists:orden_compra_proveedor_detalles,id',
-            'observacion' => 'required|string',
+            'observacion' => 'nullable|string',
 
             'proceso_bolsas_id' => 'required|exists:proceso_bolsas,id',
             'proveedor_id' => 'required|exists:proveedores,id',

@@ -15,6 +15,14 @@
 
 <h2>Ítems Pendientes por Entregar</h2>
 <p style="text-align: right;">Generado: {{ $generado }}</p>
+@if (!empty($filtros['fecha_inicio']) || !empty($filtros['fecha_fin']))
+    <p>
+        <strong>Rango de fechas:</strong>
+        {{ $filtros['fecha_inicio'] ?? 'Sin fecha inicial' }}
+        a
+        {{ $filtros['fecha_fin'] ?? 'Sin fecha final' }}
+    </p>
+@endif
 
 <table>
     <thead>
