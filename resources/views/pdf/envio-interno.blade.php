@@ -220,7 +220,7 @@
                 <tr>
                     <td class="text-center">{{ $detalle->item }}</td>
                     <td>{{ $detalle->ordenCompra->numero_orden ?? 'Orden no encontrada' }}</td>
-                    <td>{{ $detalle->code_id ?? ($detalle->producto->code ?? 'N/A') }}</td>
+                    <td>{{ $detalle->code_id ?? ($detalle->product->code ?? 'N/A') }}</td>
                  
                     <td>{{ $detalle->descripcion ?? 'Sin descripción' }}</td>
                     <td class="text-center">{{ $detalle->cantidad }}</td>
