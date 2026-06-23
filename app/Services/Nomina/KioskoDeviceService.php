@@ -17,7 +17,7 @@ class KioskoDeviceService
 {
     private const WITH = ['sede', 'bodega', 'tipoRegistro'];
     private const ACTIVATION_TTL_HOURS = 24;
-    private const GUEST_TTL_HOURS      = 24;
+    private const GUEST_TTL_MINUTES    = 20;
 
     public function getAll(array $filters = []): LengthAwarePaginator
     {
@@ -210,7 +210,9 @@ public function create(array $data): KioskoDevice
 
             $device->update([
                 'guest_token_hash' => $this->hashToken($token['plain']),
-                'guest_expires_at' => now()->addHours(self::GUEST_TTL_HOURS),
+                'guest_expires_at' => now()->addMinutes(self::GUEST_TTL_MINUTES),
+                'guest_used_at' => null,
+                'guest_fingerprint_hash' => null,
             ]);
 
             Log::info('Link de acceso temporal de kiosko generado', ['uuid' => $device->uuid]);
@@ -223,7 +225,12 @@ public function create(array $data): KioskoDevice
         });
     }
 
-    public function validateGuestAccess(string $uuid, string $guestToken): KioskoDevice
+    public function validateGuestAccess(
+        string $uuid,
+        string $guestToken,
+        ?string $fingerprint = null,
+        bool $consume = false
+    ): KioskoDevice
     {
         $device = KioskoDevice::with(self::WITH)->where('uuid', $uuid)->firstOrFail();
 
@@ -243,12 +250,40 @@ public function create(array $data): KioskoDevice
             throw new AuthorizationException('El link de acceso temporal ha vencido.');
         }
 
+        if ($consume && !$device->guest_used_at) {
+            if (!$fingerprint) {
+                throw new AuthorizationException('No fue posible identificar este dispositivo.');
+            }
+
+            $device->forceFill([
+                'guest_used_at' => now(),
+                'guest_fingerprint_hash' => $this->hashToken($fingerprint),
+            ])->save();
+
+            return $device->fresh(self::WITH);
+        }
+
+        if ($device->guest_used_at) {
+            if (!$fingerprint) {
+                throw new AuthorizationException('Este link temporal ya fue usado en otro dispositivo.');
+            }
+
+            if (!$device->guest_fingerprint_hash || !hash_equals($device->guest_fingerprint_hash, $this->hashToken($fingerprint))) {
+                throw new AuthorizationException('Este link temporal ya fue usado en otro dispositivo.');
+            }
+        }
+
         return $device;
     }
 
     public function bootstrapGuestSession(array $data): array
     {
-        $device = $this->validateGuestAccess($data['uuid'], $data['guest_token']);
+        $device = $this->validateGuestAccess(
+            $data['uuid'],
+            $data['guest_token'],
+            $data['fingerprint'] ?? null,
+            true
+        );
 
         $empleados = User::select(
             'users.id',
@@ -279,7 +314,11 @@ public function create(array $data): KioskoDevice
         $deviceUuid = (string) $request->header('X-Kiosko-Device');
 
         if ($guestToken && $deviceUuid) {
-            return $this->validateGuestAccess($deviceUuid, $guestToken);
+            return $this->validateGuestAccess(
+                $deviceUuid,
+                $guestToken,
+                $request->header('X-Kiosko-Guest-Fingerprint')
+            );
         }
 
         return $this->validateDeviceSession([

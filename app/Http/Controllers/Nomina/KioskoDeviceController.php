@@ -209,6 +209,7 @@ class KioskoDeviceController extends Controller
         $validated = $request->validate([
             'uuid'        => 'required|uuid',
             'guest_token' => 'required|string',
+            'fingerprint' => 'required|string|min:20',
         ]);
 
         try {

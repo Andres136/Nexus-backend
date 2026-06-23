@@ -33,6 +33,8 @@ class KioskoDevice extends Model
         'revoked_at',
         'guest_token_hash',
         'guest_expires_at',
+        'guest_used_at',
+        'guest_fingerprint_hash',
     ];
 
     protected $casts = [
@@ -42,6 +44,7 @@ class KioskoDevice extends Model
         'last_seen_at'          => 'datetime',
         'revoked_at'            => 'datetime',
         'guest_expires_at'      => 'datetime',
+        'guest_used_at'         => 'datetime',
     ];
 
     protected static function booted(): void
