@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreRutasRequest;
 use App\Models\Roles\Permission;
 use App\Models\Roles\Role;
 use App\Models\User;
@@ -34,39 +35,91 @@ public function userPermissions(Request $request)
     }
 
     //Guardar las rutas
-public function guardarRutas(Request $request)
+public function guardarRutas(StoreRutasRequest $request)
 {
-    $rutas = $request->input('rutas', []);
+    $validated = $request->validated();
+    $rutas = $validated['rutas'] ?? [];
 
-    if (!is_array($rutas)) {
+    if (!is_array($rutas) || empty($rutas)) {
         return response()->json([
-            'message' => 'Formato inválido. Se esperaba un arreglo de rutas.'
+            'message' => 'Debes enviar al menos una ruta.',
+            'errors' => [
+                'rutas' => ['Debes enviar al menos una ruta.'],
+            ],
+        ], 422);
+    }
+
+    $rutasNormalizadas = [];
+    $pathsVistos = [];
+    $namesVistos = [];
+    $errors = [];
+
+    foreach ($rutas as $index => $ruta) {
+        $clean = trim($ruta['path'] ?? '');
+        $clean = trim($clean, "/");
+        $path = $clean === '' ? '' : "/" . $clean;
+
+        $name = trim($ruta['name'] ?? '');
+        $module = trim($ruta['module'] ?? '');
+
+        if ($path === '') {
+            $errors["rutas.$index.path"][] = 'El campo ruta es obligatorio.';
+            continue;
+        }
+
+        if (isset($pathsVistos[$path])) {
+            $errors["rutas.$index.path"][] = "La ruta {$path} está repetida en el formulario.";
+        }
+
+        $pathsVistos[$path] = true;
+
+        if ($name === '') {
+            $name = $path;
+        }
+
+        if ($module === '') {
+            $module = 'General';
+        }
+
+        if (isset($namesVistos[$name])) {
+            $errors["rutas.$index.name"][] = "El nombre {$name} está repetido en el formulario.";
+        }
+
+        $namesVistos[$name] = true;
+
+        $existeNombreEnOtraRuta = Permission::where('name', $name)
+            ->where('path', '<>', $path)
+            ->exists();
+
+        if ($existeNombreEnOtraRuta) {
+            $errors["rutas.$index.name"][] = "El nombre {$name} ya está registrado en otra ruta.";
+        }
+
+        $rutasNormalizadas[] = [
+            'path' => $path,
+            'name' => $name,
+            'module' => $module,
+            'enabled' => $ruta['enabled'] ?? true,
+        ];
+    }
+
+    if (!empty($errors)) {
+        return response()->json([
+            'message' => 'Hay errores en las rutas enviadas.',
+            'errors' => $errors,
         ], 422);
     }
 
     DB::beginTransaction();
 
     try {
-        foreach ($rutas as $ruta) {
-
-            if (!isset($ruta['path'])) {
-                continue;
-            }
-
-            // -----------------------------------
-            // NORMALIZAR path → siempre con '/'
-            // -----------------------------------
-            $clean = trim($ruta['path']);      // quita espacios
-            $clean = trim($clean, "/");        // quita slashes extra
-            $path  = "/" . $clean;             // siempre se guarda con slash inicial
-            // -----------------------------------
-
+        foreach ($rutasNormalizadas as $ruta) {
             Permission::updateOrCreate(
-                ['path' => $path],
+                ['path' => $ruta['path']],
                 [
-                    'name'      => $ruta['name']    ?? 'Sin Nombre',
-                    'module'    => $ruta['module']  ?? 'General',
-                    'enabled'   => $ruta['enabled'] ?? true,
+                    'name' => $ruta['name'],
+                    'module' => $ruta['module'],
+                    'enabled' => (bool) $ruta['enabled'],
                 ]
             );
         }
@@ -75,6 +128,7 @@ public function guardarRutas(Request $request)
 
         return response()->json([
             'message' => 'Rutas registradas correctamente',
+            'total' => count($rutasNormalizadas),
         ], 200);
 
     } catch (\Throwable $e) {
