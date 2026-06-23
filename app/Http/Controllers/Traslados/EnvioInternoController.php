@@ -261,7 +261,7 @@ public function traerOrdenesCompraPendientes(Request $request): JsonResponse
     ]);
 
     $ordenes = OrdenCompraProveedor::query()
-        ->where('sede_id', $request->sede_id)   // 👈 sede en la orden
+        ->where('sede_id', $request->sede_id)   //  sede en la orden
         ->whereIn('estado_id', [
             EstadoEnum::PENDIENTE->value,
             EstadoEnum::ENTREGA_PARCIAL->value,
