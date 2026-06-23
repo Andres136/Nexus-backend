@@ -21,6 +21,10 @@ class Envio_internos extends Model
         'empresa_id'
     ];
 
+    protected $casts = [
+        'fecha_envio' => 'date',
+    ];
+
     // Relaciones
     public function detalles()
     {

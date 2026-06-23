@@ -12,8 +12,11 @@ class MovimientoStock extends Model
     protected $fillable = [
      'orden_trabajo_id',
      'orden_compra_id',
+     'envio_interno_id',
      'producto_id',
      'usuario_id',
+     'sede_origen_id',
+     'sede_destino_id',
      'tipo',
      'cantidad',
      'detalle',

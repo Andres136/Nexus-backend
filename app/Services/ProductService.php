@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\EstadoEnum;
 use App\Models\Crm\Inventario;
 use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\Orden_servicio\OrdenServicioDetalle;
@@ -707,204 +708,314 @@ public function getFaltantesOrdenesPendientes()
     {
         $user = auth()->user();
 
-        $search = $request->input('search');
-        $estado = $request->input('estado');
-        $perPage = $request->input('per_page', 20);
+        $search = trim((string) $request->input('search', ''));
+        $estado = trim((string) $request->input('estado', ''));
+        $perPage = min(max((int) $request->input('per_page', 20), 1), 100);
+        $bodegaId = $request->filled('bodega_id') ? (int) $request->input('bodega_id') : null;
+        $sedeIdFiltro = $request->filled('sede_id')
+            ? (int) $request->sede_id
+            : null;
 
-        $ordenes = Orden_Compra::with(['detalles.product', 'estado', 'cliente', 'OrdenesTrabajo'])
-
-            ->whereIn('estado_id', [1, 5]) // Pendiente y Parcial
-
-            ->when(!in_array($user->role_id, [1, 2, 4]), function ($query) use ($user) {
-                $query->where('sede_id', $user->sede_id);
-            })
-
-            // 🔎 filtro búsqueda por cliente o código
+        $ordenes = Orden_Compra::with([
+            'detalles.product',
+            'estado',
+            'cliente',
+            'sede',
+            'ordenesTrabajo.estado',
+        ])
+            ->whereIn('estado_id', [
+                EstadoEnum::PENDIENTE->value,
+                EstadoEnum::ENTREGA_PARCIAL->value,
+            ])
+            ->whereHas('detalles', fn($query) => $query
+                ->whereNotNull('product_id')
+                ->where('cantidad_requerida_kg', '>', 0))
+            ->when($sedeIdFiltro, fn($query) => $query->where('sede_id', $sedeIdFiltro))
             ->when($search, function ($query) use ($search) {
-
                 $query->where(function ($q) use ($search) {
-
                     $q->where('id', 'like', "%{$search}%")
-
                         ->orWhereHas('cliente', function ($clienteQuery) use ($search) {
                             $clienteQuery->where('nombre', 'like', "%{$search}%");
                         });
                 });
             })
-
-            // 🔎 filtro por estado
             ->when($estado, function ($query) use ($estado) {
                 $query->whereHas('estado', function ($q) use ($estado) {
                     $q->where('nombre', $estado);
                 });
             })
-
-            ->paginate($perPage);
+            ->orderBy('fecha_entrega')
+            ->orderBy('id')
+            ->get();
 
         $resultado = [];
 
         foreach ($ordenes as $orden) {
-
             $faltantes = [];
 
             foreach ($orden->detalles as $detalle) {
-
-                if (!$detalle->product) continue;
+                if (! $detalle->product) {
+                    continue;
+                }
 
                 $productoId = $detalle->product_id;
-                $cantidadRequerida = $detalle->cantidad_requerida_kg ?? 0;
+                $cantidadRequeridaKg = (float) ($detalle->cantidad_requerida_kg ?? 0);
+                $cantidadPendienteKg = $this->calcularCantidadPendienteKg($detalle);
 
-                $stockInfo = $this->getStockByProduct($productoId, $user);
-                $stockTotal = $stockInfo['stock_total'];
-
-                $faltante = max(0, $cantidadRequerida - $stockTotal);
-
-                if ($faltante > 0) {
-
-
-                    /*
-                 |----------------------------------------
-                 | ORDENES DE PROVEEDOR
-                 |----------------------------------------
-                */
-
-                    $ordenesProveedor = OrdenCompraProveedorDetalle::with(['orden.proveedor'])
-                        ->where('producto_id', $productoId)
-                        ->whereHas('orden', function ($q) {
-                            $q->whereIn('estado_id', [1, 5]);
-                        })
-                        ->get();
-
-                    $solicitadoProveedor = $ordenesProveedor->sum('cantidad_solicitada');
-                    $disponibleTotal = $stockTotal + $solicitadoProveedor;
-
-$faltanteReal = max(0, $cantidadRequerida - $disponibleTotal);
-
-$proveedorCubre = ($stockTotal + $solicitadoProveedor) >= $cantidadRequerida;
-
-                    /*
-                 |----------------------------------------
-                 | ORDENES DE SERVICIO / PRODUCCION
-                 |----------------------------------------
-                */
-
-                    $ordenesServicio = OrdenServicioDetalle::with([
-                        'ordenServicio',
-                        'ordenCompraDetalle.producto'
-                    ])
-
-                        ->whereHas('ordenCompraDetalle', function ($q) use ($productoId) {
-                            $q->where('producto_id', $productoId);
-                        })
-
-                        ->whereHas('ordenServicio', function ($q) {
-                            $q->whereIn('estado', ['pendiente', 'en_proceso']);
-                        })
-
-                        ->get();
-                    $enProduccion = $ordenesServicio->sum('cantidad');
-
-
-                    $faltantes[] = [
-                        'producto_id'        => $productoId,
-                        'codigo'             => $detalle->product->code ?? '-',
-                        'nombre'             => $detalle->product->name ?? 'Sin nombre',
-                        'cantidad_requerida' => floatval($cantidadRequerida),
-                        'stock_disponible'   => floatval($stockTotal),
-                        'faltante'           => floatval($faltante),
-                        'disponible_total' => floatval($disponibleTotal),
-'faltante_real' => floatval($faltanteReal),
-'proveedor_cubre_necesidad' => $proveedorCubre,
-
-                        'ordenes_proveedor' => $ordenesProveedor->map(function ($op) {
-
-                            return [
-                                'id' => $op->orden?->id,
-                                'codigo' => $op->orden
-                                    ? "OP-" . str_pad($op->orden->id, 4, '0', STR_PAD_LEFT)
-                                    : null,
-
-                                'estado' => $op->orden?->estado,
-
-                                'proveedor' => [
-                                    'id' => $op->orden?->proveedor?->id,
-                                    'nombre' => $op->orden?->proveedor?->nombre
-                                ]
-                            ];
-                        }),
-                        // NUEVO
-                        'solicitado_proveedor' => $solicitadoProveedor,
-                        'en_produccion'        => $enProduccion,
-
-
-                        'ordenes_servicio' => $ordenesServicio->map(function ($os) {
-
-                            return [
-                                'id' => $os->ordenServicio?->id,
-                                'codigo' => $os->ordenServicio
-                                    ? "OS-" . str_pad($os->ordenServicio->id, 4, '0', STR_PAD_LEFT)
-                                    : null,
-
-                                'estado' => $os->ordenServicio?->estado,
-                                'proveedor' => [
-                                    'id' => $os->ordenServicio?->proveedor?->id,
-                                    'nombre' => $os->ordenServicio?->proveedor?->nombre
-                                ]
-                            ];
-
-                        }),
-                        'resumen_bodegas'    => $stockInfo['resumen_por_bodega'],
-                    ];
+                if ($cantidadPendienteKg <= 0) {
+                    continue;
                 }
+
+                $sedeStockId = $sedeIdFiltro ?: ($orden->sede_id ?: $user->sede_id);
+                $stockInfo = $this->getStockByProduct($productoId, $user, $bodegaId, $sedeStockId);
+                $stockTotal = (float) $stockInfo['stock_total'];
+                $faltanteStock = round(max(0, $cantidadPendienteKg - $stockTotal), 2);
+
+                if ($faltanteStock <= 0) {
+                    continue;
+                }
+
+                $ordenesProveedor = OrdenCompraProveedorDetalle::with(['orden.proveedor'])
+                    ->where('producto_id', $productoId)
+                    ->whereRaw('COALESCE(cantidad_entregada, 0) < cantidad_solicitada')
+                    ->whereHas('orden', function ($query) use ($sedeStockId, $bodegaId) {
+                        $query->whereIn('estado_id', [
+                            EstadoEnum::PENDIENTE->value,
+                            EstadoEnum::ENTREGA_PARCIAL->value,
+                        ])
+                            ->where('sede_id', $sedeStockId)
+                            ->when($bodegaId, fn($bodega) => $bodega->where('bodega_id', $bodegaId));
+                    })
+                    ->get();
+
+                $pendienteProveedor = round((float) $ordenesProveedor->sum(
+                    fn($detalleProveedor) => max(
+                        0,
+                        (float) $detalleProveedor->cantidad_solicitada
+                        - (float) $detalleProveedor->cantidad_entregada
+                    )
+                ), 2);
+                $disponibleTotal = round($stockTotal + $pendienteProveedor, 2);
+                $faltanteReal = round(max(0, $cantidadPendienteKg - $disponibleTotal), 2);
+
+                $ordenesServicio = OrdenServicioDetalle::with([
+                    'ordenServicio.proveedor',
+                    'ordenCompraDetalle.producto',
+                ])
+                    ->whereHas('ordenCompraDetalle', function ($query) use ($productoId, $sedeStockId) {
+                        $query->where('producto_id', $productoId)
+                            ->whereHas('orden', fn($ordenProveedor) => $ordenProveedor
+                                ->where('sede_id', $sedeStockId));
+                    })
+                    ->whereHas('ordenServicio', fn($query) => $query
+                        ->whereIn('estado', ['pendiente', 'en_proceso']))
+                    ->get();
+
+                $enProduccion = round((float) $ordenesServicio->sum('cantidad'), 2);
+
+                $faltantes[] = [
+                    'producto_id' => $productoId,
+                    'codigo' => $detalle->product->code ?? '-',
+                    'nombre' => $detalle->product->name ?? 'Sin nombre',
+                    'cantidad_requerida' => $cantidadPendienteKg,
+                    'cantidad_requerida_original_kg' => $cantidadRequeridaKg,
+                    'cantidad_enviada_kg' => round($cantidadRequeridaKg - $cantidadPendienteKg, 2),
+                    'stock_disponible' => round($stockTotal, 2),
+                    'faltante' => $faltanteStock,
+                    'disponible_total' => $disponibleTotal,
+                    'faltante_real' => $faltanteReal,
+                    'proveedor_cubre_necesidad' => $faltanteReal <= 0,
+                    'solicitado_proveedor' => $pendienteProveedor,
+                    'en_produccion' => $enProduccion,
+                    'ordenes_proveedor' => $ordenesProveedor->map(fn($op) => [
+                        'id' => $op->orden?->id,
+                        'codigo' => $op->orden
+                            ? 'OP-'.str_pad($op->orden->id, 4, '0', STR_PAD_LEFT)
+                            : null,
+                        'estado' => $op->orden?->estado,
+                        'pendiente' => round(max(
+                            0,
+                            (float) $op->cantidad_solicitada - (float) $op->cantidad_entregada
+                        ), 2),
+                        'proveedor' => [
+                            'id' => $op->orden?->proveedor?->id,
+                            'nombre' => $op->orden?->proveedor?->nombre,
+                        ],
+                    ])->values(),
+                    'ordenes_servicio' => $ordenesServicio->map(fn($os) => [
+                        'id' => $os->ordenServicio?->id,
+                        'codigo' => $os->ordenServicio
+                            ? 'OS-'.str_pad($os->ordenServicio->id, 4, '0', STR_PAD_LEFT)
+                            : null,
+                        'estado' => $os->ordenServicio?->estado,
+                        'proveedor' => [
+                            'id' => $os->ordenServicio?->proveedor?->id,
+                            'nombre' => $os->ordenServicio?->proveedor?->nombre,
+                        ],
+                    ])->values(),
+                    'resumen_bodegas' => $stockInfo['resumen_por_bodega'],
+                ];
             }
 
-            if (!empty($faltantes)) {
-
-
-
+            if ($faltantes !== []) {
                 $resultado[] = [
                     'orden_id' => $orden->id,
                     'fecha_entrega' => $orden->fecha_entrega,
-                    'codigo'   => "OC-" . str_pad($orden->id, 4, '0', STR_PAD_LEFT),
-
+                    'codigo' => 'OC-'.str_pad($orden->id, 4, '0', STR_PAD_LEFT),
                     'estado' => $orden->estado->nombre ?? 'Desconocido',
-
                     'cliente' => [
-                        'id'     => $orden->cliente->id ?? null,
+                        'id' => $orden->cliente->id ?? null,
                         'nombre' => $orden->cliente->nombre ?? 'Sin cliente',
-                        'nit'    => $orden->cliente->nit ?? null,
+                        'nit' => $orden->cliente->nit ?? null,
                     ],
-
                     'sede' => [
-                        'id'     => $orden->sede->id ?? null,
+                        'id' => $orden->sede->id ?? null,
                         'nombre' => $orden->sede->nombre ?? 'Sin sede',
                     ],
-
-                    'ordenes_trabajo' => $orden->OrdenesTrabajo->map(function ($ot) {
-                        return [
-                            'id'     => $ot->id,
-                            'codigo' => "OT-" . str_pad($ot->id, 4, '0', STR_PAD_LEFT),
-                            'estado' => $ot->estado->nombre ?? 'Desconocido',
-                        ];
-                    }),
-
+                    'ordenes_trabajo' => $orden->ordenesTrabajo->map(fn($ot) => [
+                        'id' => $ot->id,
+                        'codigo' => 'OT-'.str_pad($ot->id, 4, '0', STR_PAD_LEFT),
+                        'estado' => $ot->estado->nombre ?? 'Desconocido',
+                    ])->values(),
                     'faltantes_total' => count($faltantes),
-                    'faltantes'       => $faltantes,
+                    'faltantes_kg' => round((float) collect($faltantes)->sum('faltante'), 2),
+                    'faltantes' => $faltantes,
                 ];
             }
         }
 
-        return response()->json([
+        $total = count($resultado);
+        $lastPage = max(1, (int) ceil($total / $perPage));
+        $currentPage = min(max((int) $request->input('page', 1), 1), $lastPage);
+        $offset = ($currentPage - 1) * $perPage;
 
-            'data' => $resultado,
-
+        return [
+            'data' => array_values(array_slice($resultado, $offset, $perPage)),
             'pagination' => [
-                'total' => $ordenes->total(),
-                'per_page' => $ordenes->perPage(),
-                'current_page' => $ordenes->currentPage(),
-                'last_page' => $ordenes->lastPage(),
-            ]
+                'total' => $total,
+                'per_page' => (int) $perPage,
+                'current_page' => $currentPage,
+                'last_page' => $lastPage,
+            ],
+        ];
+    }
 
+    public function getEstadisticasFaltantes(Request $request)
+    {
+        $user = auth()->user();
+        $sedeIdFiltro = $request->filled('sede_id')
+            ? (int) $request->sede_id
+            : null;
+        $bodegaId = $request->filled('bodega_id') ? (int) $request->bodega_id : null;
+
+        // Órdenes pendientes/parciales con sus detalles
+        $ordenes = Orden_Compra::with(['detalles' => fn($q) => $q
+            ->whereNotNull('product_id')
+            ->where('cantidad_requerida_kg', '>', 0)])
+            ->whereIn('estado_id', [
+                EstadoEnum::PENDIENTE->value,
+                EstadoEnum::ENTREGA_PARCIAL->value,
+            ])
+            ->when($sedeIdFiltro, fn($q) => $q->where('sede_id', $sedeIdFiltro))
+            ->get();
+
+        $productoIds = $ordenes->flatMap(fn($o) => $o->detalles->pluck('product_id'))->unique()->values();
+
+        if ($productoIds->isEmpty()) {
+            return response()->json([
+                'total_ordenes_faltantes'    => 0,
+                'total_referencias_faltantes' => 0,
+                'sin_cobertura'              => 0,
+                'cubiertos_proveedor'        => 0,
+                'stock_total_sede'           => 0,
+            ]);
+        }
+
+        // Stock en bulk (una sola query)
+        $stocks = Inventario::whereIn('producto_id', $productoIds)
+            ->when($sedeIdFiltro, fn($q) => $q->where('sede_id', $sedeIdFiltro))
+            ->when($bodegaId, fn($q) => $q->where('bodega_id', $bodegaId))
+            ->groupBy('producto_id', 'sede_id')
+            ->selectRaw('producto_id, sede_id, SUM(stock) as stock_total')
+            ->get()
+            ->keyBy(fn($stock) => "{$stock->sede_id}:{$stock->producto_id}");
+
+        // OC proveedor pendientes en bulk (una sola query)
+        $enProveedor = OrdenCompraProveedorDetalle::query()
+            ->join('orden_compra_proveedores as orden_proveedor', 'orden_proveedor.id', '=', 'orden_compra_proveedor_detalles.orden_id')
+            ->whereIn('orden_compra_proveedor_detalles.producto_id', $productoIds)
+            ->whereIn('orden_proveedor.estado_id', [
+                EstadoEnum::PENDIENTE->value,
+                EstadoEnum::ENTREGA_PARCIAL->value,
+            ])
+            ->when($sedeIdFiltro, fn($query) => $query->where('orden_proveedor.sede_id', $sedeIdFiltro))
+            ->when($bodegaId, fn($query) => $query->where('orden_proveedor.bodega_id', $bodegaId))
+            ->groupBy('orden_compra_proveedor_detalles.producto_id', 'orden_proveedor.sede_id')
+            ->selectRaw('
+                orden_compra_proveedor_detalles.producto_id,
+                orden_proveedor.sede_id,
+                SUM(GREATEST(
+                    orden_compra_proveedor_detalles.cantidad_solicitada
+                    - COALESCE(orden_compra_proveedor_detalles.cantidad_entregada, 0),
+                    0
+                )) as total_pendiente
+            ')
+            ->get()
+            ->keyBy(fn($item) => "{$item->sede_id}:{$item->producto_id}");
+
+        $totalOrdenes    = 0;
+        $totalReferencias = 0;
+        $sinCobertura    = 0;
+        $cubiertosProveedor = 0;
+
+        foreach ($ordenes as $orden) {
+            $ordenTieneFaltante = false;
+            $sedeStockId = $sedeIdFiltro ?: ($orden->sede_id ?: $user->sede_id);
+            foreach ($orden->detalles as $detalle) {
+                $stockKey  = "{$sedeStockId}:{$detalle->product_id}";
+                $stock     = (float) ($stocks->get($stockKey)?->stock_total ?? 0);
+                $cantidadPendienteKg = $this->calcularCantidadPendienteKg($detalle);
+                $faltante = max(0, $cantidadPendienteKg - $stock);
+
+                if ($faltante > 0) {
+                    $ordenTieneFaltante = true;
+                    $totalReferencias++;
+                    $proveedorKey = "{$sedeStockId}:{$detalle->product_id}";
+                    $solicitado = (float) ($enProveedor->get($proveedorKey)?->total_pendiente ?? 0);
+                    $faltanteReal = max(0, $cantidadPendienteKg - $stock - $solicitado);
+
+                    if ($faltanteReal > 0) {
+                        $sinCobertura++;
+                    } else {
+                        $cubiertosProveedor++;
+                    }
+                }
+            }
+            if ($ordenTieneFaltante) $totalOrdenes++;
+        }
+
+        return response()->json([
+            'total_ordenes_faltantes'    => $totalOrdenes,
+            'total_referencias_faltantes' => $totalReferencias,
+            'sin_cobertura'              => $sinCobertura,
+            'cubiertos_proveedor'        => $cubiertosProveedor,
+            'stock_total_sede'           => round((float) $stocks->sum('stock_total'), 2),
         ]);
+    }
+
+    private function calcularCantidadPendienteKg($detalle): float
+    {
+        $cantidadRequeridaKg = max(0, (float) ($detalle->cantidad_requerida_kg ?? 0));
+        $cantidadUnidades = max(0, (float) ($detalle->cantidad ?? 0));
+        $cantidadEnviada = max(0, (float) ($detalle->cantidad_enviada ?? 0));
+
+        if ($cantidadRequeridaKg <= 0 || $cantidadUnidades <= 0) {
+            return 0;
+        }
+
+        $kgPorUnidad = $cantidadRequeridaKg / $cantidadUnidades;
+        $kgEnviados = min($cantidadRequeridaKg, $cantidadEnviada * $kgPorUnidad);
+
+        return round(max(0, $cantidadRequeridaKg - $kgEnviados), 2);
     }
 }

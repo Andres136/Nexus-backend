@@ -194,6 +194,7 @@ Route::get('ordenes-compra/{id}', [OrdenCompraController::class, 'show']);
 Route::get('orden-compras/{id}/edit', [OrdenCompraController::class, 'edit']);
 Route::apiResource('ordenes-compras-historial', OrdenComprasHistorialController::class);
 Route::get('/ordenes-compra/faltantes/pendientes', [OrdenCompraController::class, 'verificarFaltantesPendientes']);
+Route::get('/ordenes-compra/faltantes/estadisticas', [OrdenCompraController::class, 'estadisticasFaltantes']);
 //KPIS DASHBOARD CLIENTES
 Route::get('/dashboard/kpis', [DashboardController::class, 'kpis']);
 Route::get('estadisticas-comerciales',[SeguimientoController::class, 'resumenMensualPorUsuario']);

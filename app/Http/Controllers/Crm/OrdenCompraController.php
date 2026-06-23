@@ -17,9 +17,7 @@ use App\Models\Departamentos;
 use App\Models\Estados;
 use App\Models\User;
 use App\Notifications\OrdenCompraNotificacion;
-use App\Notifications\OrdenTrabajoCreada;
-use App\Notifications\OrdenTrabajoGeneradaParaCreador;
-use App\Notifications\OrdenTrabajoListaParcial;
+
 use App\Services\Crm\OrdenCompraService;
 use App\Services\Crm\OrdenTrabajoService;
 use App\Services\ProductService;
@@ -53,8 +51,14 @@ class OrdenCompraController extends Controller
 
     public function verificarFaltantesPendientes(Request $request)
     {
-          $resultado = $this->productService->getFaltantesOrdenesPendientes($request);
-    return response()->json($resultado);
+        $resultado = $this->productService->getFaltantesOrdenesPendientes($request);
+
+        return response()->json($resultado);
+    }
+
+    public function estadisticasFaltantes(Request $request)
+    {
+        return $this->productService->getEstadisticasFaltantes($request);
     }
 
   public function index(Request $request)
@@ -417,19 +421,14 @@ $path = $request->file('cliente_documento')->store('documentos_clientes', 'publi
             //    B) upsert por ID (con createMany/update/delete faltantes)  ✅
             //    C) solo updateCampos permitidos
             $detalles = $request->input('detalles', []);
-           \Log::info('DETALLES RECIBIDOS', [
-    'detalles' => $detalles,
-    'cantidad' => count($detalles)
-]);
+
             $idsEnRequest = collect($detalles)->pluck('id')->filter()->all();
 
             // B-1) Eliminar detalles que ya no vienen
             $oc->detalles()->whereNotIn('id', $idsEnRequest)->delete();
 
             foreach ($detalles as $d) {
-    \Log::info('DETALLE RECIBIDO', [
-        'detalle' => $d
-    ]);
+
                 $oc->detalles()->updateOrCreate(
                     ['id' => $d['id'] ?? null],
                     [
