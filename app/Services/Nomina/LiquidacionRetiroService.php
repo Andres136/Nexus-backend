@@ -187,7 +187,8 @@ class LiquidacionRetiroService
         $primaServicios = round($basePrima * $diasPrima / 360, 2);
 
         $diasVacacionesGanados = $diasContrato * 15 / 360;
-        $diasVacacionesUsados = (float) Vacacion::where('user_id', $data['user_id'])
+        $diasVacacionesIniciales = (float) ($contratacion->dias_vacaciones_iniciales ?? 0);
+        $diasVacacionesUsados = $diasVacacionesIniciales + (float) Vacacion::where('user_id', $data['user_id'])
             ->where('status', 'aprobada')
             ->where(function ($query) {
                 $query->where('tipo', 'ordinarias')

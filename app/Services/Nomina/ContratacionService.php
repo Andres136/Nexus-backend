@@ -171,6 +171,7 @@ class ContratacionService
             $data['tipo_salario'] ??= 'personalizado';
             $data['auxilio_transporte'] = $data['auxilio_transporte'] ?? 0;
             $data['no_salarial'] = $data['no_salarial'] ?? 0;
+            $data['dias_vacaciones_iniciales'] = $data['dias_vacaciones_iniciales'] ?? 0;
         }
 
         if (($data['tipo_salario'] ?? null) && $data['tipo_salario'] !== 'salario_minimo') {

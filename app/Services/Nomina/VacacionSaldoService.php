@@ -42,6 +42,7 @@ class VacacionSaldoService
 
         $diasTrabajados = $this->diasComerciales($inicio, $fin);
         $diasGanados = round($diasTrabajados * 15 / 360, 4);
+        $diasVacacionesIniciales = (float) ($contrato->dias_vacaciones_iniciales ?? 0);
 
         $vacaciones = Vacacion::query()
             ->with('liquidacionPrestacion:id,vacacion_id')
@@ -77,7 +78,8 @@ class VacacionSaldoService
             ->where('status', 'pendiente')
             ->sum('dias_habiles');
 
-        $consumidos = $ordinariasAprobadas + $compensadasLiquidadas;
+        $disfrutados = $diasVacacionesIniciales + $ordinariasAprobadas;
+        $consumidos = $disfrutados + $compensadasLiquidadas;
         $comprometidos = $compensadasPorLiquidar + $pendientes;
 
         return [
@@ -89,7 +91,9 @@ class VacacionSaldoService
             'inicio_contratacion' => $inicio->toDateString(),
             'dias_trabajados' => $diasTrabajados,
             'dias_ganados' => $diasGanados,
-            'dias_disfrutados' => $ordinariasAprobadas,
+            'dias_vacaciones_iniciales' => $diasVacacionesIniciales,
+            'dias_disfrutados' => $disfrutados,
+            'dias_disfrutados_registrados' => $ordinariasAprobadas,
             'dias_compensados' => $compensadasLiquidadas,
             'dias_compensados_por_liquidar' => $compensadasPorLiquidar,
             'dias_pendientes_solicitados' => $pendientes,
@@ -143,7 +147,9 @@ class VacacionSaldoService
             'inicio_contratacion' => null,
             'dias_trabajados' => 0,
             'dias_ganados' => 0,
+            'dias_vacaciones_iniciales' => 0,
             'dias_disfrutados' => 0,
+            'dias_disfrutados_registrados' => 0,
             'dias_compensados' => 0,
             'dias_compensados_por_liquidar' => 0,
             'dias_pendientes_solicitados' => 0,
