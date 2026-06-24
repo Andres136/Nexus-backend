@@ -21,6 +21,8 @@ class UpdateTicketRequest extends FormRequest
             'estado'           => ['sometimes', 'in:pendiente,en_proceso,cerrado'],
             'archivo'          => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx,txt,zip', 'max:10240'],
             'prioridad'        => ['sometimes', 'in:baja,media,alta'],
+            'fecha_entrega'    => ['sometimes', 'required', 'date'],
+            'hora_entrega'     => ['sometimes', 'required', 'date_format:H:i'],
             'fecha_solucion'   => ['nullable', 'date'],
             'comentario'       => ['nullable', 'string', 'max:5000'],
         ];

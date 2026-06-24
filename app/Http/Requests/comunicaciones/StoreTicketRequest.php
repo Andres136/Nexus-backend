@@ -29,6 +29,8 @@ class StoreTicketRequest extends FormRequest
             'estado'              => ['nullable', 'in:pendiente,en_proceso,cerrado'],
             'archivo'             => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx,txt,zip', 'max:10240'],
             'prioridad'           => ['nullable', 'in:baja,media,alta'],
+            'fecha_entrega'       => ['required', 'date'],
+            'hora_entrega'        => ['required', 'date_format:H:i'],
             'fecha_solucion'      => ['nullable', 'date'],
         ];
     }
@@ -40,6 +42,10 @@ class StoreTicketRequest extends FormRequest
             'descripcion.max'      => 'La descripción no puede superar 5000 caracteres.',
             'estado.in'            => 'El estado debe ser pendiente, en proceso o cerrado.',
             'prioridad.in'         => 'La prioridad debe ser baja, media o alta.',
+            'fecha_entrega.required' => 'La fecha de entrega es obligatoria.',
+            'fecha_entrega.date'   => 'La fecha de entrega debe ser una fecha válida.',
+            'hora_entrega.required' => 'La hora de entrega es obligatoria.',
+            'hora_entrega.date_format' => 'La hora de entrega debe tener el formato HH:MM.',
             'archivo.file'         => 'El soporte debe ser un archivo válido.',
             'archivo.mimes'        => 'El soporte debe ser jpg, png, pdf, documento, Excel, txt o zip.',
             'archivo.max'          => 'El soporte no puede superar 10 MB.',

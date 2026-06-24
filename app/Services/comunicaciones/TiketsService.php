@@ -385,6 +385,8 @@ class TiketsService
             'descripcion',
             'archivo',
             'prioridad',
+            'fecha_entrega',
+            'hora_entrega',
             'fecha_solucion',
         ]));
     }

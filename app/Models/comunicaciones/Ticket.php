@@ -21,10 +21,13 @@ class Ticket extends Model
         'estado',
         'archivo',
         'prioridad',
+        'fecha_entrega',
+        'hora_entrega',
         'fecha_solucion',
     ];
 
     protected $casts = [
+        'fecha_entrega' => 'date:Y-m-d',
         'fecha_solucion' => 'datetime',
     ];
 
