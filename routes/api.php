@@ -580,17 +580,8 @@ Route::prefix('nomina/portal')->group(function () {
 });
 
 //Rutas tipos de contratos nomina
-Route::prefix('nomina')->middleware('es_responsable_del_departamento')->group(function () {
-    Route::get('configuracion', [ConfiguracionNominaController::class, 'show']);
-    Route::put('configuracion', [ConfiguracionNominaController::class, 'update']);
-    Route::post('configuracion/firma', [ConfiguracionNominaController::class, 'subirFirma']);
-    Route::get('horario-operacion/hoy', [HorarioOperacionDiariaController::class, 'show']);
-    Route::put('horario-operacion/hoy', [HorarioOperacionDiariaController::class, 'update']);
-    Route::get('parametros-laborales/vigente', [NominaParametroLaboralController::class, 'vigente']);
-    Route::apiResource('parametros-laborales', NominaParametroLaboralController::class)->only(['index', 'store', 'update']);
-    Route::apiResource('empresas', EmpresaController::class);
-    Route::apiResource('tipo-contratos', TipoContratoController::class);
-    Route::get('contratacion/empleados', [ContratacionController::class, 'getEmpleados']);
+Route::prefix('nomina')->group(function () {
+        
     Route::get('contratacion/{uuid}/certificado', [ContratacionController::class, 'certificado']);
     Route::post('contratacion/{uuid}/certificado/enviar', [ContratacionController::class, 'enviarCertificado']);
     Route::patch('contratacion/{uuid}/estado', [ContratacionController::class, 'cambiarEstado']);
@@ -686,6 +677,7 @@ Route::prefix('nomina')->middleware('es_responsable_del_departamento')->group(fu
      Route::get('descargos/{uuid}/pdf', [DescargoController::class, 'pdf']);
      Route::apiResource('descargos', DescargoController::class)->except(['update']);
 });
+
 
 Route::apiResource('reportes-bic', ReporteBicConttroller::class);
 
