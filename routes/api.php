@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\comunicaciones\PlantillaController;
+use App\Http\Controllers\comunicaciones\TicketController;
 use App\Http\Controllers\contabilidad\CosteoController;
 use App\Http\Controllers\contabilidad\FacturaCompraController;
 use App\Http\Controllers\contabilidad\FormaPagoController;
@@ -274,6 +275,11 @@ Route::get('/revision-comparendos/conductor/{id}', [RevisionComparendoController
 Route::apiResource('plantillas-correo', PlantillaController::class);
 Route::post('/plantillas/{id}/enviar', [PlantillaController::class, 'enviar']);
 Route::get('/plantillas/{id}/edit', [PlantillaController::class, 'edit']); 
+Route::get('tickets/estadisticas-paradas', [TicketController::class, 'estadisticasParadas']);
+Route::get('tickets/resumen-asignados', [TicketController::class, 'resumenAsignados']);
+Route::patch('tickets/{ticket}/estado', [TicketController::class, 'cambiarEstado']);
+Route::post('tickets/{ticket}/historial', [TicketController::class, 'agregarHistorial']);
+Route::apiResource('tickets', TicketController::class);
 //Rutas Proveedores detalles item
 Route::post('/detalles-orden', [OrdenCompraProveedorController::class, 'storeDetalle']);
 Route::put('/detalles-orden/{id}', [EntregaProveedorController::class, 'updateDetalle']);
@@ -461,6 +467,7 @@ Route::apiResource('novedades', NovedadController::class);
 
 
 //RUTAS DE ASGINACION DE EQUIPOS TIC
+Route::get('asignaciones/usuario/{userId}', [AsignacionesController::class, 'byUsuario']);
 Route::apiResource('asignaciones', AsignacionesController::class);
 
 Route::get('/productos-asignar', [CrmProductController::class, 'productQuery']);

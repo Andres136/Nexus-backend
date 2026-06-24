@@ -37,6 +37,15 @@ $filters = $request->only([
 
     return response()->json($data);
 }
+
+public function byUsuario(Request $request, int $userId)
+{
+    $soloActivas = ! $request->boolean('incluir_inactivas');
+
+    return response()->json(
+        $this->asignacionesService->getAsignacionesByUsuario($userId, $soloActivas)
+    );
+}
     /**
      * Store a newly created resource in storage.
      */
@@ -147,4 +156,3 @@ Storage::disk('public')->put(
     ]);
 }               
     }
-

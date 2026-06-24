@@ -155,6 +155,41 @@ public function getAllAsignaciones(array $filters = [])
     ];
 }
 
+public function getAsignacionesByUsuario(int $userId, bool $soloActivas = true): array
+{
+    $asignaciones = Asignaciones::with([
+        'usuario',
+        'sede',
+        'producto',
+        'empresa',
+        'usuarioRecibe',
+    ])
+        ->where('usuario_asignacion_id', $userId)
+        ->when($soloActivas, fn ($query) => $query->where('activo', true))
+        ->latest()
+        ->get()
+        ->map(function ($asignacion) {
+            $rutaAsignacion = public_path('storage/asignaciones/acta_asignacion_' . $asignacion->id . '.pdf');
+            $rutaDevolucion = public_path('storage/asignaciones/acta_devolucion_' . $asignacion->id . '.pdf');
+
+            $asignacion->acta_asignacion_url = file_exists($rutaAsignacion)
+                ? asset('storage/asignaciones/acta_asignacion_' . $asignacion->id . '.pdf')
+                : null;
+
+            $asignacion->acta_devolucion_url = file_exists($rutaDevolucion)
+                ? asset('storage/asignaciones/acta_devolucion_' . $asignacion->id . '.pdf')
+                : null;
+
+            return $asignacion;
+        });
+
+    return [
+        'tiene_asignaciones' => $asignaciones->isNotEmpty(),
+        'total' => $asignaciones->count(),
+        'data' => $asignaciones,
+    ];
+}
+
     public function asignarProducto($data)
     {
         // Lógica para asignar un producto a un usuario
