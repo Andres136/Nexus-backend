@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CapacitacionController;
+use App\Http\Controllers\CapacitacionEncuestaController;
 use App\Http\Controllers\comunicaciones\PlantillaController;
 use App\Http\Controllers\comunicaciones\TicketController;
 use App\Http\Controllers\contabilidad\CosteoController;
@@ -135,6 +137,8 @@ use SebastianBergmann\CodeCoverage\Report\Html\Dashboard;
 // Rutas públicas encuestas (sin auth)
 Route::get('/r/{token}',  [EncuestaController::class, 'showPublico']);
 Route::post('/r/{token}', [EncuestaController::class, 'responder']);
+Route::get('capacitacion-encuestas/publica/{token}', [CapacitacionEncuestaController::class, 'showPublica']);
+Route::post('capacitacion-encuestas/publica/{token}', [CapacitacionEncuestaController::class, 'responderPublica']);
 Route::post('nomina/kiosko-devices/activate', [KioskoDeviceController::class, 'activateDevice']);
 Route::post('nomina/kiosko-devices/validate-session', [KioskoDeviceController::class, 'validateSession']);
 Route::post('nomina/kiosko-devices/bootstrap', [KioskoDeviceController::class, 'bootstrap']);
@@ -190,6 +194,13 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
   Route::get('encuestas/{id}/resultados', [EncuestaController::class, 'resultados']);
   Route::get('encuestas-clientes', [EncuestaController::class, 'clientesParaEncuesta']);
   Route::get('encuestas-indice-general', [EncuestaController::class, 'indiceGeneral']);
+
+  // Capacitaciones
+  Route::apiResource('capacitaciones', CapacitacionController::class);
+  Route::get('capacitacion-encuestas-usuarios', [CapacitacionEncuestaController::class, 'usuarios']);
+  Route::get('capacitacion-encuestas/{uuid}/resultados', [CapacitacionEncuestaController::class, 'resultados']);
+  Route::post('capacitacion-encuestas/{uuid}/enviar', [CapacitacionEncuestaController::class, 'enviar']);
+  Route::apiResource('capacitacion-encuestas', CapacitacionEncuestaController::class);
   
 
   
