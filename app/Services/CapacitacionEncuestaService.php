@@ -16,9 +16,10 @@ use Illuminate\Support\Str;
 
 class CapacitacionEncuestaService
 {
-    public function index(array $filters): Collection
+    public function index(array $filters)
     {
-        return CapacitacionEncuesta::query()
+        /** @var \Illuminate\Pagination\LengthAwarePaginator $paginator */
+        $paginator = CapacitacionEncuesta::query()
             ->with([
                 'capacitacion:id,uuid,titulo,fecha_realizacion',
                 'creador:id,name,email',
@@ -43,13 +44,14 @@ class CapacitacionEncuestaService
             })
             ->when(!empty($filters['estado']), fn ($query) => $query->where('estado', $filters['estado']))
             ->latest()
-            ->get()
-            ->map(function ($encuesta) {
-                $total = (int) ($encuesta->envios_count ?? 0);
-                $respondidas = (int) ($encuesta->respondidas_count ?? 0);
-                $encuesta->setAttribute('porcentaje_respuesta', $total > 0 ? round(($respondidas / $total) * 100, 1) : 0);
-                return $encuesta;
-            });
+            ->paginate(20);
+
+        return $paginator->through(function ($encuesta) {
+            $total = (int) ($encuesta->envios_count ?? 0);
+            $respondidas = (int) ($encuesta->respondidas_count ?? 0);
+            $encuesta->setAttribute('porcentaje_respuesta', $total > 0 ? round(($respondidas / $total) * 100, 1) : 0);
+            return $encuesta;
+        });
     }
 
     public function store(array $data, User $user): CapacitacionEncuesta
