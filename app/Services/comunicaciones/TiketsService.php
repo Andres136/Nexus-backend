@@ -208,6 +208,10 @@ class TiketsService
                 $data['archivo'] = $this->storeFile($data['archivo'], 'tickets');
             }
 
+            if (!empty($data['archivos'])) {
+                $data['archivos'] = $this->storeFiles($data['archivos'], 'tickets');
+            }
+
             $ticket = Ticket::create($data);
 
             $this->createHistory($ticket, [
@@ -241,6 +245,11 @@ class TiketsService
             if (($data['archivo'] ?? null) instanceof UploadedFile) {
                 $this->deleteFile($ticket->archivo);
                 $data['archivo'] = $this->storeFile($data['archivo'], 'tickets');
+            }
+
+            if (!empty($data['archivos'])) {
+                $this->deleteFiles($ticket->archivos);
+                $data['archivos'] = $this->storeFiles($data['archivos'], 'tickets');
             }
 
             if (array_key_exists('estado', $data)) {
@@ -315,11 +324,36 @@ class TiketsService
 
             $this->ensureCanView($ticket);
 
+            $cerrarTicket = (bool) ($data['cerrar'] ?? false);
+
+            if ($cerrarTicket) {
+                $this->ensureCanChangeStatus($ticket);
+            }
+
             if (($data['soporte'] ?? null) instanceof UploadedFile) {
                 $data['soporte'] = $this->storeFile($data['soporte'], 'tickets/historial');
             }
 
-            return $this->createHistory($ticket, $data);
+            if (!empty($data['soportes'])) {
+                $data['soportes'] = $this->storeFiles($data['soportes'], 'tickets/historial');
+            }
+
+            $historial = $this->createHistory($ticket, $data);
+
+            if ($cerrarTicket && $ticket->estado !== 'cerrado') {
+                $estadoAnterior = $ticket->estado;
+
+                $ticket->update([
+                    'estado' => 'cerrado',
+                    'fecha_solucion' => now(),
+                ]);
+
+                $this->createHistory($ticket, [
+                    'comentario' => "Estado actualizado de {$estadoAnterior} a cerrado.",
+                ]);
+            }
+
+            return $historial;
         });
     }
 
@@ -331,9 +365,11 @@ class TiketsService
             $this->ensureCanModify($ticket);
 
             $this->deleteFile($ticket->archivo);
+            $this->deleteFiles($ticket->archivos);
 
             foreach ($ticket->historial as $historial) {
                 $this->deleteFile($historial->soporte);
+                $this->deleteFiles($historial->soportes);
             }
 
             $ticket->delete();
@@ -347,6 +383,7 @@ class TiketsService
             'user_id' => $data['user_id'] ?? $this->authenticatedUserId(),
             'comentario' => $data['comentario'],
             'soporte' => $data['soporte'] ?? null,
+            'soportes' => $data['soportes'] ?? null,
             'link' => $data['link'] ?? null,
         ])->load('usuario:id,name,email');
     }
@@ -385,6 +422,7 @@ class TiketsService
             'departamento_id',
             'descripcion',
             'archivo',
+            'archivos',
             'prioridad',
             'fecha_entrega',
             'hora_entrega',
@@ -402,10 +440,30 @@ class TiketsService
         return $file->store($directory, 'public');
     }
 
+    /**
+     * @param array<int, UploadedFile> $files
+     * @return array<int, string>
+     */
+    private function storeFiles(array $files, string $directory): array
+    {
+        return collect($files)
+            ->filter(fn ($file) => $file instanceof UploadedFile)
+            ->map(fn (UploadedFile $file) => $this->storeFile($file, $directory))
+            ->values()
+            ->all();
+    }
+
     private function deleteFile(?string $path): void
     {
         if ($path) {
             Storage::disk('public')->delete($path);
+        }
+    }
+
+    private function deleteFiles(?array $paths): void
+    {
+        foreach ($paths ?? [] as $path) {
+            $this->deleteFile($path);
         }
     }
 }

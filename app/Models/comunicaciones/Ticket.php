@@ -20,6 +20,7 @@ class Ticket extends Model
         'descripcion',
         'estado',
         'archivo',
+        'archivos',
         'prioridad',
         'fecha_entrega',
         'hora_entrega',
@@ -29,6 +30,7 @@ class Ticket extends Model
     protected $casts = [
         'fecha_entrega' => 'date:Y-m-d',
         'fecha_solucion' => 'datetime',
+        'archivos' => 'array',
     ];
 
     protected $appends = [

@@ -17,7 +17,12 @@ class HistorialTickect extends Model
         'user_id',
         'comentario',
         'soporte',
+        'soportes',
         'link',
+    ];
+
+    protected $casts = [
+        'soportes' => 'array',
     ];
 
     public function ticket()
