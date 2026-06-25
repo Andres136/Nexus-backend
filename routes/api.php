@@ -591,6 +591,13 @@ Route::prefix('nomina/portal')->group(function () {
 //Rutas tipos de contratos nomina
 Route::prefix('nomina')->group(function () {
         
+    Route::get('configuracion', [ConfiguracionNominaController::class, 'show']);
+    Route::put('configuracion', [ConfiguracionNominaController::class, 'update']);
+    Route::post('configuracion/firma', [ConfiguracionNominaController::class, 'subirFirma']);
+    Route::get('horario-operacion/hoy', [HorarioOperacionDiariaController::class, 'show']);
+    Route::put('horario-operacion/hoy', [HorarioOperacionDiariaController::class, 'update']);
+    Route::apiResource('tipo-contratos', TipoContratoController::class);
+    Route::get('contratacion/empleados', [ContratacionController::class, 'getEmpleados']);
     Route::get('contratacion/{uuid}/certificado', [ContratacionController::class, 'certificado']);
     Route::post('contratacion/{uuid}/certificado/enviar', [ContratacionController::class, 'enviarCertificado']);
     Route::patch('contratacion/{uuid}/estado', [ContratacionController::class, 'cambiarEstado']);
@@ -606,6 +613,8 @@ Route::prefix('nomina')->group(function () {
     Route::patch('solicitudes-prestamos/{uuid}/rechazar', [SolicitudPrestamoController::class, 'rechazar']);
     Route::apiResource('jornada-laborals', JornadaLaboralController::class);
     Route::apiResource('valores',ValorController::class);
+    Route::get('parametros-laborales/vigente', [NominaParametroLaboralController::class, 'vigente']);
+    Route::apiResource('parametros-laborales', NominaParametroLaboralController::class)->only(['index', 'store', 'update']);
     Route::apiResource('tipo-registros',TipoRegistroController::class);
     Route::get('users-face-photos/empleados-con-contrato', [UsersFacePhotoController::class, 'empleadosConContrato']);
     Route::get('users-face-photos/{uuid}/image', [UsersFacePhotoController::class, 'image']);
