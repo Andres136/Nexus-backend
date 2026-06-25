@@ -17,6 +17,7 @@ class HistorialTickect extends Model
         'user_id',
         'comentario',
         'soporte',
+        'link',
     ];
 
     public function ticket()

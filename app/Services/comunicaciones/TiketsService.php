@@ -347,6 +347,7 @@ class TiketsService
             'user_id' => $data['user_id'] ?? $this->authenticatedUserId(),
             'comentario' => $data['comentario'],
             'soporte' => $data['soporte'] ?? null,
+            'link' => $data['link'] ?? null,
         ])->load('usuario:id,name,email');
     }
 

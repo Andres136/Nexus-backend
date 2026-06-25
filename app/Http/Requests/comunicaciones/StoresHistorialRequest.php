@@ -24,6 +24,7 @@ class StoresHistorialRequest extends FormRequest
         return [
             'comentario' => ['required', 'string', 'max:5000'],
             'soporte'    => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx,txt,zip', 'max:10240'],
+            'link'       => ['nullable', 'url', 'max:2048'],
         ];
     }
 
@@ -35,6 +36,8 @@ class StoresHistorialRequest extends FormRequest
             'soporte.file'        => 'El soporte debe ser un archivo válido.',
             'soporte.mimes'       => 'El soporte debe ser jpg, png, pdf, documento, Excel, txt o zip.',
             'soporte.max'         => 'El soporte no puede superar 10 MB.',
+            'link.url'            => 'El link debe ser una URL válida.',
+            'link.max'            => 'El link no puede superar 2048 caracteres.',
         ];
     }
 }
