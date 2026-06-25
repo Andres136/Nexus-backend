@@ -10,6 +10,7 @@ use App\Http\Requests\Crm\UpdateOrdenProveedorRequest;
 use App\Mail\OrdenCompraProveedorMail;
 use App\Models\Crm\OrdenCompraProveedor;
 use App\Models\Crm\OrdenCompraProveedorDetalle;
+use App\Models\Crm\OrdenCompraProveedorDetalleOrigen;
 use App\Models\Crm\OrdenDetalleObservaciones;
 use App\Services\Crm\OrdenCompraService;
 use Barryvdh\DomPDF\Facade\Pdf ;
@@ -40,6 +41,8 @@ public function index(Request $request,OrdenCompraService $estadoService)
         },
         'detalles.procesoBolsas',
         'detalles.proveedor',
+        'detalles.origenes.ordenCompra',
+        'detalles.origenes.ordenCompraDetalle',
         'empresa',
         'sede'
     ])
@@ -186,6 +189,11 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
                     'code' => $detalle['code'] ?? null, // Nuevo campo código
                     'producto_id' => $detalle['producto_id'] ?? null, // Nuevo campo producto_id
                 ]);
+                $this->crearOrigenesDetalleProveedor(
+                    $nuevoDetalle,
+                    $detalle['origenes'] ?? [],
+                    $ordenCompra
+                );
    if (!empty($detalle['procesos'])) {
         foreach ($detalle['procesos'] as $proceso) {
             OrdenDetalleObservaciones::create([
@@ -306,6 +314,23 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
             'producto_id' => $detalle->producto_id,
             'producto_nombre' => $detalle->producto?->nombre,
             'code' => $detalle->code,
+            'origenes' => $detalle->origenes->map(function ($origen) {
+                $cantidadPrioridad = (float) ($origen->cantidad_prioridad ?: $origen->cantidad_solicitada);
+                $cantidadRecibida = (float) $origen->cantidad_recibida_aplicada;
+
+                return [
+                    'id' => $origen->id,
+                    'orden_compra_id' => $origen->orden_compra_id,
+                    'orden_compra_detalle_id' => $origen->orden_compra_detalle_id,
+                    'producto_id' => $origen->producto_id,
+                    'cantidad_solicitada' => (float) $origen->cantidad_solicitada,
+                    'cantidad_prioridad' => $cantidadPrioridad,
+                    'cantidad_recibida_aplicada' => $cantidadRecibida,
+                    'prioridad_pendiente' => max($cantidadPrioridad - $cantidadRecibida, 0),
+                    'prioridad_completa' => $cantidadRecibida >= $cantidadPrioridad,
+                    'prioridad_snapshot' => $origen->prioridad_snapshot,
+                ];
+            })->values(),
 
             'entregas' => $detalle->entregas->map(function ($entrega) {
                 return [
@@ -520,23 +545,68 @@ public function entregasShow($id)
             'orden_id' => 'required|exists:orden_compra_proveedores,id',
             'descripcion' => 'required|string|max:255',
             'cantidad_solicitada' => 'required|numeric|min:0',
-            'item' => 'required|integer',
+            'item' => 'nullable|integer',
             'proveedor_id' => 'nullable|exists:proveedores,id',
             'proceso_bolsas_id' => 'nullable|exists:proceso_bolsas,id',
+            'origenes' => 'nullable|array',
+            'origenes.*.orden_compra_id' => 'required_with:origenes|exists:orden__compras,id',
+            'origenes.*.orden_compra_detalle_id' => 'required_with:origenes|exists:orden__compra__detalles,id',
+            'origenes.*.producto_id' => 'nullable|exists:products,id',
+            'origenes.*.sede_id' => 'nullable|exists:sedes,id',
+            'origenes.*.bodega_id' => 'nullable|exists:bodegas,id',
+            'origenes.*.cantidad_solicitada' => 'required_with:origenes|numeric|min:0.01',
+            'origenes.*.cantidad_prioridad' => 'nullable|numeric|min:0',
+            'origenes.*.cantidad_recibida_aplicada' => 'nullable|numeric|min:0',
+            'origenes.*.prioridad_snapshot' => 'nullable|array',
 
         ]);
+
+        $nextItem = OrdenCompraProveedorDetalle::where('orden_id', $request->orden_id)->max('item') ?? 0;
 
         $detalle = new OrdenCompraProveedorDetalle();
         $detalle->orden_id = $request->orden_id;
         $detalle->descripcion = $request->descripcion;
         $detalle->cantidad_solicitada = $request->cantidad_solicitada;
-        $detalle->item = $request->item;
-        $detalle->proveedor_id = $request->proveedor_id ?? null; // Aseguramos que este campo sea nullable
-        $detalle->proceso_bolsas_id = $request->proceso_bolsas_id ?? null; // Aseguramos que este campo sea nullable
+        $detalle->item = $request->item ?? ($nextItem + 1);
+        $detalle->proveedor_id = $request->proveedor_id ?? null;
+        $detalle->proceso_bolsas_id = $request->proceso_bolsas_id ?? null;
 
         $detalle->save();
 
+        $this->crearOrigenesDetalleProveedor(
+            $detalle,
+            $request->input('origenes', []),
+            $detalle->orden
+        );
+
         return response()->json(['message' => 'Detalle creado correctamente.']);
+    }
+
+    private function crearOrigenesDetalleProveedor(
+        OrdenCompraProveedorDetalle $detalleProveedor,
+        array $origenes,
+        ?OrdenCompraProveedor $ordenProveedor = null
+    ): void {
+        foreach ($origenes as $origen) {
+            if (empty($origen['orden_compra_id']) || empty($origen['orden_compra_detalle_id'])) {
+                continue;
+            }
+
+            OrdenCompraProveedorDetalleOrigen::create([
+                'orden_compra_proveedor_detalle_id' => $detalleProveedor->id,
+                'orden_compra_id' => $origen['orden_compra_id'],
+                'orden_compra_detalle_id' => $origen['orden_compra_detalle_id'],
+                'producto_id' => $origen['producto_id'] ?? $detalleProveedor->producto_id,
+                'sede_id' => $origen['sede_id'] ?? $ordenProveedor?->sede_id,
+                'bodega_id' => $origen['bodega_id'] ?? $ordenProveedor?->bodega_id,
+                'cantidad_solicitada' => $origen['cantidad_solicitada'] ?? $detalleProveedor->cantidad_solicitada,
+                'cantidad_prioridad' => $origen['cantidad_prioridad']
+                    ?? $origen['cantidad_solicitada']
+                    ?? $detalleProveedor->cantidad_solicitada,
+                'cantidad_recibida_aplicada' => $origen['cantidad_recibida_aplicada'] ?? 0,
+                'prioridad_snapshot' => $origen['prioridad_snapshot'] ?? null,
+            ]);
+        }
     }
 
    public function update(UpdateOrdenProveedorRequest $request, $id)

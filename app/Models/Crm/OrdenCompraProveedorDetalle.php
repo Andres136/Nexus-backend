@@ -58,4 +58,9 @@ class OrdenCompraProveedorDetalle extends Model
     {
         return $this->hasMany(OrdenDetalleObservaciones::class, 'orden_detalle_id', 'id');
     }
+
+    public function origenes()
+    {
+        return $this->hasMany(OrdenCompraProveedorDetalleOrigen::class, 'orden_compra_proveedor_detalle_id');
+    }
 }

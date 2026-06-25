@@ -7,6 +7,7 @@ use App\Models\Crm\Inventario;
 use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\Orden_servicio\OrdenServicioDetalle;
 use App\Models\Crm\OrdenCompraProveedorDetalle;
+use App\Models\Crm\OrdenCompraProveedorDetalleOrigen;
 use App\Models\Crm\product as CrmProduct;
 use App\Models\Crm\Sede;
 
@@ -775,26 +776,75 @@ public function getFaltantesOrdenesPendientes()
                     continue;
                 }
 
-                $ordenesProveedor = OrdenCompraProveedorDetalle::with(['orden.proveedor'])
+                $origenesProveedor = OrdenCompraProveedorDetalleOrigen::with([
+                    'detalleProveedor.orden.proveedor',
+                ])
+                    ->where('orden_compra_detalle_id', $detalle->id)
                     ->where('producto_id', $productoId)
-                    ->whereRaw('COALESCE(cantidad_entregada, 0) < cantidad_solicitada')
-                    ->whereHas('orden', function ($query) use ($sedeStockId, $bodegaId) {
+                    ->whereHas('detalleProveedor.orden', function ($query) {
                         $query->whereIn('estado_id', [
                             EstadoEnum::PENDIENTE->value,
                             EstadoEnum::ENTREGA_PARCIAL->value,
-                        ])
-                            ->where('sede_id', $sedeStockId)
-                            ->when($bodegaId, fn($bodega) => $bodega->where('bodega_id', $bodegaId));
+                        ]);
                     })
                     ->get();
 
-                $pendienteProveedor = round((float) $ordenesProveedor->sum(
-                    fn($detalleProveedor) => max(
-                        0,
-                        (float) $detalleProveedor->cantidad_solicitada
-                        - (float) $detalleProveedor->cantidad_entregada
-                    )
-                ), 2);
+                $usaTrazabilidadExacta = $origenesProveedor->isNotEmpty();
+
+                if ($usaTrazabilidadExacta) {
+                    $prioridadesProveedor = $origenesProveedor->map(function ($origen) {
+                        $cantidadPrioridad = (float) ($origen->cantidad_prioridad ?: $origen->cantidad_solicitada);
+                        $cantidadRecibida = (float) $origen->cantidad_recibida_aplicada;
+
+                        return [
+                            'orden_compra_proveedor_detalle_id' => $origen->orden_compra_proveedor_detalle_id,
+                            'orden_compra_id' => $origen->orden_compra_id,
+                            'orden_compra_detalle_id' => $origen->orden_compra_detalle_id,
+                            'cantidad_prioridad' => round($cantidadPrioridad, 2),
+                            'cantidad_recibida' => round($cantidadRecibida, 2),
+                            'pendiente' => round(max($cantidadPrioridad - $cantidadRecibida, 0), 2),
+                            'completa' => $cantidadRecibida >= $cantidadPrioridad,
+                            'snapshot' => $origen->prioridad_snapshot,
+                        ];
+                    })->values();
+
+                    $pendienteProveedor = round((float) $origenesProveedor->sum(
+                        fn($origen) => max(
+                            0,
+                            (float) ($origen->cantidad_prioridad ?: $origen->cantidad_solicitada)
+                            - (float) $origen->cantidad_recibida_aplicada
+                        )
+                    ), 2);
+
+                    $ordenesProveedor = $origenesProveedor
+                        ->map(fn($origen) => $origen->detalleProveedor)
+                        ->filter()
+                        ->unique('id')
+                        ->values();
+                } else {
+                    $prioridadesProveedor = collect();
+
+                    $ordenesProveedor = OrdenCompraProveedorDetalle::with(['orden.proveedor'])
+                        ->where('producto_id', $productoId)
+                        ->whereRaw('COALESCE(cantidad_entregada, 0) < cantidad_solicitada')
+                        ->whereHas('orden', function ($query) use ($sedeStockId, $bodegaId) {
+                            $query->whereIn('estado_id', [
+                                EstadoEnum::PENDIENTE->value,
+                                EstadoEnum::ENTREGA_PARCIAL->value,
+                            ])
+                                ->where('sede_id', $sedeStockId)
+                                ->when($bodegaId, fn($bodega) => $bodega->where('bodega_id', $bodegaId));
+                        })
+                        ->get();
+
+                    $pendienteProveedor = round((float) $ordenesProveedor->sum(
+                        fn($detalleProveedor) => max(
+                            0,
+                            (float) $detalleProveedor->cantidad_solicitada
+                            - (float) $detalleProveedor->cantidad_entregada
+                        )
+                    ), 2);
+                }
                 $disponibleTotal = round($stockTotal + $pendienteProveedor, 2);
                 $faltanteReal = round(max(0, $cantidadPendienteKg - $disponibleTotal), 2);
 
@@ -814,6 +864,7 @@ public function getFaltantesOrdenesPendientes()
                 $enProduccion = round((float) $ordenesServicio->sum('cantidad'), 2);
 
                 $faltantes[] = [
+                    'detalle_id' => $detalle->id,
                     'producto_id' => $productoId,
                     'codigo' => $detalle->product->code ?? '-',
                     'nombre' => $detalle->product->name ?? 'Sin nombre',
@@ -826,6 +877,8 @@ public function getFaltantesOrdenesPendientes()
                     'faltante_real' => $faltanteReal,
                     'proveedor_cubre_necesidad' => $faltanteReal <= 0,
                     'solicitado_proveedor' => $pendienteProveedor,
+                    'trazabilidad_proveedor' => $usaTrazabilidadExacta ? 'exacta' : 'estimada',
+                    'prioridades_proveedor' => $prioridadesProveedor,
                     'en_produccion' => $enProduccion,
                     'ordenes_proveedor' => $ordenesProveedor->map(fn($op) => [
                         'id' => $op->orden?->id,
@@ -835,7 +888,15 @@ public function getFaltantesOrdenesPendientes()
                         'estado' => $op->orden?->estado,
                         'pendiente' => round(max(
                             0,
-                            (float) $op->cantidad_solicitada - (float) $op->cantidad_entregada
+                            $usaTrazabilidadExacta
+                                ? (float) $origenesProveedor
+                                    ->where('orden_compra_proveedor_detalle_id', $op->id)
+                                    ->sum(fn($origen) => max(
+                                        0,
+                                        (float) ($origen->cantidad_prioridad ?: $origen->cantidad_solicitada)
+                                        - (float) $origen->cantidad_recibida_aplicada
+                                    ))
+                                : (float) $op->cantidad_solicitada - (float) $op->cantidad_entregada
                         ), 2),
                         'proveedor' => [
                             'id' => $op->orden?->proveedor?->id,

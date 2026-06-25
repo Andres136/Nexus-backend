@@ -539,6 +539,8 @@ Route::get('analisis-producto-no-conforme/producto/{productoNoConformeId}', [Ana
 Route::put('analisis-producto-no-conforme/{id}', [AnalisisProductoNoConformeController::class, 'update']);
 Route::patch('analisis-producto-no-conforme/{id}/estado', [AnalisisProductoNoConformeController::class, 'cambiarEstado']);
 
+Route::get('/vsm/prioridades', [DashboardOperativoController::class, 'getPrioridades']);
+Route::patch('/vsm/origenes/{id}/prioridad', [DashboardOperativoController::class, 'updatePrioridad']);
 Route::apiResource('/vsm/ordenes', DashboardOperativoController::class);
 
 //RUTAS  PARA CONTABILIDAD

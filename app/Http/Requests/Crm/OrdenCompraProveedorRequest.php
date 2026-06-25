@@ -33,6 +33,16 @@ class OrdenCompraProveedorRequest extends FormRequest
             'detalles.*.descripcion' => 'required|string|max:255',
            'detalles.*.cantidad_solicitada' => 'required|numeric|min:0.01',
           'detalles.*.cantidad_entregada' => 'nullable|numeric|gte:0',
+            'detalles.*.origenes' => 'nullable|array',
+            'detalles.*.origenes.*.orden_compra_id' => 'required_with:detalles.*.origenes|exists:orden__compras,id',
+            'detalles.*.origenes.*.orden_compra_detalle_id' => 'required_with:detalles.*.origenes|exists:orden__compra__detalles,id',
+            'detalles.*.origenes.*.producto_id' => 'nullable|exists:products,id',
+            'detalles.*.origenes.*.sede_id' => 'nullable|exists:sedes,id',
+            'detalles.*.origenes.*.bodega_id' => 'nullable|exists:bodegas,id',
+            'detalles.*.origenes.*.cantidad_solicitada' => 'required_with:detalles.*.origenes|numeric|min:0.01',
+            'detalles.*.origenes.*.cantidad_prioridad' => 'nullable|numeric|min:0',
+            'detalles.*.origenes.*.cantidad_recibida_aplicada' => 'nullable|numeric|min:0',
+            'detalles.*.origenes.*.prioridad_snapshot' => 'nullable|array',
 
 
         ];

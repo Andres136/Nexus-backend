@@ -9,6 +9,7 @@ use App\Models\Crm\Orden_servicio\OrdenServicio;
 use App\Models\Crm\Orden_servicio\OrdenServicioDetalle;
 use App\Models\Crm\OrdenCompraProveedor;
 use App\Models\Crm\OrdenCompraProveedorDetalle;
+use App\Models\Crm\OrdenCompraProveedorDetalleOrigen;
 use App\Models\Crm\OrdenDetalleObservaciones;
 use Illuminate\Support\Facades\DB;
 
@@ -105,6 +106,8 @@ class EntregasService
             $detalle->cantidad_entregada += $data['cantidad_entregada'];
             $detalle->save();
 
+            $this->aplicarEntregaAPrioridades($detalle->id, (float) $data['cantidad_entregada']);
+
             // 3️ Verificar si detalle quedó completo
             $this->verificarDetalleCompleto($data);
             // Buscar OrdenServicio relacionada
@@ -142,6 +145,42 @@ class EntregasService
                 'detalle' => $detalle
             ];
         });
+    }
+
+    private function aplicarEntregaAPrioridades(int $detalleProveedorId, float $cantidadEntregada): void
+    {
+        if ($cantidadEntregada <= 0) {
+            return;
+        }
+
+        $pendienteAplicar = $cantidadEntregada;
+
+        $origenes = OrdenCompraProveedorDetalleOrigen::query()
+            ->where('orden_compra_proveedor_detalle_id', $detalleProveedorId)
+            ->orderByRaw("JSON_UNQUOTE(JSON_EXTRACT(prioridad_snapshot, '$.fecha_entrega')) IS NULL")
+            ->orderByRaw("JSON_UNQUOTE(JSON_EXTRACT(prioridad_snapshot, '$.fecha_entrega')) ASC")
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($origenes as $origen) {
+            $cantidadPrioridad = (float) ($origen->cantidad_prioridad ?: $origen->cantidad_solicitada);
+            $pendienteOrigen = max(0, $cantidadPrioridad - (float) $origen->cantidad_recibida_aplicada);
+
+            if ($pendienteOrigen <= 0) {
+                continue;
+            }
+
+            $aplicar = min($pendienteAplicar, $pendienteOrigen);
+            $origen->cantidad_recibida_aplicada += $aplicar;
+            $origen->save();
+
+            $pendienteAplicar -= $aplicar;
+
+            if ($pendienteAplicar <= 0) {
+                break;
+            }
+        }
     }
 
 

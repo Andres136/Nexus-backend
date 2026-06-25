@@ -10,6 +10,7 @@ use App\Models\Crm\Orden_servicio\OrdenServicio;
 use App\Models\Crm\OrdenCompraProveedor;
 
 use App\Models\Crm\OrdenCompraProveedorDetalle;
+use App\Models\Crm\OrdenCompraProveedorDetalleOrigen;
 use App\Models\Crm\OrdenComprasHistorial;
 use App\Models\Crm\OrdenDeTrabajo;
 use App\Models\Crm\product;
@@ -42,6 +43,94 @@ class DhasboardOperativoService
            
         ];
     }
+
+public function getPrioridadesActivas($filters = [])
+{
+    $perPage = max(1, (int)($filters['per_page'] ?? 25));
+    $page    = max(1, (int)($filters['page']     ?? 1));
+
+    $base = OrdenCompraProveedorDetalleOrigen::query()
+        ->whereHas('ordenCompra', function ($q) {
+            $q->whereIn('estado_id', [
+                EstadoEnum::PENDIENTE->value,
+                EstadoEnum::ENTREGA_PARCIAL->value,
+            ]);
+        })
+        ->where('cantidad_prioridad', '>', 0)
+        ->when(!empty($filters['sede_id']), fn($q) => $q->where('sede_id', $filters['sede_id']))
+        ->when(!empty($filters['solo_pendientes']), fn($q) => $q->whereRaw('cantidad_recibida_aplicada < cantidad_prioridad'))
+        ->when(!empty($filters['search']), function ($q) use ($filters) {
+            $q->whereHas('producto', function ($pq) use ($filters) {
+                $pq->where('name', 'LIKE', "%{$filters['search']}%")
+                   ->orWhere('code', 'LIKE', "%{$filters['search']}%");
+            });
+        });
+
+    $stats = (clone $base)->selectRaw('
+        COUNT(*) as total,
+        SUM(CASE WHEN cantidad_recibida_aplicada >= cantidad_prioridad THEN 1 ELSE 0 END) as completas,
+        SUM(CASE WHEN cantidad_recibida_aplicada < cantidad_prioridad THEN 1 ELSE 0 END) as pendientes,
+        SUM(CASE WHEN cantidad_prioridad > cantidad_recibida_aplicada THEN cantidad_prioridad - cantidad_recibida_aplicada ELSE 0 END) as kg_pendiente
+    ')->first();
+
+    $paginador = (clone $base)->with([
+        'detalleProveedor.orden.proveedor',
+        'ordenCompra.cliente',
+        'ordenCompra.sede',
+        'producto',
+    ])->paginate($perPage, ['*'], 'page', $page);
+
+    $origenes = collect($paginador->items());
+
+    $ocIds = $origenes->pluck('orden_compra_id')->unique();
+    $ordenesTrabajo = DB::table('orden_de_trabajos')
+        ->whereIn('orden_compra_id', $ocIds)
+        ->get()
+        ->keyBy('orden_compra_id');
+
+    $data = $origenes->map(function ($origen) use ($ordenesTrabajo) {
+        $oc        = $origen->ordenCompra;
+        $ot        = $ordenesTrabajo[$oc->id] ?? null;
+        $ocProv    = $origen->detalleProveedor?->orden;
+        $pendiente = max($origen->cantidad_prioridad - $origen->cantidad_recibida_aplicada, 0);
+
+        return [
+            'origen_id'          => $origen->id,
+            'oc_id'              => $oc->id,
+            'oc_numero'          => $oc->numero,
+            'oc_fecha_entrega'   => $oc->fecha_entrega,
+            'cliente'            => optional($oc->cliente)->nombre,
+            'sede'               => optional($oc->sede)->nombre,
+            'orden_trabajo_id'   => $ot?->id,
+            'codigo_producto'    => $origen->producto?->code,
+            'producto'           => $origen->producto?->name,
+            'cantidad_prioridad' => $origen->cantidad_prioridad,
+            'cantidad_recibida'  => $origen->cantidad_recibida_aplicada,
+            'pendiente'          => $pendiente,
+            'pct_cumplimiento'   => $origen->cantidad_prioridad > 0
+                ? round(($origen->cantidad_recibida_aplicada / $origen->cantidad_prioridad) * 100, 1)
+                : 0,
+            'completa'            => $origen->cantidad_recibida_aplicada >= $origen->cantidad_prioridad,
+            'oc_proveedor_id'     => $ocProv?->id,
+            'oc_proveedor_numero' => $ocProv?->numero_orden,
+            'proveedor'           => $ocProv?->proveedor?->nombre,
+        ];
+    })->values();
+
+    return [
+        'data'         => $data,
+        'current_page' => $paginador->currentPage(),
+        'last_page'    => $paginador->lastPage(),
+        'per_page'     => $paginador->perPage(),
+        'total'        => $paginador->total(),
+        'stats'        => [
+            'total'        => (int)   ($stats->total        ?? 0),
+            'completas'    => (int)   ($stats->completas    ?? 0),
+            'pendientes'   => (int)   ($stats->pendientes   ?? 0),
+            'kg_pendiente' => (float) ($stats->kg_pendiente ?? 0),
+        ],
+    ];
+}
 
 public function obtenerOrdenesCompraVSM($filters = [])
 {
@@ -98,20 +187,43 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
 
     // 🔹 2. RECOPILACIÓN DE DATOS EXTERNOS (Bulk Queries)
     
-    // Compras
-    $compras = OrdenCompraProveedorDetalle::whereIn('orden_id', $ordenIds)
+    // Compras con trazabilidad exacta. Las ordenes antiguas/manuales quedan cubiertas por fallback.
+    $comprasExactasPorOc = OrdenCompraProveedorDetalleOrigen::with([
+            'detalleProveedor.orden.proveedor',
+        ])
+        ->whereIn('orden_compra_id', $ordenIds)
         ->when(!empty($filters['producto_id']), function ($q) use ($filters) {
             $q->where('producto_id', $filters['producto_id']);
         })
-        ->select('orden_id', DB::raw('SUM(cantidad_solicitada) as total_solicitado'), DB::raw('SUM(cantidad_entregada) as total_recibido'))
-        ->groupBy('orden_id')->get()->keyBy('orden_id');
+        ->get()
+        ->groupBy('orden_compra_id');
+
+    $productoIds = $ordenes->flatMap(fn($oc) => $oc->detalles->pluck('product_id'))->unique()->filter()->values();
+
+    $proveedorDetallesFallback = OrdenCompraProveedorDetalle::with(['orden.proveedor'])
+        ->whereIn('producto_id', $productoIds)
+        ->whereRaw('COALESCE(cantidad_entregada, 0) < cantidad_solicitada')
+        ->whereHas('orden', function ($query) use ($filters) {
+            $query->whereIn('estado_id', [
+                EstadoEnum::PENDIENTE->value,
+                EstadoEnum::ENTREGA_PARCIAL->value,
+            ])
+                ->when(!empty($filters['sede_id']), fn($sede) => $sede->where('sede_id', $filters['sede_id']))
+                ->when(!empty($filters['bodega_id']), fn($bodega) => $bodega->where('bodega_id', $filters['bodega_id']));
+        })
+        ->get()
+        ->groupBy(fn($detalle) => $detalle->producto_id.'|'.($detalle->orden?->sede_id ?? 'null'));
 
     // Inventario
-    $productoIds = $ordenes->flatMap(fn($oc) => $oc->detalles->pluck('product_id'))->unique();
     $inventario = Inventario::whereIn('producto_id', $productoIds)
-        ->where('sede_id', $sedeId)
-        ->select('producto_id', DB::raw('SUM(stock) as stock_total'))
-        ->groupBy('producto_id')->get()->keyBy('producto_id');
+        ->when($sedeId, fn($query) => $query->where('sede_id', $sedeId))
+        ->select('producto_id', 'sede_id', DB::raw('SUM(stock) as stock_total'))
+        ->groupBy('producto_id', 'sede_id')->get();
+
+    $inventarioPorProductoSede = $inventario->keyBy(fn($item) => $item->producto_id.'|'.($item->sede_id ?? 'null'));
+    $inventarioPorProducto = $inventario
+        ->groupBy('producto_id')
+        ->map(fn($items) => (object) ['stock_total' => $items->sum('stock_total')]);
 
     // Equivalentes
     $equivalentes = AlistamientoOt::whereIn('orden_compra_detalle_id', $detalleIds)
@@ -130,8 +242,10 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
 
     // 🔹 3. PROCESAMIENTO DE LA COLECCIÓN
     return $ordenes->map(function ($oc) use ($filters,
-     $compras,
-      $inventario,
+     $comprasExactasPorOc,
+      $proveedorDetallesFallback,
+      $inventarioPorProductoSede,
+      $inventarioPorProducto,
        $equivalentes, $ordenesTrabajo, $alistamientos, $alistamientoDetalles, $despachos, $historial
     ) {
         
@@ -142,9 +256,23 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
         $totalRequerido = $detalles->sum('cantidad_requerida_kg');
 
         // --- LÓGICA DE COMPRA ---
-        $compra = $compras[$oc->id] ?? null;
-        $totalSolicitado = $compra->total_solicitado ?? 0;
-        $totalRecibido = $compra->total_recibido ?? 0;
+        $origenesCompra = $comprasExactasPorOc[$oc->id] ?? collect();
+        $usaTrazabilidadExacta = $origenesCompra->isNotEmpty();
+
+        if ($usaTrazabilidadExacta) {
+            $totalSolicitado = $origenesCompra->sum(fn($origen) => $origen->cantidad_prioridad ?: $origen->cantidad_solicitada);
+            $totalRecibido = $origenesCompra->sum('cantidad_recibida_aplicada');
+        } else {
+            $detallesProveedorEstimados = $detalles
+                ->flatMap(function ($d) use ($proveedorDetallesFallback, $oc) {
+                    return $proveedorDetallesFallback[$d->product_id.'|'.($oc->sede_id ?? 'null')] ?? collect();
+                })
+                ->unique('id')
+                ->values();
+
+            $totalSolicitado = $detallesProveedorEstimados->sum('cantidad_solicitada');
+            $totalRecibido = $detallesProveedorEstimados->sum('cantidad_entregada');
+        }
         $faltanteCompra = max($totalSolicitado - $totalRecibido, 0);
 
         $estadoCompra = match(true) {
@@ -183,9 +311,60 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
 
         // --- LÓGICA DE INVENTARIO Y PRODUCTOS ---
         $stockDisponible = 0;
-        $productosData = $detalles->map(function ($d) use ($inventario, $equivalentes, &$stockDisponible) {
-            $stock = $inventario[$d->product_id]->stock_total ?? 0;
+        $productosData = $detalles->map(function ($d) use (
+            $oc,
+            $origenesCompra,
+            $usaTrazabilidadExacta,
+            $proveedorDetallesFallback,
+            $inventarioPorProductoSede,
+            $inventarioPorProducto,
+            $equivalentes,
+            &$stockDisponible
+        ) {
+            $stockKey = $d->product_id.'|'.($oc->sede_id ?? 'null');
+            $stock = $inventarioPorProductoSede[$stockKey]->stock_total
+                ?? $inventarioPorProducto[$d->product_id]->stock_total
+                ?? 0;
             $stockDisponible += $stock;
+
+            if ($usaTrazabilidadExacta) {
+                $origenesProducto = $origenesCompra
+                    ->where('orden_compra_detalle_id', $d->id)
+                    ->values();
+                $compraSolicitada = $origenesProducto->sum(fn($origen) => $origen->cantidad_prioridad ?: $origen->cantidad_solicitada);
+                $compraRecibida = $origenesProducto->sum('cantidad_recibida_aplicada');
+                $prioridades = $origenesProducto->map(fn($origen) => [
+                    'origen_id' => $origen->id,
+                    'orden_compra_id' => $origen->orden_compra_id,
+                    'orden_compra_detalle_id' => $origen->orden_compra_detalle_id,
+                    'cantidad_prioridad' => $origen->cantidad_prioridad ?: $origen->cantidad_solicitada,
+                    'cantidad_recibida' => $origen->cantidad_recibida_aplicada,
+                    'pendiente' => max(
+                        ($origen->cantidad_prioridad ?: $origen->cantidad_solicitada)
+                        - $origen->cantidad_recibida_aplicada,
+                        0
+                    ),
+                    'completa' => $origen->cantidad_recibida_aplicada >= ($origen->cantidad_prioridad ?: $origen->cantidad_solicitada),
+                    'snapshot' => $origen->prioridad_snapshot,
+                ])->values();
+                $ordenesProveedor = $origenesProducto
+                    ->map(fn($origen) => $origen->detalleProveedor?->orden)
+                    ->filter()
+                    ->unique('id')
+                    ->values();
+            } else {
+                $detallesProveedor = ($proveedorDetallesFallback[$d->product_id.'|'.($oc->sede_id ?? 'null')] ?? collect())
+                    ->unique('id')
+                    ->values();
+                $compraSolicitada = $detallesProveedor->sum('cantidad_solicitada');
+                $compraRecibida = $detallesProveedor->sum('cantidad_entregada');
+                $prioridades = collect();
+                $ordenesProveedor = $detallesProveedor
+                    ->map(fn($detalleProveedor) => $detalleProveedor->orden)
+                    ->filter()
+                    ->unique('id')
+                    ->values();
+            }
 
                 $requerido = $d->cantidad_requerida_kg ?? 0;
     $entregado = $d->cantidad_enviada ?? 0;
@@ -203,14 +382,30 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
             return [
                 'detalle_id' => $d->id,
                 'producto_id' => $d->product_id,
+                'codigo' => $d->product?->code,
                 'producto' => optional($d->product)->name,
                 
-                'requerido' => $d->cantidad,
+                'requerido' => $d->cantidad_requerida_kg,
                   'entregado' => $entregado, // 
                    'faltante' => $faltante,   // 
                 'stock' => $stock,
                 'estado' => $estadoItem,
-                'tiene_equivalente' => $tieneEquivalente
+                'tiene_equivalente' => $tieneEquivalente,
+                'compra_proveedor' => [
+                    'trazabilidad' => $usaTrazabilidadExacta ? 'exacta' : 'estimada',
+                    'total_solicitado' => $compraSolicitada,
+                    'total_recibido' => $compraRecibida,
+                    'pendiente' => max($compraSolicitada - $compraRecibida, 0),
+                    'prioridades' => $prioridades,
+                    'prioridad_completa' => $prioridades->isNotEmpty()
+                        ? $prioridades->every(fn($prioridad) => $prioridad['completa'])
+                        : null,
+                    'ordenes' => $ordenesProveedor->map(fn($ordenProveedor) => [
+                        'id' => $ordenProveedor->id,
+                        'numero_orden' => $ordenProveedor->numero_orden,
+                        'proveedor' => $ordenProveedor->proveedor?->nombre,
+                    ])->values(),
+                ],
             ];
         });
 
@@ -262,7 +457,8 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
                 'total_solicitado' => $totalSolicitado,
                 'total_recibido'   => $totalRecibido,
                 'faltante'         => $faltanteCompra,
-                'estado'           => $estadoCompra
+                'estado'           => $estadoCompra,
+                'trazabilidad'     => $usaTrazabilidadExacta ? 'exacta' : 'estimada',
             ],
             'alistamiento'    => [
                 'estado'           => $estadoAlistamiento,

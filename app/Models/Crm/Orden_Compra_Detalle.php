@@ -53,6 +53,11 @@ public function product()
     return $this->belongsTo(product::class, 'product_id');
 }
 
+public function comprasProveedorOrigenes()
+{
+    return $this->hasMany(OrdenCompraProveedorDetalleOrigen::class, 'orden_compra_detalle_id');
+}
+
 
 
 }
