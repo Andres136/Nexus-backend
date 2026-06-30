@@ -11,6 +11,7 @@ use App\Http\Controllers\contabilidad\FormaPagoController;
 use App\Http\Controllers\contabilidad\ImpuestoController;
 use App\Http\Controllers\contabilidad\PuckController;
 use App\Http\Controllers\contabilidad\RegistroPagoFacturaCompraController;
+use App\Http\Controllers\Corporate\CorporateDocumentController;
 use App\Http\Controllers\Crm\AlistamientoOtController;
 use App\Http\Controllers\Crm\BodegaController;
 use App\Http\Controllers\Crm\CarpetaController;
@@ -138,6 +139,9 @@ use SebastianBergmann\CodeCoverage\Report\Html\Dashboard;
 Route::get('/r/{token}',  [EncuestaController::class, 'showPublico']);
 Route::post('/r/{token}', [EncuestaController::class, 'responder']);
 Route::get('capacitacion-encuestas/publica/{token}', [CapacitacionEncuestaController::class, 'showPublica']);
+Route::get('corporate-documents', [CorporateDocumentController::class, 'index']);
+Route::get('corporate-documents/{slug}', [CorporateDocumentController::class, 'show']);
+Route::post('corporate-documents/{slug}/download', [CorporateDocumentController::class, 'download']);
 Route::post('capacitacion-encuestas/publica/{token}', [CapacitacionEncuestaController::class, 'responderPublica']);
 Route::post('nomina/kiosko-devices/activate', [KioskoDeviceController::class, 'activateDevice']);
 Route::post('nomina/kiosko-devices/validate-session', [KioskoDeviceController::class, 'validateSession']);
@@ -152,6 +156,12 @@ Route::get('nomina/kiosko-permisos', [PermisoController::class, 'kioskIndex']);
 Route::get('nomina/kiosko-horas-extras', [HoraExtraController::class, 'kioskIndex']);
 
 Route::middleware('auth:sanctum')->group(function () {
+  Route::get('admin/corporate-documents', [CorporateDocumentController::class, 'adminIndex']);
+  Route::post('admin/corporate-documents', [CorporateDocumentController::class, 'adminStore']);
+  Route::get('admin/corporate-documents/{corporateDocument}', [CorporateDocumentController::class, 'adminShow']);
+  Route::put('admin/corporate-documents/{corporateDocument}', [CorporateDocumentController::class, 'adminUpdate']);
+  Route::delete('admin/corporate-documents/{corporateDocument}', [CorporateDocumentController::class, 'adminDestroy']);
+
   Route::get('/user', function (Request $request) {
     return $request->user();
   });  
