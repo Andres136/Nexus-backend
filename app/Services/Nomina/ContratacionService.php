@@ -2,6 +2,7 @@
 
 namespace App\Services\Nomina;
 
+use App\EstadoEnum;
 use App\Models\Nomina\Contratacion;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -14,7 +15,7 @@ class ContratacionService
 {
     private const WITH = [
         'tipoContrato:id,nombre,codigo',
-        'usuario:id,name,email,sede_id',
+        'usuario:id,name,apellidos,email,sede_id',
         'usuario.sede:id,nombre',
         'empresa:id,nombre',
         'parametroLaboral:id,uuid,anio,fecha_vigencia,salario_minimo,auxilio_transporte',
@@ -47,6 +48,7 @@ class ContratacionService
                       ->orWhere('base_salario', 'like', "%{$search}%")
                       ->orWhere('no_salarial', 'like', "%{$search}%")
                       ->orWhereHas('usuario', fn($u) => $u->where('name', 'like', "%{$search}%")
+                                                           ->orWhere('apellidos', 'like', "%{$search}%")
                                                            ->orWhere('email', 'like', "%{$search}%"))
                       ->orWhereHas('tipoContrato', fn($t) => $t->where('nombre', 'like', "%{$search}%")
                                                                ->orWhere('codigo', 'like', "%{$search}%"))
@@ -89,9 +91,11 @@ class ContratacionService
         return User::select(
             'users.id',
             'users.name',
+            'users.apellidos',
             'users.sede_id',
             DB::raw('(SELECT c.numero_documento FROM contrataciones c WHERE c.users_id = users.id ORDER BY c.id DESC LIMIT 1) as numero_documento')
         )
+            ->where('users.estado_id', EstadoEnum::ACTIVO->value)
             ->when(!empty($filters['con_contrato']), fn ($query) =>
                 $query->whereHas('contratacionActivaNomina'))
             ->when(!empty($filters['sede_id']), fn ($query) =>

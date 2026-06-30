@@ -35,6 +35,7 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'apellidos',
         'email',
         'telefono',
         'password',
@@ -44,6 +45,15 @@ class User extends Authenticatable
         'estado_id'
         ,'sede_id'
     ];
+
+    protected $appends = [
+        'nombre_completo',
+    ];
+
+    public function getNombreCompletoAttribute(): string
+    {
+        return trim(collect([$this->name, $this->apellidos])->filter()->implode(' '));
+    }
 
     //funcion para relacionar usuarios con documentos
     public function documentos()

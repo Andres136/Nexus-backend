@@ -27,6 +27,7 @@ class AuthController extends Controller
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('apellidos', 'like', "%{$search}%")
                   ->orWhere('email', 'like', "%{$search}%")
                   ->orWhere('telefono', 'like', "%{$search}%");
             });
@@ -53,6 +54,7 @@ class AuthController extends Controller
  
         $user = User::create([
             'name' => $request->name,
+            'apellidos' => $request->apellidos,
             'email' => $request->email,
             'password' => bcrypt($request->password),
             'telefono' => $request->telefono,
@@ -111,6 +113,7 @@ class AuthController extends Controller
     
         // 4) Rellena el resto de campos
         $user->name            = $request->name;
+        $user->apellidos       = $request->input('apellidos', $user->apellidos);
         $user->email           = $request->email;
         $user->telefono        = $request->telefono;
         $user->role_id         = $request->role_id;
@@ -276,11 +279,14 @@ public function DepartamentoUsuario($id)
 public function indexUsuarios(Request $request)
 { 
      $search = $request->input('search');
-    $query = User::select('id', 'name', 'sede_id')
+    $query = User::select('id', 'name', 'apellidos', 'sede_id')
                      ->where('estado_id', 3); // Solo usuarios activos
 
     if ($search && strlen($search) >= 2) {
-        $query->where('name', 'like', "%$search%");
+        $query->where(function ($q) use ($search) {
+            $q->where('name', 'like', "%$search%")
+              ->orWhere('apellidos', 'like', "%$search%");
+        });
     }
 
     return $query->get(); // sin paginar

@@ -23,6 +23,7 @@ class RegistroRequest extends FormRequest
     {
         return [
             'name' => 'required|string',
+            'apellidos' => 'nullable|string|max:255',
             'email' => 'required|email|unique:users,email',
             'telefono' => 'required|string',
             'password' => 'required|string',
@@ -38,6 +39,8 @@ class RegistroRequest extends FormRequest
     {
         return [
             'name.required' => 'El nombre es requerido',
+            'apellidos.string' => 'Los apellidos deben ser texto',
+            'apellidos.max' => 'Los apellidos no deben superar 255 caracteres',
             'email.required' => 'El email es requerido',
             'email.email' => 'El email no es válido',
             'email.unique' => 'El email ya está registrado',
