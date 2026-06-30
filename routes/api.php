@@ -293,6 +293,7 @@ Route::post('tickets/{ticket}/historial', [TicketController::class, 'agregarHist
 Route::apiResource('tickets', TicketController::class);
 //Rutas Proveedores detalles item
 Route::post('/detalles-orden', [OrdenCompraProveedorController::class, 'storeDetalle']);
+Route::post('/detalles-orden/prioridad-existente', [OrdenCompraProveedorController::class, 'storePrioridadDetalleExistente']);
 Route::put('/detalles-orden/{id}', [EntregaProveedorController::class, 'updateDetalle']);
 Route::put('/ordenes-compra-proveedor/{id}/update-proveedor', [OrdenCompraProveedorController::class, 'updateProveedor']);
 Route::delete('/detalles-orden/{id}', [EntregaProveedorController::class, 'eliminarItem']);

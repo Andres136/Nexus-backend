@@ -348,7 +348,7 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
                     'snapshot' => $origen->prioridad_snapshot,
                 ])->values();
                 $ordenesProveedor = $origenesProducto
-                    ->map(fn($origen) => $origen->detalleProveedor?->orden)
+                    ->map(fn($origen) => $origen->detalleProveedor)
                     ->filter()
                     ->unique('id')
                     ->values();
@@ -360,7 +360,6 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
                 $compraRecibida = $detallesProveedor->sum('cantidad_entregada');
                 $prioridades = collect();
                 $ordenesProveedor = $detallesProveedor
-                    ->map(fn($detalleProveedor) => $detalleProveedor->orden)
                     ->filter()
                     ->unique('id')
                     ->values();
@@ -400,10 +399,18 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
                     'prioridad_completa' => $prioridades->isNotEmpty()
                         ? $prioridades->every(fn($prioridad) => $prioridad['completa'])
                         : null,
-                    'ordenes' => $ordenesProveedor->map(fn($ordenProveedor) => [
-                        'id' => $ordenProveedor->id,
-                        'numero_orden' => $ordenProveedor->numero_orden,
-                        'proveedor' => $ordenProveedor->proveedor?->nombre,
+                    'ordenes' => $ordenesProveedor->map(fn($detalleProveedor) => [
+                        'id' => $detalleProveedor->orden?->id,
+                        'detalle_id' => $detalleProveedor->id,
+                        'numero_orden' => $detalleProveedor->orden?->numero_orden,
+                        'proveedor' => $detalleProveedor->orden?->proveedor?->nombre,
+                        'cantidad_solicitada' => $detalleProveedor->cantidad_solicitada,
+                        'cantidad_entregada' => $detalleProveedor->cantidad_entregada,
+                        'pendiente' => max(
+                            (float) $detalleProveedor->cantidad_solicitada
+                            - (float) $detalleProveedor->cantidad_entregada,
+                            0
+                        ),
                     ])->values(),
                 ],
             ];

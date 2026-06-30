@@ -582,6 +582,74 @@ public function entregasShow($id)
         return response()->json(['message' => 'Detalle creado correctamente.']);
     }
 
+    public function storePrioridadDetalleExistente(Request $request)
+    {
+        $data = $request->validate([
+            'orden_compra_proveedor_detalle_id' => 'required|exists:orden_compra_proveedor_detalles,id',
+            'orden_compra_id' => 'required|exists:orden__compras,id',
+            'orden_compra_detalle_id' => 'required|exists:orden__compra__detalles,id',
+            'producto_id' => 'nullable|exists:products,id',
+            'sede_id' => 'nullable|exists:sedes,id',
+            'bodega_id' => 'nullable|exists:bodegas,id',
+            'cantidad_solicitada' => 'required|numeric|min:0.01',
+            'cantidad_prioridad' => 'required|numeric|min:0.01',
+            'prioridad_snapshot' => 'nullable|array',
+        ]);
+
+        return DB::transaction(function () use ($data) {
+            $detalleProveedor = OrdenCompraProveedorDetalle::with('orden')
+                ->lockForUpdate()
+                ->findOrFail($data['orden_compra_proveedor_detalle_id']);
+
+            $origenExistente = OrdenCompraProveedorDetalleOrigen::where([
+                'orden_compra_proveedor_detalle_id' => $detalleProveedor->id,
+                'orden_compra_detalle_id' => $data['orden_compra_detalle_id'],
+            ])->first();
+
+            $prioridadAsignada = OrdenCompraProveedorDetalleOrigen::where(
+                'orden_compra_proveedor_detalle_id',
+                $detalleProveedor->id
+            )
+                ->when($origenExistente, fn($q) => $q->where('id', '!=', $origenExistente->id))
+                ->sum('cantidad_prioridad');
+
+            $disponiblePrioridad = max((float) $detalleProveedor->cantidad_solicitada - (float) $prioridadAsignada, 0);
+
+            if ((float) $data['cantidad_prioridad'] > $disponiblePrioridad) {
+                return response()->json([
+                    'message' => 'La prioridad supera la cantidad disponible en el item de la OC proveedor.',
+                    'disponible_prioridad' => $disponiblePrioridad,
+                    'cantidad_prioridad' => (float) $data['cantidad_prioridad'],
+                ], 422);
+            }
+
+            $origen = $origenExistente ?? new OrdenCompraProveedorDetalleOrigen([
+                'orden_compra_proveedor_detalle_id' => $detalleProveedor->id,
+                'cantidad_recibida_aplicada' => 0,
+            ]);
+
+            $origen->fill([
+                'orden_compra_id' => $data['orden_compra_id'],
+                'orden_compra_detalle_id' => $data['orden_compra_detalle_id'],
+                'producto_id' => $data['producto_id'] ?? $detalleProveedor->producto_id,
+                'sede_id' => $data['sede_id'] ?? $detalleProveedor->orden?->sede_id,
+                'bodega_id' => $data['bodega_id'] ?? $detalleProveedor->orden?->bodega_id,
+                'cantidad_solicitada' => $data['cantidad_solicitada'],
+                'cantidad_prioridad' => $data['cantidad_prioridad'],
+                'prioridad_snapshot' => $data['prioridad_snapshot'] ?? null,
+            ]);
+
+            $origen->save();
+
+            return response()->json([
+                'message' => $origenExistente
+                    ? 'Prioridad actualizada sobre el item existente.'
+                    : 'Prioridad agregada sobre el item existente.',
+                'origen' => $origen,
+            ], $origenExistente ? 200 : 201);
+        });
+    }
+
     private function crearOrigenesDetalleProveedor(
         OrdenCompraProveedorDetalle $detalleProveedor,
         array $origenes,
