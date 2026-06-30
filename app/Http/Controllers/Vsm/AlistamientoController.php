@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Vsm;
 
 use App\EstadoEnum;
+use App\RolEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Vsm\AlistamientoCreateRequest;
 use App\Http\Requests\Vsm\StoreRegistrarProduccionRequest;
@@ -199,6 +200,14 @@ public function ordenesTrabajoAlistamiento(Request $request)
     $search = $request->input('search');
 
     $user = Auth::user();
+    $sedeIdFiltro = $request->input('sede_id');
+    $puedeVerTodas = in_array((int) $user->role_id, [
+        RolEnum::ADMINISTRADOR->value,
+        RolEnum::ADMINISTRATIVO->value,
+    ]);
+    $sedeId = ($puedeVerTodas && $sedeIdFiltro)
+        ? (int) $sedeIdFiltro
+        : (!$puedeVerTodas ? $user->sede_id : null);
 
     $ordenes = OrdenDeTrabajo::with([
         'ordenCompra.cliente',
@@ -212,19 +221,15 @@ public function ordenesTrabajoAlistamiento(Request $request)
         EstadoEnum::ENTREGA_PARCIAL->value,
     ])
 
-    // 🔥 FILTRO POR SEDE
-    ->when(
-        $user->sede_id,
-        function ($query) use ($user) {
+    ->when($sedeId, function ($query) use ($sedeId, $puedeVerTodas) {
+        $query->whereHas('ordenCompra', function ($q) use ($sedeId, $puedeVerTodas) {
+            $q->where('sede_id', $sedeId);
 
-            $query->whereHas('ordenCompra', function ($q) use ($user) {
-
-                $q->where('sede_id', $user->sede_id);
-
-            });
-
-        }
-    )
+            if (!$puedeVerTodas) {
+                $q->orWhereNull('sede_id');
+            }
+        });
+    })
 
     ->when($search, function ($q) use ($search) {
 
