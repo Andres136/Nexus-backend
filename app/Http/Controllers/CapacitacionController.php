@@ -14,7 +14,7 @@ class CapacitacionController extends Controller
     {
         return response()->json(
             $this->capacitacionService->getAll(
-                $request->only(['search', 'fecha_desde', 'fecha_hasta', 'estado', 'user_id', 'propias']),
+                $request->only(['search', 'fecha_desde', 'fecha_hasta', 'estado', 'user_id', 'propias', 'page', 'per_page']),
                 $request->user()
             )
         );

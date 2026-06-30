@@ -5,14 +5,15 @@ namespace App\Services;
 use App\Models\Capacitacion;
 use App\Models\User;
 use Carbon\Carbon;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 
 class CapacitacionService
 {
-    public function getAll(array $filters, User $user): Collection
+    public function getAll(array $filters, User $user)
     {
+        $perPage = min(max((int) ($filters['per_page'] ?? 25), 1), 100);
+
         $capacitaciones = Capacitacion::query()
             ->with('creador:id,name,email')
             ->withCount('encuestas')
@@ -40,9 +41,13 @@ class CapacitacionService
                 $query->where('user_id', $user->id))
             ->orderBy('fecha_realizacion')
             ->orderBy('hora_inicio')
-            ->get();
+            ->paginate($perPage);
 
-        return $capacitaciones->map(fn ($capacitacion) => $this->marcarPermisos($capacitacion, $user));
+        $capacitaciones->getCollection()->transform(
+            fn ($capacitacion) => $this->marcarPermisos($capacitacion, $user)
+        );
+
+        return $capacitaciones;
     }
 
     public function show(string $uuid, User $user): Capacitacion

@@ -59,15 +59,14 @@ class DocumentosAdministrativosController extends Controller
 
      public function show($id)
      {
-         $documentos = Documentos_Administrativos::where('carpeta_id', $id)->get();
-     
-         if ($documentos->isEmpty()) {
-             return response()->json([
-                 'message' => 'No se encontraron documentos en esta carpeta'
-             ], 404);
-         }
-     
-         return response()->json($documentos, 200);
+         $perPage = min(max((int) request('per_page', 10), 1), 50);
+
+         return response()->json(
+             Documentos_Administrativos::where('carpeta_id', $id)
+                 ->orderByDesc('created_at')
+                 ->paginate($perPage),
+             200
+         );
      }
      
     public function downloand( $id)

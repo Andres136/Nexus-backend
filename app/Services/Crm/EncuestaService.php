@@ -31,6 +31,7 @@ class EncuestaService
             ->withCount(['envios', 'envios as envios_respondidas_count' => fn ($q) => $q->where('estado', 'respondida')])
             ->latest()
             ->get()
+            ->map(fn (Encuesta $encuesta) => $this->marcarPermisos($encuesta, $user))
             ->toArray();
     }
 
@@ -76,8 +77,9 @@ class EncuestaService
 
     public function destroy(int $id, $user): void
     {
-        $this->autorizarCreador($user);
-        Encuesta::findOrFail($id)->delete();
+        $encuesta = Encuesta::findOrFail($id);
+        $this->autorizarEliminar($encuesta, $user);
+        $encuesta->delete();
     }
 
     // ─── ÍNDICE GENERAL DE SATISFACCIÓN ──────────────────────────────────────
@@ -402,5 +404,34 @@ class EncuestaService
         if (!in_array($user->role_id, $this->rolesCreador)) {
             abort(403, 'No tienes permiso para realizar esta acción');
         }
+    }
+
+    private function autorizarEliminar(Encuesta $encuesta, $user): void
+    {
+        if ($this->fechaYaPaso($encuesta) && !$this->esAdministrador($user)) {
+            abort(403, 'Solo el Administrador puede eliminar encuestas de fechas pasadas.');
+        }
+
+        if (!$this->esAdministrador($user)) {
+            abort(403, 'Solo el Administrador puede eliminar encuestas.');
+        }
+    }
+
+    private function marcarPermisos(Encuesta $encuesta, $user): Encuesta
+    {
+        $encuesta->setAttribute('fecha_pasada', $this->fechaYaPaso($encuesta));
+        $encuesta->setAttribute('puede_eliminar', $this->esAdministrador($user));
+
+        return $encuesta;
+    }
+
+    private function fechaYaPaso(Encuesta $encuesta): bool
+    {
+        return $encuesta->created_at?->lt(today()) ?? false;
+    }
+
+    private function esAdministrador($user): bool
+    {
+        return (int) $user->role_id === RolEnum::ADMINISTRADOR->value;
     }
 }

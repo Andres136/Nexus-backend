@@ -36,6 +36,11 @@ class CorporateDocumentController extends Controller
         ]);
     }
 
+    public function downloadFile(string $slug, Request $request)
+    {
+        return $this->service->downloadFile($slug, $request);
+    }
+
     public function adminIndex(Request $request)
     {
         return response()->json([

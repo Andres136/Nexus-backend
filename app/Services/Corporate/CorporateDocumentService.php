@@ -110,27 +110,26 @@ class CorporateDocumentService
     public function registerDownload(string $slug, Request $request): array
     {
         return DB::transaction(function () use ($slug, $request) {
-            $document = CorporateDocument::where('slug', $slug)
-                ->where('is_active', true)
-                ->lockForUpdate()
-                ->firstOrFail();
-
-            $document->downloads()->create([
-                'ip_address' => $request->ip(),
-                'user_agent' => substr((string) $request->userAgent(), 0, 2000),
-                'referer' => substr((string) $request->headers->get('referer'), 0, 500),
-                'created_at' => now(),
-            ]);
-
-            $document->increment('downloads_count');
-            $document->refresh();
+            $document = $this->registerDownloadEvent($slug, $request);
 
             return [
                 'slug' => $document->slug,
-                'download_url' => $this->fileUrl($document->file_path),
+                'download_url' => $this->downloadUrl($document->slug),
                 'downloads_count' => $document->downloads_count,
             ];
         });
+    }
+
+    public function downloadFile(string $slug, Request $request)
+    {
+        $document = DB::transaction(fn () => $this->registerDownloadEvent($slug, $request));
+        $absolutePath = storage_path('app/public/' . $document->file_path);
+
+        if (!file_exists($absolutePath)) {
+            abort(404, 'Archivo no encontrado.');
+        }
+
+        return response()->download($absolutePath, $this->downloadName($document));
     }
 
     private function documentPayload(array $data): array
@@ -216,7 +215,7 @@ class CorporateDocumentService
             'last_update' => optional($document->last_update)->format('Y-m-d'),
             'category' => $document->category,
             'theme' => $document->theme,
-            'download_url' => $this->fileUrl($document->file_path),
+            'download_url' => $this->downloadUrl($document->slug),
             'preview_url' => $this->fileUrl($document->file_path),
             'downloads_count' => $document->downloads_count,
             'features' => $document->features->pluck('text')->values(),
@@ -237,5 +236,35 @@ class CorporateDocumentService
     private function fileUrl(string $path): string
     {
         return url(Storage::disk('public')->url($path));
+    }
+
+    private function downloadUrl(string $slug): string
+    {
+        return url("/api/corporate-documents/{$slug}/download");
+    }
+
+    private function registerDownloadEvent(string $slug, Request $request): CorporateDocument
+    {
+        $document = CorporateDocument::where('slug', $slug)
+            ->where('is_active', true)
+            ->lockForUpdate()
+            ->firstOrFail();
+
+        $document->downloads()->create([
+            'ip_address' => $request->ip(),
+            'user_agent' => substr((string) $request->userAgent(), 0, 2000),
+            'referer' => substr((string) $request->headers->get('referer'), 0, 500),
+            'created_at' => now(),
+        ]);
+
+        $document->increment('downloads_count');
+        $document->refresh();
+
+        return $document;
+    }
+
+    private function downloadName(CorporateDocument $document): string
+    {
+        return Str::slug($document->title ?: $document->slug) . '.pdf';
     }
 }
