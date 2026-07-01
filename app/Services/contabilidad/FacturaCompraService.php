@@ -422,17 +422,18 @@ public function listar(array $filtros = [], $perPage = 15)
     | FILTRO FECHAS
     |--------------------------------------------------------------------------
     */
-    if (
-        !empty($filtros['fecha_inicial']) &&
-        !empty($filtros['fecha_final'])
-    ) {
+    $fechaInicio = $filtros['fecha_inicio'] ?? $filtros['fecha_inicial'] ?? null;
+    $fechaFin = $filtros['fecha_fin'] ?? $filtros['fecha_final'] ?? null;
+
+    if (!empty($fechaInicio) && !empty($fechaFin)) {
         $query->whereBetween(
             'fecha_emision',
-            [
-                $filtros['fecha_inicial'],
-                $filtros['fecha_final']
-            ]
+            [$fechaInicio, $fechaFin]
         );
+    } elseif (!empty($fechaInicio)) {
+        $query->whereDate('fecha_emision', '>=', $fechaInicio);
+    } elseif (!empty($fechaFin)) {
+        $query->whereDate('fecha_emision', '<=', $fechaFin);
     }
 
     /*
