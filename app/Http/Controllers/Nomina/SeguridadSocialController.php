@@ -21,6 +21,7 @@ public function index(Request $request): JsonResponse
         'search'       => $request->get('search'),
         'fecha_inicio' => $request->get('fecha_inicio'),
         'fecha_fin'    => $request->get('fecha_fin'),
+        'tipo'         => $request->get('tipo'),
         'per_page'     => $request->get('per_page', 10),
     ];
 

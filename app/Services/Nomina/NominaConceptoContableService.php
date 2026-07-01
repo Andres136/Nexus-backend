@@ -18,6 +18,7 @@ class NominaConceptoContableService
 
         return NominaConceptoContable::with(self::WITH)
             ->when(! empty($filters['tipo']), fn ($query) => $query->where('tipo', $filters['tipo']))
+            ->when(! empty($filters['clasificacion_nomina']), fn ($query) => $query->where('clasificacion_nomina', $filters['clasificacion_nomina']))
             ->when(isset($filters['activo']) && $filters['activo'] !== '', fn ($query) => $query->where('activo', filter_var($filters['activo'], FILTER_VALIDATE_BOOLEAN)))
             ->when(! empty($filters['sin_cuenta']), fn ($query) => $query->whereNull('puck_id'))
             ->when(! empty($filters['search']), function ($query) use ($filters) {
@@ -71,13 +72,24 @@ class NominaConceptoContableService
                     'codigo' => $codigo,
                     'nombre' => $definicion['nombre'],
                     'tipo' => $definicion['tipo'],
+                    'clasificacion_nomina' => $definicion['clasificacion_nomina'] ?? 'otro',
                     'puck_id' => null,
                     'naturaleza' => $definicion['naturaleza'],
+                    'afecta_base_aportes' => $definicion['afecta_base_aportes'] ?? false,
+                    'afecta_prestaciones' => $definicion['afecta_prestaciones'] ?? false,
+                    'es_pago_no_salarial' => $definicion['es_pago_no_salarial'] ?? false,
                     'requiere_tercero' => $definicion['requiere_tercero'] ?? true,
                     'requiere_centro_costo' => $definicion['requiere_centro_costo'] ?? false,
                     'activo' => true,
                 ]);
             }
+
+            $concepto->update([
+                'clasificacion_nomina' => $definicion['clasificacion_nomina'] ?? $concepto->clasificacion_nomina ?? 'otro',
+                'afecta_base_aportes' => $definicion['afecta_base_aportes'] ?? $concepto->afecta_base_aportes ?? false,
+                'afecta_prestaciones' => $definicion['afecta_prestaciones'] ?? $concepto->afecta_prestaciones ?? false,
+                'es_pago_no_salarial' => $definicion['es_pago_no_salarial'] ?? $concepto->es_pago_no_salarial ?? false,
+            ]);
 
             if (! $cuenta) {
                 $faltantes[] = [

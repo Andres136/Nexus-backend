@@ -22,6 +22,7 @@ class NominaConceptoContableController extends Controller
         try {
             $filters = [
                 'tipo' => $request->query('tipo'),
+                'clasificacion_nomina' => $request->query('clasificacion_nomina'),
                 'activo' => $request->query('activo'),
                 'sin_cuenta' => $request->query('sin_cuenta'),
                 'search' => $request->query('search'),

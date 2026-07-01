@@ -71,6 +71,7 @@ use App\Http\Controllers\Hseq\TipoServicioController;
 use App\Http\Controllers\IndicadoresProcesosController;
 use App\Http\Controllers\MacroProcesoController;
 use App\Http\Controllers\Nomina\ContratacionController;
+use App\Http\Controllers\Nomina\ContratacionCambioController;
 use App\Http\Controllers\Nomina\ConfiguracionNominaController;
 use App\Http\Controllers\Nomina\ComisionController;
 use App\Http\Controllers\Nomina\DescuentoController;
@@ -628,6 +629,7 @@ Route::prefix('nomina')->group(function () {
     Route::get('contratacion/{uuid}/certificado', [ContratacionController::class, 'certificado']);
     Route::post('contratacion/{uuid}/certificado/enviar', [ContratacionController::class, 'enviarCertificado']);
     Route::patch('contratacion/{uuid}/estado', [ContratacionController::class, 'cambiarEstado']);
+    Route::apiResource('contratacion-cambios', ContratacionCambioController::class)->only(['index', 'store', 'show']);
     Route::apiResource('contratacion', ContratacionController::class);
     Route::apiResource('ajustes-salariales', AjusteSalarialContratacionController::class)->only(['index', 'store', 'show', 'destroy']);
     Route::apiResource('seguridad-social', SeguridadSocialController::class);

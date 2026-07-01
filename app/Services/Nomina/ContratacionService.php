@@ -23,6 +23,7 @@ class ContratacionService
         'arl:id,nombre,nit',
         'fondoPensiones:id,nombre,nit',
         'cajaPenciones:id,nombre,nit',
+        'fondoCesantias:id,nombre,nit',
     ];
 
     public function getAll(array $filters = []): LengthAwarePaginator
@@ -176,6 +177,13 @@ class ContratacionService
             $data['auxilio_transporte'] = $data['auxilio_transporte'] ?? 0;
             $data['no_salarial'] = $data['no_salarial'] ?? 0;
             $data['dias_vacaciones_iniciales'] = $data['dias_vacaciones_iniciales'] ?? 0;
+            $data['salario_integral'] = $data['salario_integral'] ?? false;
+            $data['aplica_salud'] = $data['aplica_salud'] ?? true;
+            $data['aplica_pension'] = $data['aplica_pension'] ?? true;
+            $data['aplica_arl'] = $data['aplica_arl'] ?? true;
+            $data['aplica_sena'] = $data['aplica_sena'] ?? true;
+            $data['aplica_icbf'] = $data['aplica_icbf'] ?? true;
+            $data['aplica_caja_compensacion'] = $data['aplica_caja_compensacion'] ?? true;
         }
 
         if (($data['tipo_salario'] ?? null) && $data['tipo_salario'] !== 'salario_minimo') {

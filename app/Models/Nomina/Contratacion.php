@@ -24,6 +24,7 @@ class Contratacion extends Model
         'correo',
         'cargo',
         'tipo_salario',
+        'salario_integral',
         'parametro_laboral_id',
         'no_salarial',
         'base_salario',
@@ -37,6 +38,13 @@ class Contratacion extends Model
         'arl_id',
         'fondo_pensiones_id',
         'caja_penciones_id',
+        'fondo_cesantias_id',
+        'aplica_salud',
+        'aplica_pension',
+        'aplica_arl',
+        'aplica_sena',
+        'aplica_icbf',
+        'aplica_caja_compensacion',
     ];
 
     protected $casts = [
@@ -47,6 +55,13 @@ class Contratacion extends Model
         'inicio_contratacion' => 'date',
         'fin_contrato'        => 'datetime',
         'status'              => 'boolean',
+        'salario_integral'    => 'boolean',
+        'aplica_salud'        => 'boolean',
+        'aplica_pension'      => 'boolean',
+        'aplica_arl'          => 'boolean',
+        'aplica_sena'         => 'boolean',
+        'aplica_icbf'         => 'boolean',
+        'aplica_caja_compensacion' => 'boolean',
     ];
 
     protected static function booted()
@@ -96,6 +111,11 @@ class Contratacion extends Model
         return $this->belongsTo(SeguridadSocial::class, 'caja_penciones_id')->withTrashed();
     }
 
+    public function fondoCesantias()
+    {
+        return $this->belongsTo(SeguridadSocial::class, 'fondo_cesantias_id')->withTrashed();
+    }
+
     public function liquidacionRetiro()
     {
         return $this->hasOne(LiquidacionRetiro::class, 'contratacion_id');
@@ -104,6 +124,11 @@ class Contratacion extends Model
     public function historialSalarial()
     {
         return $this->hasMany(HistorialSalarialContratacion::class, 'contratacion_id');
+    }
+
+    public function cambiosContractuales()
+    {
+        return $this->hasMany(ContratacionCambio::class, 'contratacion_id');
     }
 
     public function nominas()

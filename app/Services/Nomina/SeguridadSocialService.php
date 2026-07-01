@@ -40,6 +40,10 @@ public function create(array $data): SeguridadSocial
             $query->whereDate('fecha_inicio', '<=', $filters['fecha_fin']);
         })
 
+        ->when(!empty($filters['tipo']), function ($query) use ($filters) {
+            $query->where('tipo', $filters['tipo']);
+        })
+
         ->orderByDesc('created_at')
         ->paginate($perPage);
 }

@@ -20,6 +20,7 @@ class UpdateContratacionRequest extends FormRequest
             'correo'                => 'nullable|email|max:255',
             'cargo'                => 'sometimes|string|max:100',
             'tipo_salario'          => ['sometimes', 'nullable', Rule::in(['salario_minimo', 'personalizado'])],
+            'salario_integral'      => 'nullable|boolean',
             'parametro_laboral_id'  => 'nullable|integer|exists:nomina_parametros_laborales,id',
             'no_salarial'          => 'sometimes|numeric|min:0',
             'base_salario'         => 'sometimes|numeric|min:0',
@@ -29,10 +30,17 @@ class UpdateContratacionRequest extends FormRequest
             'dias_vacaciones_iniciales' => 'nullable|numeric|min:0|max:999.9999',
             'fin_contrato'         => 'nullable|date|after_or_equal:inicio_contratacion',
             'status'               => 'sometimes|boolean',
-            'eps_id'               => 'sometimes|integer|exists:seguridad_socials,id',
-            'arl_id'               => 'sometimes|integer|exists:seguridad_socials,id',
-            'fondo_pensiones_id'   => 'sometimes|integer|exists:seguridad_socials,id',
-            'caja_penciones_id'    => 'sometimes|integer|exists:seguridad_socials,id',
+            'eps_id'               => ['sometimes', 'integer', Rule::exists('seguridad_socials', 'id')->where('tipo', 'eps')->whereNull('deleted_at')],
+            'arl_id'               => ['sometimes', 'integer', Rule::exists('seguridad_socials', 'id')->where('tipo', 'arl')->whereNull('deleted_at')],
+            'fondo_pensiones_id'   => ['sometimes', 'integer', Rule::exists('seguridad_socials', 'id')->where('tipo', 'afp')->whereNull('deleted_at')],
+            'caja_penciones_id'    => ['sometimes', 'integer', Rule::exists('seguridad_socials', 'id')->where('tipo', 'ccf')->whereNull('deleted_at')],
+            'fondo_cesantias_id'   => ['nullable', 'integer', Rule::exists('seguridad_socials', 'id')->where('tipo', 'cesantias')->whereNull('deleted_at')],
+            'aplica_salud'          => 'nullable|boolean',
+            'aplica_pension'        => 'nullable|boolean',
+            'aplica_arl'            => 'nullable|boolean',
+            'aplica_sena'           => 'nullable|boolean',
+            'aplica_icbf'           => 'nullable|boolean',
+            'aplica_caja_compensacion' => 'nullable|boolean',
         ];
     }
 
@@ -48,6 +56,7 @@ class UpdateContratacionRequest extends FormRequest
             'correo.max'                     => 'El correo no puede superar 255 caracteres.',
             'cargo.max'                    => 'El cargo no puede superar 100 caracteres.',
             'tipo_salario.in'              => 'El tipo de salario no es válido.',
+            'salario_integral.boolean'     => 'El indicador de salario integral no es válido.',
             'parametro_laboral_id.exists'  => 'El parámetro laboral seleccionado no existe.',
             'inicio_contratacion.date'      => 'La fecha de inicio no es válida.',
             'dias_vacaciones_iniciales.numeric' => 'Los días de vacaciones iniciales deben ser un número.',
@@ -59,6 +68,7 @@ class UpdateContratacionRequest extends FormRequest
             'arl_id.exists'                 => 'La ARL no existe.',
             'fondo_pensiones_id.exists'     => 'El fondo de pensiones no existe.',
             'caja_penciones_id.exists'      => 'La caja de compensación no existe.',
+            'fondo_cesantias_id.exists'     => 'El fondo de cesantías no existe.',
         ];
     }
 }

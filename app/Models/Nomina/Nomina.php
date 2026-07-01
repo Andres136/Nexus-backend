@@ -44,6 +44,7 @@ class Nomina extends Model
         // Devengados
         'salario_base_devengado',
         'auxilio_transporte',
+        'pago_no_prestacional',
         'total_comisiones',
         'total_novedades_retroactivas',
         'detalle_novedades_retroactivas',
@@ -108,6 +109,7 @@ class Nomina extends Model
         'valor_hora_dominical_extra' => 'decimal:2',
         'salario_base_devengado' => 'decimal:2',
         'auxilio_transporte' => 'decimal:2',
+        'pago_no_prestacional' => 'decimal:2',
         'total_comisiones' => 'decimal:2',
         'total_novedades_retroactivas' => 'decimal:2',
         'detalle_novedades_retroactivas' => 'array',

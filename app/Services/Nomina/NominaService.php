@@ -226,6 +226,7 @@ class NominaService
 
                 'salario_base_devengado' => $calculo['salario_base_devengado'],
                 'auxilio_transporte' => $calculo['auxilio_transporte'],
+                'pago_no_prestacional' => $calculo['pago_no_prestacional'],
                 'total_comisiones' => $calculo['total_comisiones'],
                 'total_novedades_retroactivas' => $calculo['total_novedades_retroactivas'],
                 'detalle_novedades_retroactivas' => $calculo['detalle_novedades_retroactivas'],
@@ -637,8 +638,17 @@ class NominaService
             + $valorHorasFestivas
             + $valorHorasNocturnasFestivas;
 
-        $porcentajeSalud = ((float) $configuracion->porcentaje_salud_empleado) / 100;
-        $porcentajePension = ((float) $configuracion->porcentaje_pension_empleado) / 100;
+        $aplicaSalud = (bool) ($contratacion->aplica_salud ?? true);
+        $aplicaPension = (bool) ($contratacion->aplica_pension ?? true);
+        $aplicaArl = (bool) ($contratacion->aplica_arl ?? true);
+        $aplicaSena = (bool) ($contratacion->aplica_sena ?? true);
+        $aplicaIcbf = (bool) ($contratacion->aplica_icbf ?? true);
+        $aplicaCajaCompensacion = (bool) ($contratacion->aplica_caja_compensacion ?? true);
+
+        $porcentajeSaludEmpleado = $aplicaSalud ? (float) $configuracion->porcentaje_salud_empleado : 0.0;
+        $porcentajePensionEmpleado = $aplicaPension ? (float) $configuracion->porcentaje_pension_empleado : 0.0;
+        $porcentajeSalud = $porcentajeSaludEmpleado / 100;
+        $porcentajePension = $porcentajePensionEmpleado / 100;
         $deduccionSalud = round($baseParaDeducciones * $porcentajeSalud, 2);
         $deduccionPension = round($baseParaDeducciones * $porcentajePension, 2);
         $descuentosNomina = $this->calcularDescuentos($userId, $inicioLiquidable, $finLiquidable, $data['descuento_id'] ?? null);
@@ -646,12 +656,12 @@ class NominaService
         $totalDeducciones = round($deduccionSalud + $deduccionPension + $totalDescuentosAdicionales, 2);
         $salarioNeto = round($totalDevengado - $totalDeducciones, 2);
         $baseAportesEmpleador = round($baseParaDeducciones, 2);
-        $porcentajeSaludEmpleador = (float) $configuracion->porcentaje_salud_empleador;
-        $porcentajePensionEmpleador = (float) $configuracion->porcentaje_pension_empleador;
-        $porcentajeArl = (float) $configuracion->porcentaje_arl;
-        $porcentajeSena = (float) $configuracion->porcentaje_sena;
-        $porcentajeIcbf = (float) $configuracion->porcentaje_icbf;
-        $porcentajeCajaCompensacion = (float) $configuracion->porcentaje_caja_compensacion;
+        $porcentajeSaludEmpleador = $aplicaSalud ? (float) $configuracion->porcentaje_salud_empleador : 0.0;
+        $porcentajePensionEmpleador = $aplicaPension ? (float) $configuracion->porcentaje_pension_empleador : 0.0;
+        $porcentajeArl = $aplicaArl ? (float) $configuracion->porcentaje_arl : 0.0;
+        $porcentajeSena = $aplicaSena ? (float) $configuracion->porcentaje_sena : 0.0;
+        $porcentajeIcbf = $aplicaIcbf ? (float) $configuracion->porcentaje_icbf : 0.0;
+        $porcentajeCajaCompensacion = $aplicaCajaCompensacion ? (float) $configuracion->porcentaje_caja_compensacion : 0.0;
         $costoSaludEmpleador = round($baseAportesEmpleador * ($porcentajeSaludEmpleador / 100), 2);
         $costoPensionEmpleador = round($baseAportesEmpleador * ($porcentajePensionEmpleador / 100), 2);
         $costoArl = round($baseAportesEmpleador * ($porcentajeArl / 100), 2);
@@ -723,8 +733,14 @@ class NominaService
             'total_devengado' => round($totalDevengado, 2),
             'deduccion_salud' => $deduccionSalud,
             'deduccion_pension' => $deduccionPension,
-            'porcentaje_salud_empleado' => (float) $configuracion->porcentaje_salud_empleado,
-            'porcentaje_pension_empleado' => (float) $configuracion->porcentaje_pension_empleado,
+            'porcentaje_salud_empleado' => $porcentajeSaludEmpleado,
+            'porcentaje_pension_empleado' => $porcentajePensionEmpleado,
+            'aplica_salud' => $aplicaSalud,
+            'aplica_pension' => $aplicaPension,
+            'aplica_arl' => $aplicaArl,
+            'aplica_sena' => $aplicaSena,
+            'aplica_icbf' => $aplicaIcbf,
+            'aplica_caja_compensacion' => $aplicaCajaCompensacion,
             'recargo_extra_diurna' => $recargoExtraDiurna,
             'recargo_extra_nocturna' => $recargoExtraNocturna,
             'recargo_festiva' => $recargoFestiva,

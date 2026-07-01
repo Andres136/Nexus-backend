@@ -12,7 +12,7 @@ class StoreSeguridadSocialRequest extends FormRequest
     {
         return [
             'nombre'       => 'required|string|max:45',
-            'tipo'         => 'required|in:eps,arl,afp,ccf',
+            'tipo'         => 'required|in:eps,arl,afp,ccf,cesantias',
             'nit'          => 'required|string|max:45|unique:seguridad_socials,nit',
             'direccion'    => 'required|string|max:45',
             'fecha_inicio' => 'required|string|max:45',
@@ -27,7 +27,7 @@ class StoreSeguridadSocialRequest extends FormRequest
             'nombre.required'       => 'El nombre es obligatorio.',
             'nombre.max'            => 'El nombre no puede superar 45 caracteres.',
             'tipo.required'         => 'El tipo de entidad es obligatorio.',
-            'tipo.in'               => 'El tipo debe ser: eps, arl, afp o ccf.',
+            'tipo.in'               => 'El tipo debe ser: eps, arl, afp, ccf o cesantías.',
             'nit.required'          => 'El NIT es obligatorio.',
             'nit.unique'            => 'Este NIT ya existe.',
             'direccion.required'    => 'La dirección es obligatoria.',
@@ -35,5 +35,4 @@ class StoreSeguridadSocialRequest extends FormRequest
         ];
     }
 }
-
 

@@ -42,6 +42,7 @@ class NominaPucPayloadService
 
         $this->agregarLinea($devengados, $faltantes, $conceptos, 'salario_base', (float) $nomina->salario_base_devengado, $nomina);
         $this->agregarLinea($devengados, $faltantes, $conceptos, 'auxilio_transporte', (float) $nomina->auxilio_transporte, $nomina);
+        $this->agregarLinea($devengados, $faltantes, $conceptos, 'pago_no_salarial', (float) $nomina->pago_no_prestacional, $nomina);
         $this->agregarLinea($devengados, $faltantes, $conceptos, 'horas_extras_diurnas', (float) $nomina->valor_horas_extras_diurnas, $nomina);
         $this->agregarLinea($devengados, $faltantes, $conceptos, 'horas_extras_nocturnas', (float) $nomina->valor_horas_extras_nocturnas, $nomina);
         $this->agregarLinea($devengados, $faltantes, $conceptos, 'horas_festivas', (float) $nomina->valor_horas_festivas, $nomina);

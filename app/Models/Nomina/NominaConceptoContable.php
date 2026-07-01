@@ -19,14 +19,21 @@ class NominaConceptoContable extends Model
         'codigo',
         'nombre',
         'tipo',
+        'clasificacion_nomina',
         'puck_id',
         'naturaleza',
+        'afecta_base_aportes',
+        'afecta_prestaciones',
+        'es_pago_no_salarial',
         'requiere_tercero',
         'requiere_centro_costo',
         'activo',
     ];
 
     protected $casts = [
+        'afecta_base_aportes' => 'boolean',
+        'afecta_prestaciones' => 'boolean',
+        'es_pago_no_salarial' => 'boolean',
         'requiere_tercero' => 'boolean',
         'requiere_centro_costo' => 'boolean',
         'activo' => 'boolean',
