@@ -398,6 +398,7 @@ public function listar(array $filtros = [], $perPage = 15)
     $query = FacturaCompra::query()
         ->with([
             'proveedor',
+            'empresa',
             'detalles',
             'pagos.user',
             'gastos',
@@ -414,6 +415,18 @@ public function listar(array $filtros = [], $perPage = 15)
         $query->where(
             'proveedor_id',
             $filtros['proveedor_id']
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | FILTRO EMPRESA
+    |--------------------------------------------------------------------------
+    */
+    if (!empty($filtros['empresa_id'])) {
+        $query->where(
+            'empresa_id',
+            $filtros['empresa_id']
         );
     }
 
