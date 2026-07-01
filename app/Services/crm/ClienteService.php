@@ -248,6 +248,7 @@ class ClienteService
                 RolEnum::ADMINISTRATIVO->value,
                 RolEnum::EJECUTIVO_COMERCIAL->value,
             ])
+            ->where('estado_id', 3)
             ->orderBy('name')
             ->get();
     }
