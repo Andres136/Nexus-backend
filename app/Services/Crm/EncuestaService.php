@@ -23,6 +23,10 @@ class EncuestaService
         RolEnum::ADMINISTRATIVO->value,
     ];
 
+    private array $rolesClientesGlobales = [
+        RolEnum::ADMINISTRATIVO->value,
+    ];
+
     // ─── CRUD ────────────────────────────────────────────────────────────────
 
     public function index($user): array
@@ -130,11 +134,15 @@ class EncuestaService
 
     public function clientesParaEncuesta($user): array
     {
-        $clienteIds = Cliente::where('user_id', $user->id)
+        $puedeVerTodosLosClientes = in_array($user->role_id, $this->rolesClientesGlobales, true);
+
+        $clienteIds = Cliente::query()
+            ->when(!$puedeVerTodosLosClientes, fn ($q) => $q->where('user_id', $user->id))
             ->whereHas('ordenes')
             ->pluck('id');
 
-        return Cliente::where('user_id', $user->id)
+        return Cliente::query()
+            ->when(!$puedeVerTodosLosClientes, fn ($q) => $q->where('user_id', $user->id))
             ->orderBy('nombre')
             ->get(['id', 'nombre', 'email'])
             ->map(function ($c) use ($clienteIds) {
@@ -166,10 +174,11 @@ class EncuestaService
     public function enviar(int $encuestaId, array $clienteIdsOriginales, $user): array
     {
         $encuesta = Encuesta::with('preguntas')->findOrFail($encuestaId);
+        $puedeEnviarATodosLosClientes = in_array($user->role_id, $this->rolesClientesGlobales, true);
 
-        // Cargar todos los clientes solicitados que pertenezcan al usuario
+        // Cargar todos los clientes solicitados. Administrativo puede enviar a cualquier cliente.
         $todosClientes = Cliente::whereIn('id', $clienteIdsOriginales)
-            ->where('user_id', $user->id)
+            ->when(!$puedeEnviarATodosLosClientes, fn ($q) => $q->where('user_id', $user->id))
             ->get()
             ->keyBy('id');
 

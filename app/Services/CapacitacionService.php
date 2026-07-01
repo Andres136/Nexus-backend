@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\RolEnum;
 use App\Models\Capacitacion;
 use App\Models\User;
 use Carbon\Carbon;
@@ -105,7 +106,7 @@ class CapacitacionService
     {
         DB::transaction(function () use ($uuid, $user) {
             $capacitacion = Capacitacion::where('uuid', $uuid)->lockForUpdate()->firstOrFail();
-            $this->validarPuedeModificar($capacitacion, $user);
+            $this->validarPuedeEliminar($capacitacion, $user);
             $capacitacion->delete();
         });
     }
@@ -121,12 +122,27 @@ class CapacitacionService
         }
     }
 
+    private function validarPuedeEliminar(Capacitacion $capacitacion, User $user): void
+    {
+        if ($this->esAdministrador($user)) {
+            return;
+        }
+
+        $this->validarPuedeModificar($capacitacion, $user);
+    }
+
     private function marcarPermisos(Capacitacion $capacitacion, User $user): Capacitacion
     {
         $capacitacion->setAttribute('puede_editar', (int) $capacitacion->user_id === (int) $user->id && !$this->fechaYaPaso($capacitacion));
+        $capacitacion->setAttribute('puede_eliminar', $this->esAdministrador($user) || ((int) $capacitacion->user_id === (int) $user->id && !$this->fechaYaPaso($capacitacion)));
         $capacitacion->setAttribute('fecha_pasada', $this->fechaYaPaso($capacitacion));
 
         return $capacitacion;
+    }
+
+    private function esAdministrador(User $user): bool
+    {
+        return (int) $user->role_id === RolEnum::ADMINISTRADOR->value;
     }
 
     private function fechaYaPaso(Capacitacion $capacitacion): bool

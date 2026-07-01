@@ -244,7 +244,12 @@ class ClienteService
 
     public function usuariosComerciales()
     {
-        return User::where('role_id', 9)->get();
+        return User::whereIn('role_id', [
+                RolEnum::ADMINISTRATIVO->value,
+                RolEnum::EJECUTIVO_COMERCIAL->value,
+            ])
+            ->orderBy('name')
+            ->get();
     }
 
     public function importExcel(array $clientes): int
