@@ -161,15 +161,7 @@ class WorkSessionController extends Controller
     public function kioskUpdate(UpdateWorkSessionRequest $request, string $uuid): JsonResponse
     {
         try {
-            $device = $this->validateKioskRequest($request);
-            $sessionActual = $this->workSessionService->getByUuid($uuid);
-
-            if ((int) $sessionActual->kiosko_id !== (int) $device->id) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'La sesión no pertenece a este kiosko.',
-                ], 403);
-            }
+            $this->validateKioskRequest($request);
 
             $data = $this->aplicarHoraServidorKiosko($request->validated());
             $data = $this->workSessionService->update($uuid, $data, true);
