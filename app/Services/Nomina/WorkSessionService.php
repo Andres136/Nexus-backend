@@ -4,6 +4,7 @@ namespace App\Services\Nomina;
 
 use App\Models\Nomina\HoraExtra;
 use App\Models\Nomina\HorarioOperacionDiaria;
+use App\Models\Nomina\HorarioUsuarioSemanal;
 use App\Models\Nomina\JornadaLaboral;
 use App\Models\Nomina\Permiso;
 use App\Models\Nomina\WorkSession;
@@ -196,6 +197,13 @@ class WorkSessionService
             return $data;
         }
 
+        $horarioUsuario = $this->resolverHorarioUsuarioSemanal($data);
+        if ($horarioUsuario?->jornada_laboral_id) {
+            $data['horario_laboral_id'] = $horarioUsuario->jornada_laboral_id;
+
+            return $data;
+        }
+
         $jornada = JornadaLaboral::where('status', true)->first()
             ?? JornadaLaboral::query()->first();
 
@@ -268,8 +276,9 @@ class WorkSessionService
         }
 
         $instruccion = $instruccionQuery->first();
+        $horarioUsuario = $this->resolverHorarioUsuarioSemanal($data, $session);
 
-        $jornada = $instruccion?->jornadaLaboral ?? $jornadaBase;
+        $jornada = $horarioUsuario?->jornadaLaboral ?? $instruccion?->jornadaLaboral ?? $jornadaBase;
         if (! $jornada) {
             return null;
         }
@@ -293,9 +302,33 @@ class WorkSessionService
             if ($instruccion && $instruccion->{$campo} !== null) {
                 $operativa->{$campo} = $instruccion->{$campo};
             }
+
+            if ($horarioUsuario && $horarioUsuario->{$campo} !== null) {
+                $operativa->{$campo} = $horarioUsuario->{$campo};
+            }
+        }
+
+        if ($horarioUsuario) {
+            $operativa->horario_usuario_semanal = $horarioUsuario->toArray();
         }
 
         return $operativa;
+    }
+
+    private function resolverHorarioUsuarioSemanal(array $data, ?WorkSession $session = null): ?HorarioUsuarioSemanal
+    {
+        $userId = $data['user_id'] ?? $session?->user_id;
+        $fecha = $data['registro_diario'] ?? $session?->registro_diario;
+
+        if (! $userId || ! $fecha) {
+            return null;
+        }
+
+        return HorarioUsuarioSemanal::with('jornadaLaboral')
+            ->where('user_id', $userId)
+            ->where('dia_semana', Carbon::parse($fecha)->dayOfWeekIso)
+            ->where('status', true)
+            ->first();
     }
 
     private function validarCreacionDesdeKiosko(array $data): void
