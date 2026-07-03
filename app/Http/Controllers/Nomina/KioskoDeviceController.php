@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Nomina;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Nomina\StoreKioskoDeviceRequest;
 use App\Http\Requests\Nomina\UpdateKioskoDeviceRequest;
+use App\RolEnum;
 use App\Services\Nomina\KioskoDeviceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,10 +20,21 @@ class KioskoDeviceController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
+            $user = auth()->user();
+            $esAdministrador = (int) $user?->role_id === RolEnum::ADMINISTRADOR->value;
+
+            // Solo el administrador puede ver kioskos de todas las sedes;
+            // el resto de roles siempre queda restringido a su propia sede,
+            // sin importar lo que se envíe por query.
+            $sedeId = $esAdministrador
+                ? $request->query('sede_id')
+                : $user?->sede_id;
+
             $data = $this->kioskoDeviceService->getAll([
                 'search'   => $request->query('search'),
-                'sede_id'  => $request->query('sede_id', auth()->user()?->sede_id),
+                'sede_id'  => $sedeId,
                 'per_page' => $request->query('per_page', 10),
+                'all'      => $request->boolean('all'),
             ]);
 
             return response()->json([

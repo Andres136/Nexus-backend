@@ -8,6 +8,7 @@ use App\Models\Nomina\UsersFacePhoto;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -19,11 +20,11 @@ class KioskoDeviceService
     private const ACTIVATION_TTL_HOURS = 24;
     private const GUEST_TTL_MINUTES    = 20;
 
-    public function getAll(array $filters = []): LengthAwarePaginator
+    public function getAll(array $filters = []): LengthAwarePaginator|Collection
     {
         $perPage = $filters['per_page'] ?? 10;
 
-        return KioskoDevice::with(self::WITH)
+        $query = KioskoDevice::with(self::WITH)
             ->when(!empty($filters['search']), function ($query) use ($filters) {
                 $search = trim($filters['search']);
                 $query->where(function ($q) use ($search) {
@@ -33,8 +34,15 @@ class KioskoDeviceService
                 });
             })
             ->when(isset($filters['sede_id']), fn($q) => $q->where('sede_id', $filters['sede_id']))
-            ->orderByDesc('created_at')
-            ->paginate($perPage);
+            ->orderByDesc('created_at');
+
+        // Modo sin paginar: usado por selectores que necesitan el listado
+        // completo de kioskos (no la tabla administrativa paginada).
+        if (!empty($filters['all'])) {
+            return $query->get();
+        }
+
+        return $query->paginate($perPage);
     }
 
     public function getByUuid(string $uuid): KioskoDevice
