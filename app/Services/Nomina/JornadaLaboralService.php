@@ -42,6 +42,8 @@ class JornadaLaboralService
                 'horas_semanales' => $jornada->horas_semanales,
             ]);
 
+            KioskoDeviceService::clearBootstrapCache();
+
             return $jornada;
         });
     }
@@ -55,6 +57,8 @@ class JornadaLaboralService
 
             Log::info('Jornada laboral actualizada', ['uuid' => $jornada->uuid]);
 
+            KioskoDeviceService::clearBootstrapCache();
+
             return $jornada->fresh();
         });
     }
@@ -67,6 +71,8 @@ class JornadaLaboralService
             $jornada->delete();
 
             Log::info('Jornada laboral eliminada', ['uuid' => $jornada->uuid]);
+
+            KioskoDeviceService::clearBootstrapCache();
         });
     }
 }

@@ -103,6 +103,8 @@ class UsersFacePhotoService
                 'users_id' => $facePhoto->users_id,
             ]);
 
+            KioskoDeviceService::clearBootstrapCache();
+
             return $facePhoto;
         });
     }
@@ -128,6 +130,8 @@ class UsersFacePhotoService
 
             Log::info('Foto facial actualizada', ['uuid' => $facePhoto->uuid]);  
 
+            KioskoDeviceService::clearBootstrapCache();
+
             return $facePhoto->fresh('empleado');                  
         });
     }
@@ -144,6 +148,8 @@ class UsersFacePhotoService
             $facePhoto->delete();
 
             Log::info('Foto facial eliminada', ['uuid' => $facePhoto->uuid]); 
+
+            KioskoDeviceService::clearBootstrapCache();
         });
     }
 }

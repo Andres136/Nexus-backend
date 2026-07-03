@@ -117,6 +117,8 @@ class ContratacionService
 
             Log::info('Contratación creada', ['uuid' => $contratacion->uuid, 'users_id' => $contratacion->users_id]);
 
+            KioskoDeviceService::clearBootstrapCache();
+
             return $contratacion->load(self::WITH);
         });
     }
@@ -139,6 +141,8 @@ class ContratacionService
 
             Log::info('Contratación actualizada', ['uuid' => $contratacion->uuid]);
 
+            KioskoDeviceService::clearBootstrapCache();
+
             return $contratacion->fresh(self::WITH);
         });
     }
@@ -155,6 +159,8 @@ class ContratacionService
                 'status' => $contratacion->status,
             ]);
 
+            KioskoDeviceService::clearBootstrapCache();
+
             return $contratacion->fresh(self::WITH);
         });
     }
@@ -167,6 +173,8 @@ class ContratacionService
             $contratacion->delete();
 
             Log::info('Contratación eliminada', ['uuid' => $contratacion->uuid]);
+
+            KioskoDeviceService::clearBootstrapCache();
         });
     }
 

@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -19,6 +20,8 @@ class KioskoDeviceService
     private const WITH = ['sede', 'bodega', 'tipoRegistro'];
     private const ACTIVATION_TTL_HOURS = 24;
     private const GUEST_TTL_MINUTES    = 20;
+    private const BOOTSTRAP_CACHE_KEY = 'nomina:kiosko:bootstrap-catalog:v1';
+    private const BOOTSTRAP_CACHE_TTL_MINUTES = 10;
 
     public function getAll(array $filters = []): LengthAwarePaginator|Collection
     {
@@ -183,25 +186,11 @@ public function create(array $data): KioskoDevice
     public function bootstrapDeviceSession(array $data, ?string $ip = null): array
     {
         $device = $this->validateDeviceSession($data, $ip);
-
-        $empleados = User::select(
-            'users.id',
-            'users.name',
-            DB::raw('(SELECT c.numero_documento FROM contrataciones c WHERE c.users_id = users.id ORDER BY c.id DESC LIMIT 1) as numero_documento')
-        )
-            ->whereHas('contratacionActivaNomina')
-            ->orderBy('users.name')
-            ->get();
+        $catalog = $this->bootstrapCatalog();
 
         return [
             'device' => $device,
-            'empleados' => $empleados,
-            'fotos' => UsersFacePhoto::with('empleado:id,name')
-                ->whereHas('empleado.contratacionActivaNomina')
-                ->get(),
-            'jornadas' => JornadaLaboral::orderByDesc('status')
-                ->orderBy('nombre')
-                ->get(),
+            ...$catalog,
         ];
     }
 
@@ -293,25 +282,45 @@ public function create(array $data): KioskoDevice
             true
         );
 
-        $empleados = User::select(
-            'users.id',
-            'users.name',
-            DB::raw('(SELECT c.numero_documento FROM contrataciones c WHERE c.users_id = users.id ORDER BY c.id DESC LIMIT 1) as numero_documento')
-        )
-            ->whereHas('contratacionActivaNomina')
-            ->orderBy('users.name')
-            ->get();
+        $catalog = $this->bootstrapCatalog();
 
         return [
             'device'    => $device,
-            'empleados' => $empleados,
-            'fotos'     => UsersFacePhoto::with('empleado:id,name')
-                ->whereHas('empleado.contratacionActivaNomina')
-                ->get(),
-            'jornadas'  => JornadaLaboral::orderByDesc('status')
-                ->orderBy('nombre')
-                ->get(),
+            ...$catalog,
         ];
+    }
+
+    public static function clearBootstrapCache(): void
+    {
+        Cache::forget(self::BOOTSTRAP_CACHE_KEY);
+    }
+
+    private function bootstrapCatalog(): array
+    {
+        return Cache::remember(
+            self::BOOTSTRAP_CACHE_KEY,
+            now()->addMinutes(self::BOOTSTRAP_CACHE_TTL_MINUTES),
+            function () {
+                $empleados = User::select(
+                    'users.id',
+                    'users.name',
+                    DB::raw('(SELECT c.numero_documento FROM contrataciones c WHERE c.users_id = users.id ORDER BY c.id DESC LIMIT 1) as numero_documento')
+                )
+                    ->whereHas('contratacionActivaNomina')
+                    ->orderBy('users.name')
+                    ->get();
+
+                return [
+                    'empleados' => $empleados,
+                    'fotos' => UsersFacePhoto::with('empleado:id,name')
+                        ->whereHas('empleado.contratacionActivaNomina')
+                        ->get(),
+                    'jornadas' => JornadaLaboral::orderByDesc('status')
+                        ->orderBy('nombre')
+                        ->get(),
+                ];
+            }
+        );
     }
 
     // Valida sesión de dispositivo físico o acceso temporal (guest token).
