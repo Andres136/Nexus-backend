@@ -115,7 +115,7 @@ class HoraExtraService
             Log::info('Horas extras registradas', [
                 'users'  => $data['users'],
                 'fecha'  => $data['fecha'],
-                'horas'  => $data['horas'],
+                'horas'  => $horas,
                 'total'  => $registros->count(),
             ]);
 
