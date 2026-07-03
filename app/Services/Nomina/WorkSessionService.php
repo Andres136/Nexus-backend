@@ -20,7 +20,7 @@ class WorkSessionService
 
     private const TOLERANCIA_ENTRADA_MINUTOS = 15;
 
-    private const PAUSA_PERMITIDA_MINUTOS = 15;
+    private const PAUSA_PERMITIDA_MINUTOS = 10;
 
     private const ALMUERZO_PERMITIDO_MINUTOS = 60;
 
@@ -262,6 +262,7 @@ class WorkSessionService
         }
 
         $kioskoId = $data['kiosko_id'] ?? $session?->kiosko_id;
+        $userId = $data['user_id'] ?? $session?->user_id;
         $instruccionQuery = HorarioOperacionDiaria::with('jornadaLaboral')
             ->whereDate('fecha', Carbon::parse($fecha)->toDateString())
             ->where('status', true);
@@ -270,15 +271,35 @@ class WorkSessionService
             $instruccionQuery->where(function ($q) use ($kioskoId) {
                 $q->where('kiosko_device_id', $kioskoId)
                     ->orWhereNull('kiosko_device_id');
-            })->orderByRaw('CASE WHEN kiosko_device_id = ? THEN 0 ELSE 1 END', [$kioskoId]);
+            });
         } else {
             $instruccionQuery->whereNull('kiosko_device_id');
+        }
+
+        if ($userId) {
+            $instruccionQuery->where(function ($q) use ($userId) {
+                $q->where('user_id', $userId)
+                    ->orWhereNull('user_id');
+            });
+        } else {
+            $instruccionQuery->whereNull('user_id');
+        }
+
+        if ($kioskoId && $userId) {
+            $instruccionQuery->orderByRaw(
+                'CASE WHEN kiosko_device_id = ? AND user_id = ? THEN 0 WHEN kiosko_device_id = ? AND user_id IS NULL THEN 1 WHEN kiosko_device_id IS NULL AND user_id = ? THEN 2 ELSE 3 END',
+                [$kioskoId, $userId, $kioskoId, $userId]
+            );
+        } elseif ($kioskoId) {
+            $instruccionQuery->orderByRaw('CASE WHEN kiosko_device_id = ? THEN 0 ELSE 1 END', [$kioskoId]);
+        } elseif ($userId) {
+            $instruccionQuery->orderByRaw('CASE WHEN user_id = ? THEN 0 ELSE 1 END', [$userId]);
         }
 
         $instruccion = $instruccionQuery->first();
         $horarioUsuario = $this->resolverHorarioUsuarioSemanal($data, $session);
 
-        $jornada = $horarioUsuario?->jornadaLaboral ?? $instruccion?->jornadaLaboral ?? $jornadaBase;
+        $jornada = $instruccion?->jornadaLaboral ?? $horarioUsuario?->jornadaLaboral ?? $jornadaBase;
         if (! $jornada) {
             return null;
         }
@@ -299,12 +320,12 @@ class WorkSessionService
                 $operativa->{$campo} = null;
             }
 
-            if ($instruccion && $instruccion->{$campo} !== null) {
-                $operativa->{$campo} = $instruccion->{$campo};
-            }
-
             if ($horarioUsuario && $horarioUsuario->{$campo} !== null) {
                 $operativa->{$campo} = $horarioUsuario->{$campo};
+            }
+
+            if ($instruccion && $instruccion->{$campo} !== null) {
+                $operativa->{$campo} = $instruccion->{$campo};
             }
         }
 

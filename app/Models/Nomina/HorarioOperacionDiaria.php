@@ -16,6 +16,7 @@ class HorarioOperacionDiaria extends Model
         'uuid',
         'fecha',
         'kiosko_device_id',
+        'user_id',
         'jornada_laboral_id',
         'hora_entrada',
         'hora_entrada_limite',
@@ -54,5 +55,10 @@ class HorarioOperacionDiaria extends Model
     public function kiosko()
     {
         return $this->belongsTo(KioskoDevice::class, 'kiosko_device_id');
+    }
+
+    public function usuario()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'user_id');
     }
 }

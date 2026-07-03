@@ -16,6 +16,9 @@ class GuardarHorarioOperacionDiariaRequest extends FormRequest
         return [
             'fecha' => 'required|date',
             'kiosko_device_id' => 'nullable|integer|exists:kiosko_devices,id',
+            'user_id' => 'nullable|integer|exists:users,id',
+            'users' => 'nullable|array',
+            'users.*' => 'integer|exists:users,id',
             'jornada_laboral_id' => 'nullable|integer|exists:jornada_laborals,id',
             'hora_entrada' => ['nullable', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
             'hora_entrada_limite' => ['nullable', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
@@ -36,6 +39,8 @@ class GuardarHorarioOperacionDiariaRequest extends FormRequest
         return [
             'fecha.required' => 'La fecha de la instrucción es obligatoria.',
             'kiosko_device_id.exists' => 'El kiosko seleccionado no existe.',
+            'user_id.exists' => 'El empleado seleccionado no existe.',
+            'users.*.exists' => 'Uno o más empleados seleccionados no existen.',
             'jornada_laboral_id.exists' => 'La jornada laboral no existe.',
             'duracion_pausa_minutos.max' => 'La pausa no puede superar 180 minutos.',
             'duracion_almuerzo_minutos.max' => 'El almuerzo no puede superar 240 minutos.',

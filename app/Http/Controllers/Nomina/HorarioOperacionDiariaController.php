@@ -24,7 +24,8 @@ class HorarioOperacionDiariaController extends Controller
                 'success' => true,
                 'data' => $this->horarioOperacionDiariaService->porFecha(
                     $request->query('fecha'),
-                    $request->query('kiosko_device_id') ? (int) $request->query('kiosko_device_id') : null
+                    $request->query('kiosko_device_id') ? (int) $request->query('kiosko_device_id') : null,
+                    $request->query('user_id') ? (int) $request->query('user_id') : null
                 ),
             ]);
         } catch (\Exception $e) {
@@ -56,7 +57,11 @@ class HorarioOperacionDiariaController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $this->horarioOperacionDiariaService->porFecha($fecha, $device->id),
+                'data' => $this->horarioOperacionDiariaService->porFecha(
+                    $fecha,
+                    $device->id,
+                    $request->query('user_id') ? (int) $request->query('user_id') : null
+                ),
             ]);
         } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 403);
