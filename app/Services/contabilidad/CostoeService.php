@@ -29,12 +29,46 @@ class CostoeService
             })
             ->groupBy('dfc.producto_id');
 
+        // 🔹 Lo comprado en el periodo (por fecha de emisión de la factura de compra)
+        $comprasPeriodo = DB::table('detalles_factura_compra as dfc')
+            ->join('factura_compras as fc', 'fc.id', '=', 'dfc.factura_compra_id')
+            ->selectRaw('
+                dfc.producto_id,
+                SUM(dfc.cantidad) as kg_comprado,
+                SUM(dfc.cantidad * COALESCE(dfc.precio_unitario, 0)) as costo_comprado
+            ')
+            ->where('fc.estado_id', '!=', EstadoEnum::ANULADA->value)
+            ->when($empresaId, function ($query) use ($empresaId) {
+                $query->where('fc.empresa_id', $empresaId);
+            })
+            ->when($productoId, function ($query) use ($productoId) {
+                $query->where('dfc.producto_id', $productoId);
+            })
+            ->when($fechaInicio && $fechaFin, function ($query) use ($fechaInicio, $fechaFin) {
+                $query->whereDate('fc.fecha_emision', '>=', $fechaInicio)
+                    ->whereDate('fc.fecha_emision', '<=', $fechaFin);
+            })
+            ->when($fechaInicio && !$fechaFin, function ($query) use ($fechaInicio) {
+                $query->whereDate('fc.fecha_emision', '>=', $fechaInicio);
+            })
+            ->when(!$fechaInicio && $fechaFin, function ($query) use ($fechaFin) {
+                $query->whereDate('fc.fecha_emision', '<=', $fechaFin);
+            })
+            ->groupBy('dfc.producto_id');
+
         $query = DB::table('orden__compra__detalles as ocd')
             ->join('orden__compras as oc', 'oc.id', '=', 'ocd.orden_compra_id')
             ->joinSub(
                 $costosPromedio,
                 'cp',
                 'cp.producto_id',
+                '=',
+                'ocd.product_id'
+            )
+            ->leftJoinSub(
+                $comprasPeriodo,
+                'cpp',
+                'cpp.producto_id',
                 '=',
                 'ocd.product_id'
             )
@@ -81,7 +115,10 @@ class CostoeService
                         SUM(ocd.cantidad * COALESCE(ocd.valor_unitario, 0)),
                         0
                     )
-                ) * 100 as margen_porcentaje
+                ) * 100 as margen_porcentaje,
+
+                MAX(COALESCE(cpp.kg_comprado, 0)) as kg_comprado,
+                MAX(COALESCE(cpp.costo_comprado, 0)) as costo_comprado
             ')
             ->groupBy(
                 'ocd.product_id',
@@ -160,6 +197,16 @@ class CostoeService
             'total_costo' =>
                 $resumenData->sum(
                     'costo'
+                ),
+
+            'total_kg_comprado' =>
+                $resumenData->sum(
+                    'kg_comprado'
+                ),
+
+            'total_costo_comprado' =>
+                $resumenData->sum(
+                    'costo_comprado'
                 ),
 
             'total_utilidad' =>

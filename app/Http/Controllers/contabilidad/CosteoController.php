@@ -70,6 +70,8 @@ public function export(Request $request)
                 'Ingreso sin IVA' => $item->ingreso,
                 'Costo Promedio KG sin IVA' => $item->costo_promedio,
                 'Costo Total sin IVA' => $item->costo,
+                'KG Comprados' => $item->kg_comprado,
+                'Costo Total Comprado sin IVA' => $item->costo_comprado,
                 'Utilidad sin IVA' => $item->utilidad,
                 'Margen %' => $item->margen_porcentaje,
             ];
