@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Nomina;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class GuardarHorarioUsuarioSemanalRequest extends FormRequest
 {
@@ -14,7 +15,13 @@ class GuardarHorarioUsuarioSemanalRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'user_id' => 'required|integer|exists:users,id',
+            'user_id' => [
+                'nullable',
+                'integer',
+                'exists:users,id',
+                Rule::requiredIf(fn () => ! $this->boolean('aplicar_todos')),
+            ],
+            'aplicar_todos' => 'sometimes|boolean',
             'horarios' => 'required|array|min:1|max:7',
             'horarios.*.dia_semana' => 'required|integer|min:1|max:7',
             'horarios.*.jornada_laboral_id' => 'nullable|integer|exists:jornada_laborals,id',

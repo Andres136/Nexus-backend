@@ -298,6 +298,7 @@ class NominaController extends Controller
         $nominas = Nomina::with([
             'empleado:id,name,email',
             'contratacion:id,tipo_documento,numero_documento,cargo,empresa_id',
+            'jornadaLaboral:id,horas_semanales',
         ])
             ->where('liquidada', true)
             ->operativas()

@@ -7,6 +7,7 @@ use App\Models\Nomina\HorarioOperacionDiaria;
 use App\Models\Nomina\HorarioUsuarioSemanal;
 use App\Models\Nomina\JornadaLaboral;
 use App\Models\Nomina\Permiso;
+use App\Models\Nomina\RecuperacionTiempo;
 use App\Models\Nomina\WorkSession;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -67,6 +68,52 @@ class WorkSessionService
             ->firstOrFail();
     }
 
+    public function resumenAsistencias(array $filters = []): array
+    {
+        $userId = (int) ($filters['user_id'] ?? 0);
+        $inicio = Carbon::parse($filters['fecha_inicio'] ?? now(config('app.timezone'))->startOfMonth())->startOfDay();
+        $fin = Carbon::parse($filters['fecha_fin'] ?? now(config('app.timezone')))->startOfDay();
+
+        if (! $userId) {
+            throw ValidationException::withMessages(['user_id' => 'Selecciona un empleado para ver el resumen.']);
+        }
+
+        if ($fin->lt($inicio)) {
+            throw ValidationException::withMessages(['fecha_fin' => 'La fecha final debe ser posterior o igual a la inicial.']);
+        }
+
+        $sessions = WorkSession::with('jornadaLaboral')
+            ->where('user_id', $userId)
+            ->whereBetween('registro_diario', [$inicio->toDateString(), $fin->toDateString()])
+            ->get();
+
+        $recuperaciones = RecuperacionTiempo::where('user_id', $userId)
+            ->where('status', 'aprobada')
+            ->whereBetween('fecha', [$inicio->toDateString(), $fin->toDateString()])
+            ->get();
+
+        $minutosDebe = $this->minutosEsperadosPeriodo($userId, $inicio, $fin, $sessions);
+        $minutosTrabajados = (int) $sessions->sum('minutos_trabajados');
+        $minutosTardanza = (int) $sessions->sum('minutos_tardanza');
+        $minutosRecuperados = (int) $recuperaciones->sum('minutos_usados');
+
+        return [
+            'user_id' => $userId,
+            'fecha_inicio' => $inicio->toDateString(),
+            'fecha_fin' => $fin->toDateString(),
+            'minutos_debe' => $minutosDebe,
+            'horas_debe' => round($minutosDebe / 60, 2),
+            'minutos_trabajados' => $minutosTrabajados,
+            'horas_trabajadas' => round($minutosTrabajados / 60, 2),
+            'minutos_tardanza' => $minutosTardanza,
+            'dias_tarde' => $sessions->where('minutos_tardanza', '>', 0)->count(),
+            'minutos_recuperados' => $minutosRecuperados,
+            'minutos_recuperacion_autorizados' => (int) $recuperaciones->sum('minutos_autorizados'),
+            'minutos_saldo' => max(0, $minutosDebe - $minutosTrabajados),
+            'sesiones' => $sessions->count(),
+        ];
+    }
+
     public function store(array $data, bool $validarFlujoKiosko = false): WorkSession
     {
         return DB::transaction(function () use ($data, $validarFlujoKiosko) {
@@ -110,6 +157,11 @@ class WorkSessionService
             ]);
 
             $session = $session->fresh(self::WITH);
+
+            if (array_key_exists('hora_salida', $data) && $data['hora_salida']) {
+                $this->registrarRecuperacionUsada($session);
+                $session = $session->fresh(self::WITH);
+            }
 
             if ($avisoKiosko) {
                 $session->setAttribute('aviso_kiosko', $avisoKiosko);
@@ -557,6 +609,21 @@ class WorkSessionService
         }
 
         $fecha = Carbon::parse($session->registro_diario)->toDateString();
+        $minutosAdicionales = $salidaReal - $salidaProgramada;
+        $minutosRecuperacion = RecuperacionTiempo::where('user_id', $session->user_id)
+            ->whereDate('fecha', $fecha)
+            ->where('status', 'aprobada')
+            ->get()
+            ->sum(fn (RecuperacionTiempo $item) => max(0, $item->minutos_autorizados - $item->minutos_usados));
+
+        if ($minutosRecuperacion > 0 && $minutosAdicionales <= $minutosRecuperacion) {
+            return 'Salida registrada dentro del tiempo autorizado para recuperación.';
+        }
+
+        if ($minutosRecuperacion > 0 && $minutosAdicionales > $minutosRecuperacion) {
+            return "Salida registrada. La recuperación autorizada cubre {$minutosRecuperacion} minuto(s); el excedente no sera reconocido sin aprobación adicional.";
+        }
+
         $horasAprobadas = HoraExtra::where('user_id', $session->user_id)
             ->whereDate('fecha', $fecha)
             ->where('status', 'aprobada')
@@ -581,6 +648,96 @@ class WorkSessionService
         }
 
         return 'Salida registrada dentro del tiempo de horas extra autorizado.';
+    }
+
+    private function registrarRecuperacionUsada(WorkSession $session): void
+    {
+        $jornada = $this->resolverJornadaOperativa([], $session);
+        if (! $jornada?->hora_salida || ! $session->hora_salida) {
+            return;
+        }
+
+        $salidaProgramada = $this->minutosHora($jornada->hora_salida);
+        $salidaReal = $this->minutosHora((string) $session->hora_salida);
+        if ($salidaProgramada === null || $salidaReal === null || $salidaReal <= $salidaProgramada) {
+            return;
+        }
+
+        $minutosPendientes = $salidaReal - $salidaProgramada;
+        $recuperaciones = RecuperacionTiempo::where('user_id', $session->user_id)
+            ->whereDate('fecha', Carbon::parse($session->registro_diario)->toDateString())
+            ->where('status', 'aprobada')
+            ->orderBy('hora_inicio')
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($recuperaciones as $recuperacion) {
+            if ($minutosPendientes <= 0) {
+                break;
+            }
+
+            $disponible = max(0, $recuperacion->minutos_autorizados - $recuperacion->minutos_usados);
+            if ($disponible <= 0) {
+                continue;
+            }
+
+            $usar = min($disponible, $minutosPendientes);
+            $recuperacion->update([
+                'work_session_id' => $session->id,
+                'minutos_usados' => $recuperacion->minutos_usados + $usar,
+            ]);
+
+            $minutosPendientes -= $usar;
+        }
+    }
+
+    private function minutosEsperadosPeriodo(int $userId, Carbon $inicio, Carbon $fin, $sessions): int
+    {
+        $total = 0;
+        $sesionesPorFecha = $sessions->keyBy(fn (WorkSession $session) => Carbon::parse($session->registro_diario)->toDateString());
+        $cursor = $inicio->copy();
+
+        while ($cursor->lte($fin)) {
+            $horario = HorarioUsuarioSemanal::where('user_id', $userId)
+                ->where('dia_semana', $cursor->dayOfWeekIso)
+                ->where('status', true)
+                ->first();
+
+            if ($horario) {
+                $total += $this->minutosEsperadosHorario($horario);
+            } else {
+                $session = $sesionesPorFecha->get($cursor->toDateString());
+                if ($session?->jornadaLaboral) {
+                    $total += $this->minutosEsperadosHorario($session->jornadaLaboral);
+                }
+            }
+
+            $cursor->addDay();
+        }
+
+        return $total;
+    }
+
+    private function minutosEsperadosHorario(object $horario): int
+    {
+        $entrada = $this->minutosHora($horario->hora_entrada ?? null);
+        $salida = $this->minutosHora($horario->hora_salida ?? null);
+        if ($entrada === null || $salida === null) {
+            return 0;
+        }
+
+        if ($salida <= $entrada) {
+            $salida += 24 * 60;
+        }
+
+        $almuerzo = (int) ($horario->duracion_almuerzo_minutos ?? 0);
+        $salidaAlmuerzo = $this->minutosHora($horario->hora_salida_almuerzo ?? null);
+        $ingresoAlmuerzo = $this->minutosHora($horario->hora_ingreso_almuerzo ?? null);
+        if ($salidaAlmuerzo !== null && $ingresoAlmuerzo !== null) {
+            $almuerzo = max(0, $ingresoAlmuerzo - $salidaAlmuerzo);
+        }
+
+        return max(0, ($salida - $entrada) - $almuerzo);
     }
 
     private function minutosHora(?string $hora): ?int

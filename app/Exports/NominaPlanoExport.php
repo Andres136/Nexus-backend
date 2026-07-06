@@ -25,6 +25,7 @@ class NominaPlanoExport implements FromArray, ShouldAutoSize, WithColumnFormatti
         'Cargo',
         'Periodo inicio',
         'Periodo fin',
+        'Horas que debe',
         'Horas normales',
         'Horas extra diurnas',
         'Horas extra nocturnas',
@@ -48,9 +49,9 @@ class NominaPlanoExport implements FromArray, ShouldAutoSize, WithColumnFormatti
         'Fecha liquidacion',
     ];
 
-    private const HOUR_COLUMNS = ['H', 'I', 'J', 'K', 'L'];
+    private const HOUR_COLUMNS = ['H', 'I', 'J', 'K', 'L', 'M'];
 
-    private const MONEY_COLUMNS = ['M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA'];
+    private const MONEY_COLUMNS = ['N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA', 'AB'];
 
     public function __construct(
         private readonly Collection $nominas,
@@ -77,6 +78,7 @@ class NominaPlanoExport implements FromArray, ShouldAutoSize, WithColumnFormatti
                 '',
                 '',
                 '',
+                '',
                 'Devengos',
                 '',
                 '',
@@ -86,8 +88,8 @@ class NominaPlanoExport implements FromArray, ShouldAutoSize, WithColumnFormatti
                 '',
                 '',
                 '',
-                'Deducciones y neto',
                 '',
+                'Deducciones y neto',
                 '',
                 '',
                 '',
@@ -106,6 +108,7 @@ class NominaPlanoExport implements FromArray, ShouldAutoSize, WithColumnFormatti
                 $nomina->contratacion?->cargo,
                 $nomina->periodo_inicio?->format('Y-m-d'),
                 $nomina->periodo_fin?->format('Y-m-d'),
+                $this->horasQueDebe($nomina),
                 $this->number($nomina->horas_normales),
                 $this->number($nomina->horas_extras_diurnas),
                 $this->number($nomina->horas_extras_nocturnas),
@@ -139,7 +142,7 @@ class NominaPlanoExport implements FromArray, ShouldAutoSize, WithColumnFormatti
     {
         $formats = [
             'F:G' => NumberFormat::FORMAT_TEXT,
-            'AB' => NumberFormat::FORMAT_TEXT,
+            'AC' => NumberFormat::FORMAT_TEXT,
         ];
 
         foreach (self::HOUR_COLUMNS as $column) {
@@ -165,9 +168,9 @@ class NominaPlanoExport implements FromArray, ShouldAutoSize, WithColumnFormatti
                 $sheet->mergeCells("A2:{$lastColumn}2");
                 $sheet->mergeCells('A3:E3');
                 $sheet->mergeCells('F3:G3');
-                $sheet->mergeCells('H3:L3');
-                $sheet->mergeCells('M3:U3');
-                $sheet->mergeCells('V3:AA3');
+                $sheet->mergeCells('H3:M3');
+                $sheet->mergeCells('N3:W3');
+                $sheet->mergeCells('X3:AB3');
 
                 $sheet->freezePane('A5');
                 $sheet->setAutoFilter("A4:{$lastColumn}{$lastRow}");
@@ -213,7 +216,7 @@ class NominaPlanoExport implements FromArray, ShouldAutoSize, WithColumnFormatti
                     'font' => ['bold' => true, 'color' => ['rgb' => '065F46']],
                 ]);
 
-                $sheet->getStyle("H5:AA{$lastRow}")
+                $sheet->getStyle("H5:AB{$lastRow}")
                     ->getAlignment()
                     ->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
@@ -221,7 +224,7 @@ class NominaPlanoExport implements FromArray, ShouldAutoSize, WithColumnFormatti
                 $sheet->getColumnDimension('C')->setWidth(28);
                 $sheet->getColumnDimension('D')->setWidth(30);
                 $sheet->getColumnDimension('E')->setWidth(24);
-                $sheet->getColumnDimension('AB')->setWidth(22);
+                $sheet->getColumnDimension('AC')->setWidth(22);
             },
         ];
     }
@@ -238,27 +241,29 @@ class NominaPlanoExport implements FromArray, ShouldAutoSize, WithColumnFormatti
         $row[2] = $this->nominas->count().' empleados';
 
         $sumColumns = [
-            7 => 'horas_normales',
-            8 => 'horas_extras_diurnas',
-            9 => 'horas_extras_nocturnas',
-            10 => 'horas_festivas',
-            11 => 'horas_nocturnas_festivas',
-            12 => 'salario_base_devengado',
-            13 => 'auxilio_transporte',
-            14 => 'total_comisiones',
-            15 => 'total_novedades_retroactivas',
-            16 => 'valor_horas_normales',
-            17 => 'valor_horas_extras_diurnas',
-            18 => 'valor_horas_extras_nocturnas',
-            19 => 'valor_horas_festivas',
-            20 => 'valor_horas_nocturnas_festivas',
-            21 => 'total_devengado',
-            22 => 'deduccion_salud',
-            23 => 'deduccion_pension',
-            24 => 'total_descuentos_adicionales',
-            25 => 'total_deducciones',
-            26 => 'salario_neto',
+            8 => 'horas_normales',
+            9 => 'horas_extras_diurnas',
+            10 => 'horas_extras_nocturnas',
+            11 => 'horas_festivas',
+            12 => 'horas_nocturnas_festivas',
+            13 => 'salario_base_devengado',
+            14 => 'auxilio_transporte',
+            15 => 'total_comisiones',
+            16 => 'total_novedades_retroactivas',
+            17 => 'valor_horas_normales',
+            18 => 'valor_horas_extras_diurnas',
+            19 => 'valor_horas_extras_nocturnas',
+            20 => 'valor_horas_festivas',
+            21 => 'valor_horas_nocturnas_festivas',
+            22 => 'total_devengado',
+            23 => 'deduccion_salud',
+            24 => 'deduccion_pension',
+            25 => 'total_descuentos_adicionales',
+            26 => 'total_deducciones',
+            27 => 'salario_neto',
         ];
+
+        $row[7] = $this->number($this->nominas->sum(fn ($nomina) => $this->horasQueDebe($nomina)));
 
         foreach ($sumColumns as $index => $column) {
             $row[$index] = $this->number($this->nominas->sum($column));
@@ -270,5 +275,13 @@ class NominaPlanoExport implements FromArray, ShouldAutoSize, WithColumnFormatti
     private function number(mixed $value): float
     {
         return round((float) ($value ?? 0), 2);
+    }
+
+    private function horasQueDebe($nomina): float
+    {
+        $horasSemanales = (float) ($nomina->jornadaLaboral?->horas_semanales ?? 0);
+        $diasPagados = (float) ($nomina->dias_salario ?? 0);
+
+        return $this->number(max(0, $horasSemanales * 5 * ($diasPagados / 30)));
     }
 }

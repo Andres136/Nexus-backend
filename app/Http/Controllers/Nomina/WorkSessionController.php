@@ -42,6 +42,31 @@ class WorkSessionController extends Controller
         }
     }
 
+    public function resumen(Request $request): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'user_id' => 'required|integer|exists:users,id',
+                'fecha_inicio' => 'required|date',
+                'fecha_fin' => 'required|date|after_or_equal:fecha_inicio',
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => $this->workSessionService->resumenAsistencias($validated),
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->flatten()->first(),
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener resumen de asistencia', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al obtener el resumen de asistencia.'], 500);
+        }
+    }
+
     public function show(string $uuid): JsonResponse
     {
         try {

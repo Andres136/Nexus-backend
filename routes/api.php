@@ -91,6 +91,7 @@ use App\Http\Controllers\Nomina\UsersFacePhotoController;
 use App\Http\Controllers\Nomina\ValorController;
 use App\Http\Controllers\Nomina\WorkSessionController;
 use App\Http\Controllers\Nomina\HoraExtraController;
+use App\Http\Controllers\Nomina\RecuperacionTiempoController;
 use App\Http\Controllers\Nomina\PermisoController;
 use App\Http\Controllers\Nomina\VacacionController;
 use App\Http\Controllers\Nomina\LlamadoAtencionController;
@@ -657,7 +658,10 @@ Route::prefix('nomina')->group(function () {
     Route::apiResource('horario-laboral',HorarioLaboralController::class);
     Route::apiResource('transacional-registros',   TransacionalRegistroController::class);
     Route::get('transacional-registros/user/{userId}', [TransacionalRegistroController::class, 'byUser']);
+    Route::get('work-sessions/resumen', [WorkSessionController::class, 'resumen']);
     Route::apiResource('work-sessions',    WorkSessionController::class);
+    Route::patch('recuperaciones-tiempo/{uuid}/anular', [RecuperacionTiempoController::class, 'anular']);
+    Route::apiResource('recuperaciones-tiempo', RecuperacionTiempoController::class)->only(['index', 'store']);
     Route::get('conceptos-contables/plantilla-puc-faltante', [NominaConceptoContableController::class, 'plantillaPucFaltante']);
     Route::post('conceptos-contables/sincronizar-puc', [NominaConceptoContableController::class, 'sincronizarPuc']);
     Route::apiResource('conceptos-contables', NominaConceptoContableController::class)->only(['index', 'show', 'update']);
