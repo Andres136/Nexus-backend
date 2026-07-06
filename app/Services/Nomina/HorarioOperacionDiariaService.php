@@ -36,8 +36,8 @@ class HorarioOperacionDiariaService
 
         if ($kioskoDeviceId && $userId) {
             $query->orderByRaw(
-                'CASE WHEN kiosko_device_id = ? AND user_id = ? THEN 0 WHEN kiosko_device_id = ? AND user_id IS NULL THEN 1 WHEN kiosko_device_id IS NULL AND user_id = ? THEN 2 ELSE 3 END',
-                [$kioskoDeviceId, $userId, $kioskoDeviceId, $userId]
+                'CASE WHEN kiosko_device_id = ? AND user_id = ? THEN 0 WHEN kiosko_device_id IS NULL AND user_id = ? THEN 1 WHEN kiosko_device_id = ? AND user_id IS NULL THEN 2 ELSE 3 END',
+                [$kioskoDeviceId, $userId, $userId, $kioskoDeviceId]
             );
         } elseif ($kioskoDeviceId) {
             $query->orderByRaw('CASE WHEN kiosko_device_id = ? THEN 0 ELSE 1 END', [$kioskoDeviceId]);

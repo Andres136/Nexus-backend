@@ -339,8 +339,8 @@ class WorkSessionService
 
         if ($kioskoId && $userId) {
             $instruccionQuery->orderByRaw(
-                'CASE WHEN kiosko_device_id = ? AND user_id = ? THEN 0 WHEN kiosko_device_id = ? AND user_id IS NULL THEN 1 WHEN kiosko_device_id IS NULL AND user_id = ? THEN 2 ELSE 3 END',
-                [$kioskoId, $userId, $kioskoId, $userId]
+                'CASE WHEN kiosko_device_id = ? AND user_id = ? THEN 0 WHEN kiosko_device_id IS NULL AND user_id = ? THEN 1 WHEN kiosko_device_id = ? AND user_id IS NULL THEN 2 ELSE 3 END',
+                [$kioskoId, $userId, $userId, $kioskoId]
             );
         } elseif ($kioskoId) {
             $instruccionQuery->orderByRaw('CASE WHEN kiosko_device_id = ? THEN 0 ELSE 1 END', [$kioskoId]);
@@ -357,6 +357,7 @@ class WorkSessionService
         }
 
         $operativa = (object) $jornada->toArray();
+        $instruccionEsUsuario = $instruccion && $instruccion->user_id !== null;
         foreach ([
             'hora_entrada',
             'hora_entrada_limite',
@@ -372,11 +373,15 @@ class WorkSessionService
                 $operativa->{$campo} = null;
             }
 
+            if ($instruccion && ! $instruccionEsUsuario && $instruccion->{$campo} !== null) {
+                $operativa->{$campo} = $instruccion->{$campo};
+            }
+
             if ($horarioUsuario && $horarioUsuario->{$campo} !== null) {
                 $operativa->{$campo} = $horarioUsuario->{$campo};
             }
 
-            if ($instruccion && $instruccion->{$campo} !== null) {
+            if ($instruccionEsUsuario && $instruccion->{$campo} !== null) {
                 $operativa->{$campo} = $instruccion->{$campo};
             }
         }
