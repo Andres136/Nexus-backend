@@ -23,9 +23,14 @@ class WorkSessionController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
+            $fecha = $request->query('fecha');
+            if (! $fecha && ! $request->filled('fecha_inicio') && ! $request->filled('fecha_fin')) {
+                $fecha = Carbon::now(config('app.timezone'))->toDateString();
+            }
+
             $filters = [
                 'user_id'      => $request->query('user_id'),
-                'fecha'        => $request->query('fecha'),
+                'fecha'        => $fecha,
                 'fecha_inicio' => $request->query('fecha_inicio'),
                 'fecha_fin'    => $request->query('fecha_fin'),
                 'search'       => $request->query('search'),
