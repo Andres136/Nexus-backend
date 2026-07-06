@@ -21,8 +21,6 @@ class WorkSessionService
 
     private const TOLERANCIA_ENTRADA_MINUTOS = 15;
 
-    private const PAUSA_PERMITIDA_MINUTOS = 10;
-
     private const ALMUERZO_PERMITIDO_MINUTOS = 60;
 
     private const CAMPOS_MARCACION = [
@@ -193,7 +191,7 @@ class WorkSessionService
         $pausaMinutos = $session?->minutos_pausa ?? 0;
         $almuerzoMinutos = $session?->minutos_almuerzo ?? 0;
         $tardanzaMinutos = 0;
-        $pausaPermitida = $jornada?->duracion_pausa_minutos ?? self::PAUSA_PERMITIDA_MINUTOS;
+        $pausaPermitida = $this->minutosPausaConfigurada($jornada);
         $almuerzoPermitido = $jornada?->duracion_almuerzo_minutos ?? self::ALMUERZO_PERMITIDO_MINUTOS;
 
         if ($entrada) {
@@ -212,7 +210,9 @@ class WorkSessionService
         if ($pausaSale && $pausaVuelve) {
             $data['minutos_pausa'] = (int) Carbon::parse($pausaSale)->diffInMinutes(Carbon::parse($pausaVuelve));
             $pausaMinutos = $data['minutos_pausa'];
-            $tardanzaMinutos += max(0, $pausaMinutos - $pausaPermitida);
+            if ($pausaPermitida !== null) {
+                $tardanzaMinutos += max(0, $pausaMinutos - $pausaPermitida);
+            }
         }
 
         if ($almuerzoSale && $almuerzoVuelve) {
@@ -533,7 +533,11 @@ class WorkSessionService
             return;
         }
 
-        $minutosPausa = max(1, (int) ($jornada?->duracion_pausa_minutos ?? self::PAUSA_PERMITIDA_MINUTOS));
+        $minutosPausa = $this->minutosPausaConfigurada($jornada);
+        if ($minutosPausa === null) {
+            return;
+        }
+
         $salidaPausa = Carbon::parse($session->hora_salida_brake);
         $regresoPausa = Carbon::parse($hora);
         $regresoPermitido = $salidaPausa->copy()->addMinutes($minutosPausa);
@@ -559,7 +563,11 @@ class WorkSessionService
             'hora_salida_brake' => [
                 $this->minutosHora($jornada->hora_salida_pausa ?? null),
                 $this->minutosHora($jornada->hora_ingreso_pausa ?? null)
-                    ?? (($this->minutosHora($jornada->hora_salida_pausa ?? null) ?? 0) + ($jornada->duracion_pausa_minutos ?? self::PAUSA_PERMITIDA_MINUTOS)),
+                    ?? (
+                        $this->minutosPausaConfigurada($jornada) !== null
+                            ? (($this->minutosHora($jornada->hora_salida_pausa ?? null) ?? 0) + $this->minutosPausaConfigurada($jornada))
+                            : null
+                    ),
                 'La salida a pausa solo se permite dentro del horario de pausa configurado.',
             ],
             'hora_ingreso_brake' => [
@@ -738,6 +746,16 @@ class WorkSessionService
         }
 
         return max(0, ($salida - $entrada) - $almuerzo);
+    }
+
+    private function minutosPausaConfigurada(?object $jornada): ?int
+    {
+        $minutos = $jornada?->duracion_pausa_minutos ?? null;
+        if ($minutos === null) {
+            return null;
+        }
+
+        return max(1, (int) $minutos);
     }
 
     private function minutosHora(?string $hora): ?int
