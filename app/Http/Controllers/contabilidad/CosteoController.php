@@ -4,8 +4,10 @@ namespace App\Http\Controllers\contabilidad;
 
 use App\Exports\CosteoUtilidadExport;
 use App\Http\Controllers\Controller;
+use App\Models\Crm\empresa;
 use App\Services\contabilidad\CostoeService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 
 class CosteoController extends Controller
@@ -60,6 +62,26 @@ public function export(Request $request)
         false
     );
 
+    $empresa = $empresaId ? empresa::find($empresaId) : null;
+
+    $logoPath = null;
+
+    if ($empresa && $empresa->logo) {
+        $possiblePath = public_path('storage/' . $empresa->logo);
+
+        if (file_exists($possiblePath) && !is_dir($possiblePath)) {
+            $logoPath = $possiblePath;
+        }
+    }
+
+    $nombreArchivo = 'costeo_utilidad';
+
+    if ($empresa) {
+        $nombreArchivo .= '_' . Str::slug($empresa->nombre, '_');
+    }
+
+    $nombreArchivo .= '_' . now()->format('Y-m-d') . '.xlsx';
+
   return Excel::download(
     new CosteoUtilidadExport(
         $data['detalle']->map(function ($item) {
@@ -75,9 +97,11 @@ public function export(Request $request)
                 'Utilidad sin IVA' => $item->utilidad,
                 'Margen %' => $item->margen_porcentaje,
             ];
-        })->toArray()
+        })->toArray(),
+        $empresa?->nombre,
+        $logoPath
     ),
-    'costeo_utilidad.xlsx'
+    $nombreArchivo
 );
 }
 }
