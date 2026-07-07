@@ -155,6 +155,8 @@ class KioskoDeviceController extends Controller
             'uuid' => 'required|uuid',
             'session_token' => 'required|string',
             'fingerprint' => 'required|string|min:20',
+            'fingerprint_candidates' => 'sometimes|array|max:3',
+            'fingerprint_candidates.*' => 'string|min:20',
         ]);
 
         try {
@@ -180,6 +182,8 @@ class KioskoDeviceController extends Controller
             'uuid' => 'required|uuid',
             'session_token' => 'required|string',
             'fingerprint' => 'required|string|min:20',
+            'fingerprint_candidates' => 'sometimes|array|max:3',
+            'fingerprint_candidates.*' => 'string|min:20',
         ]);
 
         try {

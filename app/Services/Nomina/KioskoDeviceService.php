@@ -173,7 +173,12 @@ public function create(array $data): KioskoDevice
             ->where('uuid', $data['uuid'])
             ->firstOrFail();
 
-        $this->assertSessionIsValid($device, $data['session_token'], $data['fingerprint']);
+        $this->assertSessionIsValid(
+            $device,
+            $data['session_token'],
+            $data['fingerprint'],
+            $data['fingerprint_candidates'] ?? []
+        );
 
         $device->forceFill([
             'last_seen_at' => now(),
@@ -388,7 +393,7 @@ public function create(array $data): KioskoDevice
         });
     }
 
-    private function assertSessionIsValid(KioskoDevice $device, string $sessionToken, string $fingerprint): void
+    private function assertSessionIsValid(KioskoDevice $device, string $sessionToken, string $fingerprint, array $fingerprintCandidates = []): void
     {
         if ($device->status !== 'active' || $device->revoked_at) {
             throw new AuthorizationException('El kiosko no está activo.');
@@ -402,7 +407,28 @@ public function create(array $data): KioskoDevice
             throw new AuthorizationException('La sesión del kiosko no es válida.');
         }
 
-        if (!hash_equals($device->device_fingerprint_hash, $this->hashToken($fingerprint))) {
+        $primaryFingerprintHash = $this->hashToken($fingerprint);
+
+        if (hash_equals($device->device_fingerprint_hash, $primaryFingerprintHash)) {
+            return;
+        }
+
+        foreach ($fingerprintCandidates as $candidate) {
+            if (!is_string($candidate) || $candidate === '') {
+                continue;
+            }
+
+            if (hash_equals($device->device_fingerprint_hash, $this->hashToken($candidate))) {
+                $device->forceFill([
+                    'device_fingerprint_hash' => $primaryFingerprintHash,
+                ])->save();
+
+                Log::info('Huella de kiosko migrada a formato estable', ['uuid' => $device->uuid]);
+                return;
+            }
+        }
+
+        if (!hash_equals($device->device_fingerprint_hash, $primaryFingerprintHash)) {
             throw new AuthorizationException('Este kiosko fue activado en otro dispositivo.');
         }
     }
