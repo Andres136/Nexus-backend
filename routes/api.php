@@ -5,6 +5,7 @@ use App\Http\Controllers\CapacitacionController;
 use App\Http\Controllers\CapacitacionEncuestaController;
 use App\Http\Controllers\comunicaciones\PlantillaController;
 use App\Http\Controllers\comunicaciones\TicketController;
+use App\Http\Controllers\Compras\RequerimientoCompraController;
 use App\Http\Controllers\contabilidad\CosteoController;
 use App\Http\Controllers\contabilidad\FacturaCompraController;
 use App\Http\Controllers\contabilidad\FormaPagoController;
@@ -190,6 +191,16 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
 
   //ordenes de compra
   Route::apiResource('orden-compras', OrdenCompraController::class);
+  Route::get('requerimientos-compra/bodegas-disponibles', [RequerimientoCompraController::class, 'bodegasDisponibles']);
+  Route::get('requerimientos-compra/{uuid}/pdf', [RequerimientoCompraController::class, 'pdf']);
+  Route::patch('requerimientos-compra/{uuid}/analizar', [RequerimientoCompraController::class, 'analizar']);
+  Route::put('requerimientos-compra/{uuid}', [RequerimientoCompraController::class, 'update']);
+  Route::patch('requerimientos-compra/{uuid}', [RequerimientoCompraController::class, 'update']);
+  Route::patch('requerimientos-compra/{uuid}/aprobar', [RequerimientoCompraController::class, 'aprobar']);
+  Route::patch('requerimientos-compra/{uuid}/rechazar', [RequerimientoCompraController::class, 'rechazar']);
+  Route::patch('requerimientos-compra/{uuid}/cancelar', [RequerimientoCompraController::class, 'cancelar']);
+  Route::post('requerimientos-compra/{uuid}/generar-orden-compra', [RequerimientoCompraController::class, 'generarOrdenCompra']);
+  Route::apiResource('requerimientos-compra', RequerimientoCompraController::class)->only(['index', 'store', 'show']);
   Route::get('/notificaciones', [NotificacionOrdenController::class, 'listarNotificaciones']);
  Route::get('ordenes-compra-facturar', [OrdenCompraController::class, 'ordenesFacturar']);
 
