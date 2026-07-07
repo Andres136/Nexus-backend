@@ -16,6 +16,8 @@ class GuardarHorarioOperacionDiariaRequest extends FormRequest
         return [
             'fecha' => 'required|date',
             'kiosko_device_id' => 'nullable|integer|exists:kiosko_devices,id',
+            'kiosko_device_ids' => 'nullable|array',
+            'kiosko_device_ids.*' => 'integer|exists:kiosko_devices,id',
             'user_id' => 'nullable|integer|exists:users,id',
             'users' => 'nullable|array',
             'users.*' => 'integer|exists:users,id',
@@ -39,6 +41,7 @@ class GuardarHorarioOperacionDiariaRequest extends FormRequest
         return [
             'fecha.required' => 'La fecha de la instrucción es obligatoria.',
             'kiosko_device_id.exists' => 'El kiosko seleccionado no existe.',
+            'kiosko_device_ids.*.exists' => 'Uno o más kioskos seleccionados no existen.',
             'user_id.exists' => 'El empleado seleccionado no existe.',
             'users.*.exists' => 'Uno o más empleados seleccionados no existen.',
             'jornada_laboral_id.exists' => 'La jornada laboral no existe.',

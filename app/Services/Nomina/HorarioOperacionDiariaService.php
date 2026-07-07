@@ -52,18 +52,32 @@ class HorarioOperacionDiariaService
     {
         return DB::transaction(function () use ($data) {
             $fecha = Carbon::parse($data['fecha'])->toDateString();
-            $kioskoDeviceId = $data['kiosko_device_id'] ?? null;
+
+            $kioskoIds = collect($data['kiosko_device_ids'] ?? [])
+                ->filter()
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values();
+            if ($kioskoIds->isEmpty()) {
+                $kioskoIds = collect([$data['kiosko_device_id'] ?? null]);
+            }
+
             $users = collect($data['users'] ?? [])
                 ->filter()
                 ->map(fn ($userId) => (int) $userId)
                 ->unique()
                 ->values();
-
-            if ($users->isNotEmpty()) {
-                return $users->map(fn (int $userId) => $this->guardarUno($data, $fecha, $kioskoDeviceId, $userId));
+            if ($users->isEmpty()) {
+                $users = collect([$data['user_id'] ?? null]);
             }
 
-            return $this->guardarUno($data, $fecha, $kioskoDeviceId, $data['user_id'] ?? null);
+            $resultados = $kioskoIds->flatMap(
+                fn ($kioskoId) => $users->map(
+                    fn ($userId) => $this->guardarUno($data, $fecha, $kioskoId, $userId)
+                )
+            )->values();
+
+            return $resultados->count() === 1 ? $resultados->first() : $resultados;
         });
     }
 
