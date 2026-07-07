@@ -163,6 +163,12 @@ public function generarOrdenTrabajo(OrdenTrabajoRequest $request, $id)
     
     try {
         $ordenCompra = Orden_Compra::findOrFail($id);
+
+        if ((int) $ordenCompra->estado_id === EstadoEnum::INACTIVO->value) {
+            return response()->json([
+                'message' => 'No se puede generar una Orden de Trabajo para una Orden de Compra inactiva.',
+            ], 422);
+        }
         
         $this->validarDocumentoCliente($ordenCompra);
         
@@ -240,6 +246,9 @@ public function obtenerOrdenesTrabajo(Request $request)
         'movimientosStock:id,orden_trabajo_id,created_at,usuario_id',
     ])
         ->whereNot('estado_id', EstadoEnum::INACTIVO->value)
+        ->whereHas('ordenCompra', function ($q) {
+            $q->whereNot('estado_id', EstadoEnum::INACTIVO->value);
+        })
 
         // Restricción por rol (excepto admin)
         ->when(!in_array($user->role_id, [1, 4]), function ($query) use ($user) {
@@ -660,6 +669,9 @@ public function ordenesTrabajoEntregas(Request $request)
     $search = trim($request->input('search'));
 
     $ordenes = OrdenDeTrabajo::query()
+        ->whereHas('ordenCompra', function ($q) {
+            $q->whereNot('estado_id', EstadoEnum::INACTIVO->value);
+        })
         ->when(!empty($search), function ($q) use ($search) {
             // 🔎 Search SOLO por OT
             if (is_numeric($search)) {

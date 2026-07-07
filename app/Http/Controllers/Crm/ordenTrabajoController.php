@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Crm;
 
+use App\EstadoEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Crm\OrdenDeTrabajo;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -21,7 +22,11 @@ class ordenTrabajoController extends Controller
             'ordenCompra.sede',
             'ordenCompra.detalles.product',
 
-        ])->findOrFail($id);
+        ])
+            ->whereHas('ordenCompra', function ($q) {
+                $q->whereNot('estado_id', EstadoEnum::INACTIVO->value);
+            })
+            ->findOrFail($id);
 
         return response()->json($orden);
     }
@@ -36,7 +41,11 @@ class ordenTrabajoController extends Controller
             'user',
             'entregas.usuario',
             'ordenCompra.empresa' // Cargar la relación con empresa
-        ])->findOrFail($id);
+        ])
+              ->whereHas('ordenCompra', function ($q) {
+                  $q->whereNot('estado_id', EstadoEnum::INACTIVO->value);
+              })
+              ->findOrFail($id);
 
         // Calcular totales
         $detalles = $orden->ordenCompra->detalles->map(function ($d) {
@@ -106,4 +115,3 @@ public function revisarOrdenTrabajo($id)
 
 
     }
-

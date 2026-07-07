@@ -293,6 +293,7 @@ public function descargarOrdenesCriticasHoy(Request $request)
     // ===============================
     $vencidas = Orden_Compra::with(['detalles.product', 'cliente'])
         ->whereDate('fecha_entrega', '<', $fecha)
+        ->whereNot('estado_id', EstadoEnum::INACTIVO->value)
         ->whereHas('detalles', function ($q) {
             $q->where('cantidad_enviada', 0);
         })
@@ -308,6 +309,7 @@ public function descargarOrdenesCriticasHoy(Request $request)
     $hoy = Orden_Compra::with(['detalles.product', 'cliente'])
         ->whereDate('fecha_entrega', $fecha)
         ->where('estado_id', '!=', 2)
+        ->whereNot('estado_id', EstadoEnum::INACTIVO->value)
         ->get()
         ->reject(fn($o) => $idsUsados->contains($o->id))
         ->unique('id')
@@ -320,6 +322,7 @@ public function descargarOrdenesCriticasHoy(Request $request)
     // ===============================
     $conFaltantes = Orden_Compra::with(['detalles.product', 'cliente'])
         ->whereDate('fecha_entrega', '<=', $fecha)
+        ->whereNot('estado_id', EstadoEnum::INACTIVO->value)
         ->whereHas('detalles', function ($q) {
             $q->where('faltantes', '>', 0);
         })
@@ -398,6 +401,7 @@ public function exportarOrdenesCriticasMes(Request $request)
 
     $ordenes = Orden_Compra::with(['detalles', 'cliente', 'sede', 'ordenTrabajo'])
         ->whereBetween('fecha_entrega', [$start, $end])
+        ->whereNot('estado_id', EstadoEnum::INACTIVO->value)
         ->get();
 
     // Solo vencidas
@@ -475,6 +479,7 @@ public function getAuditData(Request $request)
           ->orWhereBetween('fecha_despacho', [$start, $end]);
     })
     ->where('estado_id', '!=', 5) // 👈 excluimos entregas parciales
+    ->whereNot('estado_id', EstadoEnum::INACTIVO->value)
     ->select($table . '.*')
     ->distinct()
     ->orderBy($table . '.created_at', 'desc');
