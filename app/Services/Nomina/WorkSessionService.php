@@ -256,8 +256,10 @@ class WorkSessionService
             return $data;
         }
 
-        $jornada = JornadaLaboral::where('status', true)->first()
-            ?? JornadaLaboral::query()->first();
+        $jornada = JornadaLaboral::where('status', true)
+            ->orderByDesc('updated_at')
+            ->first()
+            ?? JornadaLaboral::query()->orderByDesc('updated_at')->first();
 
         if (! $jornada) {
             throw ValidationException::withMessages([
@@ -465,7 +467,7 @@ class WorkSessionService
 
         $jornada = $this->resolverJornadaOperativa($data, $session);
         $this->validarSecuenciaMarcacion($session, $campo);
-        $this->validarDuracionMinimaPausa($session, $campo, $data[$campo], $jornada);
+        $this->validarDuracionMinimaDescanso($session, $campo, $data[$campo], $jornada);
         $this->validarVentanaHorario($campo, $data[$campo], $jornada);
         $avisoKiosko = $this->ajustarSalidaSegunHoraExtraAprobada($session, $campo, $data, $jornada);
 
@@ -532,27 +534,38 @@ class WorkSessionService
         }
     }
 
-    private function validarDuracionMinimaPausa(WorkSession $session, string $campo, string $hora, ?object $jornada): void
+    private function validarDuracionMinimaDescanso(WorkSession $session, string $campo, string $hora, ?object $jornada): void
     {
-        if ($campo !== 'hora_ingreso_brake' || ! $session->hora_salida_brake) {
+        $config = match ($campo) {
+            'hora_ingreso_brake' => [
+                'salida' => $session->hora_salida_brake,
+                'minutos' => $this->minutosPausaConfigurada($jornada),
+                'campo' => 'hora_ingreso_brake',
+                'nombre' => 'break',
+            ],
+            'hora_ingreso_almuerzo' => [
+                'salida' => $session->hora_salida_almuerzo,
+                'minutos' => $jornada?->duracion_almuerzo_minutos,
+                'campo' => 'hora_ingreso_almuerzo',
+                'nombre' => 'almuerzo',
+            ],
+            default => null,
+        };
+
+        if (! $config || ! $config['salida'] || $config['minutos'] === null) {
             return;
         }
 
-        $minutosPausa = $this->minutosPausaConfigurada($jornada);
-        if ($minutosPausa === null) {
-            return;
-        }
+        $salidaDescanso = Carbon::parse($config['salida']);
+        $regresoDescanso = Carbon::parse($hora);
+        $regresoPermitido = $salidaDescanso->copy()->addMinutes((int) $config['minutos']);
 
-        $salidaPausa = Carbon::parse($session->hora_salida_brake);
-        $regresoPausa = Carbon::parse($hora);
-        $regresoPermitido = $salidaPausa->copy()->addMinutes($minutosPausa);
-
-        if ($regresoPausa->lessThan($regresoPermitido)) {
-            $segundosRestantes = $regresoPermitido->getTimestamp() - $regresoPausa->getTimestamp();
+        if ($regresoDescanso->lessThan($regresoPermitido)) {
+            $segundosRestantes = $regresoPermitido->getTimestamp() - $regresoDescanso->getTimestamp();
             $minutosRestantes = max(1, (int) ceil($segundosRestantes / 60));
 
             throw ValidationException::withMessages([
-                'hora_ingreso_brake' => "Aún estás en break. Tu próximo registro será en {$minutosRestantes} minuto(s).",
+                $config['campo'] => "Aún estás en {$config['nombre']}. Tu próximo registro será en {$minutosRestantes} minuto(s).",
             ]);
         }
     }
@@ -565,31 +578,6 @@ class WorkSessionService
 
         $actual = $this->minutosHora($hora);
         $ventanas = [
-            'hora_salida_brake' => [
-                $this->minutosHora($jornada->hora_salida_pausa ?? null),
-                $this->minutosHora($jornada->hora_ingreso_pausa ?? null)
-                    ?? (
-                        $this->minutosPausaConfigurada($jornada) !== null
-                            ? (($this->minutosHora($jornada->hora_salida_pausa ?? null) ?? 0) + $this->minutosPausaConfigurada($jornada))
-                            : null
-                    ),
-                'La salida a pausa solo se permite dentro del horario de pausa configurado.',
-            ],
-            'hora_ingreso_brake' => [
-                $this->minutosHora($jornada->hora_salida_pausa ?? null),
-                null,
-                'El regreso de pausa solo se permite después de iniciar la pausa.',
-            ],
-            'hora_salida_almuerzo' => [
-                $this->minutosHora($jornada->hora_salida_almuerzo ?? null),
-                $this->minutosHora($jornada->hora_ingreso_almuerzo ?? null),
-                'La salida a almuerzo solo se permite dentro del horario de almuerzo configurado.',
-            ],
-            'hora_ingreso_almuerzo' => [
-                $this->minutosHora($jornada->hora_salida_almuerzo ?? null),
-                null,
-                'El regreso de almuerzo solo se permite después de iniciar el almuerzo.',
-            ],
             'hora_salida' => [
                 $this->minutosHora($jornada->hora_salida ?? null),
                 null,

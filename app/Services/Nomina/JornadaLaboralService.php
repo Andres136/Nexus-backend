@@ -22,7 +22,9 @@ class JornadaLaboralService
                 });
             })
             ->when(isset($filters['status']), fn($q) => $q->where('status', $filters['status']))
-            ->orderByDesc('created_at')
+            ->orderByDesc('status')
+            ->orderByDesc('updated_at')
+            ->orderBy('nombre')
             ->paginate($perPage);
     }
 
@@ -34,6 +36,10 @@ class JornadaLaboralService
     public function store(array $data): JornadaLaboral
     {
         return DB::transaction(function () use ($data) {
+            if ($this->debeQuedarActiva($data, true)) {
+                JornadaLaboral::where('status', true)->update(['status' => false]);
+            }
+
             $jornada = JornadaLaboral::create($data);
 
             Log::info('Jornada laboral creada', [
@@ -53,6 +59,12 @@ class JornadaLaboralService
         return DB::transaction(function () use ($uuid, $data) {
             $jornada = $this->getByUuid($uuid);
 
+            if ($this->debeQuedarActiva($data, false)) {
+                JornadaLaboral::where('id', '!=', $jornada->id)
+                    ->where('status', true)
+                    ->update(['status' => false]);
+            }
+
             $jornada->update($data);
 
             Log::info('Jornada laboral actualizada', ['uuid' => $jornada->uuid]);
@@ -61,6 +73,15 @@ class JornadaLaboralService
 
             return $jornada->fresh();
         });
+    }
+
+    private function debeQuedarActiva(array $data, bool $default): bool
+    {
+        if (! array_key_exists('status', $data)) {
+            return $default;
+        }
+
+        return filter_var($data['status'], FILTER_VALIDATE_BOOL);
     }
 
     public function destroy(string $uuid): void

@@ -321,6 +321,7 @@ public function create(array $data): KioskoDevice
                         ->whereHas('empleado.contratacionActivaNomina')
                         ->get(),
                     'jornadas' => JornadaLaboral::orderByDesc('status')
+                        ->orderByDesc('updated_at')
                         ->orderBy('nombre')
                         ->get(),
                 ];
