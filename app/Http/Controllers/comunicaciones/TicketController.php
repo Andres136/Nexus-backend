@@ -71,6 +71,7 @@ class TicketController extends Controller
             'fecha_desde' => ['nullable', 'date'],
             'fecha_hasta' => ['nullable', 'date'],
             'producto_id' => ['nullable', 'integer', 'exists:products,id'],
+            'departamento_id' => ['nullable', 'integer', 'exists:departamentos,id'],
         ]);
 
         return response()->json([

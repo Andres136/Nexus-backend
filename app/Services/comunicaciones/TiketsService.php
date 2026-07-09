@@ -111,6 +111,7 @@ class TiketsService
             ])
             ->whereNotNull('producto_id')
             ->when(!empty($filters['producto_id']), fn ($query) => $query->where('producto_id', $filters['producto_id']))
+            ->when(!empty($filters['departamento_id']), fn ($query) => $query->where('departamento_id', $filters['departamento_id']))
             ->where('created_at', '<=', $fechaHasta)
             ->where(function ($query) use ($fechaDesde) {
                 $query->whereNull('fecha_solucion')
