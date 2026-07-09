@@ -106,7 +106,7 @@ table { border-collapse: collapse; width: 100%; }
   <table>
   <tr>
     <td class="info-label">Nombre:</td>
-    <td class="info-val">{{ strtoupper($nomina->empleado->name ?? '—') }}</td>
+    <td class="info-val">{{ strtoupper($nomina->empleado->nombre_completo ?? '—') }}</td>
     <td class="info-label" style="padding-left:30px;">Cargo:</td>
     <td class="info-val">{{ $nomina->contratacion->cargo ?? '—' }}</td>
   </tr>
@@ -190,7 +190,7 @@ table { border-collapse: collapse; width: 100%; }
 <tr>
   <td style="width:45%; text-align:center; padding-top:4px;">
     <div style="border-top:1px solid #999; padding-top:4px;">
-    <div style="font-size:9px; color:#555;">Firma Empleado / {{ strtoupper($nomina->empleado->name ?? '') }}</div>
+    <div style="font-size:9px; color:#555;">Firma Empleado / {{ strtoupper($nomina->empleado->nombre_completo ?? '') }}</div>
     </div>
   </td>
   <td style="width:10%;"></td>

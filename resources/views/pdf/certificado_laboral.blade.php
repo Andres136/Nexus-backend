@@ -85,7 +85,7 @@ table { border-collapse: collapse; width: 100%; }
 <div class="cuerpo">
   <strong>{{ $empresa?->nombre }}</strong>,
   con NIT <strong>{{ $empresa->nit ?? 'N/A' }}</strong>, certifica que
-  <strong>{{ strtoupper($contratacion->usuario->name ?? '—') }}</strong>,
+  <strong>{{ strtoupper($contratacion->usuario->nombre_completo ?? '—') }}</strong>,
   identificado(a) con cédula de ciudadanía No.
   <strong>{{ $contratacion->numero_documento ?? '—' }}</strong>,
   labora en nuestra empresa en el cargo de

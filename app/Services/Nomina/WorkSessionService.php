@@ -540,25 +540,39 @@ class WorkSessionService
             'hora_ingreso_brake' => [
                 'salida' => $session->hora_salida_brake,
                 'minutos' => $this->minutosPausaConfigurada($jornada),
+                'regreso_programado' => $this->horaProgramadaRegresoDescanso($jornada, 'pausa'),
                 'campo' => 'hora_ingreso_brake',
                 'nombre' => 'break',
             ],
             'hora_ingreso_almuerzo' => [
                 'salida' => $session->hora_salida_almuerzo,
                 'minutos' => $jornada?->duracion_almuerzo_minutos,
+                'regreso_programado' => $this->horaProgramadaRegresoDescanso($jornada, 'almuerzo'),
                 'campo' => 'hora_ingreso_almuerzo',
                 'nombre' => 'almuerzo',
             ],
             default => null,
         };
 
-        if (! $config || ! $config['salida'] || $config['minutos'] === null) {
+        if (! $config || ! $config['salida']) {
             return;
         }
 
-        $salidaDescanso = Carbon::parse($config['salida']);
         $regresoDescanso = Carbon::parse($hora);
-        $regresoPermitido = $salidaDescanso->copy()->addMinutes((int) $config['minutos']);
+        $regresoPermitido = $config['regreso_programado']
+            ? Carbon::parse($regresoDescanso->toDateString().' '.$config['regreso_programado'])
+            : null;
+
+        if (! $regresoPermitido && $config['minutos'] !== null) {
+            $salidaProgramada = $this->horaProgramadaSalidaDescanso($jornada, $config['nombre'] === 'break' ? 'pausa' : 'almuerzo');
+            $regresoPermitido = $salidaProgramada
+                ? Carbon::parse($regresoDescanso->toDateString().' '.$salidaProgramada)->addMinutes((int) $config['minutos'])
+                : null;
+        }
+
+        if (! $regresoPermitido) {
+            return;
+        }
 
         if ($regresoDescanso->lessThan($regresoPermitido)) {
             $segundosRestantes = $regresoPermitido->getTimestamp() - $regresoDescanso->getTimestamp();
@@ -578,21 +592,85 @@ class WorkSessionService
 
         $actual = $this->minutosHora($hora);
         $ventanas = [
+            'hora_salida_brake' => [
+                $this->minutosHora($this->horaProgramadaSalidaDescanso($jornada, 'pausa')),
+                $this->minutosHora($this->horaProgramadaRegresoDescanso($jornada, 'pausa')),
+                'La salida a break solo se permite dentro del horario laboral configurado.',
+                true,
+            ],
+            'hora_ingreso_brake' => [
+                $this->minutosHora($this->horaProgramadaRegresoDescanso($jornada, 'pausa')),
+                null,
+                'El regreso de break solo se permite desde la hora laboral configurada.',
+                true,
+            ],
+            'hora_salida_almuerzo' => [
+                $this->minutosHora($this->horaProgramadaSalidaDescanso($jornada, 'almuerzo')),
+                $this->minutosHora($this->horaProgramadaRegresoDescanso($jornada, 'almuerzo')),
+                'La salida a almuerzo solo se permite dentro del horario laboral configurado.',
+                true,
+            ],
+            'hora_ingreso_almuerzo' => [
+                $this->minutosHora($this->horaProgramadaRegresoDescanso($jornada, 'almuerzo')),
+                null,
+                'El regreso de almuerzo solo se permite desde la hora laboral configurada.',
+                true,
+            ],
             'hora_salida' => [
                 $this->minutosHora($jornada->hora_salida ?? null),
                 null,
                 'La salida laboral solo se permite desde la hora de salida configurada.',
+                false,
             ],
         ];
 
-        [$inicio, $fin, $mensaje] = $ventanas[$campo] ?? [null, null, null];
+        [$inicio, $fin, $mensaje, $requiereHorario] = $ventanas[$campo] ?? [null, null, null, false];
         if ($inicio === null) {
+            if ($requiereHorario) {
+                throw ValidationException::withMessages([$campo => 'Esta marcación no tiene horario laboral configurado.']);
+            }
+
             return;
         }
 
         if ($actual < $inicio || ($fin !== null && $actual >= $fin)) {
             throw ValidationException::withMessages([$campo => $mensaje]);
         }
+    }
+
+    private function horaProgramadaSalidaDescanso(?object $jornada, string $tipo): ?string
+    {
+        return match ($tipo) {
+            'pausa' => $jornada?->hora_salida_pausa ?? null,
+            'almuerzo' => $jornada?->hora_salida_almuerzo ?? null,
+            default => null,
+        };
+    }
+
+    private function horaProgramadaRegresoDescanso(?object $jornada, string $tipo): ?string
+    {
+        $horaRegreso = match ($tipo) {
+            'pausa' => $jornada?->hora_ingreso_pausa ?? null,
+            'almuerzo' => $jornada?->hora_ingreso_almuerzo ?? null,
+            default => null,
+        };
+
+        if ($horaRegreso) {
+            return $horaRegreso;
+        }
+
+        $horaSalida = $this->horaProgramadaSalidaDescanso($jornada, $tipo);
+        $duracion = match ($tipo) {
+            'pausa' => $this->minutosPausaConfigurada($jornada),
+            'almuerzo' => $jornada?->duracion_almuerzo_minutos ?? null,
+            default => null,
+        };
+
+        if (! $horaSalida || $duracion === null) {
+            return null;
+        }
+
+        return Carbon::parse($horaSalida)->addMinutes((int) $duracion)->format('H:i:s');
     }
 
     private function ajustarSalidaSegunHoraExtraAprobada(WorkSession $session, string $campo, array &$data, ?object $jornada): ?string
