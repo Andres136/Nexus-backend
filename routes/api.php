@@ -313,6 +313,7 @@ Route::apiResource('plantillas-correo', PlantillaController::class);
 Route::post('/plantillas/{id}/enviar', [PlantillaController::class, 'enviar']);
 Route::get('/plantillas/{id}/edit', [PlantillaController::class, 'edit']); 
 Route::get('tickets/estadisticas-paradas', [TicketController::class, 'estadisticasParadas']);
+Route::get('tickets/estadisticas-generales', [TicketController::class, 'estadisticasGenerales']);
 Route::get('tickets/resumen-asignados', [TicketController::class, 'resumenAsignados']);
 Route::patch('tickets/{ticket}/estado', [TicketController::class, 'cambiarEstado']);
 Route::post('tickets/{ticket}/historial', [TicketController::class, 'agregarHistorial']);

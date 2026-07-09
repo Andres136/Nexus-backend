@@ -80,6 +80,20 @@ class TicketController extends Controller
         ]);
     }
 
+    public function estadisticasGenerales(Request $request): JsonResponse
+    {
+        $filters = $request->validate([
+            'fecha_desde' => ['nullable', 'date'],
+            'fecha_hasta' => ['nullable', 'date'],
+            'departamento_id' => ['nullable', 'integer', 'exists:departamentos,id'],
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => $this->tiketsService->getTicketStats($filters),
+        ]);
+    }
+
     public function update(UpdateTicketRequest $request, int $id): JsonResponse
     {
         $ticket = $this->tiketsService->updateTicket($id, $request->validated());

@@ -194,6 +194,84 @@ class TiketsService
         ];
     }
 
+    public function getTicketStats(array $filters = []): array
+    {
+        $now = now();
+        $fechaDesde = !empty($filters['fecha_desde'])
+            ? Carbon::parse($filters['fecha_desde'])->startOfDay()
+            : $now->copy()->startOfMonth();
+        $fechaHasta = !empty($filters['fecha_hasta'])
+            ? Carbon::parse($filters['fecha_hasta'])->endOfDay()
+            : $now->copy();
+
+        if ($fechaHasta->lessThan($fechaDesde)) {
+            [$fechaDesde, $fechaHasta] = [$fechaHasta->copy()->startOfDay(), $fechaDesde->copy()->endOfDay()];
+        }
+
+        $tickets = Ticket::with(['departamento:id,nombre'])
+            ->when(!empty($filters['departamento_id']), fn ($query) => $query->where('departamento_id', $filters['departamento_id']))
+            ->whereBetween('created_at', [$fechaDesde, $fechaHasta])
+            ->get();
+
+        $departamentos = [];
+        $horasResolucionTotal = 0.0;
+        $ticketsResueltosTotal = 0;
+
+        foreach ($tickets as $ticket) {
+            $departamentoId = (int) $ticket->departamento_id;
+            if (!isset($departamentos[$departamentoId])) {
+                $departamentos[$departamentoId] = [
+                    'departamento' => [
+                        'id' => $departamentoId,
+                        'nombre' => $ticket->departamento?->nombre,
+                    ],
+                    'tickets_total' => 0,
+                    'tickets_abiertos' => 0,
+                    'tickets_cerrados' => 0,
+                    'tickets_resueltos' => 0,
+                    'horas_resolucion_total' => 0.0,
+                    'tiempo_promedio_resolucion' => 0.0,
+                ];
+            }
+
+            $departamentos[$departamentoId]['tickets_total']++;
+            $departamentos[$departamentoId][$ticket->estado === 'cerrado' ? 'tickets_cerrados' : 'tickets_abiertos']++;
+
+            if ($ticket->fecha_solucion) {
+                $horas = round(Carbon::parse($ticket->created_at)->floatDiffInHours(Carbon::parse($ticket->fecha_solucion)), 2);
+                $departamentos[$departamentoId]['horas_resolucion_total'] += $horas;
+                $departamentos[$departamentoId]['tickets_resueltos']++;
+                $horasResolucionTotal += $horas;
+                $ticketsResueltosTotal++;
+            }
+        }
+
+        foreach ($departamentos as &$departamento) {
+            $departamento['tiempo_promedio_resolucion'] = $departamento['tickets_resueltos'] > 0
+                ? round($departamento['horas_resolucion_total'] / $departamento['tickets_resueltos'], 2)
+                : 0.0;
+            $departamento['horas_resolucion_total'] = round($departamento['horas_resolucion_total'], 2);
+        }
+        unset($departamento);
+
+        return [
+            'periodo' => [
+                'fecha_desde' => $fechaDesde->toDateTimeString(),
+                'fecha_hasta' => $fechaHasta->toDateTimeString(),
+            ],
+            'resumen' => [
+                'departamentos_con_tickets' => count($departamentos),
+                'tickets_total' => $tickets->count(),
+                'tickets_abiertos' => $tickets->where('estado', '!=', 'cerrado')->count(),
+                'tickets_cerrados' => $tickets->where('estado', 'cerrado')->count(),
+                'tiempo_promedio_resolucion' => $ticketsResueltosTotal > 0
+                    ? round($horasResolucionTotal / $ticketsResueltosTotal, 2)
+                    : 0.0,
+            ],
+            'departamentos' => array_values($departamentos),
+        ];
+    }
+
     public function createTicket(array $data): Ticket
     {
         return DB::transaction(function () use ($data) {
