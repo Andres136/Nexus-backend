@@ -219,18 +219,10 @@ class WorkSessionService
             $almuerzoMinutos = (int) Carbon::parse($almuerzoSale)->diffInMinutes(Carbon::parse($almuerzoVuelve));
             $data['minutos_almuerzo'] = $almuerzoMinutos;
 
-            $regresoProgramado = $jornada?->hora_ingreso_almuerzo
-                ? Carbon::parse(Carbon::parse($almuerzoVuelve)->toDateString().' '.$jornada->hora_ingreso_almuerzo)
-                : null;
-            $regresoReal = Carbon::parse($almuerzoVuelve);
-
-            $tardanzaAlmuerzoHorario = $regresoProgramado && $regresoReal->greaterThan($regresoProgramado)
-                ? (int) $regresoProgramado->diffInMinutes($regresoReal)
-                : 0;
-
-            $tardanzaAlmuerzoDuracion = max(0, $almuerzoMinutos - $almuerzoPermitido);
-
-            $tardanzaMinutos += max($tardanzaAlmuerzoHorario, $tardanzaAlmuerzoDuracion);
+            // Tardanza se mide contra la salida real + duración configurada, no contra
+            // la hora fija de regreso: si el empleado sale tarde a almuerzo, su ventana
+            // de regreso corre desde su salida real, no desde el horario programado.
+            $tardanzaMinutos += max(0, $almuerzoMinutos - $almuerzoPermitido);
         }
 
         $data['minutos_tardanza'] = $tardanzaMinutos;
@@ -497,8 +489,8 @@ class WorkSessionService
 
         $reglas = [
             'hora_salida_brake' => [
-                'requiere_vacios' => ['hora_ingreso_brake', 'hora_salida'],
-                'mensaje' => 'La pausa no puede repetirse o registrarse después de la salida.',
+                'requiere_vacios' => ['hora_ingreso_brake', 'hora_salida', 'hora_salida_almuerzo'],
+                'mensaje' => 'La pausa no puede registrarse: ya se tomó el almuerzo o ya se cerró la jornada.',
             ],
             'hora_ingreso_brake' => [
                 'requiere_llenos' => ['hora_salida_brake'],
@@ -540,39 +532,27 @@ class WorkSessionService
             'hora_ingreso_brake' => [
                 'salida' => $session->hora_salida_brake,
                 'minutos' => $this->minutosPausaConfigurada($jornada),
-                'regreso_programado' => $this->horaProgramadaRegresoDescanso($jornada, 'pausa'),
                 'campo' => 'hora_ingreso_brake',
                 'nombre' => 'break',
             ],
             'hora_ingreso_almuerzo' => [
                 'salida' => $session->hora_salida_almuerzo,
                 'minutos' => $jornada?->duracion_almuerzo_minutos,
-                'regreso_programado' => $this->horaProgramadaRegresoDescanso($jornada, 'almuerzo'),
                 'campo' => 'hora_ingreso_almuerzo',
                 'nombre' => 'almuerzo',
             ],
             default => null,
         };
 
-        if (! $config || ! $config['salida']) {
+        if (! $config || ! $config['salida'] || $config['minutos'] === null) {
             return;
         }
 
+        // La ventana mínima corre desde la salida real del empleado, no desde el
+        // horario configurado: si salió tarde, su duración completa se cuenta a
+        // partir de ese momento.
         $regresoDescanso = Carbon::parse($hora);
-        $regresoPermitido = $config['regreso_programado']
-            ? Carbon::parse($regresoDescanso->toDateString().' '.$config['regreso_programado'])
-            : null;
-
-        if (! $regresoPermitido && $config['minutos'] !== null) {
-            $salidaProgramada = $this->horaProgramadaSalidaDescanso($jornada, $config['nombre'] === 'break' ? 'pausa' : 'almuerzo');
-            $regresoPermitido = $salidaProgramada
-                ? Carbon::parse($regresoDescanso->toDateString().' '.$salidaProgramada)->addMinutes((int) $config['minutos'])
-                : null;
-        }
-
-        if (! $regresoPermitido) {
-            return;
-        }
+        $regresoPermitido = Carbon::parse($config['salida'])->addMinutes((int) $config['minutos']);
 
         if ($regresoDescanso->lessThan($regresoPermitido)) {
             $segundosRestantes = $regresoPermitido->getTimestamp() - $regresoDescanso->getTimestamp();
@@ -592,10 +572,13 @@ class WorkSessionService
 
         $actual = $this->minutosHora($hora);
         $ventanas = [
+            // El límite superior es el inicio del almuerzo, no el regreso programado
+            // de la pausa: así se permite salir a pausa tarde (después de su hora
+            // programada) siempre que aún no haya empezado el almuerzo.
             'hora_salida_brake' => [
                 $this->minutosHora($this->horaProgramadaSalidaDescanso($jornada, 'pausa')),
-                $this->minutosHora($this->horaProgramadaRegresoDescanso($jornada, 'pausa')),
-                'La salida a break solo se permite dentro del horario laboral configurado.',
+                $this->minutosHora($this->horaProgramadaSalidaDescanso($jornada, 'almuerzo')),
+                'La salida a break solo se permite antes de que inicie el almuerzo.',
                 true,
             ],
             'hora_ingreso_brake' => [
@@ -604,10 +587,13 @@ class WorkSessionService
                 'El regreso de break solo se permite desde la hora laboral configurada.',
                 true,
             ],
+            // El límite superior es la hora de salida laboral, no el regreso
+            // programado de almuerzo: así se permite salir a almorzar tarde
+            // (después de su hora programada) siempre que la jornada no haya cerrado.
             'hora_salida_almuerzo' => [
                 $this->minutosHora($this->horaProgramadaSalidaDescanso($jornada, 'almuerzo')),
-                $this->minutosHora($this->horaProgramadaRegresoDescanso($jornada, 'almuerzo')),
-                'La salida a almuerzo solo se permite dentro del horario laboral configurado.',
+                $this->minutosHora($jornada->hora_salida ?? null),
+                'La salida a almuerzo solo se permite antes de la hora de salida laboral.',
                 true,
             ],
             'hora_ingreso_almuerzo' => [
