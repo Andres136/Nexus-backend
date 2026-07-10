@@ -403,7 +403,8 @@ public function listar(array $filtros = [], $perPage = 15)
             'pagos.user',
             'gastos',
             'impuestos',
-            'estados'
+            'estados',
+            'usuario:id,name,apellidos'
         ]);
 
     /*

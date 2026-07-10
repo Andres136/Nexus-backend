@@ -6,6 +6,7 @@ use App\Models\contabilidad\Impuesto;
 use App\Models\Crm\OrdenCompraProveedor;
 use App\Models\Crm\OrdenCompraProveedorDetalle;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreFacturaCompreRequest extends FormRequest
 {
@@ -34,7 +35,12 @@ class StoreFacturaCompreRequest extends FormRequest
             'factura.empresa_id' => 'required|exists:empresas,id',
             'factura.fecha_emision' => 'required|date',
             'factura.fecha_vencimiento' => 'nullable|date',
-  'factura.numero_factura_proveedor' => 'required|string|max:100|unique:factura_compras,numero_factura_proveedor',
+  'factura.numero_factura_proveedor' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('factura_compras', 'numero_factura_proveedor')->ignore($this->route('facturas_compra')),
+            ],
             'factura.sede_id' => 'required|exists:sedes,id',
             'factura.forma_pago_id' => 'required|exists:formas_pago,id',
 
