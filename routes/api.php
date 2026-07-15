@@ -567,16 +567,22 @@ Route::get('soporte-tarea/{tarea_id}', [SoporteTareaController::class, 'getByTar
 Route::get('soporte-tareas/hallazgo/{soporte_id}', [SoporteTareaController::class, 'getByHallazgoId']);
 
 //RUTAS PARA PRODUCTOS NO CONFORMES
-Route::get('productos-no-conformes/estadisticas', [ProductoNoConformeController::class, 'estadisticas']);
-Route::apiResource('productos-no-conformes', ProductoNoConformeController::class);
-Route::patch('productos-no-conformes/{id}/estado', [ProductoNoConformeController::class, 'cambiarEstado']);
+//  Registro y listado ("mis no conformidades"): cualquier usuario autenticado.
+Route::apiResource('productos-no-conformes', ProductoNoConformeController::class)->only(['index', 'store']);
 
-//RUTAS PARA ANÁLISIS DE PRODUCTOS NO CONFORMES
-Route::post('analisis-producto-no-conforme', [AnalisisProductoNoConformeController::class, 'store']);
-Route::get('analisis-producto-no-conforme/{id}', [AnalisisProductoNoConformeController::class, 'show']);
-Route::get('analisis-producto-no-conforme/producto/{productoNoConformeId}', [AnalisisProductoNoConformeController::class, 'showByProducto']);
-Route::put('analisis-producto-no-conforme/{id}', [AnalisisProductoNoConformeController::class, 'update']);
-Route::patch('analisis-producto-no-conforme/{id}/estado', [AnalisisProductoNoConformeController::class, 'cambiarEstado']);
+//  Dashboard de estadísticas y Gestión (análisis/tratamiento/cierre): solo responsables de departamento o administrador.
+Route::middleware('es_responsable_del_departamento')->group(function () {
+    Route::get('productos-no-conformes/estadisticas', [ProductoNoConformeController::class, 'estadisticas']);
+    Route::apiResource('productos-no-conformes', ProductoNoConformeController::class)->only(['show', 'update', 'destroy']);
+    Route::patch('productos-no-conformes/{id}/estado', [ProductoNoConformeController::class, 'cambiarEstado']);
+
+    //RUTAS PARA ANÁLISIS DE PRODUCTOS NO CONFORMES
+    Route::post('analisis-producto-no-conforme', [AnalisisProductoNoConformeController::class, 'store']);
+    Route::get('analisis-producto-no-conforme/{id}', [AnalisisProductoNoConformeController::class, 'show']);
+    Route::get('analisis-producto-no-conforme/producto/{productoNoConformeId}', [AnalisisProductoNoConformeController::class, 'showByProducto']);
+    Route::put('analisis-producto-no-conforme/{id}', [AnalisisProductoNoConformeController::class, 'update']);
+    Route::patch('analisis-producto-no-conforme/{id}/estado', [AnalisisProductoNoConformeController::class, 'cambiarEstado']);
+});
 
 Route::get('/vsm/prioridades', [DashboardOperativoController::class, 'getPrioridades']);
 Route::patch('/vsm/origenes/{id}/prioridad', [DashboardOperativoController::class, 'updatePrioridad']);

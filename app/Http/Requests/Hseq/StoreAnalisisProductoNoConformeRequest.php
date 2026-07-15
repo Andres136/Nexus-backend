@@ -23,7 +23,6 @@ class StoreAnalisisProductoNoConformeRequest extends FormRequest
     {
         return [
             'producto_no_conforme_id' => 'required|exists:productos_no_conformes,id',
-            'analista_id' => 'required|exists:users,id',
             'fecha_analisis' => 'required|date',
             'causa_raiz' => 'required|string',
             'acciones_correctivas' => 'nullable|string',
@@ -42,8 +41,6 @@ class StoreAnalisisProductoNoConformeRequest extends FormRequest
         return [
             'producto_no_conforme_id.required' => 'El ID del producto no conforme es obligatorio.',
             'producto_no_conforme_id.exists' => 'El producto no conforme especificado no existe.',
-            'analista_id.required' => 'El ID del analista es obligatorio.',
-            'analista_id.exists' => 'El analista especificado no existe.',
             'fecha_analisis.required' => 'La fecha de análisis es obligatoria.',
             'fecha_analisis.date' => 'La fecha de análisis debe ser una fecha válida.',
             'causa_raiz.required' => 'La causa raíz es obligatoria.',

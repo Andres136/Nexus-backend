@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Hseq;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Hseq\StoreProductoNoConformeRequest;
+use App\Models\User;
+use App\RolEnum;
 use App\Services\Hseq\ProductoNoConformeService;
 use Illuminate\Http\Request;
 
@@ -11,14 +13,28 @@ class ProductoNoConformeController extends Controller
 {
     protected ProductoNoConformeService $service;
 
+    private const ROLES_GESTION = [RolEnum::ADMINISTRADOR, RolEnum::HSEQ];
+
     public function __construct(ProductoNoConformeService $service)
     {
         $this->service = $service;
     }
 
+    private function puedeGestionarTodas(User $user): bool
+    {
+        return in_array(RolEnum::tryFrom((int) $user->role_id), self::ROLES_GESTION, true);
+    }
+
     public function index(Request $request)
     {
-        $data = $this->service->listar($request->query());
+        $usuario = $request->user();
+        $filtros = $request->query();
+
+        if (!$this->puedeGestionarTodas($usuario)) {
+            $filtros['comercial_id'] = $usuario->id;
+        }
+
+        $data = $this->service->listar($filtros);
 
         return response()->json([
             'message' => 'Productos no conformes listados exitosamente',
@@ -28,8 +44,11 @@ class ProductoNoConformeController extends Controller
 
     public function store(StoreProductoNoConformeRequest $request)
     {
+        $usuario = $request->user();
+
         $data = array_merge($request->validated(), [
-            'comercial_id' => $request->user()->id,
+            'comercial_id' => $usuario->id,
+            'proceso_id' => $usuario->procesos()->oldest('id')->value('id'),
         ]);
 
         $producto = $this->service->crear($data);

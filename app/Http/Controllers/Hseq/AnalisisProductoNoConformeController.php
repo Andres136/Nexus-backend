@@ -18,7 +18,9 @@ class AnalisisProductoNoConformeController extends Controller
 
     public function store(StoreAnalisisProductoNoConformeRequest $request)
     {
-        $data   = $request->validated();
+        $data = array_merge($request->validated(), [
+            'analista_id' => $request->user()->id,
+        ]);
         $archivo = $request->file('archivo_evidencia');
 
         $analisis = $this->service->crear($data, $archivo);

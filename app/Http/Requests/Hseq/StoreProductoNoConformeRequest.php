@@ -22,9 +22,12 @@ class StoreProductoNoConformeRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'cliente_id' => 'required|exists:clientes,id',
+            'origen' => 'required|in:cliente,proveedor,interno',
+            'cliente_id' => 'required_if:origen,cliente|nullable|exists:clientes,id',
+            'orden_compra_id' => 'required_if:origen,cliente|nullable|exists:orden__compras,id',
+            'proveedor_id' => 'required_if:origen,proveedor|nullable|exists:proveedores,id',
+            'orden_compra_proveedor_id' => 'required_if:origen,proveedor|nullable|exists:orden_compra_proveedores,id',
             'producto_id' => 'required|exists:products,id',
-            'orden_compra_id' => 'required|exists:orden__compras,id',
             'fecha_reporte' => 'required|date',
             'cantidad_afectada' => 'required|integer',
             'descripcion_inicial' => 'required|string',
@@ -36,12 +39,18 @@ class StoreProductoNoConformeRequest extends FormRequest
     public function messages()
     {
         return [
-            'cliente_id.required' => 'El ID del cliente es obligatorio.',
+            'origen.required' => 'El origen del no conforme es obligatorio.',
+            'origen.in' => 'El origen debe ser cliente, proveedor o interno.',
+            'cliente_id.required_if' => 'El cliente es obligatorio cuando el origen es cliente.',
             'cliente_id.exists' => 'El cliente especificado no existe.',
+            'orden_compra_id.required_if' => 'La orden de compra del cliente es obligatoria cuando el origen es cliente.',
+            'orden_compra_id.exists' => 'La orden de compra especificada no existe.',
+            'proveedor_id.required_if' => 'El proveedor es obligatorio cuando el origen es proveedor.',
+            'proveedor_id.exists' => 'El proveedor especificado no existe.',
+            'orden_compra_proveedor_id.required_if' => 'La orden de compra del proveedor es obligatoria cuando el origen es proveedor.',
+            'orden_compra_proveedor_id.exists' => 'La orden de compra de proveedor especificada no existe.',
             'producto_id.required' => 'El  producto es obligatorio.',
             'producto_id.exists' => 'El producto especificado no existe.',
-            'orden_compra_id.required' => 'La orden de compra es obligatoria.',
-            'orden_compra_id.exists' => 'La orden de compra especificada no existe.',
             'fecha_reporte.required' => 'La fecha de reporte es obligatoria.',
             'fecha_reporte.date' => 'La fecha de reporte debe ser una fecha válida.',
             'cantidad_afectada.required' => 'La cantidad afectada es obligatoria.',

@@ -10,10 +10,13 @@ class ProductoNoConformeService
 {
     private array $with = [
         'cliente:id,nombre',
+        'proveedor:id,nombre',
         'comercial:id,name',
-        'producto:id,nombre',
-        'ordenCompra:id,numero_orden',
-        'estado:id,nombre,color',
+        'proceso:id,nombre',
+        'producto:id,name',
+        'ordenCompra:id,code',
+        'ordenCompraProveedor:id,numero_orden',
+        'estado:id,nombre',
         'analisis',
     ];
 
@@ -31,6 +34,22 @@ class ProductoNoConformeService
 
         if (!empty($filtros['cliente_id'])) {
             $query->where('cliente_id', $filtros['cliente_id']);
+        }
+
+        if (!empty($filtros['proveedor_id'])) {
+            $query->where('proveedor_id', $filtros['proveedor_id']);
+        }
+
+        if (!empty($filtros['comercial_id'])) {
+            $query->where('comercial_id', $filtros['comercial_id']);
+        }
+
+        if (!empty($filtros['origen'])) {
+            $query->where('origen', $filtros['origen']);
+        }
+
+        if (!empty($filtros['proceso_id'])) {
+            $query->where('proceso_id', $filtros['proceso_id']);
         }
 
         if (!empty($filtros['estado_id'])) {
@@ -92,6 +111,10 @@ class ProductoNoConformeService
             $query->where('cliente_id', $filtros['cliente_id']);
         }
 
+        if (!empty($filtros['comercial_id'])) {
+            $query->where('comercial_id', $filtros['comercial_id']);
+        }
+
         if (!empty($filtros['fecha_desde'])) {
             $query->whereDate('fecha_reporte', '>=', $filtros['fecha_desde']);
         }
@@ -127,13 +150,13 @@ class ProductoNoConformeService
                 DB::raw('SUM(cantidad_afectada) as cantidad_afectada')
             )
             ->whereNotNull('producto_id')
-            ->with('producto:id,nombre')
+            ->with('producto:id,name')
             ->groupBy('producto_id')
             ->orderByDesc('total')
             ->limit(10)
             ->get()
             ->map(fn($r) => [
-                'producto'          => $r->producto?->nombre,
+                'producto'          => $r->producto?->name,
                 'total'             => $r->total,
                 'cantidad_afectada' => $r->cantidad_afectada,
             ]);
@@ -145,6 +168,7 @@ class ProductoNoConformeService
                 DB::raw('COUNT(*) as total'),
                 DB::raw('SUM(cantidad_afectada) as cantidad_afectada')
             )
+            ->whereNotNull('cliente_id')
             ->with('cliente:id,nombre')
             ->groupBy('cliente_id')
             ->orderByDesc('total')
@@ -152,6 +176,25 @@ class ProductoNoConformeService
             ->get()
             ->map(fn($r) => [
                 'cliente'           => $r->cliente?->nombre,
+                'total'             => $r->total,
+                'cantidad_afectada' => $r->cantidad_afectada,
+            ]);
+
+        // 🔹 Top proveedores con más no conformidades
+        $topProveedores = (clone $query)
+            ->select(
+                'proveedor_id',
+                DB::raw('COUNT(*) as total'),
+                DB::raw('SUM(cantidad_afectada) as cantidad_afectada')
+            )
+            ->whereNotNull('proveedor_id')
+            ->with('proveedor:id,nombre')
+            ->groupBy('proveedor_id')
+            ->orderByDesc('total')
+            ->limit(10)
+            ->get()
+            ->map(fn($r) => [
+                'proveedor'         => $r->proveedor?->nombre,
                 'total'             => $r->total,
                 'cantidad_afectada' => $r->cantidad_afectada,
             ]);
@@ -167,13 +210,37 @@ class ProductoNoConformeService
         // 🔹 Distribución por estado
         $porEstado = (clone $query)
             ->select('estado_id', DB::raw('COUNT(*) as total'))
-            ->with('estado:id,nombre,color')
+            ->with('estado:id,nombre')
             ->groupBy('estado_id')
             ->get()
             ->map(fn($r) => [
                 'estado' => $r->estado?->nombre,
-                'color'  => $r->estado?->color,
                 'total'  => $r->total,
+            ]);
+
+        // 🔹 Distribución por origen (cliente / proveedor / interno)
+        $porOrigen = (clone $query)
+            ->select('origen', DB::raw('COUNT(*) as total'), DB::raw('SUM(cantidad_afectada) as cantidad_afectada'))
+            ->groupBy('origen')
+            ->orderByDesc('total')
+            ->get();
+
+        // 🔹 Distribución por proceso (a través del usuario que reporta)
+        $porProceso = (clone $query)
+            ->select(
+                'proceso_id',
+                DB::raw('COUNT(*) as total'),
+                DB::raw('SUM(cantidad_afectada) as cantidad_afectada')
+            )
+            ->whereNotNull('proceso_id')
+            ->with('proceso:id,nombre')
+            ->groupBy('proceso_id')
+            ->orderByDesc('total')
+            ->get()
+            ->map(fn($r) => [
+                'proceso'           => $r->proceso?->nombre,
+                'total'             => $r->total,
+                'cantidad_afectada' => $r->cantidad_afectada,
             ]);
 
         // 🔹 Con análisis vs sin análisis
@@ -191,8 +258,11 @@ class ProductoNoConformeService
             'por_mes'        => $porMes,
             'top_productos'  => $topProductos,
             'top_clientes'   => $topClientes,
+            'top_proveedores' => $topProveedores,
             'por_tipo_falla' => $porTipoFalla,
             'por_estado'     => $porEstado,
+            'por_origen'     => $porOrigen,
+            'por_proceso'    => $porProceso,
         ];
     }
 }
