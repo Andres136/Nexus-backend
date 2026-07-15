@@ -74,6 +74,7 @@ class VsmRuntimeService
         $resultado = [];
 
         foreach ($alistamientos as $alist) {
+            $pausasPorUsuario = $this->calcularPausasPorUsuario($alist);
             foreach ($alist->usuarios as $usuario) {
                 if ($sedeId && $usuario->sede_id != $sedeId) continue;
 
@@ -81,16 +82,28 @@ class VsmRuntimeService
                 $produccion = $produccionMap["{$alist->id}_{$userId}"] ?? 0;
 
                 if (!isset($resultado[$userId])) {
+                    $horasSemanales = (float) ($usuario->pivot->horas_semanales_snapshot ?? VsmConfiguracion::metas()['horas_semanales']);
                     $resultado[$userId] = [
                         'usuario_id'            => $userId,
                         'nombre'                => $usuario->name,
                         'produccion_total'      => 0,
                         'tiempo_total_segundos' => 0,
+                        'tiempo_pausa_segundos' => 0,
+                        'motivos_pausa' => [],
+                        'horas_semanales_jornada' => $horasSemanales,
+                        'origen_jornada' => $usuario->pivot->horas_semanales_snapshot !== null ? 'NOMINA' : 'VSM',
                     ];
                 }
 
                 $resultado[$userId]['produccion_total']      += $produccion;
                 $resultado[$userId]['tiempo_total_segundos'] += max(0, (int) $usuario->pivot->tiempo_segundos);
+                $pausasUsuario = $pausasPorUsuario[$userId] ?? ['segundos' => 0, 'motivos' => []];
+                $resultado[$userId]['tiempo_pausa_segundos'] += $pausasUsuario['segundos'];
+
+                foreach ($pausasUsuario['motivos'] as $motivo => $segundos) {
+                    $resultado[$userId]['motivos_pausa'][$motivo] =
+                        ($resultado[$userId]['motivos_pausa'][$motivo] ?? 0) + $segundos;
+                }
             }
         }
 
@@ -103,6 +116,17 @@ class VsmRuntimeService
             $eficiencia     = $metaHora > 0 ? ($bolsasPorHora / $metaHora) * 100 : 0;
 
             $item['horas']               = round($horas, 2);
+            $item['tiempo_total_sesion_segundos'] = $segundos + $item['tiempo_pausa_segundos'];
+            $item['horas_pausa'] = round($item['tiempo_pausa_segundos'] / 3600, 2);
+            $item['motivos_pausa'] = collect($item['motivos_pausa'])
+                ->map(fn ($segundos, $motivo) => [
+                    'motivo' => $motivo,
+                    'segundos' => $segundos,
+                    'horas' => round($segundos / 3600, 2),
+                ])
+                ->sortByDesc('segundos')
+                ->values()
+                ->all();
             $item['bolsas_por_hora']     = round($bolsasPorHora, 2);
             $item['eficiencia_porcentaje'] = round($eficiencia, 2);
             $item['estado']              = $this->clasificarEstado($eficiencia);
@@ -168,10 +192,13 @@ class VsmRuntimeService
                 if ($produccion <= 0) continue;
 
                 if (!isset($periodos[$key]['usuarios'][$userId])) {
+                    $horasSemanales = (float) ($usuario->pivot->horas_semanales_snapshot ?? $metas['horas_semanales']);
                     $periodos[$key]['usuarios'][$userId] = [
                         'usuario_id' => $userId,
                         'nombre'     => $usuario->name,
                         'produccion' => 0,
+                        'horas_semanales' => $horasSemanales,
+                        'origen_jornada' => $usuario->pivot->horas_semanales_snapshot !== null ? 'NOMINA' : 'VSM',
                     ];
                 }
 
@@ -185,13 +212,22 @@ class VsmRuntimeService
         foreach ($periodos as &$periodo) {
             $meta = $periodo['meta'];
 
-            $periodo['usuarios'] = array_values(array_map(function (array $u) use ($meta) {
-                $rendimiento = $meta > 0 ? ($u['produccion'] / $meta) * 100 : 0;
+            $periodo['usuarios'] = array_values(array_map(function (array $u) use ($meta, $tipoPeriodo, $metas) {
+                $metaUsuario = $this->metaPorJornada(
+                    $tipoPeriodo,
+                    (float) $u['horas_semanales'],
+                    (float) $metas['meta_hora']
+                );
+                $metaAplicada = $metaUsuario > 0 ? $metaUsuario : $meta;
+                $rendimiento = $metaAplicada > 0 ? ($u['produccion'] / $metaAplicada) * 100 : 0;
 
                 return [
                     'usuario_id'  => $u['usuario_id'],
                     'nombre'      => $u['nombre'],
                     'produccion'  => $u['produccion'],
+                    'meta'        => round($metaAplicada, 2),
+                    'horas_semanales_jornada' => $u['horas_semanales'],
+                    'origen_jornada' => $u['origen_jornada'],
                     'rendimiento' => round($rendimiento, 2),
                     'estado'      => $this->clasificarEstado($rendimiento),
                 ];
@@ -229,13 +265,16 @@ class VsmRuntimeService
 
     private function queryAlistamientos(?int $sedeId, string $fechaInicio, string $fechaFin)
     {
-        $query = Alistamiento::with(['usuarios'])
+        $query = Alistamiento::with(['usuarios', 'tiempos'])
             ->where('estado', 'FINALIZADO')
             ->whereBetween('fecha', [$fechaInicio, $fechaFin]);
 
         if ($sedeId) {
-            $query->whereHas('ordenTrabajo.ordenCompra', function ($q) use ($sedeId) {
-                $q->where('sede_id', $sedeId);
+            $query->where(function ($q) use ($sedeId) {
+                $q->where('sede_id', $sedeId)
+                    ->orWhereHas('ordenTrabajo.ordenCompra', function ($ordenQuery) use ($sedeId) {
+                        $ordenQuery->where('sede_id', $sedeId);
+                    });
             });
         }
 
@@ -255,6 +294,56 @@ class VsmRuntimeService
             ->groupBy(fn($d) => $d->alistamiento_id . '_' . $d->usuario_id)
             ->map(fn($grupo) => $grupo->sum('cantidad_alistada'))
             ->all();
+    }
+
+    /**
+     * Calcula pausas atribuibles a cada usuario emparejando PAUSA con
+     * REANUDACION. Los eventos históricos sin user_id no se asignan para
+     * evitar imputar una pausa a la persona equivocada.
+     */
+    private function calcularPausasPorUsuario(Alistamiento $alist): array
+    {
+        $resultado = [];
+
+        $eventosPorUsuario = $alist->tiempos
+            ->filter(fn ($evento) => $evento->user_id !== null)
+            ->sortBy('fecha_hora')
+            ->groupBy('user_id');
+
+        foreach ($eventosPorUsuario as $userId => $eventos) {
+            $pausaAbierta = null;
+            $motivo = 'Sin motivo registrado';
+            $segundos = 0;
+            $motivos = [];
+
+            foreach ($eventos as $evento) {
+                if (in_array($evento->tipo, ['PAUSA', 'PAUSA_USUARIO'], true)) {
+                    if ($pausaAbierta === null) {
+                        $pausaAbierta = Carbon::parse($evento->fecha_hora);
+                        $motivo = trim((string) $evento->razon) ?: 'Sin motivo registrado';
+                    }
+                    continue;
+                }
+
+                if ($evento->tipo === 'REANUDACION' && $pausaAbierta !== null) {
+                    $duracion = max(0, $pausaAbierta->diffInSeconds(Carbon::parse($evento->fecha_hora)));
+                    $segundos += $duracion;
+                    $motivos[$motivo] = ($motivos[$motivo] ?? 0) + $duracion;
+                    $pausaAbierta = null;
+                }
+            }
+
+            if ($pausaAbierta !== null) {
+                $fin = $alist->updated_at ? Carbon::parse($alist->updated_at) : now();
+                $duracion = max(0, $pausaAbierta->diffInSeconds($fin));
+                $segundos += $duracion;
+                $motivos[$motivo] = ($motivos[$motivo] ?? 0) + $duracion;
+            }
+
+            $resultado[(int) $userId] = compact('segundos', 'motivos');
+        }
+
+        return $resultado;
     }
 
     /**
@@ -280,6 +369,15 @@ class VsmRuntimeService
                 $fecha->format('d ') . $mesesEs[$fecha->month],
                 $metas['meta_diaria'],
             ],
+        };
+    }
+
+    private function metaPorJornada(string $tipoPeriodo, float $horasSemanales, float $metaHora): float
+    {
+        return match ($tipoPeriodo) {
+            'semanal' => $metaHora * $horasSemanales,
+            'mensual' => $metaHora * $horasSemanales * (52 / 12),
+            default => $metaHora * ($horasSemanales / 5),
         };
     }
 

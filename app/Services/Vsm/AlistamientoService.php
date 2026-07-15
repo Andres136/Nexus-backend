@@ -10,6 +10,10 @@ use App\Models\Vsm\AlistamientoDetalle;
 use App\Models\Vsm\AlistamientoTiempo;
 use App\Models\Vsm\AlistamientoUsuario;
 use App\Models\Vsm\AlistamientoUsuarioDetalle;
+use App\Models\Nomina\HorarioUsuarioSemanal;
+use App\Models\Nomina\JornadaLaboral;
+use App\Models\Vsm\VsmConfiguracion;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class AlistamientoService
@@ -20,7 +24,9 @@ public function crearAlistamiento($data, $usuarioAuthId)
 
         // 🧱 1. CABECERA
         $alist = Alistamiento::create([
-            'orden_trabajo_id' => $data['orden_trabajo_id'],
+            'orden_trabajo_id' => $data['orden_trabajo_id'] ?? null,
+            'tipo_origen'      => $data['tipo_origen'],
+            'sede_id'          => User::findOrFail($usuarioAuthId)->sede_id,
             'usuario_id'       => $usuarioAuthId,
             'cantidad'         => $data['cantidad'],
             'estado'           => 'INICIADO',
@@ -32,20 +38,31 @@ public function crearAlistamiento($data, $usuarioAuthId)
 
         // 🧑‍🤝‍🧑 2. USUARIOS
         foreach ($data['usuarios'] as $usuarioId) {
+            $jornada = $this->resolverJornadaSnapshot($usuarioId, $data['fecha'] ?? now());
             AlistamientoUsuario::create([
                 'alistamiento_id' => $alist->id,
                 'usuario_id'      => $usuarioId,
                 'estado'          => 'EN_PROGRESO',
                 'inicio'          => $inicioGlobal, // 🔥 MISMA HORA PARA TODOS
                 'tiempo_segundos' => 0,
+                'jornada_laboral_id' => $jornada['jornada_laboral_id'],
+                'horas_semanales_snapshot' => $jornada['horas_semanales_snapshot'],
             ]);
         }
 
         // 📦 3. DETALLES
-        $ordenTrabajo = OrdenDeTrabajo::with('ordenCompra.detalles')
-            ->findOrFail($data['orden_trabajo_id']);
+        if ($data['tipo_origen'] === 'OT') {
+            $ordenTrabajo = OrdenDeTrabajo::with('ordenCompra.detalles')
+                ->findOrFail($data['orden_trabajo_id']);
+            $items = $ordenTrabajo->ordenCompra->detalles;
+        } else {
+            $items = collect([(object) [
+                'product_id' => $data['producto_id'],
+                'cantidad' => $data['cantidad'],
+            ]]);
+        }
 
-        foreach ($ordenTrabajo->ordenCompra->detalles as $item) {
+        foreach ($items as $item) {
 
             $detalle = AlistamientoDetalle::create([
                 'alistamiento_id'      => $alist->id,
@@ -169,7 +186,7 @@ public function agregarUsuario($alistamientoId, $usuarioId)
         }
 
         $usuario = User::findOrFail($usuarioId);
-        $sedeAlistamiento = $alist->ordenTrabajo->ordenCompra->sede_id ?? null;
+        $sedeAlistamiento = $alist->sede_id ?? $alist->ordenTrabajo?->ordenCompra?->sede_id;
 
         if ($usuario->sede_id && $sedeAlistamiento && $usuario->sede_id !== $sedeAlistamiento) {
             throw new \Exception('El usuario pertenece a otra sede');
@@ -181,6 +198,7 @@ public function agregarUsuario($alistamientoId, $usuarioId)
             'estado'          => 'EN_PROGRESO',
             'inicio'          => now(),
             'tiempo_segundos' => 0,
+            ...$this->resolverJornadaSnapshot($usuarioId, $alist->fecha ?? now()),
         ]);
 
         foreach ($alist->detalles as $detalle) {
@@ -214,6 +232,7 @@ public function pausarUsuario($alistId, $userId, $razon = null)
     // 🔥 Registrar evento con razón
     AlistamientoTiempo::create([
         'alistamiento_id' => $alistId,
+        'user_id'         => $userId,
         'tipo'            => 'PAUSA',
         'fecha_hora'      => now(),
         'razon'           => $razon,
@@ -244,6 +263,7 @@ public function reanudarUsuario($alistId, $userId)
     // 🔥 Evento
     AlistamientoTiempo::create([
         'alistamiento_id' => $alistId,
+        'user_id'         => $userId,
         'tipo' => 'REANUDACION',
         'fecha_hora'      => now(),
     ]);
@@ -384,11 +404,15 @@ $query = Alistamiento::with([
         $q->where('sede_id', $sedeId);
     },
     'tiempos',
-    'detalles.product'
+    'detalles.product',
+    'sede'
 ])
 ->whereIn('estado', ['INICIADO', 'PAUSADO', 'REANUDADO'])
-->whereHas('ordenTrabajo.ordenCompra', function ($q) use ($sedeId) {
-    $q->where('sede_id', $sedeId);
+->where(function ($q) use ($sedeId) {
+    $q->where('sede_id', $sedeId)
+        ->orWhereHas('ordenTrabajo.ordenCompra', function ($ordenQuery) use ($sedeId) {
+            $ordenQuery->where('sede_id', $sedeId);
+        });
 });
     $alistamientos = $query
         ->orderBy('updated_at', 'desc')
@@ -426,6 +450,7 @@ $query = Alistamiento::with([
             return [
                 'id' => $alist->id,
                 'orden_trabajo_id' => $alist->orden_trabajo_id,
+                'tipo_origen' => $alist->tipo_origen,
                 'estado' => $alist->estado,
                 'inicio' => $alist->inicio,
                 'segundos_transcurridos' => $tiempoTotal,
@@ -433,12 +458,12 @@ $query = Alistamiento::with([
                 'detalles' => $detalles,
                 'orden_trabajo' => $alist->ordenTrabajo,
                 'sede' => [
-                    'id' => $alist->ordenTrabajo->ordenCompra->sede->id,
-                    'nombre' => $alist->ordenTrabajo->ordenCompra->sede->nombre,
+                    'id' => $alist->sede?->id ?? $alist->ordenTrabajo?->ordenCompra?->sede?->id,
+                    'nombre' => $alist->sede?->nombre ?? $alist->ordenTrabajo?->ordenCompra?->sede?->nombre ?? 'Sin sede',
                 ],
                 'cliente' => [
-                    'id' => $alist->ordenTrabajo->ordenCompra->cliente->id,
-                    'nombre' => $alist->ordenTrabajo->ordenCompra->cliente->nombre,
+                    'id' => $alist->ordenTrabajo?->ordenCompra?->cliente?->id,
+                    'nombre' => $alist->ordenTrabajo?->ordenCompra?->cliente?->nombre ?? 'Rendimiento libre',
                 ]
             ];
         });
@@ -562,8 +587,9 @@ public function pausarPorSede($sedeId, $razon = null)
 {
     return DB::transaction(function () use ($sedeId, $razon) {
 
-    $alistamientos = Alistamiento::whereHas('ordenTrabajo.ordenCompra', function ($q) use ($sedeId) {
-        $q->where('sede_id', $sedeId);
+    $alistamientos = Alistamiento::where(function ($q) use ($sedeId) {
+        $q->where('sede_id', $sedeId)
+            ->orWhereHas('ordenTrabajo.ordenCompra', fn ($ordenQuery) => $ordenQuery->where('sede_id', $sedeId));
     })
     ->whereIn('estado', ['INICIADO', 'REANUDADO'])
     ->with('usuarios')
@@ -614,8 +640,9 @@ public function reanudarPorSede($sedeId)
 {
     return DB::transaction(function () use ($sedeId) {
 
-        $alistamientos = Alistamiento::whereHas('ordenTrabajo.ordenCompra', function ($q) use ($sedeId) {
-                $q->where('sede_id', $sedeId);
+        $alistamientos = Alistamiento::where(function ($q) use ($sedeId) {
+                $q->where('sede_id', $sedeId)
+                    ->orWhereHas('ordenTrabajo.ordenCompra', fn ($ordenQuery) => $ordenQuery->where('sede_id', $sedeId));
             })
             ->where('estado', 'PAUSADO') //  SOLO los pausados
             ->with('usuarios')
@@ -655,5 +682,28 @@ public function reanudarPorSede($sedeId)
 
         return count($alistamientos);
     });
+}
+
+private function resolverJornadaSnapshot(int $usuarioId, $fecha): array
+{
+    $diaSemana = Carbon::parse($fecha)->dayOfWeekIso;
+
+    $horario = HorarioUsuarioSemanal::with('jornadaLaboral')
+        ->where('user_id', $usuarioId)
+        ->where('dia_semana', $diaSemana)
+        ->where('status', true)
+        ->first();
+
+    $jornada = $horario?->jornadaLaboral
+        ?? JornadaLaboral::where('status', true)->orderByDesc('updated_at')->first();
+
+    return [
+        'jornada_laboral_id' => $jornada?->id,
+        'horas_semanales_snapshot' => (float) (
+            $jornada?->horas_semanales
+            ?? VsmConfiguracion::query()->where('activo', true)->latest()->value('horas_semanales')
+            ?? 44
+        ),
+    ];
 }
 }

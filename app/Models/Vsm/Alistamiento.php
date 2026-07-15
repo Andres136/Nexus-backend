@@ -4,6 +4,7 @@ namespace App\Models\Vsm;
 
 use App\Models\Crm\OrdenDeTrabajo;
 use App\Models\User;
+use App\Models\Crm\Sede;
 use Illuminate\Database\Eloquent\Model;
 
 class Alistamiento extends Model
@@ -11,6 +12,8 @@ class Alistamiento extends Model
     protected $table = 'alistamiento';
     protected $fillable = [
         'orden_trabajo_id',
+        'tipo_origen',
+        'sede_id',
        
         'usuario_id',
         'cantidad',
@@ -27,6 +30,11 @@ class Alistamiento extends Model
     public function ordenTrabajo()
     {
         return $this->belongsTo(OrdenDeTrabajo::class);
+    }
+
+    public function sede()
+    {
+        return $this->belongsTo(Sede::class);
     }
 
  
@@ -79,7 +87,14 @@ public function usuarios()
 {
     return $this->belongsToMany(User::class, 'alistamiento_usuario', 'alistamiento_id', 'usuario_id')
                 ->using(AlistamientoUsuario::class)
-                ->withPivot('estado', 'inicio', 'pausado_en', 'tiempo_segundos')
+                ->withPivot(
+                    'estado',
+                    'inicio',
+                    'pausado_en',
+                    'tiempo_segundos',
+                    'jornada_laboral_id',
+                    'horas_semanales_snapshot'
+                )
                 ->withTimestamps();
 }
 

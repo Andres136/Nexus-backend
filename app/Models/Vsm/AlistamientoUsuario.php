@@ -12,6 +12,8 @@ class AlistamientoUsuario extends Pivot
     protected $fillable = [
         'alistamiento_id',
         'usuario_id',
+        'jornada_laboral_id',
+        'horas_semanales_snapshot',
         'estado',
         'inicio',
         'pausado_en',
@@ -19,6 +21,10 @@ class AlistamientoUsuario extends Pivot
         'razon',
     ];
     public $timestamps = true;
+
+    protected $casts = [
+        'horas_semanales_snapshot' => 'float',
+    ];
 
     public function alistamiento()
     {

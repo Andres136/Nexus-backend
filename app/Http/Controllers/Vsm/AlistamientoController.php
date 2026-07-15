@@ -115,7 +115,8 @@ public function alistamientosFinalizados(Request $request)
         'ordenTrabajo.ordenCompra.sede',
         'usuarios',
         'tiempos',
-        'detalles.product'
+        'detalles.product',
+        'sede'
     ])
     ->where('estado', 'FINALIZADO');
 
@@ -135,8 +136,11 @@ public function alistamientosFinalizados(Request $request)
 
     // 🔎 Filtro por sede
     if ($sedeId) {
-        $query->whereHas('ordenTrabajo.ordenCompra.sede', function ($q) use ($sedeId) {
-            $q->where('id', $sedeId);
+        $query->where(function ($q) use ($sedeId) {
+            $q->where('sede_id', $sedeId)
+                ->orWhereHas('ordenTrabajo.ordenCompra.sede', function ($ordenQuery) use ($sedeId) {
+                    $ordenQuery->where('id', $sedeId);
+                });
         });
     }
 
@@ -173,6 +177,7 @@ public function alistamientosFinalizados(Request $request)
         return [
             'id' => $alist->id,
             'orden_trabajo_id' => $alist->orden_trabajo_id,
+            'tipo_origen' => $alist->tipo_origen,
             'estado' => $alist->estado,
             'inicio' => $alist->inicio,
             'fin' => $alist->updated_at,
@@ -181,12 +186,12 @@ public function alistamientosFinalizados(Request $request)
             'detalles' => $detalles,
             'orden_trabajo' => $alist->ordenTrabajo,
             'sede' => [
-                'id' => $alist->ordenTrabajo->ordenCompra->sede->id,
-                'nombre' => $alist->ordenTrabajo->ordenCompra->sede->nombre,
+                'id' => $alist->sede?->id ?? $alist->ordenTrabajo?->ordenCompra?->sede?->id,
+                'nombre' => $alist->sede?->nombre ?? $alist->ordenTrabajo?->ordenCompra?->sede?->nombre ?? 'Sin sede',
             ],
             'cliente' => [
-                'id' => $alist->ordenTrabajo->ordenCompra->cliente->id,
-                'nombre' => $alist->ordenTrabajo->ordenCompra->cliente->nombre,
+                'id' => $alist->ordenTrabajo?->ordenCompra?->cliente?->id,
+                'nombre' => $alist->ordenTrabajo?->ordenCompra?->cliente?->nombre ?? 'Rendimiento libre',
             ]
         ];
     });
