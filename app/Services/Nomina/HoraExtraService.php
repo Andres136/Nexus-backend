@@ -6,6 +6,7 @@ use App\Models\Nomina\HoraExtra;
 use App\Models\Nomina\KioskoDevice;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -22,11 +23,9 @@ class HoraExtraService
         'supervisor:id,name,email',
     ];
 
-    public function getAll(array $filters = []): LengthAwarePaginator
+    private function aplicarFiltros(Builder $query, array $filters): Builder
     {
-        $perPage = $filters['per_page'] ?? 15;
-
-        return HoraExtra::with(self::WITH)
+        return $query
             ->when(!empty($filters['user_id']),  fn($q) => $q->where('user_id', $filters['user_id']))
             ->when(!empty($filters['mine']), fn($q) => $q->where('solicitado_por', Auth::id()))
             ->when(!empty($filters['sede_id']),  fn($q) => $q->where('sede_id', $filters['sede_id']))
@@ -52,9 +51,61 @@ class HoraExtraService
                 });
             })
             ->when(!empty($filters['fecha_desde']), fn($q) => $q->whereDate('fecha', '>=', $filters['fecha_desde']))
-            ->when(!empty($filters['fecha_hasta']), fn($q) => $q->whereDate('fecha', '<=', $filters['fecha_hasta']))
+            ->when(!empty($filters['fecha_hasta']), fn($q) => $q->whereDate('fecha', '<=', $filters['fecha_hasta']));
+    }
+
+    public function getAll(array $filters = []): LengthAwarePaginator
+    {
+        $perPage = $filters['per_page'] ?? 15;
+
+        return $this->aplicarFiltros(HoraExtra::with(self::WITH), $filters)
             ->orderByDesc('fecha')
             ->paginate($perPage);
+    }
+
+    /**
+     * Aprueba en lote todas las horas extras pendientes que cumplan los filtros.
+     * El filtro de status se fuerza a 'pendiente': solo esas se pueden aprobar.
+     */
+    public function aprobarTodas(array $filters, ?string $observacion = null): int
+    {
+        return DB::transaction(function () use ($filters, $observacion) {
+            $filters['status'] = 'pendiente';
+            $ids = $this->aplicarFiltros(HoraExtra::query(), $filters)
+                ->lockForUpdate()
+                ->pluck('id');
+
+            if ($ids->isEmpty()) {
+                return 0;
+            }
+
+            HoraExtra::whereIn('id', $ids)->update([
+                'status' => 'aprobada',
+                'autorizado_por' => Auth::id(),
+                'fecha_gestion' => now(),
+                'observacion_gestion' => $observacion,
+            ]);
+
+            Log::info('Horas extras aprobadas en lote', [
+                'cantidad' => $ids->count(),
+                'autorizado_por' => Auth::id(),
+            ]);
+
+            return $ids->count();
+        });
+    }
+
+    /**
+     * Horas extras ya aprobadas que cumplen los filtros, para exportar a Excel.
+     * El filtro de status se fuerza a 'aprobada'.
+     */
+    public function getAprobadasParaExportar(array $filters): Collection
+    {
+        $filters['status'] = 'aprobada';
+
+        return $this->aplicarFiltros(HoraExtra::with(self::WITH), $filters)
+            ->orderBy('fecha')
+            ->get();
     }
 
     public function getByUuid(string $uuid): HoraExtra

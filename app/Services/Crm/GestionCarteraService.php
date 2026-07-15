@@ -85,10 +85,8 @@ public function crearAbono($gestionCarteraId, $data)
     return $abono;
 }
 
-public function listarGestionCartera(array $filtros)
+private function aplicarFiltros($query, array $filtros)
 {
-    $query = GestionCartera::query()->with('cliente', 'comercial', 'pagos', 'empresa');
-
     $user = auth()->user();
 
     // Solo roles 7 y 9 ven únicamente pendientes
@@ -100,8 +98,6 @@ public function listarGestionCartera(array $filtros)
     if ($user->role_id == 9) {
         $query->where('user_comercial_id', $user->id);
     }
-
- 
 
     if (!empty($filtros['buscar'])) {
         $buscar = $filtros['buscar'];
@@ -125,6 +121,32 @@ public function listarGestionCartera(array $filtros)
     if (!empty($filtros['estado']) && !in_array($user->role_id, [7,9])) {
         $query->where('estado', $filtros['estado']);
     }
+
+    if (!empty($filtros['cliente_id'])) {
+        $query->where('cliente_id', $filtros['cliente_id']);
+    }
+
+    if (!empty($filtros['user_comercial_id'])) {
+        $query->where('user_comercial_id', $filtros['user_comercial_id']);
+    }
+
+    if (!empty($filtros['fecha_inicio'])) {
+        $query->whereDate('fecha_factura', '>=', $filtros['fecha_inicio']);
+    }
+
+    if (!empty($filtros['fecha_fin'])) {
+        $query->whereDate('fecha_factura', '<=', $filtros['fecha_fin']);
+    }
+
+    return $query;
+}
+
+public function listarGestionCartera(array $filtros)
+{
+    $query = $this->aplicarFiltros(
+        GestionCartera::query()->with('cliente', 'comercial', 'pagos', 'empresa'),
+        $filtros
+    );
 
     // Calcular total SIN alterar la query principal
     $totalCartera = (clone $query)->sum('saldo_pendiente');
@@ -151,6 +173,20 @@ $query->orderByRaw("CAST(SUBSTRING(numero_factura, 4) AS UNSIGNED) ASC");
         'total_cartera' => $totalCartera,
         'total_vencido' => $totalVencido
     ];
+}
+
+/**
+ * Registros de cartera para exportar a Excel, respetando los mismos
+ * filtros y el mismo alcance por rol que listarGestionCartera().
+ */
+public function exportarGestionCartera(array $filtros)
+{
+    return $this->aplicarFiltros(
+        GestionCartera::query()->with('cliente', 'comercial', 'empresa'),
+        $filtros
+    )
+        ->orderBy('fecha_vencimiento', 'asc')
+        ->get();
 }
 
 public function update($id, array $data)

@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers\Crm;
 
+use App\Exports\GenericExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Crm\StoreGestionCarteraRequest;
 use App\Http\Requests\Crm\UpdateGestionCarteraRequest;
+use App\Models\Crm\GestionCartera;
 use App\Services\Crm\GestionCarteraService;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 
 class GestionCarteraController extends Controller
 {
@@ -33,6 +36,45 @@ class GestionCarteraController extends Controller
             
             
         ]);
+    }
+
+    /**
+     * GET /gestion-cartera/exportar
+     * Exporta a Excel la cartera que cumpla los filtros aplicados (mismo alcance que index()).
+     */
+    public function exportar(Request $request)
+    {
+        $filtros = $request->only(['buscar', 'fecha_inicio', 'fecha_fin', 'cliente_id', 'user_comercial_id', 'estado']);
+        $registros = $this->gestionCarteraService->exportarGestionCartera($filtros);
+
+        if ($registros->isEmpty()) {
+            return response()->json([
+                'message' => 'No hay registros de cartera para exportar con los filtros seleccionados.',
+            ], 422);
+        }
+
+        $filas = $registros->map(fn (GestionCartera $g) => [
+            'Cliente' => $g->cliente?->nombre,
+            'Empresa' => $g->empresa?->nombre,
+            'Comercial' => $g->comercial?->name,
+            'N° Factura' => $g->numero_factura,
+            'Fecha factura' => optional($g->fecha_factura)->format('Y-m-d'),
+            'Días crédito' => $g->dias_credito,
+            'Fecha vencimiento' => optional($g->fecha_vencimiento)->format('Y-m-d'),
+            'Base' => $g->base,
+            'IVA' => $g->iva,
+            'RteFte' => $g->rete_renta,
+            'RteICA' => $g->rete_ica,
+            'Valor total' => $g->valor_total,
+            'Saldo pendiente' => $g->saldo_pendiente,
+            'Estado' => $g->estado,
+            'Observaciones' => $g->observaciones,
+        ]);
+
+        $headings = ['Cliente', 'Empresa', 'Comercial', 'N° Factura', 'Fecha factura', 'Días crédito', 'Fecha vencimiento', 'Base', 'IVA', 'RteFte', 'RteICA', 'Valor total', 'Saldo pendiente', 'Estado', 'Observaciones'];
+        $filename = 'cartera_' . now()->format('Y-m-d_His') . '.xlsx';
+
+        return Excel::download(new GenericExport($filas, $headings), $filename);
     }
 
     /**

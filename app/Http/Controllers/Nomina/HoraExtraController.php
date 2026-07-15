@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Nomina;
 
+use App\Exports\GenericExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Nomina\GestionHoraExtraRequest;
 use App\Http\Requests\Nomina\StoreHoraExtraRequest;
@@ -12,6 +13,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class HoraExtraController extends Controller
 {
@@ -20,21 +23,26 @@ class HoraExtraController extends Controller
         private readonly KioskoDeviceService $kioskoDeviceService
     ) {}
 
+    private function filtrosDesde(Request $request): array
+    {
+        return [
+            'user_id' => $request->query('user_id'),
+            'sede_id' => $request->query('sede_id'),
+            'kiosko_device_id' => $request->query('kiosko_device_id'),
+            'status' => $request->query('status'),
+            'tipo' => $request->query('tipo'),
+            'search' => $request->query('search'),
+            'mine' => $request->boolean('mine'),
+            'fecha_desde' => $request->query('fecha_desde'),
+            'fecha_hasta' => $request->query('fecha_hasta'),
+        ];
+    }
+
     public function index(Request $request): JsonResponse
     {
         try {
-            $filters = [
-                'user_id' => $request->query('user_id'),
-                'sede_id' => $request->query('sede_id'),
-                'kiosko_device_id' => $request->query('kiosko_device_id'),
-                'status' => $request->query('status'),
-                'tipo' => $request->query('tipo'),
-                'search' => $request->query('search'),
-                'mine' => $request->boolean('mine'),
-                'fecha_desde' => $request->query('fecha_desde'),
-                'fecha_hasta' => $request->query('fecha_hasta'),
-                'per_page' => $request->query('per_page', 15),
-            ];
+            $filters = $this->filtrosDesde($request);
+            $filters['per_page'] = $request->query('per_page', 15);
 
             $data = $this->horaExtraService->getAll($filters);
 
@@ -43,6 +51,75 @@ class HoraExtraController extends Controller
             Log::error('Error al listar horas extras', ['error' => $e->getMessage()]);
 
             return response()->json(['success' => false, 'message' => 'Error al obtener las horas extras.'], 500);
+        }
+    }
+
+    /**
+     * PATCH /nomina/horas-extras/aprobar-todas
+     * Aprueba todas las horas extras pendientes que cumplan los filtros aplicados.
+     */
+    public function aprobarTodas(GestionHoraExtraRequest $request): JsonResponse
+    {
+        try {
+            $cantidad = $this->horaExtraService->aprobarTodas(
+                $this->filtrosDesde($request),
+                $request->input('observacion')
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => $cantidad > 0
+                    ? "Se aprobaron {$cantidad} hora(s) extra(s)."
+                    : 'No hay horas extras pendientes para aprobar con los filtros seleccionados.',
+                'data' => ['aprobadas' => $cantidad],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al aprobar horas extras en lote', ['error' => $e->getMessage()]);
+
+            return response()->json(['success' => false, 'message' => 'Error al aprobar las horas extras.'], 500);
+        }
+    }
+
+    /**
+     * GET /nomina/horas-extras/exportar
+     * Exporta a Excel las horas extras ya aprobadas que cumplan los filtros aplicados.
+     */
+    public function exportar(Request $request): BinaryFileResponse|JsonResponse
+    {
+        try {
+            $registros = $this->horaExtraService->getAprobadasParaExportar($this->filtrosDesde($request));
+
+            if ($registros->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No hay horas extras aprobadas para exportar con los filtros seleccionados.',
+                ], 422);
+            }
+
+            $filas = $registros->map(fn (HoraExtra $h) => [
+                'Empleado' => $h->empleado?->name,
+                'Email' => $h->empleado?->email,
+                'Sede' => $h->sede?->nombre,
+                'Fecha' => optional($h->fecha)->format('Y-m-d'),
+                'Hora inicio' => $h->hora_inicio,
+                'Hora fin' => $h->hora_fin,
+                'Horas' => $h->horas,
+                'Tipo' => $h->tipo,
+                'Motivo' => $h->motivo,
+                'Solicitado por' => $h->solicitante?->name,
+                'Autorizado por' => $h->supervisor?->name,
+                'Fecha gestión' => optional($h->fecha_gestion)->format('Y-m-d H:i'),
+                'Observación' => $h->observacion_gestion,
+            ]);
+
+            $headings = ['Empleado', 'Email', 'Sede', 'Fecha', 'Hora inicio', 'Hora fin', 'Horas', 'Tipo', 'Motivo', 'Solicitado por', 'Autorizado por', 'Fecha gestión', 'Observación'];
+            $filename = 'horas_extras_aprobadas_' . now()->format('Y-m-d_His') . '.xlsx';
+
+            return Excel::download(new GenericExport($filas, $headings), $filename);
+        } catch (\Exception $e) {
+            Log::error('Error al exportar horas extras', ['error' => $e->getMessage()]);
+
+            return response()->json(['success' => false, 'message' => 'Error al exportar las horas extras.'], 500);
         }
     }
 

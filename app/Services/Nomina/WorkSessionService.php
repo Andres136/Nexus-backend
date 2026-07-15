@@ -11,6 +11,7 @@ use App\Models\Nomina\RecuperacionTiempo;
 use App\Models\Nomina\WorkSession;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -36,7 +37,18 @@ class WorkSessionService
     {
         $perPage = $filters['per_page'] ?? 15;
 
-        return WorkSession::with(self::WITH)
+        return $this->aplicarFiltros(WorkSession::with(self::WITH), $filters)
+            // Las sesiones con tardanza aparecen primero; dentro de cada grupo,
+            // de mayor a menor tardanza y luego por fecha más reciente.
+            ->orderByRaw('CASE WHEN minutos_tardanza > 0 THEN 0 ELSE 1 END')
+            ->orderByDesc('minutos_tardanza')
+            ->orderByDesc('registro_diario')
+            ->paginate($perPage);
+    }
+
+    private function aplicarFiltros(Builder $query, array $filters): Builder
+    {
+        return $query
             ->when(! empty($filters['user_id']), fn ($q) => $q->where('user_id', $filters['user_id']))
             ->when(! empty($filters['fecha']), fn ($q) => $q->whereDate('registro_diario', $filters['fecha']))
             ->when(! empty($filters['fecha_inicio']), fn ($q) => $q->whereDate('registro_diario', '>=', $filters['fecha_inicio']))
@@ -54,9 +66,7 @@ class WorkSessionService
                 });
             })
             ->when(! empty($filters['sede_id']), fn ($q) => $q->whereHas('kiosko', fn ($kiosko) => $kiosko->where('sede_id', $filters['sede_id']))
-            )
-            ->orderByDesc('registro_diario')
-            ->paginate($perPage);
+            );
     }
 
     public function getByUuid(string $uuid): WorkSession
@@ -283,6 +293,25 @@ class WorkSessionService
             ->exists();
     }
 
+    private function tienePermisoSalidaAprobado(int $userId, Carbon $salidaReal): bool
+    {
+        if (! $userId) {
+            return false;
+        }
+
+        // Los permisos se solicitan con precisión de minutos, por lo que el
+        // minuto de salida debe quedar cubierto completo.
+        $horaSalida = $salidaReal->format('H:i:00');
+
+        return Permiso::where('user_id', $userId)
+            ->whereDate('fecha', $salidaReal->toDateString())
+            ->where('status', 'aprobado')
+            ->whereIn('tipo', ['salida_temprana', 'ausencia_parcial'])
+            ->whereTime('hora_inicio', '<=', $horaSalida)
+            ->whereTime('hora_fin', '>=', $horaSalida)
+            ->exists();
+    }
+
     private function resolverJornada(array $data, ?WorkSession $session = null): ?JornadaLaboral
     {
         $jornadaId = $data['horario_laboral_id'] ?? $session?->horario_laboral_id;
@@ -459,8 +488,7 @@ class WorkSessionService
 
         $jornada = $this->resolverJornadaOperativa($data, $session);
         $this->validarSecuenciaMarcacion($session, $campo);
-        $this->validarDuracionMinimaDescanso($session, $campo, $data[$campo], $jornada);
-        $this->validarVentanaHorario($campo, $data[$campo], $jornada);
+        $this->validarVentanaHorario($campo, $data[$campo], $jornada, $session);
         $avisoKiosko = $this->ajustarSalidaSegunHoraExtraAprobada($session, $campo, $data, $jornada);
 
         return [$data, $avisoKiosko];
@@ -526,45 +554,12 @@ class WorkSessionService
         }
     }
 
-    private function validarDuracionMinimaDescanso(WorkSession $session, string $campo, string $hora, ?object $jornada): void
-    {
-        $config = match ($campo) {
-            'hora_ingreso_brake' => [
-                'salida' => $session->hora_salida_brake,
-                'minutos' => $this->minutosPausaConfigurada($jornada),
-                'campo' => 'hora_ingreso_brake',
-                'nombre' => 'break',
-            ],
-            'hora_ingreso_almuerzo' => [
-                'salida' => $session->hora_salida_almuerzo,
-                'minutos' => $jornada?->duracion_almuerzo_minutos,
-                'campo' => 'hora_ingreso_almuerzo',
-                'nombre' => 'almuerzo',
-            ],
-            default => null,
-        };
+    // Ni el regreso de pausa (hora_ingreso_brake) ni el de almuerzo
+    // (hora_ingreso_almuerzo) tienen mínimo obligatorio: si el empleado vuelve
+    // antes de la duración configurada, se registra tal cual; si vuelve
+    // después, calcularMinutos() marca el excedente como tardanza.
 
-        if (! $config || ! $config['salida'] || $config['minutos'] === null) {
-            return;
-        }
-
-        // La ventana mínima corre desde la salida real del empleado, no desde el
-        // horario configurado: si salió tarde, su duración completa se cuenta a
-        // partir de ese momento.
-        $regresoDescanso = Carbon::parse($hora);
-        $regresoPermitido = Carbon::parse($config['salida'])->addMinutes((int) $config['minutos']);
-
-        if ($regresoDescanso->lessThan($regresoPermitido)) {
-            $segundosRestantes = $regresoPermitido->getTimestamp() - $regresoDescanso->getTimestamp();
-            $minutosRestantes = max(1, (int) ceil($segundosRestantes / 60));
-
-            throw ValidationException::withMessages([
-                $config['campo'] => "Aún estás en {$config['nombre']}. Tu próximo registro será en {$minutosRestantes} minuto(s).",
-            ]);
-        }
-    }
-
-    private function validarVentanaHorario(string $campo, string $hora, ?object $jornada): void
+    private function validarVentanaHorario(string $campo, string $hora, ?object $jornada, ?WorkSession $session = null): void
     {
         if (! $jornada) {
             return;
@@ -581,12 +576,9 @@ class WorkSessionService
                 'La salida a break solo se permite antes de que inicie el almuerzo.',
                 true,
             ],
-            'hora_ingreso_brake' => [
-                $this->minutosHora($this->horaProgramadaRegresoDescanso($jornada, 'pausa')),
-                null,
-                'El regreso de break solo se permite desde la hora laboral configurada.',
-                true,
-            ],
+            // hora_ingreso_brake no tiene ventana: el regreso de pausa se acepta en
+            // cualquier momento (temprano se registra tal cual, tarde queda como
+            // tardanza vía calcularMinutos()).
             // El límite superior es la hora de salida laboral, no el regreso
             // programado de almuerzo: así se permite salir a almorzar tarde
             // (después de su hora programada) siempre que la jornada no haya cerrado.
@@ -596,12 +588,9 @@ class WorkSessionService
                 'La salida a almuerzo solo se permite antes de la hora de salida laboral.',
                 true,
             ],
-            'hora_ingreso_almuerzo' => [
-                $this->minutosHora($this->horaProgramadaRegresoDescanso($jornada, 'almuerzo')),
-                null,
-                'El regreso de almuerzo solo se permite desde la hora laboral configurada.',
-                true,
-            ],
+            // hora_ingreso_almuerzo no tiene ventana: el regreso de almuerzo se
+            // acepta en cualquier momento (temprano se registra tal cual, tarde
+            // queda como tardanza vía calcularMinutos()).
             'hora_salida' => [
                 $this->minutosHora($jornada->hora_salida ?? null),
                 null,
@@ -620,6 +609,12 @@ class WorkSessionService
         }
 
         if ($actual < $inicio || ($fin !== null && $actual >= $fin)) {
+            // Salida temprana autorizada por permiso aprobado: no se bloquea.
+            if ($campo === 'hora_salida' && $actual < $inicio && $session
+                && $this->tienePermisoSalidaAprobado((int) $session->user_id, Carbon::parse($hora))) {
+                return;
+            }
+
             throw ValidationException::withMessages([$campo => $mensaje]);
         }
     }
@@ -631,32 +626,6 @@ class WorkSessionService
             'almuerzo' => $jornada?->hora_salida_almuerzo ?? null,
             default => null,
         };
-    }
-
-    private function horaProgramadaRegresoDescanso(?object $jornada, string $tipo): ?string
-    {
-        $horaRegreso = match ($tipo) {
-            'pausa' => $jornada?->hora_ingreso_pausa ?? null,
-            'almuerzo' => $jornada?->hora_ingreso_almuerzo ?? null,
-            default => null,
-        };
-
-        if ($horaRegreso) {
-            return $horaRegreso;
-        }
-
-        $horaSalida = $this->horaProgramadaSalidaDescanso($jornada, $tipo);
-        $duracion = match ($tipo) {
-            'pausa' => $this->minutosPausaConfigurada($jornada),
-            'almuerzo' => $jornada?->duracion_almuerzo_minutos ?? null,
-            default => null,
-        };
-
-        if (! $horaSalida || $duracion === null) {
-            return null;
-        }
-
-        return Carbon::parse($horaSalida)->addMinutes((int) $duracion)->format('H:i:s');
     }
 
     private function ajustarSalidaSegunHoraExtraAprobada(WorkSession $session, string $campo, array &$data, ?object $jornada): ?string

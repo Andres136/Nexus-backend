@@ -533,6 +533,7 @@ Route::get('ordenes-servicio/{id}/show', [OrdenesServicioController::class, 'obt
 
 
 //RUTAS PARA GESTIONAR CARTERA
+Route::get('gestion-cartera/exportar', [GestionCarteraController::class, 'exportar']);
 Route::apiResource('gestion-cartera', GestionCarteraController::class);
 Route::apiResource('abonos-cartera',GestionPivoteCarteraController::class);
 Route::get('estadisticas-cartera', [GestionCarteraController::class, 'estadisticasCartera']);
@@ -713,6 +714,8 @@ Route::prefix('nomina')->group(function () {
     Route::get('nominas/exportar-puc/pdf', [NominaController::class, 'exportarPucPdf']);
     Route::apiResource('nominas', NominaController::class)->only(['index', 'show']);
 
+    Route::get('horas-extras/exportar', [HoraExtraController::class, 'exportar']);
+    Route::patch('horas-extras/aprobar-todas', [HoraExtraController::class, 'aprobarTodas']);
     Route::apiResource('horas-extras', HoraExtraController::class)->except(['update']);
     Route::patch('horas-extras/{uuid}/aprobar',  [HoraExtraController::class, 'aprobar']);
      Route::patch('horas-extras/{uuid}/rechazar', [HoraExtraController::class, 'rechazar']);
