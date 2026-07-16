@@ -14,6 +14,8 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class WorkSessionService
@@ -133,6 +135,7 @@ class WorkSessionService
 
             $data = $this->completarJornadaLaboralId($data);
             $data = $this->calcularMinutos($data);
+            $data = $this->guardarFotoRespaldo($data);
 
             $session = WorkSession::create($data);
 
@@ -270,6 +273,39 @@ class WorkSessionService
         }
 
         $data['horario_laboral_id'] = $jornada->id;
+
+        return $data;
+    }
+
+    // La foto de respaldo se envía como data URL base64 (kiosko marcando por
+    // cédula tras fallar el reconocimiento facial). Si falla la decodificación
+    // o el guardado, se descarta el campo pero la marcación se crea igual: la
+    // foto es solo evidencia adicional, nunca debe bloquear el registro.
+    private function guardarFotoRespaldo(array $data): array
+    {
+        if (empty($data['foto_respaldo']) || ! str_starts_with($data['foto_respaldo'], 'data:image/')) {
+            unset($data['foto_respaldo']);
+
+            return $data;
+        }
+
+        try {
+            [$meta, $contenido] = explode(',', $data['foto_respaldo'], 2);
+            preg_match('/data:image\/(\w+);base64/', $meta, $matches);
+            $extension = $matches[1] ?? 'jpg';
+            $binario = base64_decode($contenido, true);
+
+            if ($binario === false) {
+                throw new \RuntimeException('Contenido base64 inválido.');
+            }
+
+            $path = 'nomina/work_session_photos/'.Str::uuid().'.'.$extension;
+            Storage::disk('public')->put($path, $binario);
+            $data['foto_respaldo'] = $path;
+        } catch (\Throwable $e) {
+            Log::warning('No se pudo guardar la foto de respaldo del kiosko', ['error' => $e->getMessage()]);
+            unset($data['foto_respaldo']);
+        }
 
         return $data;
     }

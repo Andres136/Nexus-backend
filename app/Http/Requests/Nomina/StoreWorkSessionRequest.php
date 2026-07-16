@@ -22,6 +22,9 @@ class StoreWorkSessionRequest extends FormRequest
 
             // Horas — nullable porque se llenan progresivamente
             'hora_entrada'         => 'nullable|date_format:H:i:s',
+            // Foto de respaldo del kiosko cuando el reconocimiento facial falla
+            // y el empleado marca con cédula (data URL base64, ej. data:image/jpeg;base64,...)
+            'foto_respaldo'        => 'nullable|string',
             'hora_salida'          => 'nullable|date_format:H:i:s|after:hora_entrada',
             'hora_salida_brake'    => 'nullable|date_format:H:i:s',
             'hora_ingreso_brake' => 'nullable|date_format:H:i:s',

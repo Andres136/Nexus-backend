@@ -18,6 +18,7 @@ class WorkSession extends Model
         'kiosko_id',
         'registro_diario',
         'hora_entrada',
+        'foto_respaldo',
         'hora_salida',
         'hora_salida_brake',
         'hora_ingreso_brake',
