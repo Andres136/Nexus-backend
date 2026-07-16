@@ -828,7 +828,7 @@ Route::apiResource('documentos', DocumentoController::class);
 
 Route::apiResource('errores', ErrorController::class);
 Route::apiResource('roles', RolController::class);
-Route::put('update/{id}', [UsuarioController::class, 'update']);
+Route::put('update/{id}', [UsuarioController::class, 'update'])->middleware('auth:sanctum');
 
 Route::post('contacto', [PqrController::class, 'contacto']);
 //rutas crm
