@@ -3,6 +3,7 @@
 namespace App\Services\Crm;
 
 use App\EstadoEnum;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class ComercialDashboardService
@@ -309,6 +310,82 @@ foreach ($resultado as $r) {
 unset($r);
 
         return collect($resultado)->sortBy('mes')->values()->all();
+    }
+
+    // Desglose del mes elegido en semanas (1..5, semana de calendario dentro
+    // del mes, no semana ISO del año — evita que una semana cruce el límite
+    // de mes, que sería confuso para "las semanas de junio"). Agregado sobre
+    // todos los vendedores (o uno solo si se pasa $userId), sin cartera ni
+    // metas: esas métricas no tienen una lectura semanal con sentido.
+    public function getSemanasDelMes(?int $userId, string $mes): array
+    {
+        $inactivo = EstadoEnum::INACTIVO->value;
+        $inicio = Carbon::createFromFormat('Y-m-d', $mes.'-01')->startOfMonth();
+        $fin = $inicio->copy()->endOfMonth();
+        $totalSemanas = (int) ceil($inicio->daysInMonth / 7);
+
+        // Mismos filtros que getMesAMes: solo clientes activos cuentan para
+        // gestiones y órdenes, para que la suma de las semanas cuadre con el
+        // total mensual que ya se muestra en el dashboard.
+        $gestiones = DB::table('seguimiento_clientes')
+            ->join('clientes', function ($join) use ($inactivo) {
+                $join->on('seguimiento_clientes.cliente_id', '=', 'clientes.id')
+                     ->where('clientes.estado_id', '!=', $inactivo);
+            })
+            ->select(
+                DB::raw('CEIL(DAY(seguimiento_clientes.created_at) / 7) as semana_mes'),
+                DB::raw('COUNT(*) as total')
+            )
+            ->whereBetween('seguimiento_clientes.created_at', [$inicio, $fin])
+            ->when($userId, fn ($q) => $q->where('seguimiento_clientes.user_id', $userId))
+            ->groupBy('semana_mes')
+            ->pluck('total', 'semana_mes');
+
+        $cotizaciones = DB::table('cotizaciones')
+            ->select(
+                DB::raw('CEIL(DAY(created_at) / 7) as semana_mes'),
+                DB::raw('COUNT(*) as total')
+            )
+            ->whereBetween('created_at', [$inicio, $fin])
+            ->when($userId, fn ($q) => $q->where('user_id', $userId))
+            ->groupBy('semana_mes')
+            ->pluck('total', 'semana_mes');
+
+        $ordenes = DB::table('orden__compras')
+            ->join('clientes', function ($join) use ($inactivo) {
+                $join->on('orden__compras.cliente_id', '=', 'clientes.id')
+                     ->where('clientes.estado_id', '!=', $inactivo);
+            })
+            ->select(
+                DB::raw('CEIL(DAY(orden__compras.created_at) / 7) as semana_mes'),
+                DB::raw('COUNT(*) as total'),
+                DB::raw('COALESCE(SUM(valor_total),0) as ventas'),
+                DB::raw('COUNT(DISTINCT orden__compras.cliente_id) as clientes_con_orden')
+            )
+            ->whereBetween('orden__compras.created_at', [$inicio, $fin])
+            ->when($userId, fn ($q) => $q->where('orden__compras.user_id', $userId))
+            ->groupBy('semana_mes')
+            ->get()
+            ->keyBy('semana_mes');
+
+        $semanas = collect(range(1, $totalSemanas))->map(function ($semana) use ($gestiones, $cotizaciones, $ordenes) {
+            $orden = $ordenes->get($semana);
+
+            return [
+                'semana' => $semana,
+                'label' => "Sem {$semana}",
+                'gestiones' => (int) ($gestiones[$semana] ?? 0),
+                'cotizaciones' => (int) ($cotizaciones[$semana] ?? 0),
+                'ordenes' => (int) ($orden->total ?? 0),
+                'valor_ventas' => (float) ($orden->ventas ?? 0),
+                'clientes_con_orden' => (int) ($orden->clientes_con_orden ?? 0),
+            ];
+        })->values();
+
+        return [
+            'mes' => $mes,
+            'semanas' => $semanas,
+        ];
     }
 
     public function getTrimestral(?int $userId, string $inicio): array

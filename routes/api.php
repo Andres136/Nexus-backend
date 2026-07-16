@@ -278,6 +278,7 @@ Route::get('/ordenes-compra/faltantes/estadisticas', [OrdenCompraController::cla
 //KPIS DASHBOARD CLIENTES
 Route::get('/dashboard/kpis', [DashboardController::class, 'kpis']);
 Route::get('estadisticas-comerciales',[SeguimientoController::class, 'resumenMensualPorUsuario']);
+Route::get('estadisticas-comerciales/semanas', [SeguimientoController::class, 'resumenSemanalDelMes']);
 Route::post('/ordenes-compra-proveedor/{id}/dividir', [OrdenCompraProveedorController::class, 'dividirOrden']);
 Route::post('/ordenes-compra-proveedor/observaciones', [procesoBolsasController::class, 'storeObservacion']);
 Route::put('/observaciones/{id}/estado', [procesoBolsasController::class, 'updateEstado']);

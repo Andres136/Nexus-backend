@@ -118,6 +118,25 @@ class SeguimientoController extends Controller
     );
 }
 
+public function resumenSemanalDelMes(Request $request)
+{
+    $request->validate([
+        'mes' => 'required|date_format:Y-m',
+    ]);
+
+    $user = auth()->user();
+
+    $rolesRestringidos = [RolEnum::COMERCIAL->value, RolEnum::EJECUTIVO_COMERCIAL->value];
+    $userId = in_array($user->role_id, $rolesRestringidos)
+        ? $user->id
+        : $request->query('user_id');
+
+    $data = (new \App\Services\Crm\ComercialDashboardService())
+        ->getSemanasDelMes($userId, $request->query('mes'));
+
+    return response()->json($data);
+}
+
 
     public function dashboardComercialMesAMes(Request $request)
 {
