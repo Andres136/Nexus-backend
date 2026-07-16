@@ -131,41 +131,34 @@ class KpiService
             ->groupBy('mes');
 
 
-            $carteraVencidas = (int) DB::table('gestion_cartera')
-    ->where('estado', '!=', 'cancelado')
-    ->whereDate('fecha_vencimiento', '<', now())
-    ->count();
-
-$carteraGestionadas = (int) DB::table('gestion_cartera as gc')
-    ->join('gestion_cartera_historial as gh', 'gc.id', '=', 'gh.gestion_cartera_id')
-    ->where('gc.estado', '!=', 'cancelado')
-    ->whereDate('gc.fecha_vencimiento', '<', now())
-    ->distinct('gc.id')
-    ->count('gc.id');
-
 // =========================
-// CARTERA: vencidas global + gestionadas POR MES
+// CARTERA: vencidas actuales (denominador fijo) + gestionadas POR MES
+// "Vencida" = igual definición que el módulo real de Cartera
+// (GestionCarteraService::listarGestionCartera): estado='pendiente'
+// y ya pasó la fecha de vencimiento. Pagar (estado='completado') saca
+// la factura de este conteo; solo queda dentro mientras siga pendiente.
 // =========================
-
-// Denominador FIJO — todas las vencidas hasta hoy
 $carteraVencidas = (int) DB::table('gestion_cartera')
-    ->where('estado', '!=', 'cancelado')
+    ->where('estado', 'pendiente')
     ->whereDate('fecha_vencimiento', '<', now())
     ->count();
 
-// Gestionadas POR MES — cuántas vencidas recibieron gestión en cada mes
+// Gestionadas POR MES — de las vencidas actuales, cuántas recibieron
+// gestión en cada mes del año consultado.
 $carteraGestionadasByMonth = DB::table('gestion_cartera as gc')
     ->join('gestion_cartera_historial as gh', 'gc.id', '=', 'gh.gestion_cartera_id')
     ->selectRaw('MONTH(gh.created_at) as mes, COUNT(DISTINCT gc.id) as gestionadas')
-    ->where('gc.estado', '!=', 'cancelado')
-    ->whereDate('gc.fecha_vencimiento', '<', now()) // solo sobre vencidas
+    ->where('gc.estado', 'pendiente')
+    ->whereDate('gc.fecha_vencimiento', '<', now())
     ->whereYear('gh.created_at', $year)
     ->groupBy('mes')
     ->pluck('gestionadas', 'mes');
 
+// De las vencidas actuales, cuántas ya tienen al menos una gestión
+// registrada alguna vez (no importa cuándo se hizo la gestión).
 $carteraGestionadas = (int) DB::table('gestion_cartera as gc')
     ->join('gestion_cartera_historial as gh', 'gc.id', '=', 'gh.gestion_cartera_id')
-    ->where('gc.estado', '!=', 'cancelado')
+    ->where('gc.estado', 'pendiente')
     ->whereDate('gc.fecha_vencimiento', '<', now())
     ->distinct('gc.id')
     ->count('gc.id');
@@ -263,12 +256,12 @@ $carteraPctGestion = $carteraVencidas > 0
 $funnelCompraToFiel = $compradoresMes > 0
     ? ($clientesFielesMes / $compradoresMes) * 100
     : 0;
-// Cartera — denominador fijo, numerador varía por mes
+
+// Cartera — denominador fijo (vencidas actuales), numerador varía por mes
 $carteraGestionadasMes = (int) ($carteraGestionadasByMonth[$mes] ?? 0);
 $carteraPctMes = $carteraVencidas > 0
     ? round(($carteraGestionadasMes / $carteraVencidas) * 100, 2)
     : 0;
-
 
             return [
                 'month' => $mes,
