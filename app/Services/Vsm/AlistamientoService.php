@@ -56,10 +56,10 @@ public function crearAlistamiento($data, $usuarioAuthId)
                 ->findOrFail($data['orden_trabajo_id']);
             $items = $ordenTrabajo->ordenCompra->detalles;
         } else {
-            $items = collect([(object) [
-                'product_id' => $data['producto_id'],
-                'cantidad' => $data['cantidad'],
-            ]]);
+            $items = collect($data['productos'])->map(fn ($productId) => (object) [
+                'product_id' => $productId,
+                'cantidad' => 0,
+            ]);
         }
 
         foreach ($items as $item) {

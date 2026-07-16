@@ -25,7 +25,8 @@ class AlistamientoCreateRequest extends FormRequest
         return [
             'tipo_origen'      => 'required|in:OT,LIBRE',
             'orden_trabajo_id' => 'required_if:tipo_origen,OT|nullable|integer|exists:orden_de_trabajos,id',
-            'producto_id'      => 'required_if:tipo_origen,LIBRE|nullable|integer|exists:products,id',
+            'productos'        => 'required_if:tipo_origen,LIBRE|array|min:1',
+            'productos.*'      => 'integer|exists:products,id',
             'cantidad' => 'required|integer|min:0',
             'usuarios'         => 'required|array|min:1',
             'usuarios.*'       => 'integer|exists:users,id',
@@ -67,8 +68,10 @@ public function withValidator($validator)
             'orden_trabajo_id.exists' => 'La orden de trabajo seleccionada no existe.',
             'tipo_origen.required' => 'Debe seleccionar el origen del rendimiento.',
             'tipo_origen.in' => 'El origen seleccionado no es válido.',
-            'producto_id.required_if' => 'El producto es obligatorio para un rendimiento libre.',
-            'producto_id.exists' => 'El producto seleccionado no existe.',
+            'productos.required_if' => 'Debe seleccionar al menos un producto para un rendimiento libre.',
+            'productos.array' => 'El campo de productos debe ser un arreglo.',
+            'productos.min' => 'Debe seleccionar al menos un producto.',
+            'productos.*.exists' => 'Uno de los productos seleccionados no existe.',
 
 
             'cantidad.required' => 'La cantidad alistada es obligatoria.',
