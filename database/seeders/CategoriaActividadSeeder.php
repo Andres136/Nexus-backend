@@ -17,6 +17,7 @@ class CategoriaActividadSeeder extends Seeder
             'Capacitación',
             'Diligencia',
             'Mantenimiento',
+            'Gestion Comercial',
         ];
 
         foreach ($categorias as $nombre) {
