@@ -108,6 +108,8 @@ use App\Http\Controllers\Nomina\SolicitudPrestamoController;
 use App\Http\Controllers\NotificacionOrdenController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PqrController;
+use App\Http\Controllers\Productividad\AdminProductividadController;
+use App\Http\Controllers\Productividad\MiDiaController;
 use App\Http\Controllers\ProcesoController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\RegistroDiario\NovedadController;
@@ -162,6 +164,28 @@ Route::get('nomina/kiosko-permisos', [PermisoController::class, 'kioskIndex']);
 Route::get('nomina/kiosko-horas-extras', [HoraExtraController::class, 'kioskIndex']);
 
 Route::middleware('auth:sanctum')->group(function () {
+  // RUTAS PARA MI DIA (productividad personal) — disponibles para cualquier usuario autenticado
+  Route::get('mi-dia', [MiDiaController::class, 'index']);
+  Route::get('mi-dia/linea-tiempo', [MiDiaController::class, 'lineaTiempo']);
+  Route::get('mi-dia/categorias', [MiDiaController::class, 'categorias']);
+  Route::get('mi-dia/sugerencias-tarea', [MiDiaController::class, 'sugerenciasTarea']);
+  Route::post('mi-dia/actividades/iniciar', [MiDiaController::class, 'iniciar']);
+  Route::post('mi-dia/disponible', [MiDiaController::class, 'disponible']);
+  Route::post('mi-dia/actividades/{uuid}/completar', [MiDiaController::class, 'completar']);
+  Route::post('mi-dia/actividades/{uuid}/bloquear', [MiDiaController::class, 'bloquear']);
+  Route::post('mi-dia/actividades/{uuid}/cancelar', [MiDiaController::class, 'cancelar']);
+  Route::post('mi-dia/actividades/{uuid}/reanudar', [MiDiaController::class, 'reanudar']);
+
+  // Panel administrativo de productividad — solo rol Administrador
+  Route::middleware('role:' . RolEnum::ADMINISTRADOR->value)
+    ->prefix('admin/productividad')
+    ->group(function () {
+      Route::get('equipo', [AdminProductividadController::class, 'equipo']);
+      Route::get('equipo/exportar', [AdminProductividadController::class, 'exportar']);
+      Route::get('usuarios/{id}', [AdminProductividadController::class, 'usuario'])->whereNumber('id');
+      Route::post('actividades/{uuid}/corregir', [AdminProductividadController::class, 'corregir']);
+    });
+
   Route::get('admin/corporate-documents', [CorporateDocumentController::class, 'adminIndex']);
   Route::post('admin/corporate-documents', [CorporateDocumentController::class, 'adminStore']);
   Route::get('admin/corporate-documents/{corporateDocument}', [CorporateDocumentController::class, 'adminShow']);

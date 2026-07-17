@@ -7,6 +7,7 @@ use App\Http\Requests\Nomina\StoreWorkSessionRequest;
 use App\Http\Requests\Nomina\UpdateWorkSessionRequest;
 use App\Services\Nomina\KioskoDeviceService;
 use App\Services\Nomina\WorkSessionService;
+use App\Services\Productividad\ProductividadKioskoService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,7 +18,8 @@ class WorkSessionController extends Controller
 {
     public function __construct(
         private readonly WorkSessionService $workSessionService,
-        private readonly KioskoDeviceService $kioskoDeviceService
+        private readonly KioskoDeviceService $kioskoDeviceService,
+        private readonly ProductividadKioskoService $productividadKioskoService,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -194,7 +196,21 @@ class WorkSessionController extends Controller
             $this->validateKioskRequest($request);
 
             $data = $this->aplicarHoraServidorKiosko($request->validated());
+            $camposMarcados = $data;
             $data = $this->workSessionService->update($uuid, $data, true);
+
+            try {
+                $data->setAttribute('productividad', $this->productividadKioskoService->procesarMarcacion(
+                    (int) $data->user_id,
+                    $camposMarcados
+                ));
+            } catch (\Throwable $e) {
+                Log::error('La marcación se guardó, pero no se pudo pausar productividad', [
+                    'work_session_uuid' => $uuid,
+                    'user_id' => $data->user_id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
 
             return response()->json([
                 'success' => true,

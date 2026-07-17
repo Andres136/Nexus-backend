@@ -13,6 +13,7 @@ class Alistamiento extends Model
     protected $fillable = [
         'orden_trabajo_id',
         'tipo_origen',
+        'nombre_actividad',
         'sede_id',
        
         'usuario_id',

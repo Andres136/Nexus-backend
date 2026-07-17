@@ -25,7 +25,8 @@ class AlistamientoCreateRequest extends FormRequest
         return [
             'tipo_origen'      => 'required|in:OT,LIBRE',
             'orden_trabajo_id' => 'required_if:tipo_origen,OT|nullable|integer|exists:orden_de_trabajos,id',
-            'productos'        => 'required_if:tipo_origen,LIBRE|array|min:1',
+            'nombre_actividad' => 'nullable|string|max:150',
+            'productos'        => 'nullable|array',
             'productos.*'      => 'integer|exists:products,id',
             'cantidad' => 'required|integer|min:0',
             'usuarios'         => 'required|array|min:1',
@@ -37,7 +38,17 @@ class AlistamientoCreateRequest extends FormRequest
     }
 public function withValidator($validator)
 {
-    $validator->after(function ($validator) {
+        $validator->after(function ($validator) {
+
+        $productos = $this->input('productos', []);
+        if ($this->input('tipo_origen') === 'LIBRE'
+            && ! $this->filled('nombre_actividad')
+            && (! is_array($productos) || count($productos) === 0)) {
+            $validator->errors()->add(
+                'productos',
+                'Selecciona productos o escribe una actividad operativa.'
+            );
+        }
 
         $ordenTrabajoId = $this->input('orden_trabajo_id');
 
@@ -68,7 +79,7 @@ public function withValidator($validator)
             'orden_trabajo_id.exists' => 'La orden de trabajo seleccionada no existe.',
             'tipo_origen.required' => 'Debe seleccionar el origen del rendimiento.',
             'tipo_origen.in' => 'El origen seleccionado no es válido.',
-            'productos.required_if' => 'Debe seleccionar al menos un producto para un rendimiento libre.',
+            'nombre_actividad.max' => 'La actividad no puede superar 150 caracteres.',
             'productos.array' => 'El campo de productos debe ser un arreglo.',
             'productos.min' => 'Debe seleccionar al menos un producto.',
             'productos.*.exists' => 'Uno de los productos seleccionados no existe.',

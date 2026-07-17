@@ -26,6 +26,7 @@ public function crearAlistamiento($data, $usuarioAuthId)
         $alist = Alistamiento::create([
             'orden_trabajo_id' => $data['orden_trabajo_id'] ?? null,
             'tipo_origen'      => $data['tipo_origen'],
+            'nombre_actividad' => $data['nombre_actividad'] ?? null,
             'sede_id'          => User::findOrFail($usuarioAuthId)->sede_id,
             'usuario_id'       => $usuarioAuthId,
             'cantidad'         => $data['cantidad'],
@@ -56,7 +57,7 @@ public function crearAlistamiento($data, $usuarioAuthId)
                 ->findOrFail($data['orden_trabajo_id']);
             $items = $ordenTrabajo->ordenCompra->detalles;
         } else {
-            $items = collect($data['productos'])->map(fn ($productId) => (object) [
+            $items = collect($data['productos'] ?? [])->map(fn ($productId) => (object) [
                 'product_id' => $productId,
                 'cantidad' => 0,
             ]);
@@ -249,6 +250,19 @@ public function pausarUsuario($alistId, $userId, $razon = null)
     return $pivot;
 }
 
+public function pausarAlistamientosActivosDelUsuario(int $userId, string $razon): int
+{
+    $pivotes = AlistamientoUsuario::where('usuario_id', $userId)
+        ->where('estado', 'EN_PROGRESO')
+        ->get();
+
+    foreach ($pivotes as $pivot) {
+        $this->pausarUsuario($pivot->alistamiento_id, $userId, $razon);
+    }
+
+    return $pivotes->count();
+}
+
 
 public function reanudarUsuario($alistId, $userId)
 {
@@ -361,7 +375,9 @@ foreach ($alist->detalles as $detalle) {
             : 0;
 
         //  8. ESTADO
-        if ($bolsasPorHora >= $metaPorHora) {
+        if ($alist->tipo_origen === 'LIBRE' && $alist->nombre_actividad) {
+            $estado = 'OPERATIVO';
+        } elseif ($bolsasPorHora >= $metaPorHora) {
             $estado = 'EFICIENTE';
         } elseif ($bolsasPorHora >= 600) {
             $estado = 'RIESGO';
@@ -451,6 +467,7 @@ $query = Alistamiento::with([
                 'id' => $alist->id,
                 'orden_trabajo_id' => $alist->orden_trabajo_id,
                 'tipo_origen' => $alist->tipo_origen,
+                'nombre_actividad' => $alist->nombre_actividad,
                 'estado' => $alist->estado,
                 'inicio' => $alist->inicio,
                 'segundos_transcurridos' => $tiempoTotal,

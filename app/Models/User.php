@@ -181,6 +181,16 @@ public function responsabilidades()
                 ->withTimestamps();
 }
 
+public function jornadasOperativas()
+{
+    return $this->hasMany(\App\Models\Productividad\JornadaOperativa::class, 'user_id');
+}
+
+public function actividadesOperativas()
+{
+    return $this->hasMany(\App\Models\Productividad\ActividadOperativa::class, 'user_id');
+}
+
     /**
      * The attributes that should be hidden for serialization.
      *

@@ -5,6 +5,9 @@ namespace App\Services\Vsm;
 use App\Models\Vsm\Alistamiento;
 use App\Models\Vsm\AlistamientoUsuarioDetalle;
 use App\Models\Vsm\VsmConfiguracion;
+use App\Models\Productividad\JornadaOperativa;
+use App\Models\Nomina\WorkSession;
+use App\Services\Productividad\MiDiaService;
 use Carbon\Carbon;
 
 class VsmRuntimeService
@@ -89,6 +92,8 @@ class VsmRuntimeService
                         'produccion_total'      => 0,
                         'tiempo_total_segundos' => 0,
                         'tiempo_pausa_segundos' => 0,
+                        'tiempo_apoyo_operativo_segundos' => 0,
+                        'actividades_apoyo_operativo' => [],
                         'motivos_pausa' => [],
                         'horas_semanales_jornada' => $horasSemanales,
                         'origen_jornada' => $usuario->pivot->horas_semanales_snapshot !== null ? 'NOMINA' : 'VSM',
@@ -96,7 +101,17 @@ class VsmRuntimeService
                 }
 
                 $resultado[$userId]['produccion_total']      += $produccion;
-                $resultado[$userId]['tiempo_total_segundos'] += max(0, (int) $usuario->pivot->tiempo_segundos);
+                $tiempoUsuario = max(0, (int) $usuario->pivot->tiempo_segundos);
+                if ($alist->tipo_origen === 'LIBRE' && $alist->nombre_actividad) {
+                    $resultado[$userId]['tiempo_apoyo_operativo_segundos'] += $tiempoUsuario;
+                    $resultado[$userId]['actividades_apoyo_operativo'][] = [
+                        'alistamiento_id' => $alist->id,
+                        'nombre' => $alist->nombre_actividad,
+                        'segundos' => $tiempoUsuario,
+                    ];
+                } else {
+                    $resultado[$userId]['tiempo_total_segundos'] += $tiempoUsuario;
+                }
                 $pausasUsuario = $pausasPorUsuario[$userId] ?? ['segundos' => 0, 'motivos' => []];
                 $resultado[$userId]['tiempo_pausa_segundos'] += $pausasUsuario['segundos'];
 
@@ -108,6 +123,38 @@ class VsmRuntimeService
         }
 
         $metaHora = VsmConfiguracion::metaVigente(705.88);
+
+        $tiempoMuertoPorUsuario = [];
+        if ($resultado) {
+            $resumenService = app(MiDiaService::class);
+            $sesiones = WorkSession::whereIn('user_id', array_keys($resultado))
+                ->whereBetween('registro_diario', [$fechaInicio, $fechaFin])
+                ->whereNotNull('hora_entrada')
+                ->get();
+            $jornadas = JornadaOperativa::whereIn('work_session_id', $sesiones->pluck('id'))
+                ->whereBetween('fecha', [$fechaInicio, $fechaFin])
+                ->with(['workSession', 'actividades'])
+                ->get()
+                ->keyBy('work_session_id');
+
+            foreach ($sesiones as $sesion) {
+                $jornada = $jornadas->get($sesion->id);
+                if ($jornada) {
+                    $minutosMuertos = (int) ($resumenService->resumenDia($jornada)['minutos_parado'] ?? 0);
+                } else {
+                    $fin = $sesion->hora_salida ?? now(config('app.timezone'));
+                    $minutosMuertos = max(
+                        0,
+                        (int) $sesion->hora_entrada->diffInMinutes($fin)
+                        - (int) ($sesion->minutos_pausa ?? 0)
+                        - (int) ($sesion->minutos_almuerzo ?? 0)
+                    );
+                }
+
+                $tiempoMuertoPorUsuario[$sesion->user_id] =
+                    ($tiempoMuertoPorUsuario[$sesion->user_id] ?? 0) + ($minutosMuertos * 60);
+            }
+        }
 
         foreach ($resultado as &$item) {
             $segundos       = $item['tiempo_total_segundos'];
@@ -123,21 +170,47 @@ class VsmRuntimeService
                     'motivo' => $motivo,
                     'segundos' => $segundos,
                     'horas' => round($segundos / 3600, 2),
+                    'clasificacion' => $this->esApoyoOperativo($motivo) ? 'APOYO_OPERATIVO' : 'TIEMPO_DETENIDO',
                 ])
                 ->sortByDesc('segundos')
                 ->values()
                 ->all();
+            $item['tiempo_apoyo_operativo_segundos'] += (int) collect($item['motivos_pausa'])
+                ->where('clasificacion', 'APOYO_OPERATIVO')
+                ->sum('segundos');
+            $item['tiempo_muerto_segundos'] = max(
+                0,
+                (int) ($tiempoMuertoPorUsuario[$item['usuario_id']] ?? 0)
+                - $item['tiempo_apoyo_operativo_segundos']
+            );
+            $item['horas_tiempo_muerto'] = round($item['tiempo_muerto_segundos'] / 3600, 2);
             $item['bolsas_por_hora']     = round($bolsasPorHora, 2);
             $item['eficiencia_porcentaje'] = round($eficiencia, 2);
-            $item['estado']              = $this->clasificarEstado($eficiencia);
+            $item['estado'] = $item['produccion_total'] <= 0 && $item['tiempo_apoyo_operativo_segundos'] > 0
+                ? 'OPERATIVO'
+                : $this->clasificarEstado($eficiencia);
         }
 
         // Excluir usuarios sin producción significativa (menos de 10 minutos)
         $resultado = array_filter($resultado, fn($i) =>
-            $i['produccion_total'] > 0 && $i['tiempo_total_segundos'] > 600
+            ($i['produccion_total'] > 0 && $i['tiempo_total_segundos'] > 600)
+            || $i['tiempo_apoyo_operativo_segundos'] > 600
         );
 
         return array_values($resultado);
+    }
+
+    private function esApoyoOperativo(string $motivo): bool
+    {
+        return in_array($motivo, [
+            'Alistamiento de material',
+            'Aseo y organización',
+            'Recepción de material',
+            'Conteo de inventario',
+            'Cargue y descargue',
+            'Apoyo en otro alistamiento',
+            'Apoyo en otra orden de trabajo',
+        ], true);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
