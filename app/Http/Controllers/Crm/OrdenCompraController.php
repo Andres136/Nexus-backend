@@ -231,6 +231,7 @@ public function obtenerOrdenesTrabajo(Request $request)
     $fechaInicio   = $request->input('fecha_inicio');    // rango desde
     $fechaFin      = $request->input('fecha_fin');       // rango hasta
     $sedeId        = $request->input('sede');
+    $estado        = $request->input('estado');          // null = pendiente+parcial, 'todos' = sin filtro, id = puntual
 
     $user = auth()->user();
 
@@ -248,6 +249,18 @@ public function obtenerOrdenesTrabajo(Request $request)
         ->whereNot('estado_id', EstadoEnum::INACTIVO->value)
         ->whereHas('ordenCompra', function ($q) {
             $q->whereNot('estado_id', EstadoEnum::INACTIVO->value);
+        })
+
+        // Filtro por estado: sin parámetro trae pendientes + parciales,
+        // 'todos' quita el filtro, o se puede pedir un estado puntual
+        ->when(!$estado, function ($query) {
+            $query->whereIn('estado_id', [
+                EstadoEnum::PENDIENTE->value,
+                EstadoEnum::ENTREGA_PARCIAL->value,
+            ]);
+        })
+        ->when($estado && $estado !== 'todos', function ($query) use ($estado) {
+            $query->where('estado_id', $estado);
         })
 
         // Restricción por rol (excepto admin)
