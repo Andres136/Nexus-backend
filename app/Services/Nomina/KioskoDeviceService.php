@@ -191,7 +191,7 @@ public function create(array $data): KioskoDevice
     public function bootstrapDeviceSession(array $data, ?string $ip = null): array
     {
         $device = $this->validateDeviceSession($data, $ip);
-        $catalog = $this->bootstrapCatalog();
+        $catalog = $this->bootstrapCatalog($device->sede_id);
 
         return [
             'device' => $device,
@@ -287,7 +287,7 @@ public function create(array $data): KioskoDevice
             true
         );
 
-        $catalog = $this->bootstrapCatalog();
+        $catalog = $this->bootstrapCatalog($device->sede_id);
 
         return [
             'device'    => $device,
@@ -295,30 +295,51 @@ public function create(array $data): KioskoDevice
         ];
     }
 
+    // El catálogo se cachea por sede: un kiosko sin sede asignada sigue
+    // recibiendo (y cacheando) el dataset completo de la empresa.
     public static function clearBootstrapCache(): void
     {
-        Cache::forget(self::BOOTSTRAP_CACHE_KEY);
+        Cache::forget(self::bootstrapCacheKey(null));
+
+        KioskoDevice::whereNotNull('sede_id')
+            ->distinct()
+            ->pluck('sede_id')
+            ->each(fn ($sedeId) => Cache::forget(self::bootstrapCacheKey($sedeId)));
     }
 
-    private function bootstrapCatalog(): array
+    private static function bootstrapCacheKey(?int $sedeId): string
+    {
+        return self::BOOTSTRAP_CACHE_KEY . ':sede:' . ($sedeId ?? 'all');
+    }
+
+    // Filtra por la sede del kiosko cuando la tiene: evita descargar y
+    // procesar (reconocimiento facial en el navegador) fotos de empleados
+    // de sedes que ese kiosko nunca va a usar.
+    private function bootstrapCatalog(?int $sedeId): array
     {
         return Cache::remember(
-            self::BOOTSTRAP_CACHE_KEY,
+            self::bootstrapCacheKey($sedeId),
             now()->addMinutes(self::BOOTSTRAP_CACHE_TTL_MINUTES),
-            function () {
+            function () use ($sedeId) {
                 $empleados = User::select(
                     'users.id',
                     'users.name',
                     DB::raw('(SELECT c.numero_documento FROM contrataciones c WHERE c.users_id = users.id ORDER BY c.id DESC LIMIT 1) as numero_documento')
                 )
                     ->whereHas('contratacionActivaNomina')
+                    ->when($sedeId, fn ($q) => $q->where('users.sede_id', $sedeId))
                     ->orderBy('users.name')
                     ->get();
 
                 return [
                     'empleados' => $empleados,
                     'fotos' => UsersFacePhoto::with('empleado:id,name')
-                        ->whereHas('empleado.contratacionActivaNomina')
+                        ->whereHas('empleado', function ($q) use ($sedeId) {
+                            $q->whereHas('contratacionActivaNomina');
+                            if ($sedeId) {
+                                $q->where('sede_id', $sedeId);
+                            }
+                        })
                         ->get(),
                     'jornadas' => JornadaLaboral::orderByDesc('status')
                         ->orderByDesc('updated_at')
