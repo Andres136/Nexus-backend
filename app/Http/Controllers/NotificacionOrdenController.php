@@ -61,21 +61,31 @@ class NotificacionOrdenController extends Controller
 public function listarNotificaciones()
 {
     $user = auth()->user();
+    // No marcar como leídas aquí: el badge de la campana debe reflejar lo
+    // que el usuario aún no ha visto, y listar no es "ver". Se marcan al
+    // hacer click en una notificación (marcarComoLeida) o con el botón
+    // "marcar todas como leídas".
     $notificaciones = $user->unreadNotifications;
-
-    // Si quieres marcar como leídas automáticamente al listar:
-    $user->unreadNotifications->markAsRead();
 
     return response()->json([
         'notificaciones' => $notificaciones,
         'total_no_leidas' => $notificaciones->count(),
     ]);
 }
-    
+
 //Marcar notificaciones como leídas
 public function marcarTodasComoLeidas()
 {
     auth()->user()->unreadNotifications->markAsRead();
+
+    return response()->json(['success' => true]);
+}
+
+// Marcar una única notificación como leída (al hacer click en la campana)
+public function marcarComoLeida(string $id)
+{
+    $notificacion = auth()->user()->notifications()->findOrFail($id);
+    $notificacion->markAsRead();
 
     return response()->json(['success' => true]);
 }

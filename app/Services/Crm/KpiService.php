@@ -374,7 +374,7 @@ $carteraPctMes = $carteraVencidas > 0
     // 🔥 agrupar por mes
     $porMes = $carteras->map(function ($item) {
 
-        if ($item->estado !== 'cancelado' || !$item->ultima_gestion) {
+        if ($item->estado !== 'completado' || !$item->ultima_gestion) {
             return null;
         }
 

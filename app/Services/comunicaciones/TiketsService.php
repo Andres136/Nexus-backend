@@ -4,6 +4,8 @@ namespace App\Services\comunicaciones;
 
 use App\Models\comunicaciones\HistorialTickect;
 use App\Models\comunicaciones\Ticket;
+use App\Models\User;
+use App\Notifications\Comunicaciones\TicketAsignadoNotification;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
@@ -297,6 +299,8 @@ class TiketsService
                 'comentario' => 'Ticket creado.',
             ]);
 
+            $this->notificarAsignacion($ticket);
+
             return $ticket->load(self::RELACIONES);
         });
     }
@@ -360,10 +364,28 @@ class TiketsService
                         ? "Ticket asignado al usuario {$ticket->user_asignado_id}."
                         : 'Ticket quedó sin usuario asignado.',
                 ]);
+
+                $this->notificarAsignacion($ticket);
             }
 
             return $ticket->fresh(self::RELACIONES);
         });
+    }
+
+    /**
+     * Notifica (campana in-app) al usuario recién asignado a un ticket.
+     */
+    private function notificarAsignacion(Ticket $ticket): void
+    {
+        if (!$ticket->user_asignado_id) {
+            return;
+        }
+
+        $asignado = $ticket->asignado ?? User::find($ticket->user_asignado_id);
+
+        if ($asignado) {
+            $asignado->notify(new TicketAsignadoNotification($ticket));
+        }
     }
 
     public function changeStatus(int $ticketId, string $estado, ?string $comentario = null): Ticket

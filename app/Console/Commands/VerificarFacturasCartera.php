@@ -36,12 +36,12 @@ class VerificarFacturasCartera extends Command
         ->whereDate('fecha_vencimiento', '<', $hoy)
         ->get();
 
-    // 🟡 PRÓXIMAS
+    // 🟡 PRÓXIMAS (dentro de los próximos 8 días)
     $proximas = GestionCartera::with('comercial')
         ->where('estado', 'pendiente')
         ->whereBetween('fecha_vencimiento', [
             $hoy,
-            $hoy->copy()->addDays(15)
+            $hoy->copy()->addDays(8)
         ])
         ->get();
 

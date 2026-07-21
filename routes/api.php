@@ -226,6 +226,7 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
   Route::post('requerimientos-compra/{uuid}/generar-orden-compra', [RequerimientoCompraController::class, 'generarOrdenCompra']);
   Route::apiResource('requerimientos-compra', RequerimientoCompraController::class)->only(['index', 'store', 'show']);
   Route::get('/notificaciones', [NotificacionOrdenController::class, 'listarNotificaciones']);
+  Route::post('/notificaciones/{id}/marcar-leida', [NotificacionOrdenController::class, 'marcarComoLeida']);
  Route::get('ordenes-compra-facturar', [OrdenCompraController::class, 'ordenesFacturar']);
 
   Route::post('/orden-trabajo/{id}', [OrdenCompraController::class, 'generarOrdenTrabajo']);

@@ -14,9 +14,7 @@ class GestionCarteraService
 public function crearGestionCartera($data)
 {
 
-
-
-DB::transaction(function() use ($data) {
+return DB::transaction(function() use ($data) {
  $resultados = [];
 
     foreach ($data['registros'] as $registro) {
@@ -85,19 +83,32 @@ public function crearAbono($gestionCarteraId, $data)
     return $abono;
 }
 
-private function aplicarFiltros($query, array $filtros)
+/**
+ * Restringe la query al alcance por rol: los roles 7 y 9 solo ven
+ * pendientes, y el rol 9 además solo ve sus propios registros. Se usa
+ * tanto en el listado como en find()/update() para que un comercial no
+ * pueda ver ni editar (por id directo) facturas fuera de su alcance.
+ */
+private function aplicarScopePorRol($query)
 {
     $user = auth()->user();
 
-    // Solo roles 7 y 9 ven únicamente pendientes
     if (in_array($user->role_id, [7, 9])) {
         $query->where('estado', 'pendiente');
     }
 
-    // Si además el rol 9 solo debe ver sus propios registros
     if ($user->role_id == 9) {
         $query->where('user_comercial_id', $user->id);
     }
+
+    return $query;
+}
+
+private function aplicarFiltros($query, array $filtros)
+{
+    $user = auth()->user();
+
+    $this->aplicarScopePorRol($query);
 
     if (!empty($filtros['buscar'])) {
         $buscar = $filtros['buscar'];
@@ -191,7 +202,7 @@ public function exportarGestionCartera(array $filtros)
 
 public function update($id, array $data)
 {
-    $cartera = GestionCartera::findOrFail($id);
+    $cartera = $this->aplicarScopePorRol(GestionCartera::query())->findOrFail($id);
 
     //  recalcular fechas
     $fechaFactura = isset($data['fecha_factura'])
@@ -229,15 +240,21 @@ private function recalcularSaldo($cartera)
     $nuevoSaldo = $cartera->valor_total - $totalPagado;
 
     $cartera->saldo_pendiente = max(0, $nuevoSaldo);
-    $cartera->estado = $nuevoSaldo <= 0 ? 'completado' : 'pendiente';
+
+    // No pisar una deuda cancelada/condonada: solo alternar entre
+    // pendiente/completado si el estado actual no es 'cancelado'.
+    if ($cartera->estado !== 'cancelado') {
+        $cartera->estado = $nuevoSaldo <= 0 ? 'completado' : 'pendiente';
+    }
 
     $cartera->save();
 }
 
 public function find($id)
 {
-    return GestionCartera::with('cliente', 'comercial', 'pagos')->findOrFail($id);  
-
+    return $this->aplicarScopePorRol(GestionCartera::query())
+        ->with('cliente', 'comercial', 'pagos')
+        ->findOrFail($id);
 }
 
 public function cancelarDeuda($id)

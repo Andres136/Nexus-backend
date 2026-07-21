@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Crm\StoreGestionCarteraRequest;
 use App\Http\Requests\Crm\UpdateGestionCarteraRequest;
 use App\Models\Crm\GestionCartera;
+use App\RolEnum;
 use App\Services\Crm\GestionCarteraService;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
@@ -163,7 +164,18 @@ public function estadisticasCartera(Request $request)
  // Nueva fUNCION ELIMINAR FACTURA DE CARTERA (ANULAR)
  public function anularFactura($id)
  {
-    
+    $user = auth()->user();
+
+    // Mismo alcance que el botón "Eliminar" en el frontend: solo
+    // Administrador/HSEQ/Administrativo pueden borrar una factura.
+    $rolesPermitidos = [RolEnum::ADMINISTRADOR->value, RolEnum::HSEQ->value, RolEnum::ADMINISTRATIVO->value];
+
+    if (!in_array($user->role_id, $rolesPermitidos)) {
+        return response()->json([
+            'message' => 'No tienes permiso para anular facturas'
+        ], 403);
+    }
+
     $cartera = $this->gestionCarteraService->anularFactura($id);
 
     return response()->json([

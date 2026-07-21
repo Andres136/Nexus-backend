@@ -11,7 +11,8 @@ class GestionCarteraPivote extends Model
     protected $fillable = [
         'gestion_cartera_id',
         'valor_pago',
-        'fecha_pago'
+        'fecha_pago',
+        'observacion'
     ];
 
     public function gestionCartera()

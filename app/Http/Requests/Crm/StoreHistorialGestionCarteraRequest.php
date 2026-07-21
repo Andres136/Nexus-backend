@@ -31,7 +31,7 @@ public function rules(): array
         'observacion' => 'nullable|string',
 
         //  puedes dejarlo así o actualizarlo (te explico abajo)
-        'tipo' => 'required|string|in:LLAMADA,EMAIL,VISITA,PROMESA_PAGO,OTRO',
+        'tipo' => 'required|string|in:LLAMADA,EMAIL,VISITA,PROMESA_PAGO,WHATSAPP,OTRO',
 
         'fecha_compromiso' => 'nullable|date'
     ];
@@ -50,7 +50,7 @@ public function rules(): array
         'soportes.*.max' => 'Cada archivo no debe superar los 2MB',
 
         'tipo.required' => 'El tipo es requerido',
-        'tipo.in' => 'Tipo inválido (LLAMADA, EMAIL, VISITA, PROMESA_PAGO, OTRO)',
+        'tipo.in' => 'Tipo inválido (LLAMADA, EMAIL, VISITA, PROMESA_PAGO, WHATSAPP, OTRO)',
 
         'fecha_compromiso.date' => 'La fecha de compromiso debe ser válida'
     ];

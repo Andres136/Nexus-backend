@@ -30,7 +30,7 @@ class FacturaCarteraNotification extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['mail'];
+        return ['mail', 'database'];
     }
 
     /**
@@ -46,6 +46,25 @@ public function toMail(object $notifiable): MailMessage
         ]);
 }
 
+    public function toDatabase(object $notifiable): array
+    {
+        $this->factura->loadMissing('cliente');
+
+        $mensaje = $this->tipo === 'vencida'
+            ? 'Factura vencida'
+            : 'Factura próxima a vencer';
+
+        return [
+            'mensaje' => $mensaje,
+            'gestion_cartera_id' => $this->factura->id,
+            'numero_factura' => $this->factura->numero_factura,
+            'cliente' => optional($this->factura->cliente)->nombre,
+            'fecha_vencimiento' => $this->factura->fecha_vencimiento,
+            'tipo' => $this->tipo,
+            'url' => rtrim(config('app.frontend_url', config('app.url')), '/') . '/auth/crm/gestion-cartera/' . $this->factura->id,
+        ];
+    }
+
     /**
      * Get the array representation of the notification.
      *
@@ -53,8 +72,6 @@ public function toMail(object $notifiable): MailMessage
      */
     public function toArray(object $notifiable): array
     {
-        return [
-            //
-        ];
+        return $this->toDatabase($notifiable);
     }
 }
