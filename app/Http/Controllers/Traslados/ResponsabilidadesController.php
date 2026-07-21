@@ -147,7 +147,17 @@ public function actualizarAsignacion($pivotId, Request $request)
         'activo'    => 'required|boolean',
     ]);
 
-    $updated = DB::table('responsabilidades_user')
+    // update() de MySQL/Laravel devuelve filas realmente modificadas, no filas
+    // que hicieron match: si los valores nuevos son iguales a los actuales
+    // devuelve 0 aunque el registro exista y la operación sea correcta. Por
+    // eso se verifica existencia aparte en vez de usar el resultado de update().
+    if (!DB::table('responsabilidades_user')->where('id', $pivotId)->exists()) {
+        return response()->json([
+            'message' => 'No se pudo actualizar la asignación'
+        ], 409);
+    }
+
+    DB::table('responsabilidades_user')
         ->where('id', $pivotId)
         ->update([
             'sede_id'    => $data['sede_id'],
@@ -155,12 +165,6 @@ public function actualizarAsignacion($pivotId, Request $request)
             'activo'     => $data['activo'],
             'updated_at'=> now(),
         ]);
-
-    if (!$updated) {
-        return response()->json([
-            'message' => 'No se pudo actualizar la asignación'
-        ], 409);
-    }
 
     return response()->json([
         'message' => 'Asignación actualizada correctamente'
@@ -173,18 +177,21 @@ public function desactivarAsignacion($pivotId)
 {try {
         $pivotId = (int) $pivotId;
 
-        $updated = DB::table('responsabilidades_user')
+        // Igual que en actualizarAsignacion: no usar el conteo de update() como
+        // indicador de éxito, porque si 'activo' ya era false, MySQL reporta 0
+        // filas modificadas aunque el registro exista.
+        if (!DB::table('responsabilidades_user')->where('id', $pivotId)->exists()) {
+            return response()->json([
+                'message' => 'No se pudo desactivar la asignación'
+            ], 409);
+        }
+
+        DB::table('responsabilidades_user')
             ->where('id', $pivotId)
             ->update([
                 'activo'     => false,
                 'updated_at'=> now(),
             ]);
-
-        if (!$updated) {
-            return response()->json([
-                'message' => 'No se pudo desactivar la asignación'
-            ], 409);
-        }
 
         return response()->json([
             'message' => 'Asignación desactivada correctamente'
