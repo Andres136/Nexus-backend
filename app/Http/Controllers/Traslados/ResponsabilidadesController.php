@@ -137,41 +137,6 @@ public function mostrarResponsabilidadesAsignadas()
     }
 
 
-//ACTUALIZAR RESPONSABILIDAD ASIGNADA
-public function actualizarResponsabilidadAsignada(
-    Request $request,
-    string $id
-) {
-dd('ENTRÓ', request()->all());
-
-    try {
-        $request->validate([
-            'responsabilidad_id' => 'required|integer|exists:responsabilidades,id',
-            'user_id'       => 'required|integer|exists:users,id',
-            'sede_id'      => 'required|integer|exists:sedes,id',
-            'bodega_id'    => 'required|integer|exists:bodegas,id',
-        ]);
-    } catch (\Illuminate\Validation\ValidationException $e) {
-        return response()->json([
-            'message' => 'Error de validación',
-            'errors'  => $e->errors(),
-        ], 422);
-    }
-    $data = $this->service->editar(
-        (int) $id,
-        $request->only([
-            'responsabilidad_id',
-            'user_id',
-            'sede_id',
-            'bodega_id',
-        ])
-    );
-
-    return response()->json([
-        'message' => 'Responsabilidad actualizada exitosamente',
-        'data'    => $data,
-    ], 200);
-}
 public function actualizarAsignacion($pivotId, Request $request)
 {
     $pivotId = (int) $pivotId;

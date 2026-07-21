@@ -74,11 +74,24 @@ public function listarResponsabilidades(
         ->with([
             'usuarios' => function ($q) use ($filtros) {
                 // ✅ Agregar JOIN para traer nombres directamente
+                // Los campos de responsabilidades_user se alían como pivot_* para que
+                // Eloquent los hidrate en $usuario->pivot (si no, el select() pisa por
+                // completo el select por defecto de withPivot() y el pivot llega vacío,
+                // y además 'id' colisiona con users.id).
                 $q->leftJoin('sedes', 'responsabilidades_user.sede_id', '=', 'sedes.id')
                   ->leftJoin('bodegas', 'responsabilidades_user.bodega_id', '=', 'bodegas.id')
                   ->select([
                       'users.*',
-                      'responsabilidades_user.*',
+                      'responsabilidades_user.responsabilidad_id as pivot_responsabilidad_id',
+                      'responsabilidades_user.user_id as pivot_user_id',
+                      'responsabilidades_user.id as pivot_id',
+                      'responsabilidades_user.bodega_id as pivot_bodega_id',
+                      'responsabilidades_user.sede_id as pivot_sede_id',
+                      'responsabilidades_user.activo as pivot_activo',
+                      'responsabilidades_user.fecha_asignacion as pivot_fecha_asignacion',
+                      'responsabilidades_user.fecha_fin as pivot_fecha_fin',
+                      'responsabilidades_user.created_at as pivot_created_at',
+                      'responsabilidades_user.updated_at as pivot_updated_at',
                       'sedes.nombre as sede_nombre',
                       'bodegas.nombre as bodega_nombre'
                   ]);
@@ -103,21 +116,6 @@ public function listarResponsabilidades(
 
 
 
-
-//EDITAR RESPONSABILIDAD
-
-public function editar(
-    int $responsabilidadId,
-    array $data
-): Responsabilidad {
-    return DB::transaction(function () use ($responsabilidadId, $data) {
-
-        $responsabilidad = Responsabilidad::findOrFail($responsabilidadId);
-        $responsabilidad->update($data);
-
-        return $responsabilidad->load('usuarios');
-    });
-}
 
 //DESACTIVAR RESPONSABILIDAD en user
 
