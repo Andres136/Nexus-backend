@@ -613,6 +613,8 @@ Route::middleware('es_responsable_del_departamento')->group(function () {
 
 Route::get('/vsm/prioridades', [DashboardOperativoController::class, 'getPrioridades']);
 Route::patch('/vsm/origenes/{id}/prioridad', [DashboardOperativoController::class, 'updatePrioridad']);
+Route::patch('/vsm/orden-compra-detalles/{id}/observacion', [DashboardOperativoController::class, 'updateObservacionItem']);
+Route::get('/vsm/ordenes-pdf', [DashboardOperativoController::class, 'exportarPdf']);
 Route::apiResource('/vsm/ordenes', DashboardOperativoController::class);
 
 //RUTAS  PARA CONTABILIDAD

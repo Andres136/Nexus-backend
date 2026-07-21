@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Crm\Orden_Compra_Detalle;
 use App\Models\Crm\OrdenCompraProveedorDetalleOrigen;
 use App\Services\Crm\DhasboardOperativoService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 
 class DashboardOperativoController extends Controller
@@ -61,6 +63,37 @@ $filters = $request->all();
     public function update(Request $request, string $id)
     {
         //
+    }
+
+    /**
+     * GET /vsm/ordenes-pdf — exporta a PDF las órdenes que cumplan los
+     * mismos filtros aplicados en el Dashboard Operativo (index()).
+     */
+    public function exportarPdf(Request $request)
+    {
+        $filters = $request->all();
+        $ordenes = $this->service->obtenerOrdenesCompraVSM($filters);
+
+        $pdf = Pdf::loadView('pdf.dashboard_operativo', [
+            'ordenes' => $ordenes,
+            'generadoEn' => now(),
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download('torre-control-vsm_' . now()->format('Y-m-d_His') . '.pdf');
+    }
+
+    // Observación por ítem (Orden_Compra_Detalle) en el panel de alistamiento/VSM.
+    public function updateObservacionItem(Request $request, $id)
+    {
+        $request->validate(['observaciones' => 'nullable|string|max:2000']);
+
+        $detalle = Orden_Compra_Detalle::findOrFail($id);
+        $detalle->update(['observaciones' => $request->observaciones]);
+
+        return response()->json([
+            'message' => 'Observación guardada correctamente',
+            'observaciones' => $detalle->observaciones,
+        ]);
     }
 
     /**

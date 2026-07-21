@@ -225,14 +225,19 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
         ->groupBy('producto_id')
         ->map(fn($items) => (object) ['stock_total' => $items->sum('stock_total')]);
 
-    // Equivalentes
-    $equivalentes = AlistamientoOt::whereIn('orden_compra_detalle_id', $detalleIds)
-        ->where('tipo', 'equivalente')->get()->groupBy('orden_compra_detalle_id');
+    // Alistamientos de bodega (Orden de Trabajo): incluye tanto lo alistado
+    // con el producto original como con un equivalente/homólogo — ambos
+    // cuentan para "lo alistado" del detalle, igual que en TablaDetallesOrden.jsx.
+    $alistamientosOtPorDetalle = AlistamientoOt::whereIn('orden_compra_detalle_id', $detalleIds)
+        ->get()
+        ->groupBy('orden_compra_detalle_id');
 
-    // Flujo de Trabajo (OT -> Alistamiento -> Detalles)
+    $equivalentes = $alistamientosOtPorDetalle
+        ->map(fn($items) => $items->where('tipo', 'equivalente'))
+        ->filter(fn($items) => $items->isNotEmpty());
+
+    // Flujo de Trabajo (OT)
     $ordenesTrabajo = DB::table('orden_de_trabajos')->whereIn('orden_compra_id', $ordenIds)->get()->keyBy('orden_compra_id');
-    $alistamientos = DB::table('alistamiento')->whereIn('orden_trabajo_id', $ordenesTrabajo->pluck('id'))->get()->keyBy('orden_trabajo_id');
-    $alistamientoDetalles = DB::table('alistamiento_detalles')->whereIn('alistamiento_id', $alistamientos->pluck('id'))->get()->groupBy('alistamiento_id');
 
     // Despachos
     $despachos = DB::table('delivery_events')
@@ -246,7 +251,7 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
       $proveedorDetallesFallback,
       $inventarioPorProductoSede,
       $inventarioPorProducto,
-       $equivalentes, $ordenesTrabajo, $alistamientos, $alistamientoDetalles, $despachos, $historial
+       $equivalentes, $alistamientosOtPorDetalle, $ordenesTrabajo, $despachos, $historial
     ) {
         
         $detalles = !empty($filters['producto_id']) 
@@ -284,17 +289,21 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
 //Historial de fechas de ordenes de compra
         $historialOrden = $historial[$oc->id] ?? collect();
         // --- LÓGICA DE ALISTAMIENTO ---
+        // Fuente unificada con "Orden de Trabajo": lo alistado es la suma de
+        // alistamientos_ot.cantidad por detalle (original + equivalente),
+        // igual que TablaDetallesOrden.jsx — ya no se usa alistamiento_detalles
+        // (sistema de productividad VSM, ajeno a los equivalentes de bodega).
         $ot = $ordenesTrabajo[$oc->id] ?? null;
-        $alistamiento = $ot ? ($alistamientos[$ot->id] ?? null) : null;
-        $detAlist = $alistamiento ? ($alistamientoDetalles[$alistamiento->id] ?? collect()) : collect();
 
-        $totalProg = $detAlist->sum('cantidad_programada');
-        $totalAlis = $detAlist->sum('cantidad_alistada');
-        $totalFalt = $detAlist->sum('cantidad_faltante');
+        $totalProg = $totalRequerido;
+        $totalAlis = $detalles->sum(
+            fn($d) => ($alistamientosOtPorDetalle[$d->id] ?? collect())->sum('cantidad')
+        );
+        $totalFalt = max($totalProg - $totalAlis, 0);
 
         $estadoAlistamiento = match(true) {
-            (!$alistamiento) => 'NO_INICIADO',
-            ($totalFalt == 0 && $totalProg > 0) => 'ALISTADO',
+            ($totalAlis <= 0) => 'NO_INICIADO',
+            ($totalFalt <= 0 && $totalProg > 0) => 'ALISTADO',
             default => 'EN_ALISTAMIENTO'
         };
 
@@ -390,6 +399,7 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
                 'stock' => $stock,
                 'estado' => $estadoItem,
                 'tiene_equivalente' => $tieneEquivalente,
+                'observaciones' => $d->observaciones,
                 'compra_proveedor' => [
                     'trazabilidad' => $usaTrazabilidadExacta ? 'exacta' : 'estimada',
                     'total_solicitado' => $compraSolicitada,
@@ -447,6 +457,7 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
 'sede' => optional($oc->sede)->nombre,
             'orden_trabajo_id'   => $ot->id ?? null,
             'revisada' => $ot ? ($ot->revisada ==1 ? true : false) : null,
+            'revisada_at' => $ot->revisada_at ?? null,
             'numero'          => $oc->numero,
             'fecha_entrega'     => $oc->fecha_entrega,
             'cliente'         => optional($oc->cliente)->nombre,
