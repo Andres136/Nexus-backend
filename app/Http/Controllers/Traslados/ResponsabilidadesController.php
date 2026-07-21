@@ -142,9 +142,11 @@ public function actualizarAsignacion($pivotId, Request $request)
     $pivotId = (int) $pivotId;
 
     $data = $request->validate([
-        'sede_id'   => 'required|exists:sedes,id',
-        'bodega_id'=> 'required|exists:bodegas,id',
-        'activo'    => 'required|boolean',
+        'user_id'            => 'required|integer|exists:users,id',
+        'responsabilidad_id' => 'required|integer|exists:responsabilidades,id',
+        'sede_id'            => 'required|exists:sedes,id',
+        'bodega_id'          => 'required|exists:bodegas,id',
+        'activo'             => 'required|boolean',
     ]);
 
     // update() de MySQL/Laravel devuelve filas realmente modificadas, no filas
@@ -157,13 +159,29 @@ public function actualizarAsignacion($pivotId, Request $request)
         ], 409);
     }
 
+    // Evitar que la reasignación duplique una fila ya existente para el
+    // mismo usuario + responsabilidad (el pivote no tiene unique constraint).
+    $duplicado = DB::table('responsabilidades_user')
+        ->where('id', '!=', $pivotId)
+        ->where('user_id', $data['user_id'])
+        ->where('responsabilidad_id', $data['responsabilidad_id'])
+        ->exists();
+
+    if ($duplicado) {
+        return response()->json([
+            'message' => 'Este usuario ya tiene asignada esa responsabilidad'
+        ], 422);
+    }
+
     DB::table('responsabilidades_user')
         ->where('id', $pivotId)
         ->update([
-            'sede_id'    => $data['sede_id'],
-            'bodega_id' => $data['bodega_id'],
-            'activo'     => $data['activo'],
-            'updated_at'=> now(),
+            'user_id'            => $data['user_id'],
+            'responsabilidad_id' => $data['responsabilidad_id'],
+            'sede_id'            => $data['sede_id'],
+            'bodega_id'          => $data['bodega_id'],
+            'activo'             => $data['activo'],
+            'updated_at'         => now(),
         ]);
 
     return response()->json([
