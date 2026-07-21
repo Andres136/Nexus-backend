@@ -97,7 +97,7 @@ class AdminProductividadService
             $jornada = $jornadasPorSesion->get($sesion->id);
             $resumen = $jornada
                 ? $this->miDiaService->resumenDia($jornada->setRelation('workSession', $sesion))
-                : $this->resumenSesionSinJornada($sesion);
+                : $this->miDiaService->resumenSesionSinJornada($sesion);
 
             $dias->push($this->mapDetalleDia($sesion->registro_diario->toDateString(), $sesion, $jornada, $resumen));
         }
@@ -149,27 +149,6 @@ class AdminProductividadService
         ];
     }
 
-    private function resumenSesionSinJornada(WorkSession $sesion): array
-    {
-        $fin = $sesion->hora_salida ?? now(config('app.timezone'));
-        $minutosJornada = max(0, (int) $sesion->hora_entrada->diffInMinutes($fin));
-        $minutosPausa = (int) ($sesion->minutos_pausa ?? 0);
-        $minutosAlmuerzo = (int) ($sesion->minutos_almuerzo ?? 0);
-        $minutosParado = max(0, $minutosJornada - $minutosPausa - $minutosAlmuerzo);
-
-        return [
-            'minutos_jornada' => $minutosJornada,
-            'minutos_pausa' => $minutosPausa,
-            'minutos_almuerzo' => $minutosAlmuerzo,
-            'minutos_clasificable' => $minutosParado,
-            'minutos_tarea' => 0,
-            'minutos_otra_actividad' => 0,
-            'minutos_disponible' => 0,
-            'minutos_clasificado' => 0,
-            'minutos_sin_clasificar' => $minutosParado,
-            'minutos_parado' => $minutosParado,
-        ];
-    }
 
     private function mapDetalleDia(string $fecha, ?WorkSession $sesion, ?JornadaOperativa $jornada, array $resumen): array
     {

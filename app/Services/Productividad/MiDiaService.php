@@ -24,6 +24,11 @@ class MiDiaService
             ->whereDate('fecha', $fecha)
             ->first();
 
+        $workSession = $jornada?->workSession ?? WorkSession::where('user_id', $userId)
+            ->whereDate('registro_diario', $fecha)
+            ->whereNotNull('hora_entrada')
+            ->first();
+
         $actividadActiva = $jornada
             ? ActividadOperativa::with(self::WITH_ACTIVIDAD)
                 ->where('jornada_operativa_id', $jornada->id)
@@ -34,9 +39,14 @@ class MiDiaService
 
         return [
             'jornada' => $jornada,
+            // Se marcó entrada en el kiosko pero aún no hay jornada (ninguna actividad ni "disponible" registrados): sin clasificar, no "disponible".
+            'estado_actual' => $jornada?->estado_actual ?? ($workSession ? 'SIN_CLASIFICAR' : null),
+            'work_session' => $workSession,
             'actividad_activa' => $actividadActiva,
             'linea_tiempo' => $this->lineaTiempo($userId, $fecha),
-            'resumen' => $jornada ? $this->resumenDia($jornada) : null,
+            'resumen' => $jornada
+                ? $this->resumenDia($jornada)
+                : ($workSession ? $this->resumenSesionSinJornada($workSession) : null),
         ];
     }
 
@@ -352,6 +362,33 @@ class MiDiaService
             'minutos_clasificado' => $tiempoClasificado,
             'minutos_sin_clasificar' => $tiempoSinClasificar,
             'minutos_parado' => $tiempoSinClasificar,
+        ];
+    }
+
+    /**
+     * Mismo cálculo que resumenDia() pero para cuando ya hay entrada de kiosko y
+     * todavía no existe JornadaOperativa: todo el tiempo desde hora_entrada (menos
+     * pausas/almuerzo del kiosko) cuenta como tiempo muerto, porque nada se ha clasificado aún.
+     */
+    public function resumenSesionSinJornada(WorkSession $workSession): array
+    {
+        $fin = $workSession->hora_salida ?? now(config('app.timezone'));
+        $minutosJornada = max(0, (int) Carbon::parse($workSession->hora_entrada)->diffInMinutes(Carbon::parse($fin)));
+        $minutosPausa = (int) ($workSession->minutos_pausa ?? 0);
+        $minutosAlmuerzo = (int) ($workSession->minutos_almuerzo ?? 0);
+        $minutosParado = max(0, $minutosJornada - $minutosPausa - $minutosAlmuerzo);
+
+        return [
+            'minutos_jornada' => $minutosJornada,
+            'minutos_pausa' => $minutosPausa,
+            'minutos_almuerzo' => $minutosAlmuerzo,
+            'minutos_clasificable' => $minutosParado,
+            'minutos_tarea' => 0,
+            'minutos_otra_actividad' => 0,
+            'minutos_disponible' => 0,
+            'minutos_clasificado' => 0,
+            'minutos_sin_clasificar' => $minutosParado,
+            'minutos_parado' => $minutosParado,
         ];
     }
 }
