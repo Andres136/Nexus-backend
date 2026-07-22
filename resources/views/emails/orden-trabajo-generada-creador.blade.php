@@ -91,6 +91,32 @@
 
         <tr><td colspan="2" height="12"></td></tr>
 
+        @if(!empty($carteraInfo))
+        <!-- Aviso de cartera del cliente -->
+        <tr>
+          <td colspan="2" style="background:{{ !empty($carteraInfo['tiene_vencida']) ? '#fff7ed' : '#fffbeb' }};border:1px solid {{ !empty($carteraInfo['tiene_vencida']) ? '#fed7aa' : '#fde68a' }};border-radius:6px;padding:12px;">
+            <div style="font-size:14px;font-weight:700;color:#92400e;margin-bottom:6px;">
+              {{ !empty($carteraInfo['tiene_vencida']) ? '🚨 Este cliente tiene cartera vencida' : '⚠️ Este cliente tiene cartera próxima a vencer' }}
+            </div>
+            @if(!empty($carteraInfo['tiene_vencida']))
+            <div style="font-size:13px;color:#7c2d12;padding:2px 0;">
+              Facturas vencidas: {{ $carteraInfo['facturas_vencidas']->join(', ') }} — total ${{ number_format($carteraInfo['total_vencido'], 0, ',', '.') }}
+            </div>
+            @endif
+            @if(!empty($carteraInfo['tiene_proxima']))
+            <div style="font-size:13px;color:#78350f;padding:2px 0;">
+              Facturas próximas a vencer: {{ $carteraInfo['facturas_proximas']->join(', ') }} — total ${{ number_format($carteraInfo['total_proximo'], 0, ',', '.') }}
+            </div>
+            @endif
+            <div style="font-size:13px;color:#92400e;margin-top:6px;">
+              Te invitamos a gestionar la cartera con el cliente antes de continuar con el despacho.
+            </div>
+          </td>
+        </tr>
+
+        <tr><td colspan="2" height="12"></td></tr>
+        @endif
+
         <!-- Próximos pasos -->
         <tr>
           <td colspan="2" style="background:#ffffff;border:1px dashed #c3e6cb;border-radius:6px;padding:12px;">

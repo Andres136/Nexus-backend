@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Crm;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Crm\ClientesRequest;
 use App\Http\Requests\Crm\ImportarClientesExelRequest;
+use App\Services\Crm\GestionCarteraService;
 use App\Services\crm\ClienteService;
 use Illuminate\Http\Request;
 
@@ -51,6 +52,13 @@ class ClienteController extends Controller
     public function edit(string $id)
     {
         //
+    }
+
+    public function carteraResumen(string $id)
+    {
+        return response()->json([
+            'cartera' => app(GestionCarteraService::class)->resumenCarteraCliente((int) $id),
+        ]);
     }
 
     public function update(Request $request, string $id)

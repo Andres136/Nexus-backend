@@ -3,6 +3,7 @@
 
 namespace App\Services\Crm;
 
+use App\Mail\OrdenTrabajoGeneradaClienteMail;
 use App\Models\Crm\AlistamientoOt;
 use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\OrdenDeTrabajo;
@@ -14,11 +15,13 @@ use App\Models\Departamentos;
 use App\Notifications\OrdenTrabajoCreada;
 use App\Notifications\OrdenTrabajoGeneradaParaCreador;
 use App\Notifications\OrdenTrabajoListaParcial;
+use App\Services\Crm\GestionCarteraService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 
@@ -227,9 +230,20 @@ class OrdenTrabajoService
         // SISTEMA EXACTO DEL CONTROLLER
         $operacionesId = Departamentos::where('nombre', 'Operaciones')->value('id');
 
+        // Estado de cartera del cliente, para incluirlo en los avisos de abajo
+        $carteraInfo = app(GestionCarteraService::class)->resumenCarteraCliente($ordenCompra->cliente_id);
+
         // 1. Notificar al usuario que creó la orden de compra
         if ($ordenCompra->user) {
-            $ordenCompra->user->notify(new OrdenTrabajoGeneradaParaCreador($ordenTrabajo));
+            $ordenCompra->user->notify(new OrdenTrabajoGeneradaParaCreador($ordenTrabajo, $carteraInfo));
+        }
+
+        // 1.b Notificar al cliente que su orden avanzó a producción
+        $cliente = $ordenCompra->cliente;
+        if ($cliente && $cliente->email) {
+            Mail::to($cliente->email)->send(
+                new OrdenTrabajoGeneradaClienteMail($ordenTrabajo, $ordenCompra, $cliente, $carteraInfo)
+            );
         }
 
         // 2. Notificar a usuarios de Inventario de la sede específica
@@ -274,6 +288,7 @@ class OrdenTrabajoService
             'valorTotal' => $ordenCompra->valor_total,
             'observaciones' => $ordenTrabajo->observaciones ?? 'Sin observaciones',
             'observaciones_oc' => $ordenCompra->observaciones ?? 'Sin observaciones',
+            'carteraInfo' => app(GestionCarteraService::class)->resumenCarteraCliente($ordenCompra->cliente_id),
         ]);
 
         $fileName = "ordenes_trabajo/orden_trabajo_{$ordenTrabajo->id}.pdf";

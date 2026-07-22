@@ -74,7 +74,7 @@ class GestionCarteraHistorialController extends Controller
             'soportes' => 'nullable|array',
             'soportes.*' => 'file|mimes:jpg,jpeg,png,pdf|max:2048',
             'observacion' => 'nullable|string',
-            'tipo' => 'required|string|in:LLAMADA,EMAIL,VISITA,PROMESA_PAGO,OTRO',
+            'tipo' => 'required|string|in:LLAMADA,EMAIL,VISITA,PROMESA_PAGO,WHATSAPP,OTRO',
             'fecha_compromiso' => 'nullable|date'
         ]);
 

@@ -13,8 +13,12 @@ use App\Models\Vsm\AlistamientoUsuarioDetalle;
 use App\Models\Nomina\HorarioUsuarioSemanal;
 use App\Models\Nomina\JornadaLaboral;
 use App\Models\Vsm\VsmConfiguracion;
+use App\Mail\AlistamientoIniciadoClienteMail;
+use App\Notifications\AlistamientoIniciadoCarteraNotificacion;
+use App\Services\Crm\GestionCarteraService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class AlistamientoService
 {
@@ -53,7 +57,7 @@ public function crearAlistamiento($data, $usuarioAuthId)
 
         // 📦 3. DETALLES
         if ($data['tipo_origen'] === 'OT') {
-            $ordenTrabajo = OrdenDeTrabajo::with('ordenCompra.detalles')
+            $ordenTrabajo = OrdenDeTrabajo::with('ordenCompra.detalles', 'ordenCompra.cliente', 'ordenCompra.user')
                 ->findOrFail($data['orden_trabajo_id']);
             $items = $ordenTrabajo->ordenCompra->detalles;
         } else {
@@ -90,8 +94,40 @@ public function crearAlistamiento($data, $usuarioAuthId)
             'fecha_hora'      => $inicioGlobal, // 🔥 MISMA REFERENCIA
         ]);
 
+        // 💰 5. AVISO DE CARTERA (solo si el alistamiento viene de una OT con cliente)
+        if ($data['tipo_origen'] === 'OT') {
+            $this->avisarCarteraSiAplica($alist, $ordenTrabajo->ordenCompra);
+        }
+
         return $alist;
     });
+}
+
+/**
+ * Si el cliente de la Orden de Compra tiene cartera vencida o próxima a
+ * vencer, avisa por correo al cliente y notifica al usuario que creó la OC
+ * para que gestione la cartera antes de que llegue al despacho.
+ */
+private function avisarCarteraSiAplica(Alistamiento $alist, $ordenCompra): void
+{
+    $carteraInfo = app(GestionCarteraService::class)->resumenCarteraCliente($ordenCompra->cliente_id);
+
+    if (!$carteraInfo) {
+        return;
+    }
+
+    $cliente = $ordenCompra->cliente;
+    if ($cliente && $cliente->email) {
+        Mail::to($cliente->email)->send(
+            new AlistamientoIniciadoClienteMail($alist, $ordenCompra, $cliente, $carteraInfo)
+        );
+    }
+
+    if ($ordenCompra->user) {
+        $ordenCompra->user->notify(
+            new AlistamientoIniciadoCarteraNotificacion($alist, $ordenCompra, $carteraInfo)
+        );
+    }
 }
 
 public function pausarAlistamiento($alistId, $razon = null)

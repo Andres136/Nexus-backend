@@ -18,6 +18,7 @@ use App\Models\Estados;
 use App\Models\User;
 use App\Notifications\OrdenCompraNotificacion;
 
+use App\Services\Crm\GestionCarteraService;
 use App\Services\Crm\OrdenCompraService;
 use App\Services\Crm\OrdenTrabajoService;
 use App\Services\ProductService;
@@ -40,12 +41,14 @@ class OrdenCompraController extends Controller
      */
      protected $productService;
      protected $ordenTrabajoService;
-     
+     protected $gestionCarteraService;
+
 
     public function __construct()
     {
         $this->productService = app(ProductService::class);
         $this->ordenTrabajoService = app(OrdenTrabajoService::class);
+        $this->gestionCarteraService = app(GestionCarteraService::class);
     }
 
 
@@ -142,12 +145,14 @@ class OrdenCompraController extends Controller
             $notificacionController = app(NotificacionOrdenController::class);
             $notificacionController->enviarOrdenCreada($ordenCompra);
 
+            $carteraInfo = $this->gestionCarteraService->verificarYNotificarCarteraCliente($ordenCompra);
 
             return response()->json([
                 'message' => 'Orden de compra creada con éxito',
                 'orden_compra_id' => $ordenCompra->id,
                 'orden_compra' => $ordenCompra->load('detalles'),
- 
+                'cartera' => $carteraInfo,
+
             ], 201);
         } catch (\Exception $e) {
             DB::rollback();
@@ -517,6 +522,41 @@ public function destroy(string $id)
     return response()->json([
         'message' => 'Orden inactivada correctamente'
     ], 200);
+}
+
+/**
+ * Camino inverso a destroy(): reactiva una OC que estaba Inactiva.
+ * Solo para responsables de proceso (ver middleware de la ruta).
+ */
+public function activar(string $id)
+{
+    $ordenCompra = Orden_Compra::findOrFail($id);
+
+    if ($ordenCompra->estado_id != EstadoEnum::INACTIVO->value) {
+        return response()->json([
+            'error' => 'Solo se pueden reactivar órdenes inactivas.'
+        ], 403);
+    }
+
+    $ordenCompra->update([
+        'estado_id' => EstadoEnum::PENDIENTE->value
+    ]);
+
+    return response()->json([
+        'message' => 'Orden reactivada correctamente'
+    ], 200);
+}
+
+/**
+ * Órdenes de Compra cuyo cliente tiene cartera vencida, para que el
+ * responsable de proceso decida si activarlas/desactivarlas.
+ */
+public function conCarteraVencida(Request $request)
+{
+    $filtros = $request->only(['buscar', 'estado', 'per_page']);
+    $ordenes = $this->gestionCarteraService->ordenesCompraConCarteraVencida($filtros);
+
+    return response()->json($ordenes);
 }
 
     //Listar todas las ordenes de compra con cantidad enviada para facturar

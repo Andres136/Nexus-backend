@@ -2,12 +2,93 @@
 
 namespace App\Services\Crm;
 
+use App\EstadoEnum;
+use App\Mail\OrdenCompraCarteraClienteMail;
 use App\Models\Crm\GestionCartera;
+use App\Models\Crm\Orden_Compra;
+use App\Models\User;
+use App\Notifications\Crm\CarteraClienteAlCrearOcNotification;
+use App\Notifications\Crm\FacturaCarteraNotification;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class GestionCarteraService
 {
+    /**
+     * Verifica si el cliente de la Orden de Compra tiene facturas vencidas o
+     * próximas a vencer (mismo umbral de 8 días que VerificarFacturasCartera).
+     * Si es así, notifica al usuario que creó la orden Y envía un correo al
+     * cliente (mismo patrón ya usado al generar OT y al iniciar alistamiento).
+     * Devuelve un resumen para el frontend, o null si no hay nada.
+     */
+    public function verificarYNotificarCarteraCliente(Orden_Compra $ordenCompra): ?array
+    {
+        ['vencidas' => $vencidas, 'proximas' => $proximas] = $this->obtenerCarteraRelevante($ordenCompra->cliente_id);
+
+        $resumen = $this->resumirCartera($vencidas, $proximas);
+        if (!$resumen) {
+            return null;
+        }
+
+        $ordenCompra->user?->notify(new CarteraClienteAlCrearOcNotification($ordenCompra, $resumen));
+
+        $cliente = $ordenCompra->cliente;
+        if ($cliente && $cliente->email) {
+            Mail::to($cliente->email)->send(
+                new OrdenCompraCarteraClienteMail($ordenCompra, $cliente, $resumen)
+            );
+        }
+
+        return $resumen;
+    }
+
+    /**
+     * Igual que verificarYNotificarCarteraCliente() pero de solo lectura: no
+     * notifica al comercial (eso ya se hace al crear la OC). Se usa para
+     * incluir el estado de cartera del cliente en otros avisos, como el de
+     * generación de Orden de Trabajo.
+     */
+    public function resumenCarteraCliente(int $clienteId): ?array
+    {
+        ['vencidas' => $vencidas, 'proximas' => $proximas] = $this->obtenerCarteraRelevante($clienteId);
+
+        return $this->resumirCartera($vencidas, $proximas);
+    }
+
+    private function obtenerCarteraRelevante(int $clienteId): array
+    {
+        $hoy = now();
+
+        $vencidas = GestionCartera::where('cliente_id', $clienteId)
+            ->where('estado', 'pendiente')
+            ->whereDate('fecha_vencimiento', '<', $hoy)
+            ->get();
+
+        $proximas = GestionCartera::where('cliente_id', $clienteId)
+            ->where('estado', 'pendiente')
+            ->whereBetween('fecha_vencimiento', [$hoy, $hoy->copy()->addDays(8)])
+            ->get();
+
+        return ['vencidas' => $vencidas, 'proximas' => $proximas];
+    }
+
+    private function resumirCartera($vencidas, $proximas): ?array
+    {
+        if ($vencidas->isEmpty() && $proximas->isEmpty()) {
+            return null;
+        }
+
+        return [
+            'tiene_vencida'     => $vencidas->isNotEmpty(),
+            'tiene_proxima'     => $proximas->isNotEmpty(),
+            'total_vencido'     => (float) $vencidas->sum('saldo_pendiente'),
+            'total_proximo'     => (float) $proximas->sum('saldo_pendiente'),
+            'facturas_vencidas' => $vencidas->pluck('numero_factura')->values(),
+            'facturas_proximas' => $proximas->pluck('numero_factura')->values(),
+        ];
+    }
+
     //CreaR gESTION DE CARTERA
 
 
@@ -366,7 +447,50 @@ public function anularFactura($id)
    $cartera = GestionCartera::findOrFail($id);
    // ELIMINAR
    $cartera->delete();
-   return $cartera;  
-  
+   return $cartera;
+
+}
+
+/**
+ * Lista las Órdenes de Compra cuyo cliente tiene cartera vencida, para que
+ * el responsable de proceso decida si bloquearlas. Cada orden se devuelve
+ * con un atributo `cartera_info` (mismo formato de resumenCarteraCliente()).
+ */
+public function ordenesCompraConCarteraVencida(array $filtros = [])
+{
+    $clientesVencidos = GestionCartera::where('estado', 'pendiente')
+        ->whereDate('fecha_vencimiento', '<', now())
+        ->pluck('cliente_id')
+        ->unique();
+
+    $query = Orden_Compra::with(['cliente', 'user', 'estado'])
+        ->whereIn('cliente_id', $clientesVencidos);
+
+    if (!empty($filtros['buscar'])) {
+        $buscar = $filtros['buscar'];
+        $query->whereHas('cliente', function ($q) use ($buscar) {
+            $q->where('nombre', 'like', "%{$buscar}%");
+        });
+    }
+
+    // 'activa' = distinta de Inactivo (estado_id 4), 'inactiva' = bloqueada, '' = todas
+    if (($filtros['estado'] ?? '') === 'inactiva') {
+        $query->where('estado_id', EstadoEnum::INACTIVO->value);
+    } elseif (($filtros['estado'] ?? '') === 'activa') {
+        $query->whereNot('estado_id', EstadoEnum::INACTIVO->value);
+    }
+
+    $ordenes = $query->orderByDesc('created_at')->paginate($filtros['per_page'] ?? 15);
+
+    $resumenPorCliente = [];
+    $ordenes->getCollection()->transform(function ($oc) use (&$resumenPorCliente) {
+        if (!array_key_exists($oc->cliente_id, $resumenPorCliente)) {
+            $resumenPorCliente[$oc->cliente_id] = $this->resumenCarteraCliente($oc->cliente_id);
+        }
+        $oc->cartera_info = $resumenPorCliente[$oc->cliente_id];
+        return $oc;
+    });
+
+    return $ordenes;
 }
 }

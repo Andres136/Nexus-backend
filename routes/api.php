@@ -211,6 +211,7 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
   Route::get('/clientes-registro-user', [ClienteController::class, 'clientesUsuario']);
   Route::apiResource('clientes', ClienteController::class);
   Route::get('clientes-todos', [ClienteController::class, 'clientesTodos']);
+  Route::get('clientes/{id}/cartera-resumen', [ClienteController::class, 'carteraResumen']);
   
 
   //ordenes de compra
@@ -832,6 +833,12 @@ Route::get('/sedes', [SedeController::class, 'index']);
 
 
 Route::delete('orden-compras/{id}', [OrdenCompraController::class, 'destroy']);
+
+// Gestión de OC con cartera vencida: solo responsable de proceso o admin
+Route::middleware(['auth:sanctum', 'es_responsable_del_departamento'])->group(function () {
+    Route::get('orden-compras-cartera-vencida', [OrdenCompraController::class, 'conCarteraVencida']);
+    Route::patch('orden-compras/{id}/activar', [OrdenCompraController::class, 'activar']);
+});
 
 Route::put('/pqrs/{id}/asignar', [PqrController::class, 'asignarArea']);
 

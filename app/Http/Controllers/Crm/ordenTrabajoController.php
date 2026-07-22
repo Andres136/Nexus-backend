@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Crm;
 use App\EstadoEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Crm\OrdenDeTrabajo;
+use App\Services\Crm\GestionCarteraService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -65,6 +66,7 @@ class ordenTrabajoController extends Controller
             'valorTotal' => $valorTotal,
             'observaciones' => $orden->observaciones ?? 'Sin observaciones',
             'empresa' => $orden->empresa->nombre ?? 'N/A',
+            'carteraInfo' => app(GestionCarteraService::class)->resumenCarteraCliente($orden->ordenCompra->cliente_id),
         ]);
 
         $fileName = "ordenes_trabajo/orden_trabajo_{$orden->id}.pdf";

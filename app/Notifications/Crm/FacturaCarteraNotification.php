@@ -16,11 +16,39 @@ class FacturaCarteraNotification extends Notification
      */
     protected $factura;
     protected $tipo;
-    public function __construct($factura, $tipo)
+    protected $usuarioCreadorOc;
+
+    public function __construct($factura, $tipo, $usuarioCreadorOc = null)
     {
         $this->factura = $factura;
         $this->tipo = $tipo;
+        $this->usuarioCreadorOc = $usuarioCreadorOc;
+    }
 
+    /**
+     * Link de WhatsApp hacia el usuario que creó la Orden de Compra que
+     * disparó este aviso (null si no hay usuario o no tiene teléfono).
+     */
+    private function whatsappUrl(): ?string
+    {
+        if (!$this->usuarioCreadorOc || empty($this->usuarioCreadorOc->telefono)) {
+            return null;
+        }
+
+        $digits = preg_replace('/\D/', '', $this->usuarioCreadorOc->telefono);
+        if (empty($digits)) {
+            return null;
+        }
+        if (strlen($digits) === 10) {
+            $digits = '57' . $digits; // Colombia
+        }
+
+        $mensaje = rawurlencode(
+            "Hola {$this->usuarioCreadorOc->name}, te contacto por la factura {$this->factura->numero_factura}" .
+            (optional($this->factura->cliente)->nombre ? " del cliente {$this->factura->cliente->nombre}." : ".")
+        );
+
+        return "https://wa.me/{$digits}?text={$mensaje}";
     }
 
     /**
@@ -42,7 +70,9 @@ public function toMail(object $notifiable): MailMessage
         ->subject('Factura en cartera')
         ->view('notifications.factura-cartera-' . $this->tipo, [
             'factura' => $this->factura,
-            'url' => config('app.frontend_url') . '/auth/crm/gestion-cartera/' . $this->factura->id
+            'url' => config('app.frontend_url') . '/auth/crm/gestion-cartera/' . $this->factura->id,
+            'whatsappUrl' => $this->whatsappUrl(),
+            'usuarioCreadorOc' => $this->usuarioCreadorOc,
         ]);
 }
 

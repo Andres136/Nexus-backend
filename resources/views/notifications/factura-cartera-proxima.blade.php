@@ -5,8 +5,17 @@
     <h2 style="color:#f59e0b;font-size:1.5rem;margin-bottom:12px;">
         ⚠️ Factura Próxima a Vencer
     </h2>
+    @if(!empty($usuarioCreadorOc))
+    <p style="font-size:1.05rem;margin-bottom:12px;">
+        Se acaba de generar una nueva Orden de Compra para este cliente. Para seguir brindándole un excelente servicio, queremos recordarte que tiene una factura <strong>próxima a vencer</strong>:
+    </p>
+    @else
+    <p style="font-size:1.05rem;margin-bottom:12px;">
+        La siguiente factura está <strong>próxima a vencer</strong>. Te sugerimos hacer seguimiento antes de la fecha límite:
+    </p>
+    @endif
     <p style="font-size:1.1rem;margin-bottom:20px;">
-        La factura <strong>{{ $factura->numero_factura }}</strong> está próxima a vencer.
+        Factura <strong>{{ $factura->numero_factura }}</strong>
     </p>
     <div style="background:#fffbeb;border-radius:8px;padding:16px 18px;margin-bottom:24px;">
         <div style="margin-bottom:8px;">
@@ -22,20 +31,26 @@
             <strong style="color:#b45309;">{{ $factura->fecha_vencimiento }}</strong>
         </div>
     </div>
-    <a href="{{ $url }}"
+    <p style="font-size:0.95rem;color:#475569;margin-bottom:24px;">
+        Agradecemos tu gestión oportuna: mantener la cartera al día nos permite seguir ofreciendo un servicio ágil y de calidad a nuestros clientes.
+    </p>
+
+    @if(!empty($whatsappUrl))
+    <a href="{{ $whatsappUrl }}"
        style="
         display:inline-block;
+        margin-top:12px;
         padding:14px 28px;
-        background:#2563eb;
+        background:#25d366;
         color:#fff;
         text-decoration:none;
         border-radius:8px;
         font-weight:bold;
         font-size:1.1rem;
-        box-shadow:0 2px 6px #2563eb33;
-        transition:background 0.2s;
+        box-shadow:0 2px 6px #25d36633;
        ">
-       👉 Gestionar factura
+       💬 Contactar por WhatsApp
     </a>
+    @endif
 </div>
 @endsection

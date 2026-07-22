@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <title>Orden de Trabajo</title>
 
+@php
+    $tieneCarteraVencida = !empty($carteraInfo['tiene_vencida'] ?? false);
+    $colorPrincipal = $tieneCarteraVencida ? '#dc2626' : '#1f6fd2';
+    $colorFondoResumen = $tieneCarteraVencida ? '#fef2f2' : '#f4f9ff';
+@endphp
+
 <style>
 @page {
     size: A4;
@@ -21,7 +27,7 @@ body {
 .header {
     display: flex;
     align-items: center;
-    border-bottom: 2px solid #1f6fd2;
+    border-bottom: 2px solid {{ $colorPrincipal }};
     padding-bottom: 4px;
     margin-bottom: 10px;
 }
@@ -82,7 +88,7 @@ tbody {
     page-break-inside: avoid;
 }
 th {
-    background: #1f6fd2;
+    background: {{ $colorPrincipal }};
     color: #fff;
     padding: 3px;
     border: 1px solid #ddd;
@@ -114,8 +120,8 @@ td:first-child { max-width: 60px; }
 /* TOTALES */
 .resumen {
     margin-top: 10px;
-    border: 1px solid #1f6fd2;
-    background: #f4f9ff;
+    border: 1px solid {{ $colorPrincipal }};
+    background: {{ $colorFondoResumen }};
     padding: 6px;
 }
 .resumen p {
@@ -143,6 +149,15 @@ td:first-child { max-width: 60px; }
     <h2>Orden de Trabajo #{{ $orden->id }}</h2>
     <span></span>
 </div>
+
+@if($tieneCarteraVencida)
+<div style="border:1px solid #dc2626;background:#fef2f2;padding:6px;margin-bottom:10px;">
+    <h3 style="margin:0 0 3px;font-size:11px;color:#dc2626;"> Cliente con cartera vencida</h3>
+    <p style="margin:0;font-size:9px;color:#7c2d12;">
+        Se recomienda revisar el estado de cartera del cliente antes de continuar con el despacho de esta orden.
+    </p>
+</div>
+@endif
 
 <!-- INFO -->
 <div class="info">
@@ -194,7 +209,7 @@ td:first-child { max-width: 60px; }
     <th>Kg Req</th>
     <th>Cant</th>
     <th>Alistamiento</th>
-  
+
 <th>Env / Falt</th>
     <th>V. Unit</th>
     <th>Total</th>
