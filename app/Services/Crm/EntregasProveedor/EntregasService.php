@@ -186,29 +186,33 @@ class EntregasService
 
     public function actualizarEntrega(array $data, int $id, $user): EntregaProveedor
     {
-        $entrega = EntregaProveedor::findOrFail($id);
-        $cantidadAnterior = $entrega->cantidad_entregada;
+        return DB::transaction(function () use ($data, $id, $user) {
+            $entrega = EntregaProveedor::findOrFail($id);
+            $cantidadAnterior = $entrega->cantidad_entregada;
 
-        $entrega->update([
-            'cantidad_entregada' => $data['cantidad_entregada'],
-            'fecha_entrega'      => $data['fecha_entrega'],
-            'observaciones'      => $data['observaciones'] ?? null,
-            'bodega_id'          => $data['bodega_id'],
-            'producto_id'        => $data['producto_id'] ?? null,
-            'user_id'            => $user->id,
-            'sede_id'            => $user->sede_id,
-            
-        ]);
+            $entrega->update([
+                'cantidad_entregada' => $data['cantidad_entregada'],
+                'fecha_entrega'      => $data['fecha_entrega'],
+                'observaciones'      => $data['observaciones'] ?? null,
+                'bodega_id'          => $data['bodega_id'],
+                'producto_id'        => $data['producto_id'] ?? null,
+                'user_id'            => $user->id,
+                'sede_id'            => $user->sede_id,
 
-        $productoId = $this->resolverProductoId($data);
-        $this->actualizarInventario($data, $productoId, $cantidadAnterior);
+            ]);
 
-        $this->verificarDetalleCompleto(['detalle_id' => $entrega->detalle_id]);
-        $this->actualizarEstadoOrden(
-            OrdenCompraProveedorDetalle::findOrFail($entrega->detalle_id)->orden_id
-        );
+            $productoId = $this->resolverProductoId($data);
+            $this->actualizarInventario($data, $productoId, $cantidadAnterior);
 
-        return $entrega;
+            $detalle = OrdenCompraProveedorDetalle::findOrFail($entrega->detalle_id);
+            $detalle->cantidad_entregada += ($data['cantidad_entregada'] - $cantidadAnterior);
+            $detalle->save();
+
+            $this->verificarDetalleCompleto(['detalle_id' => $entrega->detalle_id]);
+            $this->actualizarEstadoOrden($detalle->orden_id);
+
+            return $entrega;
+        });
     }
 
     private function resolverProductoId(array $data): ?int
