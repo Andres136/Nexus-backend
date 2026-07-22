@@ -554,9 +554,14 @@ public function activar(string $id)
 public function conCarteraVencida(Request $request)
 {
     $filtros = $request->only(['buscar', 'estado', 'per_page']);
-    $ordenes = $this->gestionCarteraService->ordenesCompraConCarteraVencida($filtros);
+    $data = $this->gestionCarteraService->ordenesCompraConCarteraVencida($filtros);
 
-    return response()->json($ordenes);
+    // Se mantiene el paginador "plano" (current_page, data, last_page, ...) y se
+    // le agrega total_valor, para no romper el contrato que ya consume el frontend.
+    return response()->json(array_merge(
+        $data['paginator']->toArray(),
+        ['total_valor' => $data['total_valor']]
+    ));
 }
 
     //Listar todas las ordenes de compra con cantidad enviada para facturar

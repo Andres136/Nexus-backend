@@ -193,19 +193,36 @@ private function aplicarFiltros($query, array $filtros)
 
     if (!empty($filtros['buscar'])) {
         $buscar = $filtros['buscar'];
+        $buscarPor = $filtros['buscar_por'] ?? null;
 
-        $query->where(function ($q) use ($buscar) {
-            $q->where('numero_factura', 'like', "%{$buscar}%")
-              ->orWhereHas('cliente', function ($q2) use ($buscar) {
-                  $q2->where('nombre', 'like', "%{$buscar}%");
-              })
-              ->orWhereHas('comercial', function ($q3) use ($buscar) {
-                  $q3->where('name', 'like', "%{$buscar}%");
-              })
-              ->orWhereHas('empresa', function ($q4) use ($buscar) {
-                  $q4->where('nombre', 'like', "%{$buscar}%");
-              });
-
+        $query->where(function ($q) use ($buscar, $buscarPor) {
+            if ($buscarPor === 'factura') {
+                $q->where('numero_factura', 'like', "%{$buscar}%");
+            } elseif ($buscarPor === 'comercial') {
+                $q->whereHas('comercial', function ($q3) use ($buscar) {
+                    $q3->where('name', 'like', "%{$buscar}%");
+                });
+            } elseif ($buscarPor === 'empresa') {
+                $q->whereHas('empresa', function ($q4) use ($buscar) {
+                    $q4->where('nombre', 'like', "%{$buscar}%");
+                });
+            } elseif ($buscarPor === 'cliente') {
+                $q->whereHas('cliente', function ($q2) use ($buscar) {
+                    $q2->where('nombre', 'like', "%{$buscar}%");
+                });
+            } else {
+                // Sin selector (compatibilidad): busca en todos los campos a la vez
+                $q->where('numero_factura', 'like', "%{$buscar}%")
+                  ->orWhereHas('cliente', function ($q2) use ($buscar) {
+                      $q2->where('nombre', 'like', "%{$buscar}%");
+                  })
+                  ->orWhereHas('comercial', function ($q3) use ($buscar) {
+                      $q3->where('name', 'like', "%{$buscar}%");
+                  })
+                  ->orWhereHas('empresa', function ($q4) use ($buscar) {
+                      $q4->where('nombre', 'like', "%{$buscar}%");
+                  });
+            }
         });
     }
 
@@ -464,7 +481,10 @@ public function ordenesCompraConCarteraVencida(array $filtros = [])
         ->unique();
 
     $query = Orden_Compra::with(['cliente', 'user', 'estado'])
-        ->whereIn('cliente_id', $clientesVencidos);
+        ->whereIn('cliente_id', $clientesVencidos)
+        // Una orden Completada ya no puede generar OT ni despacharse: no hay nada que
+        // activar/desactivar sobre ella, así que no tiene sentido mostrarla aquí.
+        ->whereNot('estado_id', EstadoEnum::COMPLETADO->value);
 
     if (!empty($filtros['buscar'])) {
         $buscar = $filtros['buscar'];
@@ -480,6 +500,10 @@ public function ordenesCompraConCarteraVencida(array $filtros = [])
         $query->whereNot('estado_id', EstadoEnum::INACTIVO->value);
     }
 
+    // Total del valor de las órdenes que cumplen los filtros (no solo la página
+    // actual), para que el responsable dimensione el impacto antes de decidir.
+    $totalValor = (clone $query)->sum('valor_total');
+
     $ordenes = $query->orderByDesc('created_at')->paginate($filtros['per_page'] ?? 15);
 
     $resumenPorCliente = [];
@@ -491,6 +515,9 @@ public function ordenesCompraConCarteraVencida(array $filtros = [])
         return $oc;
     });
 
-    return $ordenes;
+    return [
+        'paginator' => $ordenes,
+        'total_valor' => (float) $totalValor,
+    ];
 }
 }

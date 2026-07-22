@@ -9,6 +9,11 @@ class GestionCartera extends Model
 {
     protected $table = 'gestion_cartera';
 
+    protected $casts = [
+        'fecha_factura' => 'date',
+        'fecha_vencimiento' => 'date',
+    ];
+
     protected $fillable = [
         'user_id',
         'empresa_id',
