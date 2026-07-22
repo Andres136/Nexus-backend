@@ -7,11 +7,17 @@
     $ocNum = str_pad((int) ($ordenCompra->id ?? 0), 6, '0', STR_PAD_LEFT);
     $clienteNombre = optional($ordenCompra->cliente)->nombre ?? 'el cliente';
     $tieneVencida = !empty($resumen['tiene_vencida']);
+    $tieneProxima = !empty($resumen['tiene_proxima']);
+    $tituloCartera = match (true) {
+        $tieneVencida && $tieneProxima => 'Cliente con cartera vencida y próxima a vencer',
+        $tieneVencida => 'Cliente con cartera vencida',
+        default => 'Cliente con cartera próxima a vencer',
+    };
 @endphp
 
 <div style="max-width:480px;margin:0 auto;background:#f8fafc;border-radius:12px;padding:32px 24px 24px 24px;box-shadow:0 2px 8px #0001;">
     <h2 style="color:{{ $tieneVencida ? '#dc2626' : '#f59e0b' }};font-size:1.4rem;margin-bottom:12px;">
-        {{ $tieneVencida ? '🚨 Cliente con cartera vencida' : '⚠️ Cliente con cartera próxima a vencer' }}
+        {{ $tieneVencida ? '🚨' : '⚠️' }} {{ $tituloCartera }}
     </h2>
 
     <p style="font-size:1.05rem;margin-bottom:16px;">

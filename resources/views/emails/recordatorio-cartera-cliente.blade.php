@@ -2,13 +2,12 @@
 
 @section('content')
 @php
-    $ocNum = str_pad((int) ($ordenCompra->id ?? 0), 6, '0', STR_PAD_LEFT);
     $tieneVencida = !empty($resumen['tiene_vencida']);
     $tieneProxima = !empty($resumen['tiene_proxima']);
-    $tituloCartera = match (true) {
-        $tieneVencida && $tieneProxima => 'Tienes facturas vencidas y próximas a vencer',
-        $tieneVencida => 'Tienes facturas vencidas',
-        default => 'Tienes facturas próximas a vencer',
+    $tituloRecordatorio = match (true) {
+        $tieneVencida && $tieneProxima => 'Recordatorio: tienes facturas vencidas y próximas a vencer',
+        $tieneVencida => 'Recordatorio: tienes facturas vencidas',
+        default => 'Recordatorio: facturas próximas a vencer',
     };
 @endphp
 
@@ -17,10 +16,10 @@
     <td style="background:{{ $tieneVencida ? '#dc2626' : '#f59e0b' }};color:#ffffff;padding:18px 20px;border-radius:8px;">
       <div style="font-size:28px;line-height:1;margin-bottom:8px;">{{ $tieneVencida ? '🚨' : '⚠️' }}</div>
       <div style="font-size:20px;font-weight:700;line-height:1.3;">
-        {{ $tituloCartera }}
+        {{ $tituloRecordatorio }}
       </div>
       <div style="font-size:14px;opacity:.95;margin-top:6px;">
-        Hola {{ $cliente->nombre ?? 'cliente' }}, acabamos de registrar tu Orden de Compra #{{ $ocNum }}.
+        Hola {{ $cliente->nombre ?? 'cliente' }}, este es un recordatorio periódico del estado de tu cartera con nosotros.
       </div>
     </td>
   </tr>
@@ -66,8 +65,8 @@
 
         <tr>
           <td style="font-size:0.95rem;color:#475569;padding-top:4px;">
-            Para que sigamos brindándote un buen servicio y tu nueva orden avance sin contratiempos, te invitamos
-            a gestionar tu cartera pendiente cuanto antes con tu asesor comercial.
+            Te invitamos a ponerte al día con tu asesor comercial. Si ya realizaste algún pago reciente,
+            puedes ignorar este recordatorio.
           </td>
         </tr>
 

@@ -73,6 +73,24 @@ class GestionCarteraService
         return ['vencidas' => $vencidas, 'proximas' => $proximas];
     }
 
+    /**
+     * IDs de clientes con cartera vencida o próxima a vencer (mismo umbral de
+     * 8 días que el resto del módulo). Se usa para el recordatorio periódico
+     * al cliente, que corre para todos los clientes de una sola vez.
+     */
+    public function clientesConCarteraPendiente()
+    {
+        $hoy = now();
+
+        return GestionCartera::where('estado', 'pendiente')
+            ->where(function ($q) use ($hoy) {
+                $q->whereDate('fecha_vencimiento', '<', $hoy)
+                  ->orWhereBetween('fecha_vencimiento', [$hoy, $hoy->copy()->addDays(8)]);
+            })
+            ->pluck('cliente_id')
+            ->unique();
+    }
+
     private function resumirCartera($vencidas, $proximas): ?array
     {
         if ($vencidas->isEmpty() && $proximas->isEmpty()) {

@@ -4,6 +4,13 @@
 @php
     $ocNum = str_pad((int) ($ordenCompra->id ?? 0), 6, '0', STR_PAD_LEFT);
     $clienteNombre = optional($ordenCompra->cliente)->nombre ?? 'el cliente';
+    $tieneVencidaAlistamientoCreador = !empty($carteraInfo['tiene_vencida']);
+    $tieneProximaAlistamientoCreador = !empty($carteraInfo['tiene_proxima']);
+    $tituloCarteraAlistamientoCreador = match (true) {
+        $tieneVencidaAlistamientoCreador && $tieneProximaAlistamientoCreador => 'Este cliente tiene cartera vencida y próxima a vencer',
+        $tieneVencidaAlistamientoCreador => 'Este cliente tiene cartera vencida',
+        default => 'Este cliente tiene cartera próxima a vencer',
+    };
 @endphp
 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;margin:0 auto;">
@@ -23,9 +30,9 @@
     <td style="background:#ffffff;border:1px solid #fde68a;border-radius:8px;padding:16px;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td colspan="2" style="background:{{ !empty($carteraInfo['tiene_vencida']) ? '#fff7ed' : '#fffbeb' }};border:1px solid {{ !empty($carteraInfo['tiene_vencida']) ? '#fed7aa' : '#fde68a' }};border-radius:6px;padding:12px;">
+          <td colspan="2" style="background:{{ $tieneVencidaAlistamientoCreador ? '#fff7ed' : '#fffbeb' }};border:1px solid {{ $tieneVencidaAlistamientoCreador ? '#fed7aa' : '#fde68a' }};border-radius:6px;padding:12px;">
             <div style="font-size:14px;font-weight:700;color:#92400e;margin-bottom:6px;">
-              {{ !empty($carteraInfo['tiene_vencida']) ? '🚨 Este cliente tiene cartera vencida' : '⚠️ Este cliente tiene cartera próxima a vencer' }}
+              {{ $tieneVencidaAlistamientoCreador ? '🚨' : '⚠️' }} {{ $tituloCarteraAlistamientoCreador }}
             </div>
             @if(!empty($carteraInfo['tiene_vencida']))
             <div style="font-size:13px;color:#7c2d12;padding:2px 0;">

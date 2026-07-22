@@ -13,3 +13,5 @@ Artisan::command('inspire', function () {
 // aquí, en routes/console.php.
 Schedule::command('notificar:ordenesporvencer')->dailyAt('08:00');
 Schedule::command('app:verificar-facturas-cartera')->dailyAt('09:00');
+// Recordatorio al cliente (no al comercial interno): una vez por semana, lunes 8am.
+Schedule::command('app:notificar-clientes-cartera-pendiente')->weeklyOn(1, '08:00');

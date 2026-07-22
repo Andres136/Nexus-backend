@@ -34,10 +34,19 @@
 
         @if(!empty($carteraInfo))
         <tr><td colspan="2" height="12"></td></tr>
+        @php
+            $tieneVencidaOtCliente = !empty($carteraInfo['tiene_vencida']);
+            $tieneProximaOtCliente = !empty($carteraInfo['tiene_proxima']);
+            $tituloCarteraOtCliente = match (true) {
+                $tieneVencidaOtCliente && $tieneProximaOtCliente => 'Tienes facturas vencidas y próximas a vencer',
+                $tieneVencidaOtCliente => 'Tienes facturas vencidas',
+                default => 'Tienes facturas próximas a vencer',
+            };
+        @endphp
         <tr>
-          <td colspan="2" style="background:{{ !empty($carteraInfo['tiene_vencida']) ? '#fff7ed' : '#fffbeb' }};border:1px solid {{ !empty($carteraInfo['tiene_vencida']) ? '#fed7aa' : '#fde68a' }};border-radius:6px;padding:12px;">
+          <td colspan="2" style="background:{{ $tieneVencidaOtCliente ? '#fff7ed' : '#fffbeb' }};border:1px solid {{ $tieneVencidaOtCliente ? '#fed7aa' : '#fde68a' }};border-radius:6px;padding:12px;">
             <div style="font-size:14px;font-weight:700;color:#92400e;margin-bottom:6px;">
-              {{ !empty($carteraInfo['tiene_vencida']) ? '🚨 Tienes facturas vencidas' : '⚠️ Tienes facturas próximas a vencer' }}
+              {{ $tieneVencidaOtCliente ? '🚨' : '⚠️' }} {{ $tituloCarteraOtCliente }}
             </div>
             @if(!empty($carteraInfo['tiene_vencida']))
             <div style="font-size:13px;color:#7c2d12;padding:2px 0;">
