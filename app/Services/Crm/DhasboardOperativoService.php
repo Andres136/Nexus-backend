@@ -168,8 +168,11 @@ $ordenes = Orden_Compra::with([
         $query->where('cliente_id', $filters['cliente']);
     })
     ->when(!empty($filters['search']), function ($query) use ($filters) {
-    $query->whereHas('ordenTrabajo', function ($q) use ($filters) {
-        $q->where('id', 'LIKE', "%{$filters['search']}%");
+    $query->where(function ($sub) use ($filters) {
+        $sub->whereHas('ordenTrabajo', function ($q) use ($filters) {
+                $q->where('id', 'LIKE', "%{$filters['search']}%");
+            })
+            ->orWhere('orden_compra_cliente', 'LIKE', "%{$filters['search']}%");
     });
 })
 

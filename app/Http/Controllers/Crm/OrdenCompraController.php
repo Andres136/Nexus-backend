@@ -80,7 +80,9 @@ class OrdenCompraController extends Controller
         ->when($search, function ($query, $search) {
             return $query->whereHas('cliente', function ($query) use ($search) {
                 $query->where('nombre', 'LIKE', "%$search%");
-            })->orWhere('fecha_entrega', 'LIKE', "%$search%");
+            })
+                ->orWhere('fecha_entrega', 'LIKE', "%$search%")
+                ->orWhere('orden_compra_cliente', 'LIKE', "%$search%");
         })
         ->orderBy('orden_trabajo_exists', 'asc') // ✅ primero sin OT
         ->orderBy('created_at', 'desc') // ✅ más recientes dentro del grupo
@@ -123,6 +125,7 @@ class OrdenCompraController extends Controller
                 'observaciones' => $request->observaciones,
                 'empresa_id' => $request->empresa_id,
                 'cliente_documento' => $rutaArchivo,
+                'orden_compra_cliente' => $request->orden_compra_cliente,
                 'valor_total' => 0, // Inicialmente 0
 
             ]);
@@ -294,6 +297,9 @@ public function obtenerOrdenesTrabajo(Request $request)
                 ->orWhereHas('ordenCompra.sede', function ($q3) use ($search) {
                     $q3->where('nombre', 'LIKE', "%{$search}%");
                 })
+                ->orWhereHas('ordenCompra', function ($q4) use ($search) {
+                    $q4->where('orden_compra_cliente', 'LIKE', "%{$search}%");
+                })
                 ->orWhere('id', $search);
             });
         })
@@ -440,6 +446,7 @@ $path = $request->file('cliente_documento')->store('documentos_clientes', 'publi
                 'ubicacion_entrega' => $request->ubicacion_entrega,
                 'observaciones'     => $request->observaciones,
                 'empresa_id'        => $request->empresa_id,
+                'orden_compra_cliente' => $request->orden_compra_cliente,
 
             ]);
 

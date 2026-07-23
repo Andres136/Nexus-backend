@@ -30,6 +30,7 @@ class OrdenComprasUpdateRequest extends FormRequest
             'observaciones' => 'required',
             'empresa_id' => 'required|exists:empresas,id',
             'cliente_documento' => 'sometimes|file|mimes:pdf,doc,docx,xls,xlsx|max:10240',
+            'orden_compra_cliente' => 'required|string|max:100',
         ];
 
         // Validaciones condicionales para detalles
@@ -69,7 +70,9 @@ class OrdenComprasUpdateRequest extends FormRequest
             'empresa_id.exists' => 'La empresa seleccionada no es válida',
             'cliente_documento.mimes' => 'El documento del cliente debe ser un archivo de tipo: pdf, doc, docx, xls, xlsx',
             'cliente_documento.max' => 'El documento del cliente no debe superar los 10MB',
-            
+            'orden_compra_cliente.required' => 'El número de orden de compra del cliente es obligatorio',
+            'orden_compra_cliente.max' => 'El número de orden de compra del cliente no debe superar los 100 caracteres',
+
 
             // Mensajes de error para detalles
             'detalles.min' => 'Debes ingresar mínimo un elemento',

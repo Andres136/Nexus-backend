@@ -28,6 +28,7 @@ class Orden_Compra extends Model
         'fecha_despacho', // Agregar el campo fecha_despacho
         'empresa_id',
         'cliente_documento',
+        'orden_compra_cliente',
         'documento_revisado_at',
 
     ];
