@@ -112,10 +112,14 @@ class MiDiaService
         ]);
     }
 
-    private function actividadAbierta(int $userId): ?ActividadOperativa
+    // Se limita a la jornada del día: el kiosko pausa (no cierra) la actividad activa
+    // al marcar salida, así que una actividad PAUSADA de un día anterior no debe
+    // bloquear el día siguiente ni desaparecer sin explicación en Mi Día.
+    private function actividadAbierta(int $userId, string $fecha): ?ActividadOperativa
     {
         return ActividadOperativa::where('user_id', $userId)
             ->whereIn('estado', ActividadOperativa::ESTADOS_ABIERTOS)
+            ->whereHas('jornadaOperativa', fn ($q) => $q->whereDate('fecha', $fecha))
             ->lockForUpdate()
             ->first();
     }
@@ -190,7 +194,7 @@ class MiDiaService
         return DB::transaction(function () use ($userId, $data) {
             $ahora = now(config('app.timezone'));
 
-            if ($this->actividadAbierta($userId)) {
+            if ($this->actividadAbierta($userId, $ahora->toDateString())) {
                 throw ValidationException::withMessages([
                     'actividad' => 'Ya tienes una actividad activa. Complétala, bloquéala o márcate disponible antes de iniciar otra.',
                 ]);
@@ -225,7 +229,7 @@ class MiDiaService
             $ahora = now(config('app.timezone'));
             $jornada = $this->obtenerOCrearJornada($userId, $ahora);
 
-            $abierta = $this->actividadAbierta($userId);
+            $abierta = $this->actividadAbierta($userId, $ahora->toDateString());
             if ($abierta) {
                 $this->cerrarActividad($abierta, ActividadOperativa::ESTADO_COMPLETADA, $userId);
             }
