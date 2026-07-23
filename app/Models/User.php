@@ -191,6 +191,14 @@ public function actividadesOperativas()
     return $this->hasMany(\App\Models\Productividad\ActividadOperativa::class, 'user_id');
 }
 
+    // El broker de contraseñas de Laravel apunta por defecto a una vista Blade
+    // que no existe (la app es una SPA). Reemplazamos el correo para que el
+    // enlace lleve al frontend en /restablecer-password.
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new \App\Notifications\ResetPasswordNotification($token));
+    }
+
     /**
      * The attributes that should be hidden for serialization.
      *

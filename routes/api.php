@@ -880,6 +880,12 @@ Route::apiResource('carpetas', CarpetaController::class)
 Route::put('carpetas/{id}/mover', [CarpetaController::class, 'mover'])
     ->middleware('auth:sanctum');
 Route::post('login', [AuthController::class, 'login'])->name('login');
+Route::post('forgot-password', [AuthController::class, 'forgotPassword'])
+    ->middleware('throttle:6,1')
+    ->name('password.email');
+Route::post('reset-password', [AuthController::class, 'resetPassword'])
+    ->middleware('throttle:6,1')
+    ->name('password.update');
 //Whatsapp Webhook
 Route::match(['GET', 'POST'], '/webhook', [WhatsappWebhookController::class, 'handle']);
 

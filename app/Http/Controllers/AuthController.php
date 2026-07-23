@@ -13,6 +13,10 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Password as PasswordRules;
 
 class AuthController extends Controller
 {
@@ -219,6 +223,52 @@ class AuthController extends Controller
         return $response;
     }
     
+
+    // Envía el enlace de restablecimiento. La respuesta es siempre la misma
+    // exista o no el correo, para no revelar qué cuentas están registradas.
+    public function forgotPassword(Request $request)
+    {
+        $request->validate(['email' => 'required|email']);
+
+        Password::sendResetLink($request->only('email'));
+
+        return response()->json([
+            'message' => 'Si el correo está registrado, te enviamos un enlace para restablecer tu contraseña.',
+        ]);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'token' => 'required|string',
+            'email' => 'required|email',
+            'password' => ['required', 'confirmed', PasswordRules::min(8)],
+        ]);
+
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function (User $user, string $password) {
+                $user->forceFill([
+                    'password' => Hash::make($password),
+                ])->setRememberToken(Str::random(60));
+                $user->save();
+
+                // Cierra las sesiones activas: si alguien más tenía acceso con la
+                // contraseña anterior, queda desconectado.
+                $user->tokens()->delete();
+            }
+        );
+
+        if ($status !== Password::PASSWORD_RESET) {
+            return response()->json([
+                'errors' => ['email' => [__($status)]],
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => 'Contraseña actualizada correctamente. Ya puedes iniciar sesión.',
+        ]);
+    }
 
     public function logout(Request $request)
     {
