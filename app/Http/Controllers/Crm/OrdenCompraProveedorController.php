@@ -8,6 +8,7 @@ use App\Http\Requests\Crm\OrdenCompraProveedorRequest;
 use App\Http\Requests\Crm\UpdateOrdenCompraProveedorDetallesRequest;
 use App\Http\Requests\Crm\UpdateOrdenProveedorRequest;
 use App\Mail\OrdenCompraProveedorMail;
+use App\RolEnum;
 use App\Models\Crm\OrdenCompraProveedor;
 use App\Models\Crm\OrdenCompraProveedorDetalle;
 use App\Models\Crm\OrdenCompraProveedorDetalleOrigen;
@@ -684,6 +685,16 @@ public function entregasShow($id)
     $orden = OrdenCompraProveedor::with('detalles.entregas')
         ->findOrFail($id);
 
+    // Cambiar la sede de la orden es una decisión de Compras: define contra
+    // qué bodega se valida y descuenta el stock. Solo ese rol puede reasignarla.
+    if ($request->filled('sede_id') && (int) $request->sede_id !== (int) $orden->sede_id) {
+        if ((int) $user->role_id !== RolEnum::COMPRAS->value) {
+            return response()->json([
+                'message' => 'No tienes permisos para cambiar la sede de la orden.',
+            ], 403);
+        }
+    }
+
     DB::beginTransaction();
 
     try {
@@ -691,7 +702,7 @@ public function entregasShow($id)
         //  Actualizar cabecera
         $orden->update([
             'observaciones' => $request->observaciones,
-            'sede_id' => $orden->sede_id ?? $user->sede_id,
+            'sede_id' => $request->filled('sede_id') ? $request->sede_id : ($orden->sede_id ?? $user->sede_id),
             'empresa_id' => $request->empresa_id,
             'proveedor_id' => $request->proveedor_id,
         ]);
