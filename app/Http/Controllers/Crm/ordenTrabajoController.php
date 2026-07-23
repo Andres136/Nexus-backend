@@ -101,13 +101,14 @@ public function revisarOrdenTrabajo($id)
 {
     $orden = OrdenDeTrabajo::findOrFail($id);
 
-    if (!$orden->revisada) {
-        $orden->update([
-            'revisada' => true,
-            'revisada_por' => auth()->id(),
-            'revisada_at' => now(),
-        ]);
-    }
+    // Siempre refresca revisada_at: el usuario hace un barrido diario y necesita
+    // que reconfirmar hoy una orden ya revisada actualice la fecha, o el barrido
+    // de días anteriores nunca se distingue del de hoy.
+    $orden->update([
+        'revisada' => true,
+        'revisada_por' => auth()->id(),
+        'revisada_at' => now(),
+    ]);
 
     return response()->json([
         'message' => 'Orden de trabajo marcada como revisada',
