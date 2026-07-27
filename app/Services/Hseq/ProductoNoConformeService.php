@@ -3,6 +3,7 @@
 namespace App\Services\Hseq;
 
 use App\Models\Hseq\ProductoNoConforme;
+use App\Models\Hseq\ProductoNoConformeItem;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -13,7 +14,7 @@ class ProductoNoConformeService
         'proveedor:id,nombre',
         'comercial:id,name',
         'proceso:id,nombre',
-        'producto:id,name',
+        'items.producto:id,name',
         'ordenCompra:id,code',
         'ordenCompraProveedor:id,numero_orden',
         'estado:id,nombre',
@@ -75,7 +76,19 @@ class ProductoNoConformeService
 
     public function crear(array $data): ProductoNoConforme
     {
-        return ProductoNoConforme::create($data);
+        $productos = $data['productos'] ?? [];
+        unset($data['productos']);
+
+        $reporte = ProductoNoConforme::create($data);
+
+        foreach ($productos as $item) {
+            $reporte->items()->create([
+                'producto_id' => $item['producto_id'],
+                'cantidad_afectada' => $item['cantidad_afectada'],
+            ]);
+        }
+
+        return $reporte->load($this->with);
     }
 
     public function show(int $id): ProductoNoConforme
@@ -125,14 +138,20 @@ class ProductoNoConformeService
 
         $ids = (clone $query)->pluck('id');
 
+        // Un reporte ahora puede tener varios productos (producto_no_conforme_items),
+        // así que cantidad_afectada ya no vive en productos_no_conformes: hay que
+        // unir con la tabla de items para sumarla, o consultarla directamente.
+        $conItems = fn () => (clone $query)
+            ->leftJoin('producto_no_conforme_items', 'producto_no_conforme_items.producto_no_conforme_id', '=', 'productos_no_conformes.id');
+
         // 🔹 Por mes
-        $porMes = (clone $query)
+        $porMes = $conItems()
             ->select(
-                DB::raw('MONTH(fecha_reporte) as mes'),
-                DB::raw('COUNT(*) as total'),
-                DB::raw('SUM(cantidad_afectada) as cantidad_afectada')
+                DB::raw('MONTH(productos_no_conformes.fecha_reporte) as mes'),
+                DB::raw('COUNT(DISTINCT productos_no_conformes.id) as total'),
+                DB::raw('COALESCE(SUM(producto_no_conforme_items.cantidad_afectada), 0) as cantidad_afectada')
             )
-            ->groupBy(DB::raw('MONTH(fecha_reporte)'))
+            ->groupBy(DB::raw('MONTH(productos_no_conformes.fecha_reporte)'))
             ->orderBy('mes')
             ->get()
             ->map(fn($r) => [
@@ -143,13 +162,13 @@ class ProductoNoConformeService
             ]);
 
         // 🔹 Top productos con más no conformidades
-        $topProductos = (clone $query)
+        $topProductos = ProductoNoConformeItem::query()
             ->select(
                 'producto_id',
                 DB::raw('COUNT(*) as total'),
                 DB::raw('SUM(cantidad_afectada) as cantidad_afectada')
             )
-            ->whereNotNull('producto_id')
+            ->whereIn('producto_no_conforme_id', $ids)
             ->with('producto:id,name')
             ->groupBy('producto_id')
             ->orderByDesc('total')
@@ -162,15 +181,15 @@ class ProductoNoConformeService
             ]);
 
         // 🔹 Top clientes con más no conformidades
-        $topClientes = (clone $query)
+        $topClientes = $conItems()
             ->select(
-                'cliente_id',
-                DB::raw('COUNT(*) as total'),
-                DB::raw('SUM(cantidad_afectada) as cantidad_afectada')
+                'productos_no_conformes.cliente_id',
+                DB::raw('COUNT(DISTINCT productos_no_conformes.id) as total'),
+                DB::raw('COALESCE(SUM(producto_no_conforme_items.cantidad_afectada), 0) as cantidad_afectada')
             )
-            ->whereNotNull('cliente_id')
+            ->whereNotNull('productos_no_conformes.cliente_id')
             ->with('cliente:id,nombre')
-            ->groupBy('cliente_id')
+            ->groupBy('productos_no_conformes.cliente_id')
             ->orderByDesc('total')
             ->limit(10)
             ->get()
@@ -181,15 +200,15 @@ class ProductoNoConformeService
             ]);
 
         // 🔹 Top proveedores con más no conformidades
-        $topProveedores = (clone $query)
+        $topProveedores = $conItems()
             ->select(
-                'proveedor_id',
-                DB::raw('COUNT(*) as total'),
-                DB::raw('SUM(cantidad_afectada) as cantidad_afectada')
+                'productos_no_conformes.proveedor_id',
+                DB::raw('COUNT(DISTINCT productos_no_conformes.id) as total'),
+                DB::raw('COALESCE(SUM(producto_no_conforme_items.cantidad_afectada), 0) as cantidad_afectada')
             )
-            ->whereNotNull('proveedor_id')
+            ->whereNotNull('productos_no_conformes.proveedor_id')
             ->with('proveedor:id,nombre')
-            ->groupBy('proveedor_id')
+            ->groupBy('productos_no_conformes.proveedor_id')
             ->orderByDesc('total')
             ->limit(10)
             ->get()
@@ -219,22 +238,26 @@ class ProductoNoConformeService
             ]);
 
         // 🔹 Distribución por origen (cliente / proveedor / interno)
-        $porOrigen = (clone $query)
-            ->select('origen', DB::raw('COUNT(*) as total'), DB::raw('SUM(cantidad_afectada) as cantidad_afectada'))
-            ->groupBy('origen')
+        $porOrigen = $conItems()
+            ->select(
+                'productos_no_conformes.origen',
+                DB::raw('COUNT(DISTINCT productos_no_conformes.id) as total'),
+                DB::raw('COALESCE(SUM(producto_no_conforme_items.cantidad_afectada), 0) as cantidad_afectada')
+            )
+            ->groupBy('productos_no_conformes.origen')
             ->orderByDesc('total')
             ->get();
 
         // 🔹 Distribución por proceso (a través del usuario que reporta)
-        $porProceso = (clone $query)
+        $porProceso = $conItems()
             ->select(
-                'proceso_id',
-                DB::raw('COUNT(*) as total'),
-                DB::raw('SUM(cantidad_afectada) as cantidad_afectada')
+                'productos_no_conformes.proceso_id',
+                DB::raw('COUNT(DISTINCT productos_no_conformes.id) as total'),
+                DB::raw('COALESCE(SUM(producto_no_conforme_items.cantidad_afectada), 0) as cantidad_afectada')
             )
-            ->whereNotNull('proceso_id')
+            ->whereNotNull('productos_no_conformes.proceso_id')
             ->with('proceso:id,nombre')
-            ->groupBy('proceso_id')
+            ->groupBy('productos_no_conformes.proceso_id')
             ->orderByDesc('total')
             ->get()
             ->map(fn($r) => [
@@ -251,7 +274,7 @@ class ProductoNoConformeService
         return [
             'resumen' => [
                 'total'             => $total,
-                'cantidad_afectada' => (clone $query)->sum('cantidad_afectada'),
+                'cantidad_afectada' => ProductoNoConformeItem::whereIn('producto_no_conforme_id', $ids)->sum('cantidad_afectada'),
                 'con_analisis'      => $conAnalisis,
                 'sin_analisis'      => $sinAnalisis,
             ],

@@ -5,7 +5,6 @@ namespace App\Models\Hseq;
 use App\Models\Crm\Cliente;
 use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\OrdenCompraProveedor;
-use App\Models\Crm\product;
 use App\Models\Crm\Proveedor;
 use App\Models\Estados;
 use App\Models\Procesos;
@@ -26,11 +25,9 @@ class ProductoNoConforme extends Model
         'proveedor_id',
         'comercial_id',
         'proceso_id',
-        'producto_id',
         'orden_compra_id',
         'orden_compra_proveedor_id',
         'fecha_reporte',
-        'cantidad_afectada',
         'descripcion_inicial',
         'tipo_falla',
         'estado_id'
@@ -56,9 +53,9 @@ class ProductoNoConforme extends Model
         return $this->belongsTo(Procesos::class, 'proceso_id');
     }
 
-    public function producto()
+    public function items()
     {
-        return $this->belongsTo(product::class, 'producto_id');
+        return $this->hasMany(ProductoNoConformeItem::class, 'producto_no_conforme_id');
     }
 
     public function ordenCompra()
