@@ -18,3 +18,6 @@ Schedule::command('app:notificar-clientes-cartera-pendiente')->weeklyOn(1, '08:0
 // Avisa a quien lleva 30+ min fichado en el kiosko sin registrar nada en Mi Día
 // (con cooldown interno de 1h para no repetir el aviso cada 15 min).
 Schedule::command('app:recordar-mi-dia-sin-actividad')->everyFifteenMinutes();
+// Recuerda tickets abiertos asignados aunque ya se haya marcado como leída
+// la notificación original de asignación (cooldown interno de 20h por ticket).
+Schedule::command('app:recordar-tickets-abiertos')->twiceDaily(9, 15);

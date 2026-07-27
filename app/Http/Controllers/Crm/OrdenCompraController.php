@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Crm;
 
 use App\EstadoEnum;
+use App\RolEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\NotificacionOrdenController;
 use App\Http\Requests\Crm\OrdenComprasRequest;
@@ -378,11 +379,17 @@ public function obtenerOrdenesTrabajo(Request $request)
             $dosDiasAntes = $fechaEntrega->subDays(2); // Resta 2 días antes de la entrega
 
             // 3. Si la orden está vencida o faltan 2 días para vencer, enviamos notificación
-            if ($hoy->greaterThanOrEqualTo($dosDiasAntes)) {
+            //    una única vez por orden (antes se reenviaba en cada GET del detalle porque
+            //    notificado_vencida se guardaba pero nunca se revisaba).
+            if ($hoy->greaterThanOrEqualTo($dosDiasAntes) && !$orden->notificado_vencida) {
                 // Buscar usuarios con los roles: Administrativo, Compras e Inventario
-                $usuariosNotificar = User::whereHas('roles', function ($query) {
-                    $query->whereIn('name', ['Administrativo', 'Compras', 'Inventario']);
-                })->get();
+                // (antes usaba User::roles(), una relación contra user_role, tabla que no
+                // existe en esta base de datos — rompía el endpoint con un 500).
+                $usuariosNotificar = User::whereIn('role_id', [
+                    RolEnum::ADMINISTRATIVO->value,
+                    RolEnum::COMPRAS->value,
+                    RolEnum::INVENTARIO->value,
+                ])->get();
 
                 // Enviar notificación a los usuarios seleccionados
                 Notification::send($usuariosNotificar, new OrdenCompraNotificacion($orden));
@@ -392,11 +399,8 @@ public function obtenerOrdenesTrabajo(Request $request)
                     $orden->user->notify(new OrdenCompraNotificacion($orden));
                 }
 
-                // 4. (Opcional) Marcar la orden como notificada para no repetir notificación
-                if (!$orden->notificado_vencida) {
-                    $orden->notificado_vencida = true;
-                    $orden->save();
-                }
+                $orden->notificado_vencida = true;
+                $orden->save();
             }
         }
 
