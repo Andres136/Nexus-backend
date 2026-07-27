@@ -15,3 +15,6 @@ Schedule::command('notificar:ordenesporvencer')->dailyAt('08:00');
 Schedule::command('app:verificar-facturas-cartera')->dailyAt('09:00');
 // Recordatorio al cliente (no al comercial interno): una vez por semana, lunes 8am.
 Schedule::command('app:notificar-clientes-cartera-pendiente')->weeklyOn(1, '08:00');
+// Avisa a quien lleva 30+ min fichado en el kiosko sin registrar nada en Mi Día
+// (con cooldown interno de 1h para no repetir el aviso cada 15 min).
+Schedule::command('app:recordar-mi-dia-sin-actividad')->everyFifteenMinutes();

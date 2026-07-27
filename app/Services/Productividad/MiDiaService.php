@@ -6,6 +6,7 @@ use App\Models\Nomina\WorkSession;
 use App\Models\Productividad\ActividadOperativa;
 use App\Models\Productividad\JornadaOperativa;
 use App\Models\User;
+use App\Services\Nomina\HorarioUsuarioSemanalService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -14,6 +15,32 @@ use Illuminate\Validation\ValidationException;
 class MiDiaService
 {
     private const WITH_ACTIVIDAD = ['tarea:id,nombre', 'categoria:id,nombre', 'creadaPor:id,name', 'cerradaPor:id,name'];
+
+    public function __construct(private readonly HorarioUsuarioSemanalService $horarioUsuarioSemanalService)
+    {
+    }
+
+    /**
+     * Hora desde la que se cuenta la jornada para "Mi Día": la hora de entrada
+     * configurada en el horario semanal del usuario para ese día, o la
+     * marcación real del kiosko si esta es posterior (si llegó tarde, nunca se
+     * cuenta como tiempo parado un lapso en el que todavía no había fichado).
+     */
+    private function inicioEfectivoJornada(int $userId, WorkSession $workSession): Carbon
+    {
+        $horaKiosko = Carbon::parse($workSession->hora_entrada);
+
+        $horario = $this->horarioUsuarioSemanalService->porUsuarioYFecha($userId, $workSession->registro_diario);
+
+        if (! $horario?->hora_entrada) {
+            return $horaKiosko;
+        }
+
+        $horaConfigurada = Carbon::parse($workSession->registro_diario)
+            ->setTimeFromTimeString($horario->hora_entrada);
+
+        return $horaConfigurada->greaterThan($horaKiosko) ? $horaConfigurada : $horaKiosko;
+    }
 
     public function estadoDelDia(int $userId, ?string $fecha = null): array
     {
@@ -333,9 +360,11 @@ class MiDiaService
         $workSession = $jornada->workSession;
 
         $minutosJornada = 0;
+        $inicioConteo = null;
         if ($workSession?->hora_entrada) {
+            $inicioConteo = $this->inicioEfectivoJornada($jornada->user_id, $workSession);
             $fin = $workSession->hora_salida ?? now(config('app.timezone'));
-            $minutosJornada = max(0, (int) Carbon::parse($workSession->hora_entrada)->diffInMinutes(Carbon::parse($fin)));
+            $minutosJornada = max(0, (int) $inicioConteo->diffInMinutes(Carbon::parse($fin)));
         }
 
         $minutosPausa = (int) ($workSession->minutos_pausa ?? 0);
@@ -366,6 +395,8 @@ class MiDiaService
             'minutos_clasificado' => $tiempoClasificado,
             'minutos_sin_clasificar' => $tiempoSinClasificar,
             'minutos_parado' => $tiempoSinClasificar,
+            'hora_entrada_kiosko' => $workSession?->hora_entrada,
+            'hora_inicio_conteo' => $inicioConteo,
         ];
     }
 
@@ -376,8 +407,9 @@ class MiDiaService
      */
     public function resumenSesionSinJornada(WorkSession $workSession): array
     {
+        $inicioConteo = $this->inicioEfectivoJornada($workSession->user_id, $workSession);
         $fin = $workSession->hora_salida ?? now(config('app.timezone'));
-        $minutosJornada = max(0, (int) Carbon::parse($workSession->hora_entrada)->diffInMinutes(Carbon::parse($fin)));
+        $minutosJornada = max(0, (int) $inicioConteo->diffInMinutes(Carbon::parse($fin)));
         $minutosPausa = (int) ($workSession->minutos_pausa ?? 0);
         $minutosAlmuerzo = (int) ($workSession->minutos_almuerzo ?? 0);
         $minutosParado = max(0, $minutosJornada - $minutosPausa - $minutosAlmuerzo);
@@ -393,6 +425,8 @@ class MiDiaService
             'minutos_clasificado' => 0,
             'minutos_sin_clasificar' => $minutosParado,
             'minutos_parado' => $minutosParado,
+            'hora_entrada_kiosko' => $workSession->hora_entrada,
+            'hora_inicio_conteo' => $inicioConteo,
         ];
     }
 }
