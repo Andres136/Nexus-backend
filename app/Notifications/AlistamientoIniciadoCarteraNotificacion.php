@@ -35,7 +35,7 @@ class AlistamientoIniciadoCarteraNotificacion extends Notification
                 'alistamiento' => $this->alistamiento,
                 'ordenCompra' => $this->ordenCompra,
                 'carteraInfo' => $this->carteraInfo,
-                'url' => config('app.frontend_url') . '/auth/crm/ordenes-compra/' . $this->ordenCompra->id,
+                'url' => config('app.frontend_url') . '/auth/crm/detalles-compras/' . $this->ordenCompra->id,
             ]);
     }
 
@@ -53,7 +53,7 @@ class AlistamientoIniciadoCarteraNotificacion extends Notification
             'total_proximo'     => (float) ($this->carteraInfo['total_proximo'] ?? 0),
             'facturas_vencidas' => collect($this->carteraInfo['facturas_vencidas'] ?? [])->values()->all(),
             'facturas_proximas' => collect($this->carteraInfo['facturas_proximas'] ?? [])->values()->all(),
-            'url'               => rtrim(config('app.frontend_url', config('app.url')), '/') . '/auth/crm/ordenes-compra/' . $this->ordenCompra->id,
+            'url'               => rtrim(config('app.frontend_url', config('app.url')), '/') . '/auth/crm/detalles-compras/' . $this->ordenCompra->id,
         ];
     }
 }

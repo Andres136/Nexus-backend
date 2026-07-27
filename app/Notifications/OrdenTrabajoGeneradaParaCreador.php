@@ -32,7 +32,7 @@ class OrdenTrabajoGeneradaParaCreador extends Notification
                 'ordenTrabajo' => $this->ordenTrabajo,
                 'ordenCompra' => $this->ordenTrabajo->ordenCompra,
                 'carteraInfo' => $this->carteraInfo,
-                'url' => config('app.frontend_url') . '/auth/crm/ordenes-compra/' . $this->ordenTrabajo->ordenCompra->id
+                'url' => config('app.frontend_url') . '/auth/crm/detalles-compras/' . $this->ordenTrabajo->ordenCompra->id
             ]);
     }
 

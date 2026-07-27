@@ -52,7 +52,14 @@
 
         <tr><td colspan="2" height="12"></td></tr>
 
-
+        <tr>
+          <td colspan="2" align="center">
+            <a href="{{ $url }}"
+               style="display:block;width:100%;max-width:600px;background:#d97706;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:6px;font-weight:700;text-align:center;">
+              📋 Ver Orden de Compra
+            </a>
+          </td>
+        </tr>
       </table>
     </td>
   </tr>

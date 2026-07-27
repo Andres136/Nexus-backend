@@ -41,7 +41,7 @@ class OrdenCompraNotificacion extends Notification
             'ubicacion_entrega' => $this->ordenCompra->ubicacion_entrega ?? 'No especificada',
             'valor_total' => $this->ordenCompra->valor_total ?? 0,
             'mensaje' => 'Esta orden de compra está vencida o próxima a vencer.',
-            'url' => rtrim(config('app.frontend_url', config('app.url')), '/') . '/auth/crm/ordenes-compra/' . $this->ordenCompra->id,
+            'url' => rtrim(config('app.frontend_url', config('app.url')), '/') . '/auth/crm/detalles-compras/' . $this->ordenCompra->id,
         ];
     }
 }

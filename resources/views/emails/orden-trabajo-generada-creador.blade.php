@@ -144,7 +144,7 @@
         <!-- CTAs (full width en móvil sin media queries) -->
         <tr>
           <td colspan="2" align="center">
-            <a href="{{ $appUrl }}/auth/crm/ordenes-compra/{{ $ordenCompra->id }}"
+            <a href="{{ $appUrl }}/auth/crm/detalles-compras/{{ $ordenCompra->id }}"
                style="display:block;width:100%;max-width:600px;background:#208040;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:6px;font-weight:700;text-align:center;">
               📊 Ver estado de la orden
             </a>

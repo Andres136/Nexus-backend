@@ -34,7 +34,7 @@ class OrdenesPorVencerNotificacion extends Notification
             'mensaje' => Carbon::now()->greaterThan($this->ordenCompra->fecha_entrega)
                 ? '⚠️ ¡Orden vencida! Requiere atención inmediata.'
                 : '🔔 ¡Orden por vencer! Actúa antes de la fecha límite.',
-            'url' => rtrim(config('app.frontend_url', config('app.url')), '/') . '/auth/crm/ordenes-compra/' . $this->ordenCompra->id,
+            'url' => rtrim(config('app.frontend_url', config('app.url')), '/') . '/auth/crm/detalles-compras/' . $this->ordenCompra->id,
         ];
     }
 }

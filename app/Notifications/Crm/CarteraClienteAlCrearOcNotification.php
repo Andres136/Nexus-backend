@@ -31,7 +31,7 @@ class CarteraClienteAlCrearOcNotification extends Notification
                 'usuario' => $notifiable,
                 'ordenCompra' => $this->ordenCompra,
                 'resumen' => $this->resumen,
-                'url' => rtrim(config('app.frontend_url', config('app.url')), '/') . '/auth/crm/ordenes-compra/' . $this->ordenCompra->id,
+                'url' => rtrim(config('app.frontend_url', config('app.url')), '/') . '/auth/crm/detalles-compras/' . $this->ordenCompra->id,
             ]);
     }
 
@@ -47,7 +47,7 @@ class CarteraClienteAlCrearOcNotification extends Notification
             'total_proximo'     => (float) ($this->resumen['total_proximo'] ?? 0),
             'facturas_vencidas' => collect($this->resumen['facturas_vencidas'] ?? [])->values()->all(),
             'facturas_proximas' => collect($this->resumen['facturas_proximas'] ?? [])->values()->all(),
-            'url'               => rtrim(config('app.frontend_url', config('app.url')), '/') . '/auth/crm/ordenes-compra/' . $this->ordenCompra->id,
+            'url'               => rtrim(config('app.frontend_url', config('app.url')), '/') . '/auth/crm/detalles-compras/' . $this->ordenCompra->id,
         ];
     }
 }
