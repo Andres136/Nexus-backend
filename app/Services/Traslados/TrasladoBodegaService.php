@@ -154,7 +154,7 @@ public function listar(array $filters = [])
 
     private function validarResponsableInventario(Traslado_Bodega $traslado): void
     {
-        $idInventario = Responsabilidad::where('nombre', 'Inventario')->value('id');
+        $idInventario = Responsabilidad::where('codigo', 'inventario')->value('id');
         $esResponsable = auth()->user()
             ->responsabilidades()
             ->where('responsabilidad_id', $idInventario)

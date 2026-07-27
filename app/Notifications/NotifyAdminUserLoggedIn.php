@@ -71,7 +71,7 @@ class NotifyAdminUserLoggedIn extends Notification
             'mensaje' => 'El usuario "' . $this->name . '" ha iniciado sesión en el sistema.',
             'ipAddress' => $this->ipAddress,
             'device' => $this->device,
-
+            'url' => rtrim(config('app.frontend_url', config('app.url')), '/') . '/admin/users',
         ];
     }
     

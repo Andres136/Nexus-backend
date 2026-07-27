@@ -37,7 +37,7 @@ class NotificarResponsable
 }
 private function obtenerResponsablesBodega(int $bodegaId)
 {
-    $responsabilidadId = Responsabilidad::where('nombre', 'Bodega')->value('id');
+    $responsabilidadId = Responsabilidad::where('codigo', 'bodega')->value('id');
 
  return User::whereHas('responsabilidades', function ($q) use ($responsabilidadId, $bodegaId) {
     $q->where('responsabilidad_id', $responsabilidadId)

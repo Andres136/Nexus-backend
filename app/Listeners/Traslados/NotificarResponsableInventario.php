@@ -38,7 +38,7 @@ class NotificarResponsableInventario
 
 private function obtenerResponsablesInventario(): \Illuminate\Support\Collection
 {
-    $idInventario = Responsabilidad::where('nombre', 'Inventario')->value('id');
+    $idInventario = Responsabilidad::where('codigo', 'inventario')->value('id');
     return User::whereHas('responsabilidades', function ($q) use ($idInventario) {
         $q->where('responsabilidades.id', $idInventario)
           ->where('responsabilidades_user.activo', true);

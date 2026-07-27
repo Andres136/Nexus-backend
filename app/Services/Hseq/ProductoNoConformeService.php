@@ -4,8 +4,12 @@ namespace App\Services\Hseq;
 
 use App\Models\Hseq\ProductoNoConforme;
 use App\Models\Hseq\ProductoNoConformeItem;
+use App\Models\Traslados\Responsabilidad;
+use App\Models\User;
+use App\Notifications\Hseq\ProductoNoConformeRegistradoNotification;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 
 class ProductoNoConformeService
 {
@@ -88,7 +92,27 @@ class ProductoNoConformeService
             ]);
         }
 
+        $this->notificarResponsablesCalidad($reporte);
+
         return $reporte->load($this->with);
+    }
+
+    private function notificarResponsablesCalidad(ProductoNoConforme $reporte): void
+    {
+        $idCalidad = Responsabilidad::where('codigo', 'calidad')->value('id');
+
+        if (! $idCalidad) {
+            return;
+        }
+
+        $responsables = User::whereHas('responsabilidades', function ($q) use ($idCalidad) {
+            $q->where('responsabilidades.id', $idCalidad)
+              ->where('responsabilidades_user.activo', true);
+        })->get();
+
+        if ($responsables->isNotEmpty()) {
+            Notification::send($responsables, new ProductoNoConformeRegistradoNotification($reporte));
+        }
     }
 
     public function show(int $id): ProductoNoConforme

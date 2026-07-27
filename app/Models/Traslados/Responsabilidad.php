@@ -4,6 +4,7 @@ namespace App\Models\Traslados;
 
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class Responsabilidad extends Model
 {
@@ -16,10 +17,24 @@ class Responsabilidad extends Model
 
     protected $fillable = [
         'nombre',
+        'codigo',
         'descripcion',
     ];
 
-    
+    protected static function booted(): void
+    {
+        // `codigo` es el identificador estable que usa el código para resolver
+        // "quién tiene esta responsabilidad" (ver Responsabilidad::where('codigo', ...)
+        // en los listeners de Traslados y en ProductoNoConformeService). Se fija una
+        // sola vez al crear, así renombrar `nombre` después no rompe nada.
+        static::creating(function (self $responsabilidad) {
+            if (empty($responsabilidad->codigo)) {
+                $responsabilidad->codigo = Str::slug($responsabilidad->nombre, '_');
+            }
+        });
+    }
+
+
     /**
      * Usuarios asociados a la responsabilidad.
      */
