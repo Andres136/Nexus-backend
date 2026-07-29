@@ -19,6 +19,7 @@ class LiquidarNominaRequest extends FormRequest
             'periodo_fin'        => 'required|date|after_or_equal:periodo_inicio',
             'jornada_laboral_id' => 'required|integer|exists:jornada_laborals,id',
             'descuento_id'       => 'nullable|integer|exists:descuentos,id',
+            'descontar_tardanzas' => 'nullable|boolean',
         ];
     }
 

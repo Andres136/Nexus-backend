@@ -707,6 +707,8 @@ Route::prefix('nomina')->group(function () {
     Route::apiResource('transacional-registros',   TransacionalRegistroController::class);
     Route::get('transacional-registros/user/{userId}', [TransacionalRegistroController::class, 'byUser']);
     Route::get('work-sessions/resumen', [WorkSessionController::class, 'resumen']);
+    Route::get('work-sessions/resumen-filtrado', [WorkSessionController::class, 'resumenFiltrado']);
+    Route::get('work-sessions/exportar', [WorkSessionController::class, 'exportar']);
     Route::apiResource('work-sessions',    WorkSessionController::class);
     Route::patch('recuperaciones-tiempo/{uuid}/anular', [RecuperacionTiempoController::class, 'anular']);
     Route::apiResource('recuperaciones-tiempo', RecuperacionTiempoController::class)->only(['index', 'store']);
@@ -716,6 +718,8 @@ Route::prefix('nomina')->group(function () {
     Route::get('nominas/resumen',              [NominaController::class, 'resumen']);
     Route::get('nominas/exportar-plano',        [NominaController::class, 'exportarPlano']);
     Route::post('nominas/preliquidar',         [NominaController::class, 'preliquidar']);
+    Route::post('nominas/preliquidar-todos',   [NominaController::class, 'preliquidarLote']);
+    Route::get('nominas/exportar-preliquidacion-masiva', [NominaController::class, 'exportarPreliquidacionLote']);
     Route::get('nominas/preliquidaciones/{uuid}', [NominaController::class, 'showPreliquidacion']);
     Route::post('nominas/preliquidaciones/{uuid}/ajustes', [NominaController::class, 'agregarAjustePreliquidacion']);
     Route::delete('nominas/preliquidaciones/{uuid}/ajustes/{ajusteUuid}', [NominaController::class, 'eliminarAjustePreliquidacion']);

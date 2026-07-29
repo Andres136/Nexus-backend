@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Nomina;
 
+use App\Exports\GenericExport;
 use App\Exports\NominaPucExport;
 use App\Exports\NominaPlanoExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Nomina\LiquidarNominaRequest;
+use App\Http\Requests\Nomina\PreliquidarLoteNominaRequest;
 use App\Http\Requests\Nomina\RevertirNominaRequest;
 use App\Models\Crm\empresa as Empresa;
 use App\Models\Nomina\Contratacion;
@@ -254,6 +256,96 @@ class NominaController extends Controller
             ], 201);
         } catch (\LogicException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+    }
+
+    public function preliquidarLote(PreliquidarLoteNominaRequest $request): JsonResponse
+    {
+        try {
+            $resultado = $this->nominaService->preliquidarLote($request->validated());
+
+            return response()->json(['success' => true, 'data' => $resultado]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La jornada laboral seleccionada no existe.',
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error al preliquidar nómina en lote', ['error' => $e->getMessage()]);
+
+            return response()->json(['success' => false, 'message' => 'Error al preliquidar la nómina en lote.'], 500);
+        }
+    }
+
+    public function exportarPreliquidacionLote(Request $request): JsonResponse|BinaryFileResponse
+    {
+        $validator = Validator::make($request->query(), [
+            'periodo_inicio' => 'required|date',
+            'periodo_fin' => 'required|date|after_or_equal:periodo_inicio',
+            'jornada_laboral_id' => 'required|integer|exists:jornada_laborals,id',
+            'sede_id' => 'nullable|integer|exists:sedes,id',
+            'descontar_tardanzas' => 'nullable|boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        try {
+            $resultado = $this->nominaService->preliquidarLote($validator->validated());
+
+            $headings = [
+                'Empleado', 'Correo', 'Periodo inicio', 'Periodo fin',
+                'Horas normales', 'Horas extra diurnas', 'Horas extra nocturnas',
+                'Horas festivas', 'Horas nocturnas festivas',
+                'Valor horas extra diurnas', 'Valor horas extra nocturnas',
+                'Valor horas festivas', 'Valor horas nocturnas festivas',
+                'Minutos tardanza', 'Valor tardanzas', '¿Tardanzas descontadas?',
+                'Minutos permisos no remunerados', 'Valor permisos no remunerados',
+                'Salario base devengado', 'Total devengado', 'Total deducciones', 'Neto a pagar',
+            ];
+
+            $filas = collect($resultado['empleados'])->map(fn (array $calculo) => [
+                $calculo['empleado']['name'],
+                $calculo['empleado']['email'],
+                $calculo['periodo_inicio'],
+                $calculo['periodo_fin'],
+                $calculo['horas_normales'],
+                $calculo['horas_extras_diurnas'],
+                $calculo['horas_extras_nocturnas'],
+                $calculo['horas_festivas'],
+                $calculo['horas_nocturnas_festivas'],
+                $calculo['valor_horas_extras_diurnas'],
+                $calculo['valor_horas_extras_nocturnas'],
+                $calculo['valor_horas_festivas'],
+                $calculo['valor_horas_nocturnas_festivas'],
+                $calculo['minutos_tardanza'],
+                $calculo['valor_tardanzas'],
+                $calculo['descuenta_tardanzas'] ? 'Sí' : 'No',
+                $calculo['minutos_permisos_no_remunerados'],
+                $calculo['valor_permisos_no_remunerados'],
+                $calculo['salario_base_devengado'],
+                $calculo['total_devengado'],
+                $calculo['total_deducciones'],
+                $calculo['salario_neto'],
+            ]);
+
+            return Excel::download(
+                new GenericExport($filas, $headings),
+                "preliquidacion_masiva_{$resultado['periodo_inicio']}_{$resultado['periodo_fin']}.xlsx"
+            );
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La jornada laboral seleccionada no existe.',
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error al exportar preliquidación masiva', ['error' => $e->getMessage()]);
+
+            return response()->json(['success' => false, 'message' => 'Error al exportar la preliquidación masiva.'], 500);
         }
     }
 

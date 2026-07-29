@@ -124,6 +124,36 @@ class WorkSessionService
         ];
     }
 
+    /**
+     * Agrega minutos de tardanza y trabajados sobre el conjunto de sesiones que cumplen
+     * los filtros activos de la vista de asistencia (sin exigir user_id), para tarjetas KPI.
+     */
+    public function resumenFiltrado(array $filters = []): array
+    {
+        $query = fn () => $this->aplicarFiltros(WorkSession::query(), $filters);
+
+        return [
+            'total_sesiones' => $query()->count(),
+            'minutos_trabajados' => (int) $query()->sum('minutos_trabajados'),
+            'minutos_tardanza' => (int) $query()->sum('minutos_tardanza'),
+            'dias_tarde' => $query()->where('minutos_tardanza', '>', 0)->count(),
+            'empleados_con_tardanza' => $query()->where('minutos_tardanza', '>', 0)->pluck('user_id')->unique()->count(),
+        ];
+    }
+
+    /**
+     * Agrega minutos de tardanza por empleado dentro de los filtros activos, para exportar a Excel.
+     */
+    public function exportarTardanzaPorUsuario(array $filters = []): \Illuminate\Support\Collection
+    {
+        return $this->aplicarFiltros(WorkSession::query(), $filters)
+            ->selectRaw('user_id, COUNT(*) as total_sesiones, SUM(minutos_trabajados) as minutos_trabajados, SUM(minutos_tardanza) as minutos_tardanza, SUM(CASE WHEN minutos_tardanza > 0 THEN 1 ELSE 0 END) as dias_tarde')
+            ->groupBy('user_id')
+            ->with('empleado:id,name,email')
+            ->orderByDesc('minutos_tardanza')
+            ->get();
+    }
+
     public function store(array $data, bool $validarFlujoKiosko = false): WorkSession
     {
         return DB::transaction(function () use ($data, $validarFlujoKiosko) {

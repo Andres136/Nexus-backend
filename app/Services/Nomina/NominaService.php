@@ -17,6 +17,8 @@ use App\Models\Nomina\PreliquidacionNomina;
 use App\Models\Nomina\Valor;
 use App\Models\Nomina\Vacacion;
 use App\Models\Nomina\WorkSession;
+use App\Models\User;
+use App\EstadoEnum;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -291,6 +293,85 @@ class NominaService
     public function preliquidar(array $data): array
     {
         return $this->calcular($data);
+    }
+
+    /**
+     * Calcula la preliquidación de todos los empleados activos con contrato vigente
+     * para un período y jornada dados, sin persistir nada. Errores individuales
+     * (contrato inexistente, período fuera de contrato, etc.) no detienen el lote.
+     */
+    public function preliquidarLote(array $data): array
+    {
+        $jornada = JornadaLaboral::where('status', true)->findOrFail($data['jornada_laboral_id']);
+
+        $empleados = User::where('estado_id', EstadoEnum::ACTIVO->value)
+            ->whereHas('contratacionActivaNomina')
+            ->when(! empty($data['sede_id']), fn ($query) => $query->where('sede_id', $data['sede_id']))
+            ->orderBy('name')
+            ->get(['id', 'name', 'email']);
+
+        $resultados = [];
+        $errores = [];
+
+        foreach ($empleados as $empleado) {
+            try {
+                $calculo = $this->preliquidar([
+                    'user_id' => $empleado->id,
+                    'periodo_inicio' => $data['periodo_inicio'],
+                    'periodo_fin' => $data['periodo_fin'],
+                    'jornada_laboral_id' => $jornada->id,
+                    'descontar_tardanzas' => (bool) ($data['descontar_tardanzas'] ?? false),
+                ]);
+                $calculo['empleado'] = [
+                    'id' => $empleado->id,
+                    'name' => $empleado->name,
+                    'email' => $empleado->email,
+                ];
+                $resultados[] = $calculo;
+            } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+                $errores[] = [
+                    'user_id' => $empleado->id,
+                    'empleado' => $empleado->name,
+                    'message' => 'No se encontró contrato activo o configuración de tarifas para el empleado.',
+                ];
+            } catch (\LogicException $e) {
+                $errores[] = [
+                    'user_id' => $empleado->id,
+                    'empleado' => $empleado->name,
+                    'message' => $e->getMessage(),
+                ];
+            }
+        }
+
+        $sumar = fn (string $campo) => round(array_sum(array_column($resultados, $campo)), 2);
+
+        return [
+            'periodo_inicio' => $data['periodo_inicio'],
+            'periodo_fin' => $data['periodo_fin'],
+            'jornada_laboral' => ['id' => $jornada->id, 'nombre' => $jornada->nombre],
+            'descuenta_tardanzas' => (bool) ($data['descontar_tardanzas'] ?? false),
+            'empleados' => $resultados,
+            'errores' => $errores,
+            'totales' => [
+                'empleados_calculados' => count($resultados),
+                'empleados_con_error' => count($errores),
+                'horas_extras_diurnas' => $sumar('horas_extras_diurnas'),
+                'horas_extras_nocturnas' => $sumar('horas_extras_nocturnas'),
+                'horas_festivas' => $sumar('horas_festivas'),
+                'horas_nocturnas_festivas' => $sumar('horas_nocturnas_festivas'),
+                'valor_horas_extras_diurnas' => $sumar('valor_horas_extras_diurnas'),
+                'valor_horas_extras_nocturnas' => $sumar('valor_horas_extras_nocturnas'),
+                'valor_horas_festivas' => $sumar('valor_horas_festivas'),
+                'valor_horas_nocturnas_festivas' => $sumar('valor_horas_nocturnas_festivas'),
+                'minutos_tardanza' => $sumar('minutos_tardanza'),
+                'valor_tardanzas' => $sumar('valor_tardanzas'),
+                'minutos_permisos_no_remunerados' => $sumar('minutos_permisos_no_remunerados'),
+                'valor_permisos_no_remunerados' => $sumar('valor_permisos_no_remunerados'),
+                'total_devengado' => $sumar('total_devengado'),
+                'total_deducciones' => $sumar('total_deducciones'),
+                'salario_neto' => $sumar('salario_neto'),
+            ],
+        ];
     }
 
     public function getNominasPeriodoContable(string $periodoInicio, string $periodoFin): Collection
@@ -596,6 +677,9 @@ class NominaService
         );
 
         $valorPermisosNoRemunerados = round(($minutosNoRemunerados / 60) * $valorHoraBase, 2);
+        $minutosTardanza = (int) $sessions->sum('minutos_tardanza');
+        $valorTardanzas = round(($minutosTardanza / 60) * $valorHoraBase, 2);
+        $descontarTardanzas = (bool) ($data['descontar_tardanzas'] ?? false);
         $salarioBaseSinIncapacidad = round($valorDia * $diasSalario, 2);
         $valorIncapacidadReconocido = round($valorDia * $diasIncapacidad * $porcentajeIncapacidad, 2);
         $deduccionIncapacidad = round($valorDia * $diasIncapacidad * (1 - $porcentajeIncapacidad), 2);
@@ -652,7 +736,13 @@ class NominaService
         $deduccionSalud = round($baseParaDeducciones * $porcentajeSalud, 2);
         $deduccionPension = round($baseParaDeducciones * $porcentajePension, 2);
         $descuentosNomina = $this->calcularDescuentos($userId, $inicioLiquidable, $finLiquidable, $data['descuento_id'] ?? null);
-        $totalDescuentosAdicionales = round($descuentosNomina['valor'] + $valorPermisosNoRemunerados + $novedadesRetroactivas['deducciones'], 2);
+        $totalDescuentosAdicionales = round(
+            $descuentosNomina['valor']
+            + $valorPermisosNoRemunerados
+            + $novedadesRetroactivas['deducciones']
+            + ($descontarTardanzas ? $valorTardanzas : 0),
+            2
+        );
         $totalDeducciones = round($deduccionSalud + $deduccionPension + $totalDescuentosAdicionales, 2);
         $salarioNeto = round($totalDevengado - $totalDeducciones, 2);
         $baseAportesEmpleador = round($baseParaDeducciones, 2);
@@ -698,6 +788,10 @@ class NominaService
             'deduccion_incapacidad' => $deduccionIncapacidad,
             'dias_vacaciones_compensadas' => $diasVacacionesCompensadas,
             'minutos_permisos_no_remunerados' => $minutosNoRemunerados,
+            'valor_permisos_no_remunerados' => $valorPermisosNoRemunerados,
+            'minutos_tardanza' => $minutosTardanza,
+            'valor_tardanzas' => $valorTardanzas,
+            'descuenta_tardanzas' => $descontarTardanzas,
             'horas_normales' => $horasNormales,
             'horas_extras_diurnas_detectadas' => $horasExtrasDiurnasDetectadas,
             'horas_extras_diurnas_aprobadas' => $horasExtrasDiurnasAprobadas,

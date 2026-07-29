@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Nomina;
 
+use App\Exports\GenericExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Nomina\StoreWorkSessionRequest;
 use App\Http\Requests\Nomina\UpdateWorkSessionRequest;
@@ -12,7 +13,10 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class WorkSessionController extends Controller
 {
@@ -71,6 +75,92 @@ class WorkSessionController extends Controller
         } catch (\Exception $e) {
             Log::error('Error al obtener resumen de asistencia', ['error' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => 'Error al obtener el resumen de asistencia.'], 500);
+        }
+    }
+
+    private function filtrosDesdeQuery(Request $request): array
+    {
+        return [
+            'user_id'      => $request->query('user_id'),
+            'fecha'        => $request->query('fecha'),
+            'fecha_inicio' => $request->query('fecha_inicio'),
+            'fecha_fin'    => $request->query('fecha_fin'),
+            'search'       => $request->query('search'),
+            'sede_id'      => $request->query('sede_id'),
+        ];
+    }
+
+    public function resumenFiltrado(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->query(), [
+            'user_id' => 'nullable|integer|exists:users,id',
+            'fecha' => 'nullable|date',
+            'fecha_inicio' => 'nullable|date',
+            'fecha_fin' => 'nullable|date|after_or_equal:fecha_inicio',
+            'search' => 'nullable|string',
+            'sede_id' => 'nullable|integer|exists:sedes,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
+        }
+
+        try {
+            return response()->json([
+                'success' => true,
+                'data' => $this->workSessionService->resumenFiltrado($this->filtrosDesdeQuery($request)),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener resumen filtrado de asistencia', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al obtener el resumen de asistencia.'], 500);
+        }
+    }
+
+    public function exportar(Request $request): JsonResponse|BinaryFileResponse
+    {
+        $validator = Validator::make($request->query(), [
+            'user_id' => 'nullable|integer|exists:users,id',
+            'fecha' => 'nullable|date',
+            'fecha_inicio' => 'nullable|date',
+            'fecha_fin' => 'nullable|date|after_or_equal:fecha_inicio',
+            'search' => 'nullable|string',
+            'sede_id' => 'nullable|integer|exists:sedes,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
+        }
+
+        try {
+            $filas = $this->workSessionService->exportarTardanzaPorUsuario($this->filtrosDesdeQuery($request));
+
+            if ($filas->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No hay registros de asistencia en el rango seleccionado.',
+                ], 422);
+            }
+
+            $headings = ['Empleado', 'Correo', 'Sesiones', 'Minutos trabajados', 'Días con tardanza', 'Minutos tardanza'];
+            $filasExport = $filas->map(fn ($fila) => [
+                $fila->empleado?->name,
+                $fila->empleado?->email,
+                $fila->total_sesiones,
+                $fila->minutos_trabajados,
+                $fila->dias_tarde,
+                $fila->minutos_tardanza,
+            ]);
+
+            $inicio = $request->query('fecha_inicio', $request->query('fecha', 'todas'));
+            $fin = $request->query('fecha_fin', $request->query('fecha', 'todas'));
+
+            return Excel::download(
+                new GenericExport($filasExport, $headings),
+                "tardanzas_asistencia_{$inicio}_{$fin}.xlsx"
+            );
+        } catch (\Exception $e) {
+            Log::error('Error al exportar tardanzas de asistencia', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al exportar las tardanzas.'], 500);
         }
     }
 
