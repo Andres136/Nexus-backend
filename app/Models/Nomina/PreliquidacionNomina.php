@@ -42,6 +42,11 @@ class PreliquidacionNomina extends Model
         return $this->hasMany(PreliquidacionNominaAjuste::class, 'preliquidacion_id');
     }
 
+    public function empleado()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
     public function generadoPor()
     {
         return $this->belongsTo(User::class, 'generado_por');

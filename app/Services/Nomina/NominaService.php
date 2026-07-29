@@ -382,6 +382,7 @@ class NominaService
                 'valor_tardanzas' => $sumar('valor_tardanzas'),
                 'minutos_permisos_no_remunerados' => $sumar('minutos_permisos_no_remunerados'),
                 'valor_permisos_no_remunerados' => $sumar('valor_permisos_no_remunerados'),
+                'valor_prestamos' => $sumar('valor_prestamos'),
                 'total_devengado' => $sumar('total_devengado'),
                 'total_deducciones' => $sumar('total_deducciones'),
                 'salario_neto' => $sumar('salario_neto'),
@@ -938,6 +939,7 @@ class NominaService
             'costo_parafiscales' => $costoParafiscales,
             'costo_total_empleador' => $costoTotalEmpleador,
             'salario_neto' => $salarioNeto,
+            'valor_prestamos' => $descuentosNomina['valor'],
             'detalle_descuentos' => $descuentosNomina['detalle'],
             'advertencias' => $advertencias,
         ];

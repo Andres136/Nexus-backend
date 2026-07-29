@@ -19,7 +19,7 @@ class PreliquidacionLoteExport implements FromCollection, WithHeadings, WithEven
 {
     private const HOUR_COLUMNS = ['E', 'F', 'G', 'H', 'I'];
 
-    private const MONEY_COLUMNS = ['J', 'K', 'L', 'M', 'O', 'R', 'T', 'U', 'V', 'W'];
+    private const MONEY_COLUMNS = ['J', 'K', 'L', 'M', 'O', 'R', 'T', 'U', 'V', 'W', 'X'];
 
     public function __construct(
         private readonly Collection $filas,
@@ -143,9 +143,10 @@ class PreliquidacionLoteExport implements FromCollection, WithHeadings, WithEven
                     $sheet->setCellValue("O{$totalRow}", $this->totales['valor_tardanzas']);
                     $sheet->setCellValue("Q{$totalRow}", $this->totales['minutos_permisos_no_remunerados']);
                     $sheet->setCellValue("R{$totalRow}", $this->totales['valor_permisos_no_remunerados']);
-                    $sheet->setCellValue("U{$totalRow}", $this->totales['total_devengado']);
-                    $sheet->setCellValue("V{$totalRow}", $this->totales['total_deducciones']);
-                    $sheet->setCellValue("W{$totalRow}", $this->totales['salario_neto']);
+                    $sheet->setCellValue("T{$totalRow}", $this->totales['valor_prestamos']);
+                    $sheet->setCellValue("V{$totalRow}", $this->totales['total_devengado']);
+                    $sheet->setCellValue("W{$totalRow}", $this->totales['total_deducciones']);
+                    $sheet->setCellValue("X{$totalRow}", $this->totales['salario_neto']);
 
                     foreach (self::HOUR_COLUMNS as $column) {
                         $sheet->getStyle("{$column}{$totalRow}")->getNumberFormat()->setFormatCode('0.00');

@@ -334,7 +334,7 @@ class NominaController extends Controller
                 'Valor horas festivas', 'Valor horas nocturnas festivas',
                 'Minutos tardanza', 'Valor tardanzas', '¿Tardanzas descontadas?',
                 'Minutos permisos no remunerados', 'Valor permisos no remunerados', '¿Permisos descontados?',
-                'Salario base devengado', 'Total devengado', 'Total deducciones', 'Neto a pagar',
+                'Préstamos', 'Salario base devengado', 'Total devengado', 'Total deducciones', 'Neto a pagar',
             ];
 
             $filas = collect($resultado['empleados'])->map(fn (array $calculo) => [
@@ -357,6 +357,7 @@ class NominaController extends Controller
                 $calculo['minutos_permisos_no_remunerados'],
                 $calculo['valor_permisos_no_remunerados'],
                 $calculo['descuenta_permisos'] ? 'Sí' : 'No',
+                $calculo['valor_prestamos'],
                 $calculo['salario_base_devengado'],
                 $calculo['total_devengado'],
                 $calculo['total_deducciones'],

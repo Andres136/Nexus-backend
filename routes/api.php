@@ -86,6 +86,7 @@ use App\Http\Controllers\Nomina\HorarioLaboralController;
 use App\Http\Controllers\Nomina\TransacionalRegistroController;
 use App\Http\Controllers\Nomina\KioskoDeviceController;
 use App\Http\Controllers\Nomina\NominaController;
+use App\Http\Controllers\Nomina\LoteAprobacionNominaController;
 use App\Http\Controllers\Nomina\AjusteSalarialContratacionController;
 use App\Http\Controllers\Nomina\TipoRegistroController;
 use App\Http\Controllers\Nomina\UsersFacePhotoController;
@@ -721,6 +722,10 @@ Route::prefix('nomina')->group(function () {
     Route::post('nominas/preliquidar-todos',   [NominaController::class, 'preliquidarLote']);
     Route::get('nominas/exportar-preliquidacion-masiva', [NominaController::class, 'exportarPreliquidacionLote']);
     Route::get('nominas/excepcion-descuento', [NominaController::class, 'excepcionDescuento']);
+    Route::get('nominas/lotes-aprobacion/responsables', [LoteAprobacionNominaController::class, 'responsables']);
+    Route::post('nominas/lotes-aprobacion', [LoteAprobacionNominaController::class, 'store']);
+    Route::get('nominas/lotes-aprobacion/{uuid}', [LoteAprobacionNominaController::class, 'show']);
+    Route::post('nominas/lotes-aprobacion/{uuid}/aprobar', [LoteAprobacionNominaController::class, 'aprobar']);
     Route::get('nominas/preliquidaciones/{uuid}', [NominaController::class, 'showPreliquidacion']);
     Route::post('nominas/preliquidaciones/{uuid}/ajustes', [NominaController::class, 'agregarAjustePreliquidacion']);
     Route::delete('nominas/preliquidaciones/{uuid}/ajustes/{ajusteUuid}', [NominaController::class, 'eliminarAjustePreliquidacion']);
