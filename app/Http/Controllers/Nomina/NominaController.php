@@ -277,6 +277,30 @@ class NominaController extends Controller
         }
     }
 
+    public function excepcionDescuento(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->query(), [
+            'user_id' => 'required|integer|exists:users,id',
+            'periodo_inicio' => 'required|date',
+            'periodo_fin' => 'required|date|after_or_equal:periodo_inicio',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
+        }
+
+        $validated = $validator->validated();
+
+        return response()->json([
+            'success' => true,
+            'data' => $this->nominaService->obtenerExcepcionDescuento(
+                (int) $validated['user_id'],
+                $validated['periodo_inicio'],
+                $validated['periodo_fin']
+            ),
+        ]);
+    }
+
     public function exportarPreliquidacionLote(Request $request): JsonResponse|BinaryFileResponse
     {
         $validator = Validator::make($request->query(), [
@@ -286,6 +310,10 @@ class NominaController extends Controller
             'sede_id' => 'nullable|integer|exists:sedes,id',
             'empresa_id' => 'nullable|integer|exists:empresas,id',
             'descontar_tardanzas' => 'nullable|boolean',
+            'excluir_tardanza_ids' => 'nullable|array',
+            'excluir_tardanza_ids.*' => 'integer',
+            'excluir_permiso_ids' => 'nullable|array',
+            'excluir_permiso_ids.*' => 'integer',
         ]);
 
         if ($validator->fails()) {
@@ -305,7 +333,7 @@ class NominaController extends Controller
                 'Valor horas extra diurnas', 'Valor horas extra nocturnas',
                 'Valor horas festivas', 'Valor horas nocturnas festivas',
                 'Minutos tardanza', 'Valor tardanzas', '¿Tardanzas descontadas?',
-                'Minutos permisos no remunerados', 'Valor permisos no remunerados',
+                'Minutos permisos no remunerados', 'Valor permisos no remunerados', '¿Permisos descontados?',
                 'Salario base devengado', 'Total devengado', 'Total deducciones', 'Neto a pagar',
             ];
 
@@ -328,6 +356,7 @@ class NominaController extends Controller
                 $calculo['descuenta_tardanzas'] ? 'Sí' : 'No',
                 $calculo['minutos_permisos_no_remunerados'],
                 $calculo['valor_permisos_no_remunerados'],
+                $calculo['descuenta_permisos'] ? 'Sí' : 'No',
                 $calculo['salario_base_devengado'],
                 $calculo['total_devengado'],
                 $calculo['total_deducciones'],

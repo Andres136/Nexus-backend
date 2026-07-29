@@ -262,6 +262,7 @@ class CapacitacionEncuestaService
     {
         $encuesta = CapacitacionEncuesta::with(['preguntas', 'capacitacion:id,uuid,titulo'])->where('uuid', $uuid)->firstOrFail();
         $envios = CapacitacionEncuestaEnvio::with('usuario:id,name,email')
+            ->whereHas('usuario', fn ($q) => $q->where('estado_id', 3))
             ->where('encuesta_id', $encuesta->id)
             ->get();
         $envioIds = $envios->pluck('id');

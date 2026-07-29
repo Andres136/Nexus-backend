@@ -20,6 +20,10 @@ class PreliquidarLoteNominaRequest extends FormRequest
             'sede_id'            => 'nullable|integer|exists:sedes,id',
             'empresa_id'         => 'nullable|integer|exists:empresas,id',
             'descontar_tardanzas' => 'nullable|boolean',
+            'excluir_tardanza_ids' => 'nullable|array',
+            'excluir_tardanza_ids.*' => 'integer',
+            'excluir_permiso_ids' => 'nullable|array',
+            'excluir_permiso_ids.*' => 'integer',
         ];
     }
 

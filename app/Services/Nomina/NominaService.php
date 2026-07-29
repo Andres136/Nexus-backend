@@ -11,6 +11,7 @@ use App\Models\Nomina\Incapacidad;
 use App\Models\Nomina\JornadaLaboral;
 use App\Models\Nomina\LiquidacionRetiro;
 use App\Models\Nomina\Nomina;
+use App\Models\Nomina\NominaExcepcionDescuento;
 use App\Models\Nomina\NovedadRetroactiva;
 use App\Models\Nomina\Permiso;
 use App\Models\Nomina\PreliquidacionNomina;
@@ -317,6 +318,10 @@ class NominaService
             ->orderBy('name')
             ->get(['id', 'name', 'email']);
 
+        $descontarTardanzasGlobal = (bool) ($data['descontar_tardanzas'] ?? false);
+        $excluirTardanzaIds = array_map('intval', $data['excluir_tardanza_ids'] ?? []);
+        $excluirPermisoIds = array_map('intval', $data['excluir_permiso_ids'] ?? []);
+
         $resultados = [];
         $errores = [];
 
@@ -327,7 +332,8 @@ class NominaService
                     'periodo_inicio' => $data['periodo_inicio'],
                     'periodo_fin' => $data['periodo_fin'],
                     'jornada_laboral_id' => $jornada->id,
-                    'descontar_tardanzas' => (bool) ($data['descontar_tardanzas'] ?? false),
+                    'descontar_tardanzas' => $descontarTardanzasGlobal && ! in_array($empleado->id, $excluirTardanzaIds, true),
+                    'descontar_permisos' => ! in_array($empleado->id, $excluirPermisoIds, true),
                 ]);
                 $calculo['empleado'] = [
                     'id' => $empleado->id,
@@ -349,6 +355,8 @@ class NominaService
                 ];
             }
         }
+
+        $this->guardarExcepcionesDescuento($resultados, $data['periodo_inicio'], $data['periodo_fin']);
 
         $sumar = fn (string $campo) => round(array_sum(array_column($resultados, $campo)), 2);
 
@@ -378,6 +386,46 @@ class NominaService
                 'total_deducciones' => $sumar('total_deducciones'),
                 'salario_neto' => $sumar('salario_neto'),
             ],
+        ];
+    }
+
+    /**
+     * Recuerda, por empleado + período exacto, si se le descontaron tardanzas y/o permisos
+     * en la última corrida de "Liquidar todo", para que el flujo individual de liquidación
+     * pueda precargar esa misma decisión.
+     */
+    private function guardarExcepcionesDescuento(array $resultados, string $periodoInicio, string $periodoFin): void
+    {
+        foreach ($resultados as $calculo) {
+            NominaExcepcionDescuento::updateOrCreate(
+                [
+                    'user_id' => $calculo['user_id'],
+                    'periodo_inicio' => $periodoInicio,
+                    'periodo_fin' => $periodoFin,
+                ],
+                [
+                    'descontar_tardanzas' => $calculo['descuenta_tardanzas'],
+                    'descontar_permisos' => $calculo['descuenta_permisos'],
+                    'actualizado_por' => Auth::id(),
+                ]
+            );
+        }
+    }
+
+    public function obtenerExcepcionDescuento(int $userId, string $periodoInicio, string $periodoFin): ?array
+    {
+        $excepcion = NominaExcepcionDescuento::where('user_id', $userId)
+            ->whereDate('periodo_inicio', $periodoInicio)
+            ->whereDate('periodo_fin', $periodoFin)
+            ->first();
+
+        if (! $excepcion) {
+            return null;
+        }
+
+        return [
+            'descontar_tardanzas' => $excepcion->descontar_tardanzas,
+            'descontar_permisos' => $excepcion->descontar_permisos,
         ];
     }
 
@@ -565,18 +613,26 @@ class NominaService
             ->where('status', 'aprobada')
             ->get();
 
+        // Lo esperado en UN día puntual (para validar cada hora extra contra el exceso real de ese
+        // día específico, en vez de contra el balance agregado de todo el período).
+        $minutosEsperadosDiarios = (int) round(((float) $jornada->horas_semanales / 5) * 60);
+        $sessionesPorDia = $sessions->groupBy(fn ($s) => $s->registro_diario->toDateString());
+
         $minExtDiurnosAprobados   = 0;
         $minExtNocturnosAprobados = 0;
         $minNocturnosFestivos     = 0;
         $minFestivos              = 0;
+        $minExtDiurnosPagables    = 0;
+        $minExtNocturnosPagables  = 0;
 
         foreach ($extrasAprobadas as $extra) {
             $fechaExtra       = Carbon::parse($extra->fecha);
+            $fechaExtraKey    = $fechaExtra->toDateString();
             $inicioExtra = Carbon::parse(
-                $extra->fecha->toDateString().' '.($extra->hora_inicio ?: $jornada->hora_salida)
+                $fechaExtraKey.' '.($extra->hora_inicio ?: $jornada->hora_salida)
             );
             $finExtra = $extra->hora_fin
-                ? Carbon::parse($extra->fecha->toDateString().' '.$extra->hora_fin)
+                ? Carbon::parse($fechaExtraKey.' '.$extra->hora_fin)
                 : $inicioExtra->copy()->addMinutes((int) round((float) $extra->horas * 60));
             if ($finExtra->lessThanOrEqualTo($inicioExtra)) {
                 $finExtra->addDay();
@@ -584,27 +640,40 @@ class NominaService
             $totalMin         = (int) round((float) $extra->horas * 60);
             $minutosNocturnos = $this->minutosNocturnosEntre($inicioExtra, $finExtra, $configuracion);
             $minutosDiurnos   = max(0, $totalMin - $minutosNocturnos);
-            $esFestivo        = $fechaExtra->isSunday()
-                || WorkSession::where('user_id', $extra->user_id)
-                    ->whereDate('registro_diario', $fechaExtra->toDateString())
-                    ->where('festivo_minutos', '>', 0)
-                    ->exists();
+            $sesionesDia      = $sessionesPorDia->get($fechaExtraKey, collect());
+            $festivoDia       = (float) $sesionesDia->sum('festivo_minutos');
+            $esFestivo        = $fechaExtra->isSunday() || $festivoDia > 0;
 
             if ($esFestivo) {
                 $minFestivos          += $minutosDiurnos;
                 $minNocturnosFestivos += $minutosNocturnos;
-            } else {
-                $minExtDiurnosAprobados   += $minutosDiurnos;
-                $minExtNocturnosAprobados += $minutosNocturnos;
+
+                continue;
             }
+
+            $minExtDiurnosAprobados   += $minutosDiurnos;
+            $minExtNocturnosAprobados += $minutosNocturnos;
+
+            // La aprobación de este día no puede pagar más de lo que ese día realmente excedió
+            // la jornada esperada (según la marcación de asistencia de ese mismo día).
+            $trabajadosDia  = (int) $sesionesDia->sum('minutos_trabajados');
+            $sabadoDia      = (float) $sesionesDia->sum('sabado_minutos');
+            $ordinariosDia  = max(0, $trabajadosDia - $festivoDia - $sabadoDia);
+            $excedenteDia   = max(0, $ordinariosDia - $minutosEsperadosDiarios);
+
+            $minutosNocturnosPagables = min($minutosNocturnos, $excedenteDia);
+            $minutosDiurnosPagables   = min($minutosDiurnos, max(0, $excedenteDia - $minutosNocturnosPagables));
+
+            $minExtDiurnosPagables   += $minutosDiurnosPagables;
+            $minExtNocturnosPagables += $minutosNocturnosPagables;
         }
 
         $horasExtrasDiurnasAprobadas   = round($minExtDiurnosAprobados / 60, 2);
         $horasExtrasNocturnasAprobadas = round($minExtNocturnosAprobados / 60, 2);
         $horasFestivasAprobadas        = round($minFestivos / 60, 2);
         $horasNocturnasFestivasAprobadas = round($minNocturnosFestivos / 60, 2);
-        $horasExtrasDiurnas            = min($horasExtrasDiurnasAprobadas, $horasExtrasDiurnasDetectadas);
-        $horasExtrasNocturnas          = min($horasExtrasNocturnasAprobadas, $horasExtrasNocturnasDetectadas);
+        $horasExtrasDiurnas            = round($minExtDiurnosPagables / 60, 2);
+        $horasExtrasNocturnas          = round($minExtNocturnosPagables / 60, 2);
         $horasNocturnasFestivas        = min($horasNocturnasFestivasAprobadas, $horasNocturnasFestivasDetectadas);
         $horasFestivasTotal            = min($horasFestivasAprobadas, $horasFestivasDetectadas);
 
@@ -616,12 +685,12 @@ class NominaService
             $advertencias[] = "Se detectaron {$horasExtrasNocturnasDetectadas} horas extra nocturnas desde asistencia por exceder la jornada después de las 7:00 p. m.";
         }
 
-        if ($horasExtrasDiurnasAprobadas > $horasExtrasDiurnasDetectadas) {
-            $advertencias[] = "Hay {$horasExtrasDiurnasAprobadas} horas extra diurnas autorizadas, pero solo {$horasExtrasDiurnasDetectadas} fueron trabajadas.";
+        if ($horasExtrasDiurnasAprobadas > $horasExtrasDiurnas) {
+            $advertencias[] = "Hay {$horasExtrasDiurnasAprobadas} horas extra diurnas autorizadas, pero solo {$horasExtrasDiurnas} se reconocen según la asistencia del día correspondiente.";
         }
 
-        if ($horasExtrasNocturnasAprobadas > $horasExtrasNocturnasDetectadas) {
-            $advertencias[] = "Hay {$horasExtrasNocturnasAprobadas} horas extra nocturnas autorizadas, pero solo {$horasExtrasNocturnasDetectadas} fueron trabajadas.";
+        if ($horasExtrasNocturnasAprobadas > $horasExtrasNocturnas) {
+            $advertencias[] = "Hay {$horasExtrasNocturnasAprobadas} horas extra nocturnas autorizadas, pero solo {$horasExtrasNocturnas} se reconocen según la asistencia del día correspondiente.";
         }
 
         if ($horasFestivasDetectadas > $horasFestivasAprobadas) {
@@ -684,6 +753,7 @@ class NominaService
         );
 
         $valorPermisosNoRemunerados = round(($minutosNoRemunerados / 60) * $valorHoraBase, 2);
+        $descontarPermisos = (bool) ($data['descontar_permisos'] ?? true);
         $minutosTardanza = (int) $sessions->sum('minutos_tardanza');
         $valorTardanzas = round(($minutosTardanza / 60) * $valorHoraBase, 2);
         $descontarTardanzas = (bool) ($data['descontar_tardanzas'] ?? false);
@@ -745,7 +815,7 @@ class NominaService
         $descuentosNomina = $this->calcularDescuentos($userId, $inicioLiquidable, $finLiquidable, $data['descuento_id'] ?? null);
         $totalDescuentosAdicionales = round(
             $descuentosNomina['valor']
-            + $valorPermisosNoRemunerados
+            + ($descontarPermisos ? $valorPermisosNoRemunerados : 0)
             + $novedadesRetroactivas['deducciones']
             + ($descontarTardanzas ? $valorTardanzas : 0),
             2
@@ -796,6 +866,7 @@ class NominaService
             'dias_vacaciones_compensadas' => $diasVacacionesCompensadas,
             'minutos_permisos_no_remunerados' => $minutosNoRemunerados,
             'valor_permisos_no_remunerados' => $valorPermisosNoRemunerados,
+            'descuenta_permisos' => $descontarPermisos,
             'minutos_tardanza' => $minutosTardanza,
             'valor_tardanzas' => $valorTardanzas,
             'descuenta_tardanzas' => $descontarTardanzas,
@@ -1084,7 +1155,8 @@ class NominaService
 
     private function horasMensualesJornada(JornadaLaboral $jornada): float
     {
-        return max(1, (float) $jornada->horas_semanales * 5);
+        // Un mes comercial de 30 días equivale a 30/7 semanas (≈4.29), no a 5 semanas.
+        return max(1, (float) $jornada->horas_semanales * (30 / 7));
     }
 
     private function diasComerciales(Carbon $inicio, Carbon $fin): int

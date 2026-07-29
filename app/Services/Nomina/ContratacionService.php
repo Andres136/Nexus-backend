@@ -33,6 +33,7 @@ class ContratacionService
         $periodoFin = $filters['periodo_fin'] ?? null;
 
         $query = Contratacion::with(self::WITH)
+            ->whereHas('usuario', fn ($q) => $q->where('estado_id', EstadoEnum::ACTIVO->value))
             ->when($periodoInicio && $periodoFin, fn ($query) => $query->with([
                 'nominas' => fn ($nominas) => $nominas
                     ->with('liquidador:id,name,email')
@@ -83,6 +84,7 @@ class ContratacionService
     public function getByUuid(string $uuid): Contratacion
     {
         return Contratacion::with(self::WITH)
+            ->whereHas('usuario', fn ($q) => $q->where('estado_id', EstadoEnum::ACTIVO->value))
             ->where('uuid', $uuid)
             ->firstOrFail();
     }

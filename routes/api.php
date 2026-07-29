@@ -720,6 +720,7 @@ Route::prefix('nomina')->group(function () {
     Route::post('nominas/preliquidar',         [NominaController::class, 'preliquidar']);
     Route::post('nominas/preliquidar-todos',   [NominaController::class, 'preliquidarLote']);
     Route::get('nominas/exportar-preliquidacion-masiva', [NominaController::class, 'exportarPreliquidacionLote']);
+    Route::get('nominas/excepcion-descuento', [NominaController::class, 'excepcionDescuento']);
     Route::get('nominas/preliquidaciones/{uuid}', [NominaController::class, 'showPreliquidacion']);
     Route::post('nominas/preliquidaciones/{uuid}/ajustes', [NominaController::class, 'agregarAjustePreliquidacion']);
     Route::delete('nominas/preliquidaciones/{uuid}/ajustes/{ajusteUuid}', [NominaController::class, 'eliminarAjustePreliquidacion']);
