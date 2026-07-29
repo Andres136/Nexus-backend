@@ -163,6 +163,7 @@ class PreliquidacionNominaService
                     'jornada_laboral_id' => $calculo['jornada_laboral_id'],
                     'descontar_tardanzas' => $calculo['descuenta_tardanzas'],
                     'descontar_permisos' => $calculo['descuenta_permisos'],
+                    'permisos_descontar_ids' => $calculo['permisos_descontar_ids'] ?? [],
                 ]);
 
                 $generados[] = [

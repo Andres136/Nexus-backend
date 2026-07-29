@@ -718,6 +718,7 @@ Route::prefix('nomina')->group(function () {
     Route::apiResource('conceptos-contables', NominaConceptoContableController::class)->only(['index', 'show', 'update']);
     Route::get('nominas/resumen',              [NominaController::class, 'resumen']);
     Route::get('nominas/exportar-plano',        [NominaController::class, 'exportarPlano']);
+    Route::get('nominas/permisos-liquidacion',  [NominaController::class, 'permisosLiquidacion']);
     Route::post('nominas/preliquidar',         [NominaController::class, 'preliquidar']);
     Route::post('nominas/preliquidar-todos',   [NominaController::class, 'preliquidarLote']);
     Route::get('nominas/exportar-preliquidacion-masiva', [NominaController::class, 'exportarPreliquidacionLote']);

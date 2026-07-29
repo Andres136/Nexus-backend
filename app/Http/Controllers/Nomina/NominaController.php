@@ -162,6 +162,24 @@ class NominaController extends Controller
         }
     }
 
+    public function permisosLiquidacion(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'user_id' => 'required|integer|exists:users,id',
+            'periodo_inicio' => 'required|date',
+            'periodo_fin' => 'required|date|after_or_equal:periodo_inicio',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => $this->nominaService->obtenerPermisosLiquidacion(
+                (int) $validated['user_id'],
+                $validated['periodo_inicio'],
+                $validated['periodo_fin'],
+            ),
+        ]);
+    }
+
     public function showPreliquidacion(string $uuid): JsonResponse
     {
         $preliquidacion = $this->preliquidacionService->getByUuid($uuid);

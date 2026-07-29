@@ -296,6 +296,29 @@ class NominaService
         return $this->calcular($data);
     }
 
+    public function obtenerPermisosLiquidacion(int $userId, string $periodoInicio, string $periodoFin): Collection
+    {
+        return Permiso::query()
+            ->where('user_id', $userId)
+            ->whereBetween('fecha', [$periodoInicio, $periodoFin])
+            ->where('status', 'aprobado')
+            ->orderBy('fecha')
+            ->orderBy('hora_inicio')
+            ->get()
+            ->map(fn (Permiso $permiso) => [
+                'id' => $permiso->id,
+                'uuid' => $permiso->uuid,
+                'fecha' => $permiso->fecha->toDateString(),
+                'tipo' => $permiso->tipo,
+                'hora_inicio' => $permiso->hora_inicio,
+                'hora_fin' => $permiso->hora_fin,
+                'minutos' => $permiso->minutos,
+                'motivo' => $permiso->motivo,
+                'es_remunerado' => $permiso->es_remunerado,
+            ])
+            ->values();
+    }
+
     /**
      * Calcula la preliquidación de todos los empleados activos con contrato vigente
      * para un período y jornada dados, sin persistir nada. Errores individuales
@@ -321,20 +344,31 @@ class NominaService
         $descontarTardanzasGlobal = (bool) ($data['descontar_tardanzas'] ?? false);
         $excluirTardanzaIds = array_map('intval', $data['excluir_tardanza_ids'] ?? []);
         $excluirPermisoIds = array_map('intval', $data['excluir_permiso_ids'] ?? []);
+        $decisionesPermisos = collect($data['decisiones_permisos'] ?? [])
+            ->keyBy(fn (array $decision) => (int) $decision['user_id']);
 
         $resultados = [];
         $errores = [];
 
         foreach ($empleados as $empleado) {
             try {
-                $calculo = $this->preliquidar([
+                $payloadEmpleado = [
                     'user_id' => $empleado->id,
                     'periodo_inicio' => $data['periodo_inicio'],
                     'periodo_fin' => $data['periodo_fin'],
                     'jornada_laboral_id' => $jornada->id,
                     'descontar_tardanzas' => $descontarTardanzasGlobal && ! in_array($empleado->id, $excluirTardanzaIds, true),
                     'descontar_permisos' => ! in_array($empleado->id, $excluirPermisoIds, true),
-                ]);
+                ];
+                if ($decisionesPermisos->has($empleado->id)) {
+                    $payloadEmpleado['permisos_descontar_ids'] = array_map(
+                        'intval',
+                        $decisionesPermisos->get($empleado->id)['permisos_descontar_ids'] ?? []
+                    );
+                } elseif (in_array($empleado->id, $excluirPermisoIds, true)) {
+                    $payloadEmpleado['permisos_descontar_ids'] = [];
+                }
+                $calculo = $this->preliquidar($payloadEmpleado);
                 $calculo['empleado'] = [
                     'id' => $empleado->id,
                     'name' => $empleado->name,
@@ -744,17 +778,22 @@ class NominaService
         // de prestaciones. Sumarlas aquí produciría un doble pago.
         $diasVacacionesCompensadas = 0;
 
-        $permisosNoRemunerados = Permiso::where('user_id', $userId)
+        $permisosAprobados = Permiso::where('user_id', $userId)
             ->whereBetween('fecha', [$inicioLiquidable->toDateString(), $finLiquidable->toDateString()])
             ->where('status', 'aprobado')
-            ->where('es_remunerado', false)
             ->get();
 
-        $minutosNoRemunerados = $permisosNoRemunerados->sum(fn ($p) => Carbon::parse($p->hora_inicio)->diffInMinutes(Carbon::parse($p->hora_fin))
+        $seleccionExplicita = array_key_exists('permisos_descontar_ids', $data);
+        $permisosSeleccionadosIds = $seleccionExplicita
+            ? array_map('intval', $data['permisos_descontar_ids'] ?? [])
+            : $permisosAprobados->where('es_remunerado', false)->pluck('id')->all();
+        $permisosDescontados = $permisosAprobados->whereIn('id', $permisosSeleccionadosIds);
+        $minutosNoRemunerados = $permisosDescontados->sum(
+            fn ($p) => Carbon::parse($p->hora_inicio)->diffInMinutes(Carbon::parse($p->hora_fin))
         );
 
         $valorPermisosNoRemunerados = round(($minutosNoRemunerados / 60) * $valorHoraBase, 2);
-        $descontarPermisos = (bool) ($data['descontar_permisos'] ?? true);
+        $descontarPermisos = $permisosDescontados->isNotEmpty();
         $minutosTardanza = (int) $sessions->sum('minutos_tardanza');
         $valorTardanzas = round(($minutosTardanza / 60) * $valorHoraBase, 2);
         $descontarTardanzas = (bool) ($data['descontar_tardanzas'] ?? false);
@@ -868,6 +907,19 @@ class NominaService
             'minutos_permisos_no_remunerados' => $minutosNoRemunerados,
             'valor_permisos_no_remunerados' => $valorPermisosNoRemunerados,
             'descuenta_permisos' => $descontarPermisos,
+            'permisos_descontar_ids' => $permisosDescontados->pluck('id')->values()->all(),
+            'detalle_permisos' => $permisosAprobados->map(fn (Permiso $permiso) => [
+                'id' => $permiso->id,
+                'uuid' => $permiso->uuid,
+                'fecha' => $permiso->fecha->toDateString(),
+                'tipo' => $permiso->tipo,
+                'hora_inicio' => $permiso->hora_inicio,
+                'hora_fin' => $permiso->hora_fin,
+                'minutos' => $permiso->minutos,
+                'motivo' => $permiso->motivo,
+                'es_remunerado' => $permiso->es_remunerado,
+                'descontar' => $permisosDescontados->contains('id', $permiso->id),
+            ])->values(),
             'minutos_tardanza' => $minutosTardanza,
             'valor_tardanzas' => $valorTardanzas,
             'descuenta_tardanzas' => $descontarTardanzas,

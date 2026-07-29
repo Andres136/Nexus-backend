@@ -21,6 +21,8 @@ class LiquidarNominaRequest extends FormRequest
             'descuento_id'       => 'nullable|integer|exists:descuentos,id',
             'descontar_tardanzas' => 'nullable|boolean',
             'descontar_permisos' => 'nullable|boolean',
+            'permisos_descontar_ids' => 'sometimes|array',
+            'permisos_descontar_ids.*' => 'integer|exists:permisos,id',
         ];
     }
 
