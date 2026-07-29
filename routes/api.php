@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CapacitacionController;
+use App\Http\Controllers\CapacitacionActaController;
 use App\Http\Controllers\CapacitacionEncuestaController;
 use App\Http\Controllers\comunicaciones\PlantillaController;
 use App\Http\Controllers\comunicaciones\TicketController;
@@ -146,6 +147,8 @@ use SebastianBergmann\CodeCoverage\Report\Html\Dashboard;
 Route::get('/r/{token}',  [EncuestaController::class, 'showPublico']);
 Route::post('/r/{token}', [EncuestaController::class, 'responder']);
 Route::get('capacitacion-encuestas/publica/{token}', [CapacitacionEncuestaController::class, 'showPublica']);
+Route::get('capacitacion-actas/publica/{token}', [CapacitacionActaController::class, 'publica']);
+Route::post('capacitacion-actas/publica/{token}/firmar', [CapacitacionActaController::class, 'firmar']);
 Route::get('corporate-documents', [CorporateDocumentController::class, 'index']);
 Route::get('corporate-documents/{slug}/download', [CorporateDocumentController::class, 'downloadFile']);
 Route::post('corporate-documents/{slug}/download', [CorporateDocumentController::class, 'download']);
@@ -250,6 +253,12 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
 
   // Capacitaciones
   Route::apiResource('capacitaciones', CapacitacionController::class);
+  Route::get('capacitacion-actas', [CapacitacionActaController::class, 'index']);
+  Route::get('capacitacion-actas-empresas', [CapacitacionActaController::class, 'empresas']);
+  Route::get('capacitaciones/{capacitacionUuid}/acta', [CapacitacionActaController::class, 'show']);
+  Route::get('capacitaciones/{capacitacionUuid}/acta/pdf', [CapacitacionActaController::class, 'pdf']);
+  Route::put('capacitaciones/{capacitacionUuid}/acta', [CapacitacionActaController::class, 'guardar']);
+  Route::post('capacitaciones/{capacitacionUuid}/acta/enviar', [CapacitacionActaController::class, 'enviar']);
   Route::get('capacitacion-encuestas-usuarios', [CapacitacionEncuestaController::class, 'usuarios']);
   Route::get('capacitacion-encuestas/{uuid}/resultados', [CapacitacionEncuestaController::class, 'resultados']);
   Route::post('capacitacion-encuestas/{uuid}/enviar', [CapacitacionEncuestaController::class, 'enviar']);

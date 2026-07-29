@@ -120,7 +120,8 @@ class CapacitacionEncuestaService
     public function usuarios(array $filters): Collection
     {
         return User::query()
-            ->select('id', 'name', 'email', 'sede_id')
+            ->select('id', 'name', 'apellidos', 'email', 'sede_id')
+            ->with('contratacionActivaNomina.empresa:id,nombre')
             ->where('estado_id', 3)
             ->whereNotNull('email')
             ->when(!empty($filters['search']), function ($query) use ($filters) {
@@ -261,7 +262,10 @@ class CapacitacionEncuestaService
     public function resultados(string $uuid): array
     {
         $encuesta = CapacitacionEncuesta::with(['preguntas', 'capacitacion:id,uuid,titulo'])->where('uuid', $uuid)->firstOrFail();
-        $envios = CapacitacionEncuestaEnvio::with('usuario:id,name,email')
+        $envios = CapacitacionEncuestaEnvio::with([
+            'usuario:id,name,email',
+            'respuestas:id,envio_id,pregunta_id,valor',
+        ])
             ->whereHas('usuario', fn ($q) => $q->where('estado_id', 3))
             ->where('encuesta_id', $encuesta->id)
             ->get();

@@ -48,4 +48,9 @@ class Capacitacion extends Model
     {
         return $this->hasMany(CapacitacionEncuesta::class, 'capacitacion_id');
     }
+
+    public function acta()
+    {
+        return $this->hasOne(CapacitacionActa::class, 'capacitacion_id');
+    }
 }
