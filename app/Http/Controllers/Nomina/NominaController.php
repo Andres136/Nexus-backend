@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Nomina;
 
-use App\Exports\GenericExport;
 use App\Exports\NominaPucExport;
 use App\Exports\NominaPlanoExport;
+use App\Exports\PreliquidacionLoteExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Nomina\LiquidarNominaRequest;
 use App\Http\Requests\Nomina\PreliquidarLoteNominaRequest;
@@ -363,8 +363,26 @@ class NominaController extends Controller
                 $calculo['salario_neto'],
             ]);
 
+            $empresaId = $validator->validated()['empresa_id'] ?? null;
+            $empresa = $empresaId ? Empresa::find($empresaId) : null;
+            $logoPath = null;
+            if ($empresa && $empresa->logo) {
+                $posiblePath = public_path('storage/'.$empresa->logo);
+                if (file_exists($posiblePath) && ! is_dir($posiblePath)) {
+                    $logoPath = $posiblePath;
+                }
+            }
+
             return Excel::download(
-                new GenericExport($filas, $headings),
+                new PreliquidacionLoteExport(
+                    $filas,
+                    $headings,
+                    $resultado['totales'],
+                    $resultado['periodo_inicio'],
+                    $resultado['periodo_fin'],
+                    $empresa?->nombre,
+                    $logoPath
+                ),
                 "preliquidacion_masiva_{$resultado['periodo_inicio']}_{$resultado['periodo_fin']}.xlsx"
             );
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
