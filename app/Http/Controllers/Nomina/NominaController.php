@@ -284,6 +284,7 @@ class NominaController extends Controller
             'periodo_fin' => 'required|date|after_or_equal:periodo_inicio',
             'jornada_laboral_id' => 'required|integer|exists:jornada_laborals,id',
             'sede_id' => 'nullable|integer|exists:sedes,id',
+            'empresa_id' => 'nullable|integer|exists:empresas,id',
             'descontar_tardanzas' => 'nullable|boolean',
         ]);
 

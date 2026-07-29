@@ -307,6 +307,13 @@ class NominaService
         $empleados = User::where('estado_id', EstadoEnum::ACTIVO->value)
             ->whereHas('contratacionActivaNomina')
             ->when(! empty($data['sede_id']), fn ($query) => $query->where('sede_id', $data['sede_id']))
+            ->when(
+                ! empty($data['empresa_id']),
+                fn ($query) => $query->whereHas(
+                    'contratacionActivaNomina',
+                    fn ($contrato) => $contrato->where('empresa_id', $data['empresa_id'])
+                )
+            )
             ->orderBy('name')
             ->get(['id', 'name', 'email']);
 

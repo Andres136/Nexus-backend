@@ -18,6 +18,7 @@ class PreliquidarLoteNominaRequest extends FormRequest
             'periodo_fin'        => 'required|date|after_or_equal:periodo_inicio',
             'jornada_laboral_id' => 'required|integer|exists:jornada_laborals,id',
             'sede_id'            => 'nullable|integer|exists:sedes,id',
+            'empresa_id'         => 'nullable|integer|exists:empresas,id',
             'descontar_tardanzas' => 'nullable|boolean',
         ];
     }
@@ -33,6 +34,7 @@ class PreliquidarLoteNominaRequest extends FormRequest
             'jornada_laboral_id.required' => 'La jornada laboral es obligatoria.',
             'jornada_laboral_id.exists'   => 'La jornada laboral no existe.',
             'sede_id.exists'              => 'La sede no existe.',
+            'empresa_id.exists'           => 'La empresa no existe.',
         ];
     }
 }
