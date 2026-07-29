@@ -137,6 +137,38 @@ class PermisoController extends Controller
         }
     }
 
+    public function actualizarTratamiento(GestionPermisoRequest $request, string $uuid): JsonResponse
+    {
+        try {
+            if (! $request->has('es_remunerado')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Debes indicar si el permiso es remunerado o no remunerado.',
+                    'errors' => ['es_remunerado' => ['Debes indicar si el permiso es remunerado o no remunerado.']],
+                ], 422);
+            }
+
+            $permiso = $this->permisoService->actualizarTratamiento(
+                $uuid,
+                $request->boolean('es_remunerado'),
+                $request->input('observacion')
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Tratamiento del permiso actualizado.',
+                'data' => $permiso,
+            ]);
+        } catch (AuthorizationException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 403);
+        } catch (\LogicException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Exception $e) {
+            Log::error('Error al actualizar tratamiento del permiso', ['uuid' => $uuid, 'error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al actualizar el tratamiento del permiso.'], 500);
+        }
+    }
+
     /**
      * GET /nomina/kiosko-permisos?user_id=X
      * Ruta pública — autenticada con headers X-Kiosko-*.

@@ -131,6 +131,34 @@ class PermisoService
         });
     }
 
+    public function actualizarTratamiento(string $uuid, bool $esRemunerado, ?string $observacion = null): Permiso
+    {
+        return DB::transaction(function () use ($uuid, $esRemunerado, $observacion) {
+            $this->asegurarPrivilegiado();
+            $permiso = $this->getByUuid($uuid);
+
+            if ($permiso->status !== 'aprobado') {
+                throw new \LogicException('Solo se puede cambiar el tratamiento de un permiso aprobado.');
+            }
+
+            $permiso->update([
+                'es_remunerado' => $esRemunerado,
+                'autorizado_por' => Auth::id(),
+                'fecha_gestion' => now(),
+                'observacion_gestion' => $observacion ?? $permiso->observacion_gestion,
+            ]);
+
+            Log::info('Tratamiento de permiso actualizado', [
+                'uuid' => $permiso->uuid,
+                'user_id' => $permiso->user_id,
+                'es_remunerado' => $esRemunerado,
+                'actualizado_por' => Auth::id(),
+            ]);
+
+            return $permiso->fresh(self::WITH);
+        });
+    }
+
     public function rechazar(string $uuid, ?string $observacion = null): Permiso
     {
         return DB::transaction(function () use ($uuid, $observacion) {

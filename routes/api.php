@@ -771,6 +771,7 @@ Route::prefix('nomina')->group(function () {
      Route::apiResource('permisos', PermisoController::class)->except(['update']);
      Route::patch('permisos/{uuid}/aprobar',  [PermisoController::class, 'aprobar']);
      Route::patch('permisos/{uuid}/rechazar', [PermisoController::class, 'rechazar']);
+     Route::patch('permisos/{uuid}/tratamiento', [PermisoController::class, 'actualizarTratamiento']);
 
      Route::apiResource('licencias', LicenciaController::class)->except(['update']);
      Route::patch('licencias/{uuid}/aprobar',  [LicenciaController::class, 'aprobar']);
