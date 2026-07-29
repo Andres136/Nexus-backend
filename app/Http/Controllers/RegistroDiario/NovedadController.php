@@ -27,6 +27,8 @@ class NovedadController extends Controller
         'departamento_id',
         'search',
         'usuario',
+        'numero_no_conformidad',
+        'fuentes',
         'per_page',
         'page'
     ]);

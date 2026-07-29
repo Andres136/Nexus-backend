@@ -20,19 +20,22 @@ class RegistroDiarioService
         $registroDiario = RegistroDiarios::create([
             'usuario_id' => auth()->id(),
             'departamento_id' => $data['departamento_id'],
-            'pregunta_id' => $data['pregunta_id'],
-            'respuesta' => $data['respuesta'],
+            'pregunta_id' => $data['pregunta_id'] ?? null,
+            'respuesta' => $data['respuesta'] ?? null,
             'observaciones' => $data['observaciones'] ?? null,
             'fecha' => now(),
-            'tipo' => $data['tipo'],
+            'tipo' => $data['tipo'] ?? 'no',
         ]);
 
 
         if (!empty($data['novedad'])) {
             Novedades::create([
-                'registro_diario_id' => $registroDiario->id,
-                'descripcion'        => $data['novedad'],
-                'estado'             => 'ABIERTA',
+                'registro_diario_id'     => $registroDiario->id,
+                'descripcion'            => $data['novedad'],
+                'numero_no_conformidad'  => $data['numero_no_conformidad'] ?? null,
+                'fuentes'                => $data['fuentes'] ?? null,
+                'tipo_accion'            => $data['tipo_accion'] ?? null,
+                'estado'                 => 'ABIERTA',
             ]);
         }
 

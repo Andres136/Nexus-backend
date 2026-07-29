@@ -38,6 +38,16 @@ public function getNovedades($filters = [])
                 });
             }
 
+            // 🔹 FILTRO POR NÚMERO DE NO CONFORMIDAD
+            if (!empty($filters['numero_no_conformidad'])) {
+                $query->where('numero_no_conformidad', 'LIKE', '%' . $filters['numero_no_conformidad'] . '%');
+            }
+
+            // 🔹 FILTRO POR FUENTE
+            if (!empty($filters['fuentes'])) {
+                $query->where('fuentes', $filters['fuentes']);
+            }
+
             // 🔥 SEARCH GLOBAL BIEN AGRUPADO
             if (!empty($filters['search'])) {
                 $query->where(function ($q) use ($filters) {

@@ -23,11 +23,14 @@ class StoreRegistroDiarioRequest extends FormRequest
     {
         return [
             'departamento_id' => 'required|exists:departamentos,id',
-            'pregunta_id' => 'required|exists:preguntas,id',
+            'pregunta_id' => 'nullable|exists:preguntas,id',
             'respuesta' => 'nullable|integer',
             'observaciones' => 'nullable|string',
             'tipo' => 'required|string|in:si,no',
             'novedad' => 'nullable|string',
+            'numero_no_conformidad' => 'nullable|string|max:255',
+            'fuentes' => 'nullable|string|max:255',
+            'tipo_accion' => 'nullable|string|max:255',
         ];
     }
 
@@ -50,6 +53,10 @@ class StoreRegistroDiarioRequest extends FormRequest
             'tipo.string' => 'El campo tipo debe ser una cadena de texto.',
             'tipo.in' => 'El campo tipo debe ser uno de los siguientes valores: tipo1, tipo2, tipo3.',
             'novedad.string' => 'El campo novedad debe ser una cadena de texto.',
+            'numero_no_conformidad.string' => 'El número de no conformidad debe ser una cadena de texto.',
+            'numero_no_conformidad.max' => 'El número de no conformidad no debe exceder los 255 caracteres.',
+            'fuentes.string' => 'El campo fuentes debe ser una cadena de texto.',
+            'tipo_accion.string' => 'El campo tipo de acción debe ser una cadena de texto.',
         ];
     }
 }

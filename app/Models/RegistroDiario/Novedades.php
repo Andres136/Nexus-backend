@@ -13,6 +13,8 @@ class Novedades extends Model
     protected $fillable = [
         'registro_diario_id',
         'descripcion',
+        'numero_no_conformidad',
+        'correccion',
         'estado',
         'tipo_accion',
         'fecha_revision',

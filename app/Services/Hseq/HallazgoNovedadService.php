@@ -10,6 +10,7 @@ use App\Models\Tareas;
 use App\Models\User;
 use App\Notifications\NuevaTareaAsignada;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class HallazgoNovedadService
 {
@@ -66,6 +67,22 @@ if ($usuario) {
         // 🔹 1. ACTUALIZAR HALLAZGO
         // =====================================================
         $hallazgo = $this->find($id);
+
+        // No se puede cerrar un hallazgo sin al menos un soporte de cierre
+        // adjunto (la fila de SoporteTarea se crea vacía al crear el hallazgo,
+        // por eso se exige que soporte_tarea no sea null, no solo que exista la fila).
+        if (strtoupper($data['estado'] ?? $hallazgo->estado) === 'CERRADA') {
+            $tieneSoporte = SoporteTarea::where('hallazgo_id', $hallazgo->id)
+                ->whereNotNull('soporte_tarea')
+                ->exists();
+
+            if (! $tieneSoporte) {
+                throw ValidationException::withMessages([
+                    'estado' => 'No puedes cerrar este hallazgo sin al menos un soporte de cierre adjunto.',
+                ]);
+            }
+        }
+
         $hallazgo->update($data);
 
         // =====================================================

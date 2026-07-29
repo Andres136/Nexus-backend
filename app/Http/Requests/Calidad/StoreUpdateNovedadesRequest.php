@@ -24,6 +24,8 @@ class StoreUpdateNovedadesRequest extends FormRequest
         return [
             'estado' => 'required|string|max:255',
             'descripcion' => 'nullable|string',
+            'numero_no_conformidad' => 'nullable|string|max:255',
+            'correccion' => 'nullable|string',
             'soporte' => 'nullable|required_if:estado,!=,Resuelto|file|mimes:jpg,jpeg,png,pdf,doc,docx,xlsx|max:1024',
             'fecha_revision' => 'nullable|date',
             'fecha_terminado' => 'nullable|date',
@@ -42,6 +44,9 @@ class StoreUpdateNovedadesRequest extends FormRequest
             'estado.string' => 'El campo estado debe ser una cadena de texto.',
             'estado.max' => 'El campo estado no debe exceder los 255 caracteres.',
             'descripcion.string' => 'El campo descripción debe ser una cadena de texto.',
+            'numero_no_conformidad.string' => 'El número de no conformidad debe ser una cadena de texto.',
+            'numero_no_conformidad.max' => 'El número de no conformidad no debe exceder los 255 caracteres.',
+            'correccion.string' => 'El campo corrección debe ser una cadena de texto.',
             'soporte.required_if' => 'El campo soporte es obligatorio cuando el estado no es Resuelto.',
             'soporte.file' => 'El campo soporte debe ser un archivo.',
             'soporte.mimes' => 'El campo soporte debe ser un archivo de tipo jpg, jpeg, png, pdf, doc, docx o xlsx.',
