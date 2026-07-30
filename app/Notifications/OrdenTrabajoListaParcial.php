@@ -3,7 +3,6 @@
 namespace App\Notifications;
 
 use Illuminate\Notifications\Notification;
-use Illuminate\Notifications\Messages\MailMessage;
 
 class OrdenTrabajoListaParcial extends Notification
 {
@@ -18,24 +17,7 @@ class OrdenTrabajoListaParcial extends Notification
 
     public function via($notifiable)
     {
-        return ['mail', 'database'];
-    }
-
-    public function toMail($notifiable)
-    {
-        $estaCompleta = $this->faltantes == 0;
-        $subject = $estaCompleta ? 
-            '✅ Orden de Trabajo #' . str_pad($this->ordenTrabajo->id, 6, '0', STR_PAD_LEFT) . ' - COMPLETA' :
-            '⚠️ Orden de Trabajo #' . str_pad($this->ordenTrabajo->id, 6, '0', STR_PAD_LEFT) . ' - Lista Parcial';
-
-        return (new MailMessage)
-            ->subject($subject)
-            ->view('emails.orden-trabajo-lista-limpia', [
-                'usuario' => $notifiable,
-                'ordenTrabajo' => $this->ordenTrabajo,
-                'faltantes' => $this->faltantes,
-                'url' => config('app.frontend_url') . '/auth/crm'
-            ]);
+        return ['database'];
     }
 
     public function toArray($notifiable)
