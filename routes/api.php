@@ -5,7 +5,10 @@ use App\Http\Controllers\CapacitacionController;
 use App\Http\Controllers\CapacitacionActaController;
 use App\Http\Controllers\CapacitacionEncuestaController;
 use App\Http\Controllers\comunicaciones\PlantillaController;
+use App\Http\Controllers\comunicaciones\PublicacionMarketingController;
+use App\Http\Controllers\comunicaciones\RedSocialController;
 use App\Http\Controllers\comunicaciones\TicketController;
+use App\Http\Controllers\comunicaciones\TipoPostController;
 use App\Http\Controllers\Compras\RequerimientoCompraController;
 use App\Http\Controllers\contabilidad\CosteoController;
 use App\Http\Controllers\contabilidad\FacturaCompraController;
@@ -348,7 +351,11 @@ Route::get('/revision-comparendos/conductor/{id}', [RevisionComparendoController
 //Crear plantilla de correo
 Route::apiResource('plantillas-correo', PlantillaController::class);
 Route::post('/plantillas/{id}/enviar', [PlantillaController::class, 'enviar']);
-Route::get('/plantillas/{id}/edit', [PlantillaController::class, 'edit']); 
+Route::get('/plantillas/{id}/edit', [PlantillaController::class, 'edit']);
+//Cronograma de publicaciones de marketing
+Route::apiResource('redes-sociales', RedSocialController::class);
+Route::apiResource('tipos-post', TipoPostController::class);
+Route::apiResource('publicaciones-marketing', PublicacionMarketingController::class);
 Route::get('tickets/estadisticas-paradas', [TicketController::class, 'estadisticasParadas']);
 Route::get('tickets/estadisticas-generales', [TicketController::class, 'estadisticasGenerales']);
 Route::get('tickets/resumen-asignados', [TicketController::class, 'resumenAsignados']);
