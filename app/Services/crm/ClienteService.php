@@ -117,6 +117,8 @@ class ClienteService
                 ->getResumenMesActual($usuarioEstadistica),
             'filtros' => [
                 'puede_filtrar_usuarios' => $puedeVerTodos,
+                'es_responsable_departamento' => $user->role_id == RolEnum::ADMINISTRADOR->value
+                    || $user->esResponsableDeSuDepartamento(),
                 'usuarios' => $puedeVerTodos
                     ? User::whereIn('id', Cliente::query()->select('user_id')->distinct())
                         ->orderBy('name')
@@ -188,19 +190,16 @@ class ClienteService
     public function cambiarEstado(string $id): array
     {
         $user = Auth::user();
-
-        if (!in_array($user->role_id, [
-            RolEnum::ADMINISTRADOR->value,
-            RolEnum::ADMINISTRATIVO->value,
-            RolEnum::COMERCIAL->value,
-            RolEnum::EJECUTIVO_COMERCIAL->value,
-        ])) {
-            return ['autorizado' => false];
-        }
-
         $cliente = Cliente::findOrFail($id);
+        $esPrivilegiado = $user->role_id == RolEnum::ADMINISTRADOR->value
+            || $user->esResponsableDeSuDepartamento();
 
         if ($cliente->estado_id == EstadoEnum::ACTIVO->value) {
+            // Desactivar: solo el responsable asignado al cliente, o un responsable de departamento/admin.
+            if ($cliente->user_id != $user->id && !$esPrivilegiado) {
+                return ['autorizado' => false];
+            }
+
             $totalGestiones = $cliente->seguimientos()
                 ->where('user_id', $user->id)
                 ->count();
@@ -213,6 +212,9 @@ class ClienteService
                     'gestiones_requeridas' => 3,
                 ];
             }
+        } elseif (!$esPrivilegiado) {
+            // Activar: solo un responsable de departamento o admin.
+            return ['autorizado' => false];
         }
 
         $cliente->estado_id = $cliente->estado_id == EstadoEnum::ACTIVO->value
@@ -251,6 +253,48 @@ class ClienteService
             ->where('estado_id', 3)
             ->orderBy('name')
             ->get();
+    }
+
+    /**
+     * La ruta ya está protegida por el middleware `es_responsable_del_departamento`,
+     * así que aquí no se restringe por rol: quien llega hasta acá puede ver todos
+     * los clientes inactivos (con los filtros de búsqueda/responsable que aplique).
+     */
+    public function exportarInactivos(Request $request)
+    {
+        $search = $request->input('search');
+        $usuarioFiltro = $request->filled('user_id') ? (int) $request->input('user_id') : null;
+
+        return Cliente::with(['usuario:id,name', 'ultimaGestion'])
+            ->where('estado_id', EstadoEnum::INACTIVO->value)
+            ->when($search, function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('nombre', 'LIKE', "%{$search}%")
+                        ->orWhere('nit', 'LIKE', "%{$search}%")
+                        ->orWhere('email', 'LIKE', "%{$search}%")
+                        ->orWhere('telefono', 'LIKE', "%{$search}%");
+                });
+            })
+            ->when($usuarioFiltro, function ($query) use ($usuarioFiltro) {
+                $query->where('user_id', $usuarioFiltro);
+            })
+            ->orderBy('nombre')
+            ->get();
+    }
+
+    public function asignarPorExcel(array $nits, int $userId): array
+    {
+        $nits = array_values(array_unique(array_filter(array_map('strval', $nits))));
+
+        $clientes = Cliente::whereIn('nit', $nits)->get();
+        $noEncontrados = array_values(array_diff($nits, $clientes->pluck('nit')->all()));
+
+        Cliente::whereIn('nit', $nits)->update(['user_id' => $userId]);
+
+        return [
+            'asignados' => $clientes->count(),
+            'no_encontrados' => $noEncontrados,
+        ];
     }
 
     public function importExcel(array $clientes): int

@@ -216,6 +216,10 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
   //Clientes
 
   Route::get('/clientes-registro-user', [ClienteController::class, 'clientesUsuario']);
+  Route::get('clientes/exportar-inactivos', [ClienteController::class, 'exportarInactivos'])
+      ->middleware('es_responsable_del_departamento');
+  Route::post('clientes/asignar-excel', [ClienteController::class, 'asignarExcel'])
+      ->middleware('es_responsable_del_departamento');
   Route::apiResource('clientes', ClienteController::class);
   Route::get('clientes-todos', [ClienteController::class, 'clientesTodos']);
   Route::get('clientes/{id}/cartera-resumen', [ClienteController::class, 'carteraResumen']);

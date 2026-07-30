@@ -49,6 +49,14 @@ class ComercialDashboardService
                 'ordenes' => (int) ($metrica['ordenes'] ?? 0),
                 'valor_ventas' => (float) ($metrica['valor_ventas'] ?? 0),
                 'conversion_pct' => (float) ($metrica['conversion_pct'] ?? 0),
+                'cartera_vencidas' => (int) ($metrica['cartera_vencidas'] ?? 0),
+                'cartera_gestionadas' => (int) ($metrica['cartera_gestionadas'] ?? 0),
+                'cartera_pct_gestion' => (float) ($metrica['cartera_pct_gestion'] ?? 0),
+                'clientes_con_orden' => (int) ($metrica['clientes_con_orden'] ?? 0),
+                'clientes_fieles' => (int) ($metrica['clientes_fieles'] ?? 0),
+                'fidelizacion_pct' => (float) ($metrica['fidelizacion_pct'] ?? 0),
+                'meta_individual' => (float) ($metrica['meta_individual'] ?? 0),
+                'cumplimiento_pct' => (float) ($metrica['cumplimiento_pct'] ?? 0),
             ];
         })->values()->all();
     }

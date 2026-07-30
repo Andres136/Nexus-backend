@@ -2,12 +2,16 @@
 
 namespace App\Http\Controllers\Crm;
 
+use App\Exports\GenericExport;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Crm\AsignarClientesExcelRequest;
 use App\Http\Requests\Crm\ClientesRequest;
 use App\Http\Requests\Crm\ImportarClientesExelRequest;
+use App\Models\Crm\Cliente;
 use App\Services\Crm\GestionCarteraService;
 use App\Services\crm\ClienteService;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ClienteController extends Controller
 {
@@ -127,6 +131,46 @@ class ClienteController extends Controller
 
         return response()->json([
             'message' => "Se importaron/actualizaron $insertados clientes",
+        ]);
+    }
+
+    public function exportarInactivos(Request $request)
+    {
+        $registros = $this->clienteService->exportarInactivos($request);
+
+        if ($registros->isEmpty()) {
+            return response()->json([
+                'message' => 'No hay clientes inactivos para exportar con los filtros seleccionados.',
+            ], 422);
+        }
+
+        $filas = $registros->map(fn (Cliente $c) => [
+            'Nombre' => $c->nombre,
+            'Email' => $c->email,
+            'Teléfono' => $c->telefono,
+            'NIT / Cédula' => $c->nit,
+            'Responsable actual' => $c->usuario?->name,
+            'Última gestión' => optional($c->ultimaGestion?->created_at)->format('Y-m-d H:i'),
+            'Fecha creación' => optional($c->created_at)->format('Y-m-d'),
+        ]);
+
+        $headings = ['Nombre', 'Email', 'Teléfono', 'NIT / Cédula', 'Responsable actual', 'Última gestión', 'Fecha creación'];
+        $filename = 'clientes_inactivos_' . now()->format('Y-m-d_His') . '.xlsx';
+
+        return Excel::download(new GenericExport($filas, $headings), $filename);
+    }
+
+    public function asignarExcel(AsignarClientesExcelRequest $request)
+    {
+        $resultado = $this->clienteService->asignarPorExcel(
+            $request->validated()['nits'],
+            $request->validated()['user_id']
+        );
+
+        return response()->json([
+            'message' => "Se asignaron {$resultado['asignados']} clientes correctamente.",
+            'asignados' => $resultado['asignados'],
+            'no_encontrados' => $resultado['no_encontrados'],
         ]);
     }
 }
