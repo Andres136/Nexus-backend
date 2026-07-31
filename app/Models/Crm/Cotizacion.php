@@ -21,9 +21,11 @@ class Cotizacion extends Model
         'aprobado_por',
         'aprobado_at',
         'motivo_rechazo',
+        'enviada_cliente_at',
+        'envio_cliente_error',
     ];
 
-    protected $casts = ['aprobado_at' => 'datetime'];
+    protected $casts = ['aprobado_at' => 'datetime', 'enviada_cliente_at' => 'datetime'];
 
 
     

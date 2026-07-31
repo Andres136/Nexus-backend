@@ -23,3 +23,5 @@ Schedule::command('app:recordar-mi-dia-sin-actividad')->everyFifteenMinutes();
 Schedule::command('app:recordar-tickets-abiertos')->twiceDaily(9, 15);
 // Cierra conversaciones del chatbot sin actividad en 24h (bot, esperando humano o asignadas).
 Schedule::command('app:cerrar-conversaciones-chatbot-inactivas')->hourly();
+// Cada lunes gestiona como máximo 10 clientes con 30 días sin seguimiento.
+Schedule::command('app:gestionar-clientes-inactivos-ia')->weeklyOn(1, '08:30')->timezone('America/Bogota')->withoutOverlapping();

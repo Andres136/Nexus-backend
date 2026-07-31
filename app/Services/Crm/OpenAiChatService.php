@@ -220,8 +220,11 @@ class OpenAiChatService
         $contextoSitio = $config->sitio_web_contexto
             ? "\n\nInformación pública extraída del sitio web de la empresa:\n{$config->sitio_web_contexto}\n"
             : '';
+        $contextoComercial = $config->contexto_comercial
+            ? "\n\nVisión y contexto comercial validado por la empresa (fuente prioritaria):\n{$config->contexto_comercial}\n"
+            : '';
 
-        return $config->prompt_sistema . $contextoSitio . $contexto
+        return $config->prompt_sistema . $contextoComercial . $contextoSitio . $contexto
             . "\n\nLa conversación empieza directamente, sin formulario. Atiende primero la necesidad del visitante y solicita sus datos de contacto de forma natural, uno a la vez y solo cuando sea pertinente. "
             . 'Cuando comparta nombre, correo, empresa o teléfono, usa guardar_datos_visitante inmediatamente. No afirmes que guardaste datos que no haya proporcionado.'
             . "\n\nReglas de continuidad: interpreta respuestas breves como \"sí\", \"no\", \"bolsas\" o una medida usando la pregunta inmediatamente anterior. "

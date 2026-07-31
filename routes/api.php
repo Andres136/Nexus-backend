@@ -264,6 +264,7 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
           Route::post('clientes/{cliente}/correo', [ChatbotGestionComercialController::class, 'enviarCorreo']);
           Route::get('cotizaciones', [ChatbotGestionComercialController::class, 'cotizaciones']);
           Route::patch('cotizaciones/{cotizacion}/decision', [ChatbotGestionComercialController::class, 'decidirCotizacion']);
+          Route::post('cotizaciones/{cotizacion}/reenviar', [ChatbotGestionComercialController::class, 'reenviarCotizacion']);
       });
   });
 

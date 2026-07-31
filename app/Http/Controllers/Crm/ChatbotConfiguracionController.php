@@ -28,11 +28,13 @@ class ChatbotConfiguracionController extends Controller
         unset($datos['avatar']);
 
         $nuevaUrl = $datos['sitio_web_url'] ?? null;
-        if ($nuevaUrl !== $config->sitio_web_url) {
-            $datos['sitio_web_contexto'] = $nuevaUrl
-                ? $this->sitioWebService->extraer($nuevaUrl)
-                : null;
-            $datos['sitio_web_actualizado_at'] = $nuevaUrl ? now() : null;
+        $nuevaUrlProductos = $datos['sitio_web_productos_url'] ?? null;
+        if ($nuevaUrl !== $config->sitio_web_url || $nuevaUrlProductos !== $config->sitio_web_productos_url) {
+            $contextos = [];
+            if ($nuevaUrl) $contextos[] = "SITIO PRINCIPAL:\n" . $this->sitioWebService->extraer($nuevaUrl);
+            if ($nuevaUrlProductos) $contextos[] = "PRODUCTOS Y SOLUCIONES:\n" . $this->sitioWebService->extraer($nuevaUrlProductos);
+            $datos['sitio_web_contexto'] = $contextos ? implode("\n\n", $contextos) : null;
+            $datos['sitio_web_actualizado_at'] = $contextos ? now() : null;
         }
 
         if ($request->hasFile('avatar')) {

@@ -11,9 +11,12 @@ use App\RolEnum;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
+use App\Services\Crm\CotizacionEnvioClienteService;
 
 class ChatbotGestionComercialController extends Controller
 {
+    public function __construct(private readonly CotizacionEnvioClienteService $envioCotizacion) {}
+
     public function buscarClientes(Request $request)
     {
         $datos = $request->validate(['q' => 'required|string|min:2|max:100']);
@@ -21,7 +24,7 @@ class ChatbotGestionComercialController extends Controller
         $q = trim($datos['q']);
 
         $clientes = Cliente::query()
-            ->with(['usuario:id,name,apellidos', 'ultimaGestion:id,cliente_id,created_at'])
+            ->with(['usuario:id,name,apellidos', 'ultimaGestion'])
             ->when(!$this->esPrivilegiado($user), fn ($query) => $query->where('user_id', $user->id))
             ->where(function ($query) use ($q) {
                 $query->where('nombre', 'like', "%{$q}%")
@@ -66,7 +69,23 @@ class ChatbotGestionComercialController extends Controller
             'motivo_rechazo' => $aprobada ? null : $datos['motivo'],
         ]);
 
-        return response()->json(['message' => $aprobada ? 'Cotización aprobada.' : 'Cotización rechazada.', 'cotizacion' => $cotizacion]);
+        $envio = $aprobada ? $this->envioCotizacion->enviar($cotizacion) : null;
+
+        return response()->json([
+            'message' => $aprobada ? $envio['mensaje'] : 'Cotización rechazada.',
+            'cotizacion' => $cotizacion->fresh(),
+            'envio' => $envio,
+        ]);
+    }
+
+    public function reenviarCotizacion(Request $request, Cotizacion $cotizacion)
+    {
+        abort_unless($cotizacion->responsable_id === $request->user()->id, 403, 'Solo el responsable asignado puede reenviar esta cotización.');
+        abort_unless($cotizacion->estado_aprobacion === 'aprobada', 422, 'Solo se pueden enviar cotizaciones aprobadas.');
+        abort_if($cotizacion->enviada_cliente_at, 422, 'La cotización ya fue enviada al cliente.');
+
+        $envio = $this->envioCotizacion->enviar($cotizacion);
+        return response()->json(['message' => $envio['mensaje'], 'envio' => $envio, 'cotizacion' => $cotizacion->fresh()]);
     }
 
     public function clientesSinGestion(Request $request)
@@ -76,7 +95,7 @@ class ChatbotGestionComercialController extends Controller
         $user = $request->user();
 
         $clientes = Cliente::query()
-            ->with(['usuario:id,name,apellidos', 'ultimaGestion:id,cliente_id,created_at'])
+            ->with(['usuario:id,name,apellidos', 'ultimaGestion'])
             ->whereNotNull('email')->where('email', '<>', '')
             ->when(!$this->esPrivilegiado($user), fn ($q) => $q->where('user_id', $user->id))
             ->whereDoesntHave('seguimientos', fn ($q) => $q->where('created_at', '>=', now()->subDays($dias)))
