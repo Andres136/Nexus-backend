@@ -174,6 +174,56 @@ class HoraExtraService
         });
     }
 
+    /**
+     * Edita una hora extra propia mientras siga en estado pendiente
+     * (incluye las que fueron desaprobadas y volvieron a pendiente).
+     */
+    public function actualizar(string $uuid, array $data): HoraExtra
+    {
+        return DB::transaction(function () use ($uuid, $data) {
+            $horaExtra = $this->getByUuid($uuid);
+
+            if ($horaExtra->status !== 'pendiente') {
+                throw new \LogicException('Solo se pueden editar horas extras en estado pendiente.');
+            }
+
+            $inicio = Carbon::parse($data['fecha'].' '.$data['hora_inicio']);
+            $fin = Carbon::parse($data['fecha'].' '.$data['hora_fin']);
+            if ($fin->lessThanOrEqualTo($inicio)) {
+                $fin->addDay();
+            }
+            $horas = round($inicio->diffInMinutes($fin) / 60, 2);
+
+            if ($horas < 0.5 || $horas > 24) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'hora_fin' => 'El rango debe representar entre 0.5 y 24 horas.',
+                ]);
+            }
+
+            $kiosko = !empty($data['kiosko_device_id'])
+                ? KioskoDevice::select('id', 'sede_id')->find($data['kiosko_device_id'])
+                : null;
+
+            $horaExtra->update([
+                'sede_id'          => $data['sede_id'] ?? $kiosko?->sede_id ?? $horaExtra->sede_id,
+                'kiosko_device_id' => $kiosko?->id,
+                'fecha'            => $data['fecha'],
+                'hora_inicio'      => $data['hora_inicio'],
+                'hora_fin'         => $data['hora_fin'],
+                'horas'            => $horas,
+                'tipo'             => $data['tipo'],
+                'motivo'           => $data['motivo'] ?? null,
+            ]);
+
+            Log::info('Hora extra editada', [
+                'uuid'    => $horaExtra->uuid,
+                'user_id' => $horaExtra->user_id,
+            ]);
+
+            return $horaExtra->fresh(self::WITH);
+        });
+    }
+
     public function aprobar(string $uuid, ?string $observacion = null): HoraExtra
     {
         return DB::transaction(function () use ($uuid, $observacion) {
@@ -219,6 +269,32 @@ class HoraExtraService
             Log::info('Hora extra rechazada', [
                 'uuid'    => $horaExtra->uuid,
                 'user_id' => $horaExtra->user_id,
+            ]);
+
+            return $horaExtra->fresh(self::WITH);
+        });
+    }
+
+    public function desaprobar(string $uuid, ?string $observacion = null): HoraExtra
+    {
+        return DB::transaction(function () use ($uuid, $observacion) {
+            $horaExtra = $this->getByUuid($uuid);
+
+            if ($horaExtra->status !== 'aprobada') {
+                throw new \LogicException('Solo se pueden desaprobar horas extras que estén aprobadas.');
+            }
+
+            $horaExtra->update([
+                'status'              => 'pendiente',
+                'autorizado_por'      => Auth::id(),
+                'fecha_gestion'       => now(),
+                'observacion_gestion' => $observacion,
+            ]);
+
+            Log::info('Hora extra desaprobada', [
+                'uuid'          => $horaExtra->uuid,
+                'user_id'       => $horaExtra->user_id,
+                'desaprobado_por' => Auth::id(),
             ]);
 
             return $horaExtra->fresh(self::WITH);

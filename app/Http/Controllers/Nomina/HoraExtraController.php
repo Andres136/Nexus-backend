@@ -6,6 +6,7 @@ use App\Exports\GenericExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Nomina\GestionHoraExtraRequest;
 use App\Http\Requests\Nomina\StoreHoraExtraRequest;
+use App\Http\Requests\Nomina\UpdateHoraExtraRequest;
 use App\Models\Nomina\HoraExtra;
 use App\Services\Nomina\HoraExtraService;
 use App\Services\Nomina\KioskoDeviceService;
@@ -201,6 +202,36 @@ class HoraExtraController extends Controller
     }
 
     /**
+     * PATCH /nomina/horas-extras/{uuid}
+     * Edita una solicitud propia mientras esté en estado pendiente
+     * (incluye las que fueron desaprobadas y volvieron a pendiente).
+     */
+    public function update(UpdateHoraExtraRequest $request, string $uuid): JsonResponse
+    {
+        try {
+            $data = $this->horaExtraService->actualizar($uuid, $request->validated());
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Solicitud de hora extra actualizada.',
+                'data' => $data,
+            ]);
+        } catch (\LogicException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->flatten()->first(),
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error al editar hora extra', ['uuid' => $uuid, 'error' => $e->getMessage()]);
+
+            return response()->json(['success' => false, 'message' => 'Error al editar la solicitud.'], 500);
+        }
+    }
+
+    /**
      * PATCH /nomina/horas-extras/{uuid}/aprobar
      */
     public function aprobar(GestionHoraExtraRequest $request, string $uuid): JsonResponse
@@ -241,6 +272,29 @@ class HoraExtraController extends Controller
             Log::error('Error al rechazar hora extra', ['uuid' => $uuid, 'error' => $e->getMessage()]);
 
             return response()->json(['success' => false, 'message' => 'Error al rechazar la hora extra.'], 500);
+        }
+    }
+
+    /**
+     * PATCH /nomina/horas-extras/{uuid}/desaprobar
+     * Revierte una hora extra aprobada a estado pendiente. Solo responsables de departamento.
+     */
+    public function desaprobar(GestionHoraExtraRequest $request, string $uuid): JsonResponse
+    {
+        try {
+            $data = $this->horaExtraService->desaprobar($uuid, $request->input('observacion'));
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Hora extra desaprobada.',
+                'data' => $data,
+            ]);
+        } catch (\LogicException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Exception $e) {
+            Log::error('Error al desaprobar hora extra', ['uuid' => $uuid, 'error' => $e->getMessage()]);
+
+            return response()->json(['success' => false, 'message' => 'Error al desaprobar la hora extra.'], 500);
         }
     }
 

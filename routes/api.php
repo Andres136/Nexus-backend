@@ -773,8 +773,12 @@ Route::prefix('nomina')->group(function () {
     Route::get('horas-extras/exportar', [HoraExtraController::class, 'exportar']);
     Route::patch('horas-extras/aprobar-todas', [HoraExtraController::class, 'aprobarTodas']);
     Route::apiResource('horas-extras', HoraExtraController::class)->except(['update']);
+    Route::patch('horas-extras/{uuid}', [HoraExtraController::class, 'update']);
     Route::patch('horas-extras/{uuid}/aprobar',  [HoraExtraController::class, 'aprobar']);
      Route::patch('horas-extras/{uuid}/rechazar', [HoraExtraController::class, 'rechazar']);
+     Route::middleware('es_responsable_del_departamento')->group(function () {
+         Route::patch('horas-extras/{uuid}/desaprobar', [HoraExtraController::class, 'desaprobar']);
+     });
 
      Route::apiResource('comisiones', ComisionController::class);
      Route::patch('comisiones/{uuid}/aprobar',  [ComisionController::class, 'aprobar']);
