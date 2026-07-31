@@ -35,6 +35,7 @@ use App\Http\Controllers\Crm\DocumentosAdministrativosController;
 use App\Http\Controllers\Crm\DocumentoVehiculoController;
 use App\Http\Controllers\Crm\EmpresaController;
 use App\Http\Controllers\Crm\EntregaProveedorController;
+use App\Http\Controllers\Crm\InformeRendimientoController;
 use App\Http\Controllers\Crm\EventoController;
 use App\Http\Controllers\Crm\GestionCarteraController;
 use App\Http\Controllers\Crm\GestionCarteraHistorialController;
@@ -881,6 +882,11 @@ Route::middleware(['auth:sanctum', 'es_responsable_del_departamento'])->group(fu
 Route::middleware(['auth:sanctum', 'role:1'])->group(function () {
   Route::apiResource('empresas', EmpresaController::class);
 
+});
+
+//**RUTA PARA INFORME DE RENDIMIENTO CON IA — SOLO ADMINISTRADOR */
+Route::middleware(['auth:sanctum', 'role:1'])->group(function () {
+  Route::get('/informe-rendimiento', [InformeRendimientoController::class, 'generar']);
 });
 
 
