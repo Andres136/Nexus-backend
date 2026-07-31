@@ -7,6 +7,7 @@ use App\Http\Requests\Crm\CotizacionRequest;
 use App\Models\Crm\Cotizacion;
 use App\Models\Crm\CotizacionDetalles;
 use App\Models\Crm\empresa;
+use App\RolEnum;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -107,9 +108,10 @@ class CotizacionController extends Controller
     {
         $user = auth()->user();
         $search = $request->input('search');
-        
+        $esPrivilegiado = $user->role_id == RolEnum::ADMINISTRADOR->value || $user->esResponsableDeSuDepartamento();
+
         $cotizaciones = Cotizacion::with('cliente')
-            ->where('user_id', $user->id)
+            ->when(!$esPrivilegiado, fn ($query) => $query->where('user_id', $user->id))
             ->when($search, function ($query, $search) {
                 $query->whereHas('cliente', fn($q) => $q->where('nombre', 'like', "%$search%"));
             })
