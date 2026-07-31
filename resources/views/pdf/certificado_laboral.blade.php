@@ -98,9 +98,7 @@ table { border-collapse: collapse; width: 100%; }
   más auxilio de transporte de
   <strong>$ {{ number_format($contratacion->auxilio_transporte, 0, ',', '.') }}</strong>
   @endif
-  @if($contratacion->no_salarial ?? false)
-  y componente no salarial
-  @endif.
+
 </div>
 
 <div class="cuerpo">

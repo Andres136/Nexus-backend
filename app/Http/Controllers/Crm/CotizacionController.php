@@ -6,13 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Crm\CotizacionRequest;
 use App\Models\Crm\Cotizacion;
 use App\Models\Crm\CotizacionDetalles;
+use App\Models\Crm\empresa;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Services\Crm\CotizacionCalculoService;
 
 class CotizacionController extends Controller
 {
+    public function __construct(private readonly CotizacionCalculoService $calculo) {}
     /**
      * Display a listing of the resource.
      */
@@ -32,28 +35,21 @@ class CotizacionController extends Controller
             // 1. Preparamos la colección de detalles con cálculos
             $detalles = collect($request->input('detalles', []))
                 ->map(function (array $detalle, int $index) {
-                    $precioTotal   = floatval($detalle['precio_total'] ?? 0);
-                    $numeroBolsas  = max(1, intval($detalle['numero_bolsas'] ?? 1));
-                    $valorUnitario = isset($detalle['valor_unitario']) ? floatval($detalle['valor_unitario']) : round($precioTotal / $numeroBolsas, 2);
-                    $valorTotal    = isset($detalle['valor_total']) ? floatval($detalle['valor_total']) : round($cantidad * $valorUnitario * 1.19, 2);
-                    
-                    $cantidad      = floatval($detalle['cantidad'] ?? 0);
-               
-    
-                    return array_merge($detalle, [
-                        'item'           => $index + 1,
-                        'valor_unitario' => $valorUnitario,
-                        'valor_total'    => $valorTotal,
-                    ]);
+                    return array_merge($detalle, ['item' => $index + 1], $this->calculo->calcular(
+                        $detalle,
+                        (float) ($detalle['iva_porcentaje'] ?? 19)
+                    ));
                 });
     
             // 2. Sumamos el total global
             $valorTotalGlobal = $detalles->sum('valor_total');
     
             // 3. Creamos la cabecera de la cotización
+            $empresa = empresa::findOrFail($request->empresa_id);
             $cotizacion = Cotizacion::create([
                 'cliente_id'    => $request->cliente_id,
-                'empresa'       => $request->empresa,
+                'empresa_id'    => $empresa->id,
+                'empresa'       => $empresa->nombre,
                 'observaciones' => $request->observaciones,
                 'user_id'       =>  auth()->id(),
                 'valor_total'   => $valorTotalGlobal,
@@ -86,12 +82,12 @@ class CotizacionController extends Controller
 
      public function descargarPDF($id)
      {
-         $cotizacion = Cotizacion::with('cliente', 'user', 'detalles')->findOrFail($id);
+         $cotizacion = Cotizacion::with('cliente', 'user', 'detalles', 'empresaReal')->findOrFail($id);
+         abort_if($cotizacion->chatbot_conversacion_id && $cotizacion->estado_aprobacion !== 'aprobada', 403, 'La cotización debe ser aprobada antes de generar el PDF.');
  
-         $logo = match ($cotizacion->empresa) {
-             'global' => public_path('images/SETAS.PNG'),
-             default => public_path('images/logo-setasplast.png'),
-         };
+         $logo = $cotizacion->empresaReal?->logo
+             ? storage_path('app/public/' . $cotizacion->empresaReal->logo)
+             : public_path('images/SETAS.png');
  
          $pdf = Pdf::loadView('pdf.cotizacion', [
              'cotizacion' => $cotizacion,
@@ -103,7 +99,7 @@ class CotizacionController extends Controller
 
     public function show(string $id)
     {
-        $cotizacion = Cotizacion::with(['detalles', 'cliente', 'user'])->findOrFail($id);
+        $cotizacion = Cotizacion::with(['detalles', 'cliente', 'user', 'empresaReal'])->findOrFail($id);
         return response()->json($cotizacion);
   
     }
@@ -128,14 +124,26 @@ class CotizacionController extends Controller
      */
     public function update(Request $request, string $id)
 {
+    $cotizacion = Cotizacion::findOrFail($id);
+    if ($cotizacion->chatbot_conversacion_id) {
+        abort_unless($cotizacion->user_id === auth()->id(), 403, 'Solo quien creó la cotización puede editarla.');
+        abort_if($cotizacion->estado_aprobacion === 'aprobada', 422, 'Una cotización aprobada no se puede modificar.');
+    }
+    $datosCabecera = $request->validate([
+        'cliente_id' => 'required|exists:clientes,id',
+        'empresa_id' => 'required|integer|exists:empresas,id',
+        'observaciones' => 'nullable|string',
+        'detalles' => 'required|array|min:1',
+    ]);
+    $empresa = empresa::findOrFail($datosCabecera['empresa_id']);
+
     DB::beginTransaction();
 
     try {
-        $cotizacion = Cotizacion::findOrFail($id);
-
         // 1. Actualiza cabecera
         $cotizacion->update([
-            'empresa'       => $request->empresa,
+            'empresa_id'    => $empresa->id,
+            'empresa'       => $empresa->nombre,
             'observaciones' => $request->observaciones,
             'cliente_id'    => $request->cliente_id,
         ]);
@@ -151,11 +159,7 @@ class CotizacionController extends Controller
 
         // 4. Procesar cada detalle
         foreach ($detallesRequest as $index => $detalle) {
-            $precioTotal   = floatval($detalle['precio_total'] ?? 0);   
-            $numeroBolsas  = max(1, intval($detalle['numero_bolsas'] ?? 1));
-            $valorUnitario = isset($detalle['valor_unitario']) ? floatval($detalle['valor_unitario']) : round($precioTotal / $numeroBolsas, 2);
-            $valorTotal    = isset($detalle['valor_total']) ? floatval($detalle['valor_total']) : round($detalle['cantidad'] * $valorUnitario * 1.19, 2);
-            $valor_paquete = isset($detalle['valor_paquete']) ? floatval($detalle['valor_paquete']) : round($precioTotal / $numeroBolsas, 2);
+            $valores = $this->calculo->calcular($detalle, (float) ($detalle['iva_porcentaje'] ?? 19));
 
             $data = [
                 'item'           => $index + 1,
@@ -163,12 +167,12 @@ class CotizacionController extends Controller
                 'ancho_cm'       => $detalle['ancho_cm'] ?? null,
                 'largo_cm'       => $detalle['largo_cm'] ?? null,
                 'calibre'        => $detalle['calibre'] ?? null,
-                'peso_bolsa'     => $detalle['peso_bolsa'] ?? null,
-                'numero_bolsas'  => $numeroBolsas,
-                'precio_total'   => $precioTotal,
-                'valor_unitario' => $valorUnitario,
-                'valor_total'    => $valorTotal,
-                'valor_paquete'  => $valor_paquete,
+                'peso_bolsa'     => $valores['peso_bolsa'],
+                'numero_bolsas'  => $valores['numero_bolsas'],
+                'precio_total'   => $valores['precio_total'],
+                'valor_unitario' => $valores['valor_unitario'],
+                'valor_total'    => $valores['valor_total'],
+                'valor_paquete'  => $valores['valor_paquete'],
                 'cantidad'       => $detalle['cantidad'] ?? 0,
                 'cliente_clb'    => $detalle['cliente_clb'] ?? null,
                 'cantidad_requerida_kg' => $detalle['cantidad_requerida_kg'] ?? null,
@@ -183,11 +187,17 @@ class CotizacionController extends Controller
                 $cotizacion->detalles()->create($data);
             }
 
-            $valorTotalGlobal += $valorTotal;
+            $valorTotalGlobal += $valores['valor_total'];
         }
 
         // 5. Actualiza total global
-        $cotizacion->update(['valor_total' => $valorTotalGlobal]);
+        $cotizacion->update(array_filter([
+            'valor_total' => $valorTotalGlobal,
+            'estado_aprobacion' => $cotizacion->chatbot_conversacion_id ? 'pendiente' : null,
+            'aprobado_por' => $cotizacion->chatbot_conversacion_id ? null : $cotizacion->aprobado_por,
+            'aprobado_at' => $cotizacion->chatbot_conversacion_id ? null : $cotizacion->aprobado_at,
+            'motivo_rechazo' => $cotizacion->chatbot_conversacion_id ? null : $cotizacion->motivo_rechazo,
+        ], static fn ($value, $key) => $key === 'valor_total' || $cotizacion->chatbot_conversacion_id || $value !== null, ARRAY_FILTER_USE_BOTH));
 
         DB::commit();
 

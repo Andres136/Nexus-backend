@@ -10,17 +10,31 @@ class Cotizacion extends Model
     protected $table = 'cotizaciones';
     protected $fillable = [
         'cliente_id',
+        'empresa_id',
         'empresa',
         'observaciones',
         'user_id',
         'valor_total',
+        'chatbot_conversacion_id',
+        'responsable_id',
+        'estado_aprobacion',
+        'aprobado_por',
+        'aprobado_at',
+        'motivo_rechazo',
     ];
+
+    protected $casts = ['aprobado_at' => 'datetime'];
 
 
     
     public function cliente()
     {
         return $this->belongsTo(Cliente::class);
+    }
+
+    public function empresaReal()
+    {
+        return $this->belongsTo(empresa::class, 'empresa_id');
     }
 
     public function user()
@@ -31,6 +45,21 @@ class Cotizacion extends Model
     public function detalles()
     {
         return $this->hasMany(CotizacionDetalles::class);
+    }
+
+    public function responsable()
+    {
+        return $this->belongsTo(User::class, 'responsable_id');
+    }
+
+    public function aprobador()
+    {
+        return $this->belongsTo(User::class, 'aprobado_por');
+    }
+
+    public function conversacionChatbot()
+    {
+        return $this->belongsTo(ChatbotConversacion::class, 'chatbot_conversacion_id');
     }
 
 

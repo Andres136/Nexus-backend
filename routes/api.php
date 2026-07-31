@@ -21,6 +21,11 @@ use App\Http\Controllers\Crm\AlistamientoOtController;
 use App\Http\Controllers\Crm\BodegaController;
 use App\Http\Controllers\Crm\CarpetaController;
 use App\Http\Controllers\Crm\CategoriaController;
+use App\Http\Controllers\Crm\ChatbotCitaController;
+use App\Http\Controllers\Crm\ChatbotConfiguracionController;
+use App\Http\Controllers\Crm\ChatbotConversacionController;
+use App\Http\Controllers\Crm\ChatbotGestionComercialController;
+use App\Http\Controllers\Crm\ChatbotPublicoController;
 use App\Http\Controllers\Crm\ClienteController;
 use App\Http\Controllers\Crm\EncuestaController;
 use App\Http\Controllers\Crm\CotizacionController;
@@ -170,6 +175,16 @@ Route::put('nomina/kiosko-work-sessions/{uuid}', [WorkSessionController::class, 
 Route::get('nomina/kiosko-permisos', [PermisoController::class, 'kioskIndex']);
 Route::get('nomina/kiosko-horas-extras', [HoraExtraController::class, 'kioskIndex']);
 
+// Rutas públicas del widget de chatbot (sin auth, embebido en sitios externos)
+Route::prefix('chatbot')->middleware('throttle:30,1')->group(function () {
+    Route::get('config', [ChatbotPublicoController::class, 'configuracionPublica']);
+    Route::post('conversaciones', [ChatbotPublicoController::class, 'iniciar']);
+    Route::post('conversaciones/{token}/lead', [ChatbotPublicoController::class, 'capturarLead']);
+    Route::post('conversaciones/{token}/mensajes', [ChatbotPublicoController::class, 'enviarMensaje']);
+    Route::post('conversaciones/{token}/solicitar-asesor', [ChatbotPublicoController::class, 'solicitarAsesor']);
+    Route::get('conversaciones/{token}/estado', [ChatbotPublicoController::class, 'estado']);
+});
+
 Route::middleware('auth:sanctum')->group(function () {
   // RUTAS PARA MI DIA (productividad personal) — disponibles para cualquier usuario autenticado
   Route::get('mi-dia', [MiDiaController::class, 'index']);
@@ -223,7 +238,34 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
   Route::apiResource('clientes', ClienteController::class);
   Route::get('clientes-todos', [ClienteController::class, 'clientesTodos']);
   Route::get('clientes/{id}/cartera-resumen', [ClienteController::class, 'carteraResumen']);
-  
+
+
+  //Chatbot IA (panel admin)
+  Route::prefix('crm/chatbot')->group(function () {
+      Route::get('conversaciones', [ChatbotConversacionController::class, 'index']);
+      Route::get('conversaciones/{id}', [ChatbotConversacionController::class, 'show']);
+      Route::post('conversaciones/{id}/responder', [ChatbotConversacionController::class, 'responder']);
+      Route::post('conversaciones/{id}/asignar', [ChatbotConversacionController::class, 'asignar'])
+          ->middleware('es_responsable_del_departamento');
+      Route::post('conversaciones/{id}/asignar-ia', [ChatbotConversacionController::class, 'asignarAIa'])
+          ->middleware('es_responsable_del_departamento');
+      Route::post('conversaciones/{id}/cerrar', [ChatbotConversacionController::class, 'cerrar']);
+
+      Route::middleware('role:1')->group(function () {
+          Route::get('configuracion', [ChatbotConfiguracionController::class, 'show']);
+          Route::put('configuracion', [ChatbotConfiguracionController::class, 'update']);
+      });
+
+      Route::apiResource('citas', ChatbotCitaController::class)->except(['show']);
+
+      Route::middleware('es_responsable_del_departamento')->prefix('gestion')->group(function () {
+          Route::get('clientes/buscar', [ChatbotGestionComercialController::class, 'buscarClientes']);
+          Route::get('clientes/sin-gestion', [ChatbotGestionComercialController::class, 'clientesSinGestion']);
+          Route::post('clientes/{cliente}/correo', [ChatbotGestionComercialController::class, 'enviarCorreo']);
+          Route::get('cotizaciones', [ChatbotGestionComercialController::class, 'cotizaciones']);
+          Route::patch('cotizaciones/{cotizacion}/decision', [ChatbotGestionComercialController::class, 'decidirCotizacion']);
+      });
+  });
 
   //ordenes de compra
   Route::apiResource('orden-compras', OrdenCompraController::class);

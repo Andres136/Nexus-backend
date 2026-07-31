@@ -48,6 +48,11 @@ return [
     'partner_id' => env('SIIGO2_PARTNER_ID'),
 ],
 
+ 'openai' => [
+        'key' => env('OPENAI_API_KEY'),
+        'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
+    ],
+
  'whatsapp' => [
         // Base URL, sin el phone_id al final
         'api_url'      => env('WHATSAPP_API_URL', 'https://graph.facebook.com/v17.0'),

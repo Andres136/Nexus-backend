@@ -21,3 +21,5 @@ Schedule::command('app:recordar-mi-dia-sin-actividad')->everyFifteenMinutes();
 // Recuerda tickets abiertos asignados aunque ya se haya marcado como leída
 // la notificación original de asignación (cooldown interno de 20h por ticket).
 Schedule::command('app:recordar-tickets-abiertos')->twiceDaily(9, 15);
+// Cierra conversaciones del chatbot sin actividad en 24h (bot, esperando humano o asignadas).
+Schedule::command('app:cerrar-conversaciones-chatbot-inactivas')->hourly();
