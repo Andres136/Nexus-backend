@@ -51,6 +51,9 @@ return [
  'openai' => [
         'key' => env('OPENAI_API_KEY'),
         'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
+        // Modelos de razonamiento que no aceptan 'temperature' y requieren
+        // 'reasoning_effort' => 'none' para usar function tools por Chat Completions.
+        'reasoning_models' => ['gpt-5.6-luna'],
     ],
 
  'whatsapp' => [

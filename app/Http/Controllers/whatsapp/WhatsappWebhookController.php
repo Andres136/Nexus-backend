@@ -34,7 +34,12 @@ class WhatsappWebhookController extends Controller
             Log::info('Mensaje entrante', compact('from', 'body'));
 
             $reply = $this->procesarTexto($body);
-            $this->whatsappService->sendTextMessage($from, $reply);
+
+            try {
+                $this->whatsappService->sendTextMessage($from, $reply);
+            } catch (\Throwable $e) {
+                Log::error('Error enviando respuesta de WhatsApp', ['from' => $from, 'error' => $e->getMessage()]);
+            }
         }
 
         return response('EVENT_RECEIVED', 200);

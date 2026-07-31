@@ -58,7 +58,7 @@ class ChatbotGestionComercialController extends Controller
             'motivo' => 'nullable|required_if:decision,rechazar|string|max:1000',
         ]);
 
-        abort_unless($cotizacion->responsable_id === $request->user()->id, 403, 'Solo el responsable asignado puede decidir esta cotización.');
+        abort_unless($this->esPrivilegiado($request->user()) || $cotizacion->responsable_id === $request->user()->id, 403, 'Solo el responsable asignado puede decidir esta cotización.');
         abort_unless($cotizacion->estado_aprobacion === 'pendiente', 422, 'La cotización ya fue decidida.');
 
         $aprobada = $datos['decision'] === 'aprobar';
@@ -80,7 +80,7 @@ class ChatbotGestionComercialController extends Controller
 
     public function reenviarCotizacion(Request $request, Cotizacion $cotizacion)
     {
-        abort_unless($cotizacion->responsable_id === $request->user()->id, 403, 'Solo el responsable asignado puede reenviar esta cotización.');
+        abort_unless($this->esPrivilegiado($request->user()) || $cotizacion->responsable_id === $request->user()->id, 403, 'Solo el responsable asignado puede reenviar esta cotización.');
         abort_unless($cotizacion->estado_aprobacion === 'aprobada', 422, 'Solo se pueden enviar cotizaciones aprobadas.');
         abort_if($cotizacion->enviada_cliente_at, 422, 'La cotización ya fue enviada al cliente.');
 

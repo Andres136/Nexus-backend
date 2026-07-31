@@ -165,7 +165,7 @@ class OpenAiChatService
             // Los modelos de razonamiento recientes requieren desactivarlo
             // para usar function tools mediante Chat Completions. Modelos
             // como gpt-4o-mini no reconocen este argumento.
-            if ($modelo === 'gpt-5.6-luna') {
+            if (in_array($modelo, config('services.openai.reasoning_models', []), true)) {
                 $payload['reasoning_effort'] = 'none';
             }
 

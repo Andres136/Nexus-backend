@@ -116,7 +116,7 @@ class ChatbotGestionClientesIaService
                 ['role' => 'user', 'content' => "{$identidad}\n\nDESTINATARIO:\nCliente: {$cliente->nombre}. {$contexto}\nRedacta una gestión relevante. No enumeres todo el catálogo: selecciona como máximo dos soluciones pertinentes y, si no conoces su necesidad, habla de categorías de ayuda sin asumir compras anteriores."],
             ],
         ];
-        if ($modelo === 'gpt-5.6-luna') {
+        if (in_array($modelo, config('services.openai.reasoning_models', []), true)) {
             $payload['reasoning_effort'] = 'none';
         } else {
             $payload['temperature'] = 0.5;
