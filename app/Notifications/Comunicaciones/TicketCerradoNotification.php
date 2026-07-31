@@ -8,16 +8,18 @@ use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Storage;
 
-class TicketAsignadoNotification extends Notification
+class TicketCerradoNotification extends Notification
 {
     use Queueable;
 
     private Ticket $ticket;
+    private ?string $comentarioCierre;
 
-    public function __construct(Ticket $ticket)
+    public function __construct(Ticket $ticket, ?string $comentarioCierre = null)
     {
-        $ticket->loadMissing(['producto', 'solicitante', 'departamento']);
+        $ticket->loadMissing(['producto', 'asignado', 'departamento']);
         $this->ticket = $ticket;
+        $this->comentarioCierre = $comentarioCierre;
     }
 
     public function via(object $notifiable): array
@@ -28,11 +30,11 @@ class TicketAsignadoNotification extends Notification
     public function toDatabase(object $notifiable): array
     {
         return [
-            'mensaje' => 'Te asignaron un ticket',
+            'mensaje' => 'Tu ticket fue cerrado',
             'ticket_id' => $this->ticket->id,
             'descripcion' => $this->ticket->descripcion,
             'prioridad' => $this->ticket->prioridad,
-            'solicitante' => optional($this->ticket->solicitante)->name,
+            'asignado' => optional($this->ticket->asignado)->name,
             'producto' => optional($this->ticket->producto)->name,
             'url' => $this->ticketUrl(),
         ];
@@ -46,12 +48,13 @@ class TicketAsignadoNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject("Nuevo ticket asignado - #{$this->ticket->id}")
-            ->view('emails.tickets.asignado', [
+            ->subject("Ticket finalizado - #{$this->ticket->id}")
+            ->view('emails.tickets.cerrado', [
                 'usuario' => $notifiable,
                 'ticket' => $this->ticket,
                 'url' => $this->ticketUrl(),
                 'adjuntos' => $this->adjuntos(),
+                'comentarioCierre' => $this->comentarioCierre,
             ]);
     }
 

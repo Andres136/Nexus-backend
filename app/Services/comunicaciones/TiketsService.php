@@ -6,6 +6,7 @@ use App\Models\comunicaciones\HistorialTickect;
 use App\Models\comunicaciones\Ticket;
 use App\Models\User;
 use App\Notifications\Comunicaciones\TicketAsignadoNotification;
+use App\Notifications\Comunicaciones\TicketCerradoNotification;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
@@ -356,6 +357,10 @@ class TiketsService
                 $this->createHistory($ticket, [
                     'comentario' => "Estado actualizado de {$estadoAnterior} a {$ticket->estado}.",
                 ]);
+
+                if ($ticket->estado === 'cerrado') {
+                    $this->notificarCierre($ticket, $comentario);
+                }
             }
 
             if (array_key_exists('user_asignado_id', $data) && (int) $asignadoAnterior !== (int) $ticket->user_asignado_id) {
@@ -373,7 +378,7 @@ class TiketsService
     }
 
     /**
-     * Notifica (campana in-app) al usuario recién asignado a un ticket.
+     * Notifica (campana in-app + correo) al usuario recién asignado a un ticket.
      */
     private function notificarAsignacion(Ticket $ticket): void
     {
@@ -385,6 +390,18 @@ class TiketsService
 
         if ($asignado) {
             $asignado->notify(new TicketAsignadoNotification($ticket));
+        }
+    }
+
+    /**
+     * Notifica (campana in-app + correo) al solicitante cuando su ticket se cierra.
+     */
+    private function notificarCierre(Ticket $ticket, ?string $comentario = null): void
+    {
+        $solicitante = $ticket->solicitante ?? User::find($ticket->user_solicitante_id);
+
+        if ($solicitante) {
+            $solicitante->notify(new TicketCerradoNotification($ticket, $comentario));
         }
     }
 
@@ -412,6 +429,10 @@ class TiketsService
                 $this->createHistory($ticket, [
                     'comentario' => "Estado actualizado de {$estadoAnterior} a {$ticket->estado}.",
                 ]);
+
+                if ($ticket->estado === 'cerrado') {
+                    $this->notificarCierre($ticket, $comentario);
+                }
             }
 
             return $ticket->fresh(self::RELACIONES);
@@ -452,6 +473,8 @@ class TiketsService
                 $this->createHistory($ticket, [
                     'comentario' => "Estado actualizado de {$estadoAnterior} a cerrado.",
                 ]);
+
+                $this->notificarCierre($ticket, $data['comentario'] ?? null);
             }
 
             return $historial;
