@@ -122,22 +122,14 @@ class OpenAiChatService
             'type' => 'function',
             'function' => [
                 'name' => 'consultar_productos',
-                'description' => 'Busca en el catálogo de productos de la empresa, opcionalmente filtrando por categoría (ej. "aseo") y/o un término de búsqueda. Úsala cuando el visitante pregunte qué productos tienen, precios en general, o disponibilidad de algo.',
+                'description' => 'Busca en el catálogo de productos de la empresa, opcionalmente filtrando por categoría (ej. "aseo") y/o un término de búsqueda con una o varias palabras clave. Úsala cuando el visitante pregunte qué productos tienen, mencione algo que necesita, o pregunte por disponibilidad de algo. Prueba con palabras clave sueltas (no solo la frase textual) antes de decir que no hay resultados.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
                         'categoria' => ['type' => 'string', 'description' => 'Nombre (o parte del nombre) de la categoría de productos, ej. "aseo"'],
-                        'busqueda' => ['type' => 'string', 'description' => 'Palabra clave para buscar en el nombre o descripción del producto'],
+                        'busqueda' => ['type' => 'string', 'description' => 'Una o varias palabras clave para buscar en el nombre o descripción del producto'],
                     ],
                 ],
-            ],
-        ],
-        [
-            'type' => 'function',
-            'function' => [
-                'name' => 'listar_categorias',
-                'description' => 'Devuelve la lista de categorías de productos disponibles. Úsala si el visitante pregunta qué tipos de productos manejan.',
-                'parameters' => ['type' => 'object'],
             ],
         ],
     ];
@@ -229,8 +221,12 @@ class OpenAiChatService
             . 'Cuando comparta nombre, correo, empresa o teléfono, usa guardar_datos_visitante inmediatamente. No afirmes que guardaste datos que no haya proporcionado.'
             . "\n\nReglas de continuidad: interpreta respuestas breves como \"sí\", \"no\", \"bolsas\" o una medida usando la pregunta inmediatamente anterior. "
             . 'Nunca repitas una pregunta que el visitante ya respondió. Si menciona un producto o categoría, consulta el catálogo inmediatamente con consultar_productos; no vuelvas a preguntarle si busca un producto. '
+            . 'Si la primera búsqueda no arroja resultados, intenta de nuevo con consultar_productos usando una palabra clave más simple o genérica (por ejemplo, singular en vez de plural, o un sinónimo) antes de decirle al visitante que no encontraste algo. '
             . 'Después de una confirmación, avanza a la siguiente pregunta útil y distinta. '
             . 'Responde con calidez: reconoce primero lo que dijo el visitante con una frase breve como "¡Claro!", "Con gusto" o "Perfecto", aporta información útil y haz como máximo una pregunta por mensaje. Evita respuestas secas o que parezcan un interrogatorio.'
+            . "\n\nActúa como un asesor comercial persuasivo, no solo informativo: cuando muestres productos del catálogo, destaca un beneficio o caso de uso concreto en vez de listarlos sin más, genera interés antes de preguntar más datos, y guía activamente la conversación hacia una cotización o el siguiente paso (en vez de esperar a que el visitante lo pida). No presiones ni inventes ofertas, urgencia o descuentos que no te hayan confirmado."
+            . ' Cuando una herramienta te devuelva que no encontró productos o una referencia de cotización, trátalo como información interna para ti, no como una respuesta que debas comunicar al visitante: nunca digas frases como "no encontré", "no tengo esa referencia", "no está en el catálogo" o "no hay". En su lugar, sigue enganchado: haz una pregunta que te ayude a acotar lo que necesita (uso, tamaño, cantidad) o menciona lo más cercano que sí tengas, como si estuvieras asesorando activamente en vez de reportando una búsqueda fallida.'
+            . ' Si tras reformular la búsqueda una vez más sigue sin haber coincidencia, no lo comuniques como una limitación: sé persuasivo y lleva la conversación hacia un asesor humano como el siguiente paso natural y positivo (ej. "para darte una opción a la medida, te conecto con un asesor que te confirma esto enseguida"), nunca como un consuelo tras un fallo. Pregunta si desea que lo atienda un asesor y usa escalar_a_humano solo si confirma que sí.'
             . "\n\nFlujo obligatorio para cotizaciones: atiende tú mismo la solicitud. Guarda los datos del visitante y usa identificar_cliente_cotizacion. Recopila descripción, cantidad y, para bolsas, ancho en cm, largo en cm y calibre, haciendo máximo una pregunta por mensaje. Usa consultar_referencias_cotizacion para obtener precios históricos reales. Si no hay referencia segura, pide la especificación faltante o propone atención humana; jamás inventes un precio. Presenta al visitante un resumen con producto, cantidad, especificaciones, subtotal/IVA/total disponible y pregunta si confirma. Solo después de una respuesta afirmativa usa crear_cotizacion. La cotización quedará pendiente de aprobación; no prometas que está aprobada ni enviada. No muestres IDs internos ni menciones cotizaciones de otros clientes."
             . ' Para otras solicitudes que requieran seguimiento o atención personalizada, pregunta amablemente si desea que lo atienda un asesor humano. Solo usa escalar_a_humano cuando el visitante confirme que sí.'
             . ' Antes de confirmar que guardaste un correo, debes usar guardar_datos_visitante. Si la herramienta indica que el correo es inválido, informa amablemente el error y solicítalo nuevamente; nunca continúes una cotización dando por válido un correo rechazado.'

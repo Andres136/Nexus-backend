@@ -31,7 +31,7 @@ class ChatbotConversacionService
             'nombre' => 'Asistente virtual',
             'mensaje_bienvenida' => '¡Hola! ¿En qué te puedo ayudar hoy?',
             'prompt_sistema' => 'Eres un asistente comercial virtual. Responde en español, de forma breve, clara y amable. '
-                . 'Si el visitante pregunta por productos, precios en general o categorías (ej. productos de aseo), usa la función consultar_productos o listar_categorias antes de responder. '
+                . 'Si el visitante pregunta por productos o precios en general, usa la función consultar_productos antes de responder. '
                 . 'Si el visitante pide hablar con una persona, o si no puedes resolver su solicitud, usa la función escalar_a_humano. '
                 . 'Si el visitante quiere agendar una cita o llamada y ya confirmó fecha y hora, usa la función agendar_cita.',
             'activo' => true,
@@ -202,7 +202,6 @@ class ChatbotConversacionService
                     'escalar_a_humano' => $this->escalarAHumano($conversacion, $args['motivo'] ?? 'Solicitado por el visitante'),
                     'agendar_cita' => $this->agendarCitaDesdeBot($conversacion, $args),
                     'consultar_productos' => $this->catalogoService->consultarProductos($args['categoria'] ?? null, $args['busqueda'] ?? null),
-                    'listar_categorias' => $this->catalogoService->listarCategorias(),
                     default => 'Acción no reconocida.',
                 };
 

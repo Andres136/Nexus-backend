@@ -887,6 +887,9 @@ Route::middleware(['auth:sanctum', 'role:1'])->group(function () {
 //**RUTA PARA INFORME DE RENDIMIENTO CON IA — SOLO ADMINISTRADOR */
 Route::middleware(['auth:sanctum', 'role:1'])->group(function () {
   Route::get('/informe-rendimiento', [InformeRendimientoController::class, 'generar']);
+  Route::post('/informe-rendimiento/preguntar', [InformeRendimientoController::class, 'preguntar'])
+      ->middleware('throttle:20,1');
+  Route::post('/informe-rendimiento/pdf', [InformeRendimientoController::class, 'exportarPdf']);
 });
 
 

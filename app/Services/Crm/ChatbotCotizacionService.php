@@ -83,19 +83,33 @@ class ChatbotCotizacionService
         $tokens = collect(preg_split('/\s+/u', Str::lower($descripcion)))
             ->filter(fn ($t) => mb_strlen($t) >= 3)->unique()->take(5)->values();
 
-        $query = CotizacionDetalles::query()
-            ->with('cotizacion:id,cliente_id,empresa_id,empresa,estado_aprobacion,created_at')
-            ->whereHas('cotizacion', fn ($q) => $q->where('estado_aprobacion', '<>', 'rechazada'))
-            ->where(function ($q) use ($tokens, $descripcion) {
-                if ($tokens->isEmpty()) return $q->where('descripcion', 'like', '%' . $descripcion . '%');
-                foreach ($tokens as $token) $q->orWhere('descripcion', 'like', "%{$token}%");
-            })
-            ->where(fn ($q) => $q->where('precio_total', '>', 0)->orWhere('valor_unitario', '>', 0))
-            ->latest('id')->limit(80)->get();
-
         $ancho = (float) ($args['ancho_cm'] ?? 0);
         $largo = (float) ($args['largo_cm'] ?? 0);
         $calibre = (float) ($args['calibre'] ?? 0);
+
+        // El texto libre del visitante (ej. "bolsas para riesgo biológico") rara
+        // vez coincide con la descripción real guardada (marca o código, ej.
+        // "ARTEDISCO 80X90 CAL1"). Si el visitante ya dio ancho/largo, esas
+        // medidas son una señal más confiable que el texto: se incluyen como
+        // alternativa en el filtro para no descartar coincidencias exactas de
+        // tamaño solo porque el texto no calza.
+        $query = CotizacionDetalles::query()
+            ->with('cotizacion:id,cliente_id,empresa_id,empresa,estado_aprobacion,created_at')
+            ->whereHas('cotizacion', fn ($q) => $q->where('estado_aprobacion', '<>', 'rechazada'))
+            ->where(function ($q) use ($tokens, $descripcion, $ancho, $largo) {
+                $q->where(function ($q2) use ($tokens, $descripcion) {
+                    if ($tokens->isEmpty()) return $q2->where('descripcion', 'like', '%' . $descripcion . '%');
+                    foreach ($tokens as $token) $q2->orWhere('descripcion', 'like', "%{$token}%");
+                });
+                if ($ancho > 0 && $largo > 0) {
+                    $q->orWhere(function ($q2) use ($ancho, $largo) {
+                        $q2->whereBetween('ancho_cm', [$ancho * 0.95, $ancho * 1.05])
+                            ->whereBetween('largo_cm', [$largo * 0.95, $largo * 1.05]);
+                    });
+                }
+            })
+            ->where(fn ($q) => $q->where('precio_total', '>', 0)->orWhere('valor_unitario', '>', 0))
+            ->latest('id')->limit(80)->get();
 
         $referencias = $query->map(function (CotizacionDetalles $detalle) use ($tokens, $ancho, $largo, $calibre) {
             $texto = Str::lower($detalle->descripcion ?? '');

@@ -2,6 +2,7 @@
 
 namespace App\Services\Reportes;
 
+use App\EstadoEnum;
 use App\Models\Compras\RequerimientoCompra;
 use App\Models\contabilidad\FacturaCompra;
 use App\Models\contabilidad\FacturaPago;
@@ -10,6 +11,7 @@ use App\Models\Crm\MetaMensual;
 use App\Models\Crm\MovimientoStock;
 use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\OrdenCompraProveedor;
+use App\Models\Crm\OrdenDeTrabajo;
 use App\Models\Traslados\Traslado_Bodega;
 use App\Services\Crm\GestionCarteraService;
 use App\Services\ProductService;
@@ -34,10 +36,87 @@ class InformeRendimientoService
                 'nombre_mes' => ucfirst(Carbon::create($anio, $mes, 1)->locale('es')->isoFormat('MMMM')),
             ],
             'ventas' => $this->datosVentas($anio, $mes),
+            'ventas_detalle' => $this->ventasPorSemanaYDia($anio, $mes),
             'cartera' => $this->datosCartera($anio, $mes),
+            'ranking_cartera' => $this->carteraService->rankingClientesCartera($anio, $mes),
             'compras' => $this->datosCompras($anio, $mes),
             'contabilidad' => $this->datosContabilidad($anio, $mes),
             'inventario' => $this->datosInventario($anio, $mes),
+            'auditoria_inventario_ot' => $this->auditoriaOrdenesSinDescuento($anio, $mes),
+        ];
+    }
+
+    private function ventasPorSemanaYDia(int $anio, int $mes): array
+    {
+        $porSemana = Orden_Compra::whereYear('created_at', $anio)
+            ->whereMonth('created_at', $mes)
+            ->selectRaw('WEEK(created_at, 1) as semana, SUM(valor_total) as total, COUNT(*) as cantidad')
+            ->groupBy(DB::raw('WEEK(created_at, 1)'))
+            ->orderBy('semana')
+            ->get();
+
+        $porDia = Orden_Compra::whereYear('created_at', $anio)
+            ->whereMonth('created_at', $mes)
+            ->selectRaw('DAY(created_at) as dia, SUM(valor_total) as total, COUNT(*) as cantidad')
+            ->groupBy(DB::raw('DAY(created_at)'))
+            ->orderBy('dia')
+            ->get();
+
+        $diasEnMes = Carbon::create($anio, $mes, 1)->daysInMonth;
+
+        return [
+            'por_semana' => $porSemana->map(fn ($r) => [
+                'semana' => (int) $r->semana,
+                'total' => (float) $r->total,
+                'cantidad_ordenes' => (int) $r->cantidad,
+            ])->values()->toArray(),
+            'por_dia' => collect(range(1, $diasEnMes))->map(function ($dia) use ($porDia) {
+                $r = $porDia->firstWhere('dia', $dia);
+                return [
+                    'dia' => $dia,
+                    'total' => $r ? (float) $r->total : 0.0,
+                    'cantidad_ordenes' => $r ? (int) $r->cantidad : 0,
+                ];
+            })->values()->toArray(),
+        ];
+    }
+
+    /**
+     * OT en Completado/Entrega Parcial ya tuvieron entregas registradas (ver
+     * OrdenTrabajoService::actualizarEstados), por lo que deberían tener un
+     * MovimientoStock tipo=descuento no anulado. Una OT Pendiente sin
+     * entregas es normal que no lo tenga, por eso no se incluye aquí.
+     */
+    private function auditoriaOrdenesSinDescuento(int $anio, int $mes): array
+    {
+        $base = OrdenDeTrabajo::query()
+            ->whereIn('estado_id', [EstadoEnum::COMPLETADO->value, EstadoEnum::ENTREGA_PARCIAL->value])
+            ->whereHas('entregas', fn ($q) => $q->whereYear('fecha_entrega', $anio)->whereMonth('fecha_entrega', $mes))
+            ->whereHas('ordenCompra', fn ($q) => $q->where('estado_id', '!=', EstadoEnum::INACTIVO->value));
+
+        $totalRevisadas = (clone $base)->count();
+
+        $sinDescuentoQuery = (clone $base)->whereDoesntHave(
+            'movimientosStock',
+            fn ($q) => $q->where('tipo', 'descuento')->where('anulado', false)
+        );
+
+        $detalle = (clone $sinDescuentoQuery)
+            ->with('cliente:id,nombre')
+            ->orderByDesc('id')
+            ->limit(50)
+            ->get(['id', 'orden_compra_id', 'cliente_id', 'estado_id', 'valor_total']);
+
+        return [
+            'total_ot_revisadas' => $totalRevisadas,
+            'total_ot_sin_descuento' => (clone $sinDescuentoQuery)->count(),
+            'detalle' => $detalle->map(fn (OrdenDeTrabajo $ot) => [
+                'orden_trabajo_id' => $ot->id,
+                'orden_compra_id' => $ot->orden_compra_id,
+                'cliente' => $ot->cliente?->nombre,
+                'estado' => EstadoEnum::from($ot->estado_id)->nombre(),
+                'valor_total' => (float) $ot->valor_total,
+            ])->values()->toArray(),
         ];
     }
 
@@ -165,13 +244,43 @@ class InformeRendimientoService
 
     public function generarInformeTexto(array $datos): string
     {
+        return $this->llamarOpenAi([
+            ['role' => 'system', 'content' => $this->promptSistema()],
+            ['role' => 'user', 'content' => json_encode($datos, JSON_UNESCAPED_UNICODE)],
+        ]);
+    }
+
+    /**
+     * $historial: array de ['rol' => 'user'|'asistente', 'contenido' => string],
+     * mantenido por el frontend (no se persiste en BD). Las cifras siempre
+     * vienen de $datos ya recalculado por el controller, nunca del cliente.
+     */
+    public function responderPregunta(array $datos, array $historial, string $pregunta): string
+    {
+        $mensajes = [
+            ['role' => 'system', 'content' => $this->promptSistemaChat()],
+            ['role' => 'user', 'content' => "Datos agregados del período seleccionado (única fuente de verdad, en JSON):\n"
+                . json_encode($datos, JSON_UNESCAPED_UNICODE)],
+        ];
+
+        foreach ($historial as $turno) {
+            $mensajes[] = [
+                'role' => ($turno['rol'] ?? '') === 'asistente' ? 'assistant' : 'user',
+                'content' => (string) ($turno['contenido'] ?? ''),
+            ];
+        }
+
+        $mensajes[] = ['role' => 'user', 'content' => $pregunta];
+
+        return $this->llamarOpenAi($mensajes);
+    }
+
+    private function llamarOpenAi(array $mensajes): string
+    {
         $modelo = config('services.openai.model');
         $payload = [
             'model' => $modelo,
-            'messages' => [
-                ['role' => 'system', 'content' => $this->promptSistema()],
-                ['role' => 'user', 'content' => json_encode($datos, JSON_UNESCAPED_UNICODE)],
-            ],
+            'messages' => $mensajes,
         ];
 
         if (in_array($modelo, config('services.openai.reasoning_models', []), true)) {
@@ -191,7 +300,7 @@ class InformeRendimientoService
 
         $texto = trim((string) $response->json('choices.0.message.content', ''));
         if ($texto === '') {
-            throw new \RuntimeException('La IA devolvió un informe vacío.');
+            throw new \RuntimeException('La IA devolvió una respuesta vacía.');
         }
 
         return $texto;
@@ -208,5 +317,21 @@ class InformeRendimientoService
             . 'Basa el informe únicamente en las cifras del JSON recibido: nunca inventes números, nombres de '
             . 'clientes o productos que no estén ahí. Si algún dato viene en cero o null, acláralo en vez de omitirlo. '
             . 'No uses markdown de encabezados con #, usa texto plano con títulos cortos seguidos de dos puntos.';
+    }
+
+    private function promptSistemaChat(): string
+    {
+        return 'Eres un analista financiero y gerencial. Ya recibiste en el primer mensaje un JSON con los KPIs '
+            . 'agregados de ventas (incluye desglose semanal y diario), cartera (incluye ranking de clientes por '
+            . 'deuda pendiente y por pago reciente), compras, contabilidad, inventario y una auditoría de órdenes '
+            . 'de trabajo sin descuento de inventario registrado, todo correspondiente a un único período (mes/año). '
+            . 'Responde de forma breve y directa las preguntas puntuales del administrador basándote única y '
+            . 'exclusivamente en esas cifras: nunca inventes números, nombres ni fechas que no estén en el JSON. '
+            . 'Si la pregunta requiere datos de otro período distinto al que tienes, dilo explícitamente y sugiere '
+            . 'generar el informe para ese otro mes/año; no lo estimes ni lo inventes. '
+            . 'El ranking de cartera es solo informativo: en ningún caso sugieras, recomiendes ni des a entender que '
+            . 'algún cliente debería ser bloqueado o restringido; esa decisión es exclusiva del administrador humano. '
+            . 'Si te preguntan por eso, responde solo con las cifras (cuánto debe, desde cuándo, cuánto pagó) y '
+            . 'aclara que la decisión de bloqueo le corresponde a él.';
     }
 }
