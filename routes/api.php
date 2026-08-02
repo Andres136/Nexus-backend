@@ -209,6 +209,11 @@ Route::middleware('auth:sanctum')->group(function () {
       Route::post('actividades/{uuid}/corregir', [AdminProductividadController::class, 'corregir']);
     });
 
+  Route::get('documentos-internos', [CorporateDocumentController::class, 'internalIndex']);
+  Route::get('documentos-internos/{slug}/download', [CorporateDocumentController::class, 'internalDownloadFile']);
+  Route::post('documentos-internos/{slug}/download', [CorporateDocumentController::class, 'internalDownload']);
+  Route::get('documentos-internos/{slug}', [CorporateDocumentController::class, 'internalShow']);
+
   Route::get('admin/corporate-documents', [CorporateDocumentController::class, 'adminIndex']);
   Route::post('admin/corporate-documents', [CorporateDocumentController::class, 'adminStore']);
   Route::get('admin/corporate-documents/{corporateDocument}', [CorporateDocumentController::class, 'adminShow']);

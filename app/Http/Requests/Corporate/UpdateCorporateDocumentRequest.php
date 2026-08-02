@@ -18,6 +18,7 @@ class UpdateCorporateDocumentRequest extends FormRequest
             'features' => $this->decodeList('features'),
             'benefits' => $this->decodeList('benefits'),
             'is_active' => filter_var($this->input('is_active', true), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true,
+            'is_public' => filter_var($this->input('is_public', true), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true,
         ]);
     }
 
@@ -43,6 +44,7 @@ class UpdateCorporateDocumentRequest extends FormRequest
             'theme' => 'required|string|max:60',
             'sort_order' => 'nullable|integer|min:0',
             'is_active' => 'boolean',
+            'is_public' => 'boolean',
             'file' => 'nullable|file|mimes:pdf|max:30720',
             'features' => 'nullable|array',
             'features.*' => 'nullable|string|max:255',

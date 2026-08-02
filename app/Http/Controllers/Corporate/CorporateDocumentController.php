@@ -41,6 +41,33 @@ class CorporateDocumentController extends Controller
         return $this->service->downloadFile($slug, $request);
     }
 
+    public function internalIndex()
+    {
+        return response()->json([
+            'data' => $this->service->internalList(),
+        ]);
+    }
+
+    public function internalShow(string $slug)
+    {
+        return response()->json([
+            'data' => $this->service->internalShow($slug),
+        ]);
+    }
+
+    public function internalDownload(string $slug, Request $request)
+    {
+        return response()->json([
+            'message' => 'Descarga registrada',
+            'data' => $this->service->registerDownload($slug, $request, isPublic: false),
+        ]);
+    }
+
+    public function internalDownloadFile(string $slug, Request $request)
+    {
+        return $this->service->downloadFile($slug, $request, isPublic: false);
+    }
+
     public function adminIndex(Request $request)
     {
         return response()->json([

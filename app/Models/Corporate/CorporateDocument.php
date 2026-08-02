@@ -22,11 +22,13 @@ class CorporateDocument extends Model
         'file_path',
         'downloads_count',
         'is_active',
+        'is_public',
         'sort_order',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'is_public' => 'boolean',
         'last_update' => 'date:Y-m-d',
         'downloads_count' => 'integer',
         'pages' => 'integer',
