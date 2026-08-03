@@ -358,6 +358,11 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
                     ),
                     'completa' => $origen->cantidad_recibida_aplicada >= ($origen->cantidad_prioridad ?: $origen->cantidad_solicitada),
                     'snapshot' => $origen->prioridad_snapshot,
+                    // A qué OC proveedor específica quedó esta prioridad — necesario
+                    // para verificar cuál OC recibió cuánto cuando el mismo producto
+                    // se anexó a varias OC proveedor distintas.
+                    'oc_proveedor_numero' => $origen->detalleProveedor?->orden?->numero_orden,
+                    'oc_proveedor_id' => $origen->detalleProveedor?->orden?->id,
                 ])->values();
                 $ordenesProveedor = $origenesProducto
                     ->map(fn($origen) => $origen->detalleProveedor)

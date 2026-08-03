@@ -583,6 +583,104 @@ public function entregasShow($id)
         return response()->json(['message' => 'Detalle creado correctamente.']);
     }
 
+    // Buscador liviano de OC proveedor abiertas (con al menos un detalle sin
+    // entregar por completo) para anexar un item desde el Dashboard Operativo,
+    // sin importar si esa OC ya tenía o no el producto.
+    public function buscarAbiertas(Request $request)
+    {
+        $search = $request->input('search');
+
+        $ordenes = OrdenCompraProveedor::with('proveedor:id,nombre')
+            ->whereHas('detalles', function ($q) {
+                $q->whereColumn('cantidad_entregada', '<', 'cantidad_solicitada');
+            })
+            ->when($search, function ($q) use ($search) {
+                $q->where(function ($qq) use ($search) {
+                    $qq->where('numero_orden', 'LIKE', "%{$search}%")
+                        ->orWhereHas('proveedor', fn ($p) => $p->where('nombre', 'LIKE', "%{$search}%"));
+                });
+            })
+            ->orderByDesc('id')
+            ->limit(20)
+            ->get();
+
+        return response()->json([
+            'ordenes' => $ordenes->map(fn ($o) => [
+                'id' => $o->id,
+                'numero_orden' => $o->numero_orden,
+                'proveedor_nombre' => $o->proveedor?->nombre,
+                'fecha_entrega' => optional($o->fecha_entrega)->format('Y-m-d'),
+            ]),
+        ]);
+    }
+
+    // Anexa un producto a una OC proveedor ya existente (elegida libremente,
+    // no solo las ya vinculadas a este producto). Si esa OC ya tiene una línea
+    // para el mismo producto, suma la cantidad ahí en vez de crear otra línea
+    // duplicada; si no, crea la línea nueva. También registra/actualiza el
+    // origen (trazabilidad hacia la OT del cliente) sumando sobre lo existente.
+    public function anexarItemProducto(Request $request, $id)
+    {
+        $data = $request->validate([
+            'producto_id' => 'required|exists:products,id',
+            'descripcion' => 'required|string|max:255',
+            'code' => 'nullable|string|max:100',
+            'cantidad' => 'required|numeric|min:0.01',
+            'origen' => 'nullable|array',
+            'origen.orden_compra_id' => 'required_with:origen|exists:orden__compras,id',
+            'origen.orden_compra_detalle_id' => 'required_with:origen|exists:orden__compra__detalles,id',
+            'origen.sede_id' => 'nullable|exists:sedes,id',
+            'origen.bodega_id' => 'nullable|exists:bodegas,id',
+            'origen.prioridad_snapshot' => 'nullable|array',
+        ]);
+
+        return DB::transaction(function () use ($data, $id) {
+            $orden = OrdenCompraProveedor::with('detalles')->lockForUpdate()->findOrFail($id);
+
+            $detalle = $orden->detalles()->where('producto_id', $data['producto_id'])->first();
+            $esNuevo = !$detalle;
+
+            if ($detalle) {
+                $detalle->increment('cantidad_solicitada', $data['cantidad']);
+            } else {
+                $nextItem = ($orden->detalles()->max('item') ?? 0) + 1;
+                $detalle = $orden->detalles()->create([
+                    'item' => $nextItem,
+                    'descripcion' => $data['descripcion'],
+                    'cantidad_solicitada' => $data['cantidad'],
+                    'cantidad_entregada' => 0,
+                    'code' => $data['code'] ?? null,
+                    'producto_id' => $data['producto_id'],
+                ]);
+            }
+
+            $origenData = $data['origen'] ?? null;
+            if ($origenData) {
+                $origen = OrdenCompraProveedorDetalleOrigen::firstOrNew([
+                    'orden_compra_proveedor_detalle_id' => $detalle->id,
+                    'orden_compra_detalle_id' => $origenData['orden_compra_detalle_id'],
+                ]);
+                $origen->orden_compra_id = $origenData['orden_compra_id'];
+                $origen->producto_id = $data['producto_id'];
+                $origen->sede_id = $origenData['sede_id'] ?? $orden->sede_id;
+                $origen->bodega_id = $origenData['bodega_id'] ?? $orden->bodega_id;
+                $origen->cantidad_recibida_aplicada = $origen->cantidad_recibida_aplicada ?? 0;
+                $origen->cantidad_solicitada = (float) ($origen->cantidad_solicitada ?? 0) + (float) $data['cantidad'];
+                $origen->cantidad_prioridad = (float) ($origen->cantidad_prioridad ?? 0) + (float) $data['cantidad'];
+                $origen->prioridad_snapshot = $origenData['prioridad_snapshot'] ?? $origen->prioridad_snapshot;
+                $origen->save();
+            }
+
+            return response()->json([
+                'message' => $esNuevo
+                    ? 'Item anexado como nueva línea en la OC proveedor.'
+                    : 'Cantidad sumada a la línea ya existente en la OC proveedor.',
+                'detalle_id' => $detalle->id,
+                'cantidad_solicitada' => $detalle->fresh()->cantidad_solicitada,
+            ], $esNuevo ? 201 : 200);
+        });
+    }
+
     public function storePrioridadDetalleExistente(Request $request)
     {
         $data = $request->validate([

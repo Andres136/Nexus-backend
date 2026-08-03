@@ -420,6 +420,8 @@ Route::post('/detalles-orden', [OrdenCompraProveedorController::class, 'storeDet
 Route::post('/detalles-orden/prioridad-existente', [OrdenCompraProveedorController::class, 'storePrioridadDetalleExistente']);
 Route::put('/detalles-orden/{id}', [EntregaProveedorController::class, 'updateDetalle']);
 Route::put('/ordenes-compra-proveedor/{id}/update-proveedor', [OrdenCompraProveedorController::class, 'updateProveedor']);
+Route::get('/ordenes-compra-proveedor-abiertas', [OrdenCompraProveedorController::class, 'buscarAbiertas']);
+Route::post('/ordenes-compra-proveedor/{id}/anexar-item', [OrdenCompraProveedorController::class, 'anexarItemProducto']);
 Route::delete('/detalles-orden/{id}', [EntregaProveedorController::class, 'eliminarItem']);
 //Entregas proveedor
 
