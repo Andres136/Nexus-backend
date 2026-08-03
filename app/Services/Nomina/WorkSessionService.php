@@ -9,6 +9,7 @@ use App\Models\Nomina\JornadaLaboral;
 use App\Models\Nomina\Permiso;
 use App\Models\Nomina\RecuperacionTiempo;
 use App\Models\Nomina\WorkSession;
+use App\RolEnum;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -45,7 +46,16 @@ class WorkSessionService
             ->orderByRaw('CASE WHEN minutos_tardanza > 0 THEN 0 ELSE 1 END')
             ->orderByDesc('minutos_tardanza')
             ->orderByDesc('registro_diario')
-            ->paginate($perPage);
+            ->paginate($perPage)
+            // No se expone si un Administrador marcó por foto de respaldo
+            // (cédula) en este listado.
+            ->through(function (WorkSession $session) {
+                if ((int) $session->empleado?->role_id === RolEnum::ADMINISTRADOR->value) {
+                    $session->foto_respaldo = null;
+                }
+
+                return $session;
+            });
     }
 
     private function aplicarFiltros(Builder $query, array $filters): Builder
@@ -245,8 +255,22 @@ class WorkSessionService
             $entradaLimite = $horaEntradaLimite
                 ? Carbon::parse($entradaReal->toDateString().' '.$horaEntradaLimite)
                 : $entradaBase->copy()->addMinutes(self::TOLERANCIA_ENTRADA_MINUTOS);
-            $tardanzaMinutos += $entradaReal->greaterThan($entradaLimite) && ! $this->tienePermisoEntradaAprobado((int) ($data['user_id'] ?? $session?->user_id), $entradaReal)
-                ? (int) $entradaLimite->diffInMinutes($entradaReal)
+
+            // Un permiso de llegada_tarde/ausencia_parcial aprobado que ya estaba
+            // vigente extiende el plazo hasta su hora_fin: si llega dentro del
+            // permiso no hay tardanza, y si llega después solo se cobra el
+            // excedente sobre esa hora_fin (no toda la tardanza desde la jornada).
+            $permisoEntrada = $this->permisoEntradaAprobado((int) ($data['user_id'] ?? $session?->user_id), $entradaReal);
+            $limiteEfectivo = $entradaLimite;
+            if ($permisoEntrada) {
+                $finPermiso = Carbon::parse($entradaReal->toDateString().' '.$permisoEntrada->hora_fin);
+                if ($finPermiso->greaterThan($limiteEfectivo)) {
+                    $limiteEfectivo = $finPermiso;
+                }
+            }
+
+            $tardanzaMinutos += $entradaReal->greaterThan($limiteEfectivo)
+                ? (int) $limiteEfectivo->diffInMinutes($entradaReal)
                 : 0;
         }
 
@@ -340,14 +364,18 @@ class WorkSessionService
         return $data;
     }
 
-    private function tienePermisoEntradaAprobado(int $userId, Carbon $entradaReal): bool
+    // Devuelve el permiso de llegada_tarde/ausencia_parcial aprobado que ya
+    // estaba vigente al momento de la entrada (hora_inicio <= entrada), sin
+    // exigir que la entrada caiga dentro de hora_fin: eso lo resuelve el
+    // llamador, que cobra tardanza solo por el excedente sobre hora_fin si
+    // llegó después de que el permiso venció. Si hay varios, se toma el de
+    // hora_fin más tardía (el más favorable).
+    private function permisoEntradaAprobado(int $userId, Carbon $entradaReal): ?Permiso
     {
         if (! $userId) {
-            return false;
+            return null;
         }
 
-        // Los permisos se solicitan con precisión de minutos, por lo que el
-        // minuto final debe quedar cubierto completo.
         $horaEntrada = $entradaReal->format('H:i:00');
 
         return Permiso::where('user_id', $userId)
@@ -355,8 +383,8 @@ class WorkSessionService
             ->where('status', 'aprobado')
             ->whereIn('tipo', ['llegada_tarde', 'ausencia_parcial'])
             ->whereTime('hora_inicio', '<=', $horaEntrada)
-            ->whereTime('hora_fin', '>=', $horaEntrada)
-            ->exists();
+            ->orderByDesc('hora_fin')
+            ->first();
     }
 
     private function tienePermisoSalidaAprobado(int $userId, Carbon $salidaReal): bool

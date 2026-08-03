@@ -23,7 +23,7 @@ class CotizacionRequest extends FormRequest
     {
         return [
             'cliente_id' => 'required|exists:clientes,id',
-            'empresa' => 'required|in:setasplast,global',
+            'empresa_id' => 'required|integer|exists:empresas,id',
             'observaciones' => 'nullable|string',
 
             'detalles' => 'required|array|min:1',
@@ -45,7 +45,8 @@ class CotizacionRequest extends FormRequest
     {
         return [
             'cliente_id.required' => 'El cliente es obligatorio.',
-            'empresa.required' => 'Debe seleccionar una empresa.',
+            'empresa_id.required' => 'Debe seleccionar una empresa.',
+            'empresa_id.exists' => 'La empresa seleccionada no existe.',
             'detalles.required' => 'Debe agregar al menos un detalle.',
             'detalles.*.cantidad.required' => 'La cantidad es obligatoria.',
             'detalles.*.cantidad.numeric' => 'La cantidad debe ser un número.',

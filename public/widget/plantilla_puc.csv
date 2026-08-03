@@ -1,0 +1,5 @@
+codigo,nombre,naturaleza,descripcion,dinamica
+1,ACTIVO,debito,Recursos controlados por la empresa,
+11,DISPONIBLE,debito,Efectivo disponible,
+1105,CAJA,debito,Registra la existencia de efectivo,
+110505,CAJA GENERAL,debito,Efectivo de caja general,Aumenta con entradas y disminuye con salidas

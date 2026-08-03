@@ -21,3 +21,11 @@ Schedule::command('app:recordar-mi-dia-sin-actividad')->everyFifteenMinutes();
 // Recuerda tickets abiertos asignados aunque ya se haya marcado como leída
 // la notificación original de asignación (cooldown interno de 20h por ticket).
 Schedule::command('app:recordar-tickets-abiertos')->twiceDaily(9, 15);
+// Cierra conversaciones del chatbot sin actividad en 24h (bot, esperando humano o asignadas).
+Schedule::command('app:cerrar-conversaciones-chatbot-inactivas')->hourly();
+// Cada lunes gestiona como máximo 10 clientes con 30 días sin seguimiento.
+Schedule::command('app:gestionar-clientes-inactivos-ia')->weeklyOn(1, '08:30')->timezone('America/Bogota')->withoutOverlapping();
+// Congela el % de gestión de cartera del mes en curso (ver KpiService::guardarSnapshotCarteraMensual).
+// Corre a diario cerca del cierre del día para que, al pasar de mes, el valor
+// guardado quede fijo con el de la última corrida de ese mes.
+Schedule::command('app:guardar-snapshot-cartera-mensual')->dailyAt('23:55');

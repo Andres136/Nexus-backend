@@ -21,6 +21,11 @@ use App\Http\Controllers\Crm\AlistamientoOtController;
 use App\Http\Controllers\Crm\BodegaController;
 use App\Http\Controllers\Crm\CarpetaController;
 use App\Http\Controllers\Crm\CategoriaController;
+use App\Http\Controllers\Crm\ChatbotCitaController;
+use App\Http\Controllers\Crm\ChatbotConfiguracionController;
+use App\Http\Controllers\Crm\ChatbotConversacionController;
+use App\Http\Controllers\Crm\ChatbotGestionComercialController;
+use App\Http\Controllers\Crm\ChatbotPublicoController;
 use App\Http\Controllers\Crm\ClienteController;
 use App\Http\Controllers\Crm\EncuestaController;
 use App\Http\Controllers\Crm\CotizacionController;
@@ -30,6 +35,7 @@ use App\Http\Controllers\Crm\DocumentosAdministrativosController;
 use App\Http\Controllers\Crm\DocumentoVehiculoController;
 use App\Http\Controllers\Crm\EmpresaController;
 use App\Http\Controllers\Crm\EntregaProveedorController;
+use App\Http\Controllers\Crm\InformeRendimientoController;
 use App\Http\Controllers\Crm\EventoController;
 use App\Http\Controllers\Crm\GestionCarteraController;
 use App\Http\Controllers\Crm\GestionCarteraHistorialController;
@@ -170,6 +176,16 @@ Route::put('nomina/kiosko-work-sessions/{uuid}', [WorkSessionController::class, 
 Route::get('nomina/kiosko-permisos', [PermisoController::class, 'kioskIndex']);
 Route::get('nomina/kiosko-horas-extras', [HoraExtraController::class, 'kioskIndex']);
 
+// Rutas públicas del widget de chatbot (sin auth, embebido en sitios externos)
+Route::prefix('chatbot')->middleware('throttle:30,1')->group(function () {
+    Route::get('config', [ChatbotPublicoController::class, 'configuracionPublica']);
+    Route::post('conversaciones', [ChatbotPublicoController::class, 'iniciar']);
+    Route::post('conversaciones/{token}/lead', [ChatbotPublicoController::class, 'capturarLead']);
+    Route::post('conversaciones/{token}/mensajes', [ChatbotPublicoController::class, 'enviarMensaje']);
+    Route::post('conversaciones/{token}/solicitar-asesor', [ChatbotPublicoController::class, 'solicitarAsesor']);
+    Route::get('conversaciones/{token}/estado', [ChatbotPublicoController::class, 'estado']);
+});
+
 Route::middleware('auth:sanctum')->group(function () {
   // RUTAS PARA MI DIA (productividad personal) — disponibles para cualquier usuario autenticado
   Route::get('mi-dia', [MiDiaController::class, 'index']);
@@ -192,6 +208,11 @@ Route::middleware('auth:sanctum')->group(function () {
       Route::get('usuarios/{id}', [AdminProductividadController::class, 'usuario'])->whereNumber('id');
       Route::post('actividades/{uuid}/corregir', [AdminProductividadController::class, 'corregir']);
     });
+
+  Route::get('documentos-internos', [CorporateDocumentController::class, 'internalIndex']);
+  Route::get('documentos-internos/{slug}/download', [CorporateDocumentController::class, 'internalDownloadFile']);
+  Route::post('documentos-internos/{slug}/download', [CorporateDocumentController::class, 'internalDownload']);
+  Route::get('documentos-internos/{slug}', [CorporateDocumentController::class, 'internalShow']);
 
   Route::get('admin/corporate-documents', [CorporateDocumentController::class, 'adminIndex']);
   Route::post('admin/corporate-documents', [CorporateDocumentController::class, 'adminStore']);
@@ -216,10 +237,42 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
   //Clientes
 
   Route::get('/clientes-registro-user', [ClienteController::class, 'clientesUsuario']);
+  Route::get('clientes/exportar-inactivos', [ClienteController::class, 'exportarInactivos'])
+      ->middleware('es_responsable_del_departamento');
+  Route::post('clientes/asignar-excel', [ClienteController::class, 'asignarExcel'])
+      ->middleware('es_responsable_del_departamento');
   Route::apiResource('clientes', ClienteController::class);
   Route::get('clientes-todos', [ClienteController::class, 'clientesTodos']);
   Route::get('clientes/{id}/cartera-resumen', [ClienteController::class, 'carteraResumen']);
-  
+
+
+  //Chatbot IA (panel admin)
+  Route::prefix('crm/chatbot')->group(function () {
+      Route::get('conversaciones', [ChatbotConversacionController::class, 'index']);
+      Route::get('conversaciones/{id}', [ChatbotConversacionController::class, 'show']);
+      Route::post('conversaciones/{id}/responder', [ChatbotConversacionController::class, 'responder']);
+      Route::post('conversaciones/{id}/asignar', [ChatbotConversacionController::class, 'asignar'])
+          ->middleware('es_responsable_del_departamento');
+      Route::post('conversaciones/{id}/asignar-ia', [ChatbotConversacionController::class, 'asignarAIa'])
+          ->middleware('es_responsable_del_departamento');
+      Route::post('conversaciones/{id}/cerrar', [ChatbotConversacionController::class, 'cerrar']);
+
+      Route::middleware('role:1')->group(function () {
+          Route::get('configuracion', [ChatbotConfiguracionController::class, 'show']);
+          Route::put('configuracion', [ChatbotConfiguracionController::class, 'update']);
+      });
+
+      Route::apiResource('citas', ChatbotCitaController::class)->except(['show']);
+
+      Route::middleware('es_responsable_del_departamento')->prefix('gestion')->group(function () {
+          Route::get('clientes/buscar', [ChatbotGestionComercialController::class, 'buscarClientes']);
+          Route::get('clientes/sin-gestion', [ChatbotGestionComercialController::class, 'clientesSinGestion']);
+          Route::post('clientes/{cliente}/correo', [ChatbotGestionComercialController::class, 'enviarCorreo']);
+          Route::get('cotizaciones', [ChatbotGestionComercialController::class, 'cotizaciones']);
+          Route::patch('cotizaciones/{cotizacion}/decision', [ChatbotGestionComercialController::class, 'decidirCotizacion']);
+          Route::post('cotizaciones/{cotizacion}/reenviar', [ChatbotGestionComercialController::class, 'reenviarCotizacion']);
+      });
+  });
 
   //ordenes de compra
   Route::apiResource('orden-compras', OrdenCompraController::class);
@@ -838,6 +891,14 @@ Route::middleware(['auth:sanctum', 'es_responsable_del_departamento'])->group(fu
 Route::middleware(['auth:sanctum', 'role:1'])->group(function () {
   Route::apiResource('empresas', EmpresaController::class);
 
+});
+
+//**RUTA PARA INFORME DE RENDIMIENTO CON IA — SOLO ADMINISTRADOR */
+Route::middleware(['auth:sanctum', 'role:1'])->group(function () {
+  Route::get('/informe-rendimiento', [InformeRendimientoController::class, 'generar']);
+  Route::post('/informe-rendimiento/preguntar', [InformeRendimientoController::class, 'preguntar'])
+      ->middleware('throttle:20,1');
+  Route::post('/informe-rendimiento/pdf', [InformeRendimientoController::class, 'exportarPdf']);
 });
 
 

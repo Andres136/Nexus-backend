@@ -538,4 +538,66 @@ public function ordenesCompraConCarteraVencida(array $filtros = [])
         'total_valor' => (float) $totalValor,
     ];
 }
+
+/**
+ * Ranking de clientes por deuda pendiente y por pago reciente, para el
+ * Informe de rendimiento. Es puramente informativo: nunca incluye ni
+ * calcula ningún criterio de "candidato a bloqueo" — esa decisión es
+ * exclusiva del administrador humano.
+ */
+public function rankingClientesCartera(int $anio, int $mes, int $topN = 10): array
+{
+    return [
+        'top_deudores' => $this->topClientesPorDeuda($topN),
+        'top_pagos_recientes' => $this->topClientesPorPagoReciente($anio, $mes, $topN),
+    ];
+}
+
+private function topClientesPorDeuda(int $topN): array
+{
+    return DB::table('gestion_cartera')
+        ->join('clientes', 'clientes.id', '=', 'gestion_cartera.cliente_id')
+        ->where('gestion_cartera.estado', 'pendiente')
+        ->where('gestion_cartera.saldo_pendiente', '>', 0)
+        ->groupBy('gestion_cartera.cliente_id', 'clientes.nombre')
+        ->selectRaw('gestion_cartera.cliente_id, clientes.nombre as cliente, '
+            . 'SUM(gestion_cartera.saldo_pendiente) as total_deuda, '
+            . 'MIN(gestion_cartera.fecha_vencimiento) as vencimiento_mas_antiguo, '
+            . 'COUNT(*) as facturas_pendientes')
+        ->orderByDesc('total_deuda')
+        ->limit($topN)
+        ->get()
+        ->map(function ($r) {
+            $vencimiento = Carbon::parse($r->vencimiento_mas_antiguo);
+            return [
+                'cliente_id' => $r->cliente_id,
+                'cliente' => $r->cliente,
+                'total_deuda' => (float) $r->total_deuda,
+                'dias_vencido_mas_antiguo' => $vencimiento->isPast() ? $vencimiento->diffInDays(now()) : 0,
+                'facturas_pendientes' => (int) $r->facturas_pendientes,
+            ];
+        })->values()->toArray();
+}
+
+private function topClientesPorPagoReciente(int $anio, int $mes, int $topN): array
+{
+    return DB::table('gestion_cartera_pivote')
+        ->join('gestion_cartera', 'gestion_cartera.id', '=', 'gestion_cartera_pivote.gestion_cartera_id')
+        ->join('clientes', 'clientes.id', '=', 'gestion_cartera.cliente_id')
+        ->whereYear('gestion_cartera_pivote.fecha_pago', $anio)
+        ->whereMonth('gestion_cartera_pivote.fecha_pago', $mes)
+        ->groupBy('gestion_cartera.cliente_id', 'clientes.nombre')
+        ->selectRaw('gestion_cartera.cliente_id, clientes.nombre as cliente, '
+            . 'SUM(gestion_cartera_pivote.valor_pago) as total_pagado, '
+            . 'MAX(gestion_cartera_pivote.fecha_pago) as ultimo_pago')
+        ->orderByDesc('total_pagado')
+        ->limit($topN)
+        ->get()
+        ->map(fn ($r) => [
+            'cliente_id' => $r->cliente_id,
+            'cliente' => $r->cliente,
+            'total_pagado_mes' => (float) $r->total_pagado,
+            'ultimo_pago' => $r->ultimo_pago,
+        ])->values()->toArray();
+}
 }

@@ -2,6 +2,7 @@
 
 namespace App\Services\Crm;
 
+use App\Models\Crm\CarteraGestionMensual;
 use App\Models\Crm\Cliente;
 use App\Models\Crm\Cotizacion;
 use App\Models\Crm\Orden_Compra;
@@ -167,6 +168,14 @@ $carteraPctGestion = $carteraVencidas > 0
     ? round(($carteraGestionadas / $carteraVencidas) * 100, 2)
     : 0;
 
+// Snapshots mensuales guardados por app:guardar-snapshot-cartera-mensual
+// (ver KpiService::guardarSnapshotCarteraMensual). Un mes ya cerrado usa
+// siempre su snapshot congelado; solo el mes en curso puede recalcularse en
+// vivo como respaldo si todavía no corrió el comando ese día.
+$carteraSnapshotsPorMes = CarteraGestionMensual::where('anio', $year)->get()->keyBy('mes');
+$mesActualReal = now()->month;
+$esAnioActual = $year === now()->year;
+
         // =========================
         // Totales anuales “CRM”
         // =========================
@@ -204,6 +213,9 @@ $carteraPctGestion = $carteraVencidas > 0
             $ventasPorUsuarioMensual,
             $carteraVencidas,
             $carteraGestionadasByMonth,
+            $carteraSnapshotsPorMes,
+            $mesActualReal,
+            $esAnioActual,
             $compradoresTotalesPorTrimestre
         ) {
             $mes = $m['month'];
@@ -257,11 +269,26 @@ $funnelCompraToFiel = $compradoresMes > 0
     ? ($clientesFielesMes / $compradoresMes) * 100
     : 0;
 
-// Cartera — denominador fijo (vencidas actuales), numerador varía por mes
-$carteraGestionadasMes = (int) ($carteraGestionadasByMonth[$mes] ?? 0);
-$carteraPctMes = $carteraVencidas > 0
-    ? round(($carteraGestionadasMes / $carteraVencidas) * 100, 2)
-    : 0;
+// Cartera — usa el snapshot congelado del mes si existe. Solo el mes en
+// curso puede caer al cálculo en vivo (respaldo si aún no corrió el
+// comando hoy); un mes ya cerrado sin snapshot simplemente queda en 0 en
+// vez de recalcularse con datos de hoy (eso es justo el bug que se corrigió).
+$snapshotMes = $carteraSnapshotsPorMes->get($mes);
+if ($snapshotMes) {
+    $carteraVencidasMes = (int) $snapshotMes->cartera_vencidas;
+    $carteraGestionadasMes = (int) $snapshotMes->cartera_gestionadas;
+    $carteraPctMes = (float) $snapshotMes->cartera_pct_gestion;
+} elseif ($esAnioActual && $mes === $mesActualReal) {
+    $carteraVencidasMes = $carteraVencidas;
+    $carteraGestionadasMes = (int) ($carteraGestionadasByMonth[$mes] ?? 0);
+    $carteraPctMes = $carteraVencidas > 0
+        ? round(($carteraGestionadasMes / $carteraVencidas) * 100, 2)
+        : 0;
+} else {
+    $carteraVencidasMes = 0;
+    $carteraGestionadasMes = 0;
+    $carteraPctMes = 0;
+}
 
             return [
                 'month' => $mes,
@@ -295,7 +322,7 @@ $carteraPctMes = $carteraVencidas > 0
                 'funnel_compra_to_fiel' => round($funnelCompraToFiel, 2),
 
                 // Cartera
-                'cartera_vencidas' => $carteraVencidas,
+                'cartera_vencidas' => $carteraVencidasMes,
                 'cartera_gestionadas' => $carteraGestionadasMes,
                 'cartera_pct_gestion' => $carteraPctMes,
             ];
@@ -354,6 +381,43 @@ $carteraPctMes = $carteraVencidas > 0
         ];
     }
 
+    /**
+     * Congela el % de gestión sobre cartera vencida del mes en curso (misma
+     * fórmula que getDashboardKpisYearly usaba en vivo para todos los meses).
+     * Pensado para correr diariamente vía Schedule: mientras el mes no
+     * termine, cada corrida actualiza su propia fila; en cuanto cambia el
+     * mes, deja de tocarla y el valor queda fijo con el de la última corrida
+     * de ese mes.
+     */
+    public function guardarSnapshotCarteraMensual(): CarteraGestionMensual
+    {
+        $hoy = now();
+
+        $carteraVencidas = (int) DB::table('gestion_cartera')
+            ->where('estado', 'pendiente')
+            ->whereDate('fecha_vencimiento', '<', $hoy)
+            ->count();
+
+        $carteraGestionadas = (int) DB::table('gestion_cartera as gc')
+            ->join('gestion_cartera_historial as gh', 'gc.id', '=', 'gh.gestion_cartera_id')
+            ->where('gc.estado', 'pendiente')
+            ->whereDate('gc.fecha_vencimiento', '<', $hoy)
+            ->distinct('gc.id')
+            ->count('gc.id');
+
+        $pct = $carteraVencidas > 0
+            ? round(($carteraGestionadas / $carteraVencidas) * 100, 2)
+            : 0;
+
+        return CarteraGestionMensual::updateOrCreate(
+            ['anio' => $hoy->year, 'mes' => $hoy->month],
+            [
+                'cartera_vencidas' => $carteraVencidas,
+                'cartera_gestionadas' => $carteraGestionadas,
+                'cartera_pct_gestion' => $pct,
+            ]
+        );
+    }
 
   public function getKpiGestionCarteraMensual($year = null)
 {

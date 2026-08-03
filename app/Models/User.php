@@ -20,6 +20,7 @@ use App\Models\Vsm\AlistamientoUsuario;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Session;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;  // ← IMPORTA ESTO
@@ -39,8 +40,9 @@ class User extends Authenticatable
         'email',
         'telefono',
         'password',
-     'departamento_id', 
-        'imagen', 
+        'departamento_id',
+        'imagen',
+        'foto_perfil',
         'role_id',  
         'estado_id'
         ,'sede_id'
@@ -48,11 +50,31 @@ class User extends Authenticatable
 
     protected $appends = [
         'nombre_completo',
+        'foto_perfil_url',
+        'es_responsable_departamento',
     ];
 
     public function getNombreCompletoAttribute(): string
     {
         return trim(collect([$this->name, $this->apellidos])->filter()->implode(' '));
+    }
+
+    public function fotoPerfilUrlCompleta(): ?string
+    {
+        if (!$this->foto_perfil) {
+            return null;
+        }
+
+        if (str_starts_with($this->foto_perfil, 'http://') || str_starts_with($this->foto_perfil, 'https://')) {
+            return $this->foto_perfil;
+        }
+
+        return Storage::disk('public')->url($this->foto_perfil);
+    }
+
+    public function getFotoPerfilUrlAttribute(): ?string
+    {
+        return $this->fotoPerfilUrlCompleta();
     }
 
     //funcion para relacionar usuarios con documentos
@@ -75,6 +97,12 @@ class User extends Authenticatable
     public function esResponsableDeSuDepartamento(): bool
     {
         return $this->departamento && $this->departamento->responsable_id === $this->id;
+    }
+
+    public function getEsResponsableDepartamentoAttribute(): bool
+    {
+        return $this->role_id === \App\RolEnum::ADMINISTRADOR->value
+            || $this->esResponsableDeSuDepartamento();
     }
 
     //funcion para relacionar usuarios con roles

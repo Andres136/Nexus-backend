@@ -50,8 +50,13 @@ class AuthController extends Controller
             // si subieron un archivo, lo almacenamos y guardamos la ruta
     $rutaImagen = null;
     if ($request->hasFile('imagen')) {
-        $rutaImagen = $request->file('imagen')
-            ->store('usuarios', 'public'); // guarda en storage/app/public/usuarios
+        $rutaImagen = $request->file('imagen')->store('usuarios', 'public');
+    }
+
+    $rutaFotoPerfil = null;
+    if ($request->hasFile('foto_perfil')) {
+        $rutaFotoPerfil = $request->file('foto_perfil')
+            ->store('usuarios/perfiles', 'public');
     }
     
     
@@ -68,6 +73,7 @@ class AuthController extends Controller
             'sede_id' => $request->sede_id ?? null,
        
             'imagen' => $rutaImagen,
+            'foto_perfil' => $rutaFotoPerfil,
        
         ]);
 
@@ -101,18 +107,36 @@ class AuthController extends Controller
     {
         // 1) Busca el usuario o falla
         $user = User::findOrFail($id);
-    
+
+        $request->validate([
+            'imagen' => 'nullable|image|mimes:jpeg,jpg,png,gif,webp|max:2048',
+            'foto_perfil' => 'nullable|image|mimes:jpeg,jpg,png,gif,webp|max:2048',
+        ], [
+            'imagen.image' => 'La imagen de uso interno debe ser una imagen válida.',
+            'imagen.mimes' => 'La imagen de uso interno debe estar en formato JPG, PNG, GIF o WEBP.',
+            'imagen.max' => 'La imagen de uso interno no puede pesar más de 2 MB.',
+            'foto_perfil.image' => 'La foto de perfil debe ser una imagen válida.',
+            'foto_perfil.mimes' => 'La foto de perfil debe estar en formato JPG, PNG, GIF o WEBP.',
+            'foto_perfil.max' => 'La foto de perfil no puede pesar más de 2 MB.',
+        ]);
 
     
         // 3) Si envían archivo nuevo, bórralo y guarda la ruta
         if ($request->hasFile('imagen')) {
-            // Borra la anterior, si existe
             if ($user->imagen) {
-                    Storage::disk('public')->delete($user->imagen);
+                Storage::disk('public')->delete($user->imagen);
+            }
+            $user->imagen = $request->file('imagen')->store('usuarios', 'public');
+        }
+
+        if ($request->hasFile('foto_perfil')) {
+            // Borra la anterior, si existe
+            if ($user->foto_perfil) {
+                    Storage::disk('public')->delete($user->foto_perfil);
             }
             // Almacena la nueva y asigna la ruta
-            $user->imagen = $request->file('imagen')
-                                ->store('usuarios','public');
+            $user->foto_perfil = $request->file('foto_perfil')
+                                ->store('usuarios/perfiles', 'public');
         }
     
         // 4) Rellena el resto de campos

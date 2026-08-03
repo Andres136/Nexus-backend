@@ -3,7 +3,6 @@
 namespace App\Notifications;
 
 use Illuminate\Notifications\Notification;
-use Illuminate\Notifications\Messages\MailMessage;
 
 class OrdenTrabajoGeneradaParaCreador extends Notification
 {
@@ -20,20 +19,7 @@ class OrdenTrabajoGeneradaParaCreador extends Notification
 
     public function via($notifiable)
     {
-        return ['mail', 'database'];
-    }
-
-    public function toMail($notifiable)
-    {
-        return (new MailMessage)
-            ->subject('✅ Orden de Trabajo Generada - OC #' . str_pad($this->ordenTrabajo->ordenCompra->id, 6, '0', STR_PAD_LEFT))
-            ->view('emails.orden-trabajo-generada-creador', [
-                'usuario' => $notifiable,
-                'ordenTrabajo' => $this->ordenTrabajo,
-                'ordenCompra' => $this->ordenTrabajo->ordenCompra,
-                'carteraInfo' => $this->carteraInfo,
-                'url' => config('app.frontend_url') . '/auth/crm/detalles-compras/' . $this->ordenTrabajo->ordenCompra->id
-            ]);
+        return ['database'];
     }
 
     public function toArray($notifiable)

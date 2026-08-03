@@ -14,9 +14,20 @@ class CorporateDocumentService
 {
     public function publicList()
     {
+        return $this->listByVisibility(true);
+    }
+
+    public function internalList()
+    {
+        return $this->listByVisibility(false);
+    }
+
+    private function listByVisibility(bool $isPublic)
+    {
         return CorporateDocument::query()
             ->with(['features', 'benefits'])
             ->where('is_active', true)
+            ->where('is_public', $isPublic)
             ->orderBy('sort_order')
             ->orderBy('title')
             ->get()
@@ -44,9 +55,20 @@ class CorporateDocumentService
 
     public function publicShow(string $slug): array
     {
+        return $this->showByVisibility($slug, true);
+    }
+
+    public function internalShow(string $slug): array
+    {
+        return $this->showByVisibility($slug, false);
+    }
+
+    private function showByVisibility(string $slug, bool $isPublic): array
+    {
         $document = CorporateDocument::with(['features', 'benefits'])
             ->where('slug', $slug)
             ->where('is_active', true)
+            ->where('is_public', $isPublic)
             ->firstOrFail();
 
         return $this->formatPublic($document);
@@ -107,10 +129,10 @@ class CorporateDocumentService
         CorporateDocument::findOrFail($id)->update(['is_active' => false]);
     }
 
-    public function registerDownload(string $slug, Request $request): array
+    public function registerDownload(string $slug, Request $request, bool $isPublic = true): array
     {
-        return DB::transaction(function () use ($slug, $request) {
-            $document = $this->registerDownloadEvent($slug, $request);
+        return DB::transaction(function () use ($slug, $request, $isPublic) {
+            $document = $this->registerDownloadEvent($slug, $request, $isPublic);
 
             return [
                 'slug' => $document->slug,
@@ -120,9 +142,9 @@ class CorporateDocumentService
         });
     }
 
-    public function downloadFile(string $slug, Request $request)
+    public function downloadFile(string $slug, Request $request, bool $isPublic = true)
     {
-        $document = DB::transaction(fn () => $this->registerDownloadEvent($slug, $request));
+        $document = DB::transaction(fn () => $this->registerDownloadEvent($slug, $request, $isPublic));
         $absolutePath = storage_path('app/public/' . $document->file_path);
 
         if (!file_exists($absolutePath)) {
@@ -146,6 +168,7 @@ class CorporateDocumentService
             'theme',
             'sort_order',
             'is_active',
+            'is_public',
         ]);
     }
 
@@ -215,7 +238,7 @@ class CorporateDocumentService
             'last_update' => optional($document->last_update)->format('Y-m-d'),
             'category' => $document->category,
             'theme' => $document->theme,
-            'download_url' => $this->downloadUrl($document->slug),
+            'download_url' => $this->downloadUrl($document->slug, $document->is_public),
             'preview_url' => $this->fileUrl($document->file_path),
             'downloads_count' => $document->downloads_count,
             'features' => $document->features->pluck('text')->values(),
@@ -229,6 +252,7 @@ class CorporateDocumentService
             ...$this->formatPublic($document),
             'id' => $document->id,
             'is_active' => $document->is_active,
+            'is_public' => $document->is_public,
             'sort_order' => $document->sort_order,
         ];
     }
@@ -238,15 +262,18 @@ class CorporateDocumentService
         return url(Storage::disk('public')->url($path));
     }
 
-    private function downloadUrl(string $slug): string
+    private function downloadUrl(string $slug, bool $isPublic): string
     {
-        return url("/api/corporate-documents/{$slug}/download");
+        $prefix = $isPublic ? 'corporate-documents' : 'documentos-internos';
+
+        return url("/api/{$prefix}/{$slug}/download");
     }
 
-    private function registerDownloadEvent(string $slug, Request $request): CorporateDocument
+    private function registerDownloadEvent(string $slug, Request $request, bool $isPublic = true): CorporateDocument
     {
         $document = CorporateDocument::where('slug', $slug)
             ->where('is_active', true)
+            ->where('is_public', $isPublic)
             ->lockForUpdate()
             ->firstOrFail();
 

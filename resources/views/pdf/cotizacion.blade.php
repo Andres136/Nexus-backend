@@ -243,12 +243,8 @@ $grandTotal = $cotizacion->detalles->sum('valor_total');
     <tr>
         {{-- Logos --}}
         <td class="va-mid" style="width:55%;">
-            @if($cotizacion->empresa === 'global')
-                <img class="logo" src="{{ public_path('images/GLOBAL.png') }}" alt="Global">
-                <img class="logo" src="{{ public_path('images/SETAS.png') }}"  alt="Setas" style="margin-left:8px;">
-            @else
-                <img class="logo" src="{{ public_path('images/SETAS.png') }}"  alt="Setas">
-                <img class="logo" src="{{ public_path('images/GLOBAL.png') }}" alt="Global" style="margin-left:8px;">
+            @if(!empty($logo) && file_exists($logo))
+                <img class="logo" src="{{ $logo }}" alt="{{ $cotizacion->empresaReal?->nombre ?? $cotizacion->empresa }}">
             @endif
             <img class="logo" src="{{ public_path('images/BIC.png') }}"     alt="BIC"     style="margin-left:8px;">
             <img class="logo" src="{{ public_path('images/FENALCO.png') }}" alt="Fenalco" style="margin-left:8px;">
@@ -260,7 +256,7 @@ $grandTotal = $cotizacion->detalles->sum('valor_total');
             <div class="doc-meta">
                 Fecha: {{ $cotizacion->updated_at->format('d/m/Y') }}
                 &nbsp;|&nbsp;
-                Empresa: {{ ucfirst($cotizacion->empresa) }}
+                Empresa: {{ $cotizacion->empresaReal?->nombre ?? $cotizacion->empresa }}
             </div>
         </td>
     </tr>
@@ -429,7 +425,7 @@ if (file_exists($path)) {
     &nbsp;·&nbsp;
     Cotización # {{ str_pad($cotizacion->id, 5, '0', '0') }}
     &nbsp;·&nbsp;
-    {{ ucfirst($cotizacion->empresa) }}
+    {{ $cotizacion->empresaReal?->nombre ?? $cotizacion->empresa }}
 </div>
 
 </body>
