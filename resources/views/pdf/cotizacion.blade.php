@@ -295,8 +295,8 @@ $grandTotal = $cotizacion->detalles->sum('valor_total');
                 <div class="field-label-light">Elaborado por</div>
                 <div class="field-value-light">{{ $cotizacion->user->name }}</div>
                 <hr style="border:none; border-top:1px solid rgba(255,255,255,0.2); margin:6px 0;">
-                
-             
+
+
                 <hr style="border:none; border-top:1px solid rgba(255,255,255,0.2); margin:6px 0;">
                 <div class="field-label-light">Fecha emisión</div>
                 <div class="field-value-light" style="font-size:9px;">
@@ -334,13 +334,13 @@ $grandTotal = $cotizacion->detalles->sum('valor_total');
                 <span class="bold">{{ mb_strtoupper($item->descripcion) }}</span>
                 @if($item->ancho_cm && $item->largo_cm)
                     <br><span style="color:#64748b; font-size:8.5px;">
-                        {{ sinCeros($item->ancho_cm) }} × {{ sinCeros($item->largo_cm) }} cm
+                        {{ sinCeros($item->ancho_cm) }} × {{ sinCeros($item->largo_cm) }}
                         @if($item->cliente_clb)
                             &nbsp;Cal. {{ sinCeros($item->cliente_clb) }}
                         @endif
                     </span>
                 @endif
-          
+
             </td>
             <td class="tc">{{ number_format($item->cantidad, 0, ',', '.') }}</td>
             <td class="money">{{ money($item->valor_unitario) }}</td>
