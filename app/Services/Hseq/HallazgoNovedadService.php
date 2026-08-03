@@ -71,7 +71,11 @@ if ($usuario) {
         // No se puede cerrar un hallazgo sin al menos un soporte de cierre
         // adjunto (la fila de SoporteTarea se crea vacía al crear el hallazgo,
         // por eso se exige que soporte_tarea no sea null, no solo que exista la fila).
-        if (strtoupper($data['estado'] ?? $hallazgo->estado) === 'CERRADA') {
+        // Solo se valida cuando la petición trae 'estado' explícitamente (se está
+        // cerrando o reafirmando el cierre) — no en updates parciales que no
+        // tocan el estado, como el reordenamiento por drag-and-drop, que de lo
+        // contrario fallaría con 422 para cualquier hallazgo ya cerrado.
+        if (isset($data['estado']) && strtoupper($data['estado']) === 'CERRADA') {
             $tieneSoporte = SoporteTarea::where('hallazgo_id', $hallazgo->id)
                 ->whereNotNull('soporte_tarea')
                 ->exists();

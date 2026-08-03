@@ -52,6 +52,7 @@ class SoporteTareaService
 
                 $soportesGuardados[] = SoporteTarea::create([
                     'soporte_tarea' => $rutaArchivo,
+                    'nombre_original' => $archivo->getClientOriginalName(),
 
                     // Solo uno de los dos
                     'tarea_id' => $tareaId,

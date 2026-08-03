@@ -11,6 +11,7 @@ class HallazgoNovedad extends Model
     protected $table = "hallazgo_novedades";
     protected $fillable = [
         'novedad_id',
+        'orden',
         'causa',
         'plan_accion',
         'responsable_id',

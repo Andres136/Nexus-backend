@@ -11,6 +11,7 @@ class SoporteTarea extends Model
 
     protected $fillable = [
         'soporte_tarea',
+        'nombre_original',
         'tarea_id',
         'hallazgo_id',
     ];
