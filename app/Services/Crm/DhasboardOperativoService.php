@@ -58,6 +58,11 @@ public function getPrioridadesActivas($filters = [])
         })
         ->where('cantidad_prioridad', '>', 0)
         ->when(!empty($filters['sede_id']), fn($q) => $q->where('sede_id', $filters['sede_id']))
+        ->when(!empty($filters['proveedor_id']), function ($q) use ($filters) {
+            $q->whereHas('detalleProveedor.orden', function ($oc) use ($filters) {
+                $oc->where('proveedor_id', $filters['proveedor_id']);
+            });
+        })
         ->when(!empty($filters['solo_pendientes']), fn($q) => $q->whereRaw('cantidad_recibida_aplicada < cantidad_prioridad'))
         ->when(!empty($filters['search']), function ($q) use ($filters) {
             $q->whereHas('producto', function ($pq) use ($filters) {

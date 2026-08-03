@@ -20,7 +20,7 @@ class DashboardOperativoController extends Controller
     }
     public function getPrioridades(Request $request)
     {
-        $filters = $request->only(['sede_id', 'solo_pendientes', 'search', 'page', 'per_page']);
+        $filters = $request->only(['sede_id', 'proveedor_id', 'solo_pendientes', 'search', 'page', 'per_page']);
         $data = $this->service->getPrioridadesActivas($filters);
         return response()->json($data);
     }
