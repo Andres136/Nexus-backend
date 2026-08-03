@@ -755,6 +755,26 @@ public function entregasShow($id)
             // Si vino id pero no matchea en esta orden → se ignora
         }
 
+        //  Eliminar detalles que el usuario quitó en el formulario.
+        // Nunca se borran los que ya tienen entregas registradas (se perdería el histórico).
+        $idsRecibidos = collect($request->detalles)
+            ->pluck('id')
+            ->filter()
+            ->all();
+
+        $orden->detalles()
+            ->when(!empty($idsRecibidos), fn ($q) => $q->whereNotIn('id', $idsRecibidos))
+            ->whereDoesntHave('entregas')
+            ->delete();
+
+        //  Reasignar el número de item de forma secuencial y sin huecos ni
+        // duplicados. No se puede confiar en el 'item' que llega del frontend
+        // porque los detalles existentes no se tocaban aquí, quedando
+        // desincronizados frente a los detalles nuevos y provocando ítems repetidos.
+        $orden->detalles()->orderBy('id')->get()->values()->each(
+            fn ($detalle, $index) => $detalle->update(['item' => $index + 1])
+        );
+
         DB::commit();
 
         return response()->json([
