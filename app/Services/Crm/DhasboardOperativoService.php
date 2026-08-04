@@ -211,13 +211,15 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
     $proveedorDetallesFallback = OrdenCompraProveedorDetalle::with(['orden.proveedor'])
         ->whereIn('producto_id', $productoIds)
         ->whereRaw('COALESCE(cantidad_entregada, 0) < cantidad_solicitada')
-        ->whereHas('orden', function ($query) use ($filters) {
+        ->whereHas('orden', function ($query) {
+            // Sin filtro de sede/bodega aquí a propósito: el filtro de sede
+            // del dashboard aplica a qué OT del cliente se listan, no a en
+            // qué sede quedó la OC proveedor que ya cubre ese producto —
+            // filtrar por ahí ocultaba compras reales hechas desde otra sede.
             $query->whereIn('estado_id', [
                 EstadoEnum::PENDIENTE->value,
                 EstadoEnum::ENTREGA_PARCIAL->value,
-            ])
-                ->when(!empty($filters['sede_id']), fn($sede) => $sede->where('sede_id', $filters['sede_id']))
-                ->when(!empty($filters['bodega_id']), fn($bodega) => $bodega->where('bodega_id', $filters['bodega_id']));
+            ]);
         })
         ->get()
         // Agrupado solo por producto: un item pendiente de compra debe
@@ -529,6 +531,6 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
 
 ->values();
 
-    
+
 }
 }
