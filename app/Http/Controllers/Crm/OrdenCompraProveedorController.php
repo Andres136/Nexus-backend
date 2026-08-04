@@ -807,6 +807,8 @@ public function entregasShow($id)
 
  
 
+        $idsAConservar = [];
+
         foreach ($request->detalles as $detalleRequest) {
 
             $tieneId = !empty($detalleRequest['id']);
@@ -815,7 +817,7 @@ public function entregasShow($id)
                 ? $orden->detalles()->with('entregas')->where('id', $detalleRequest['id'])->first()
                 : null;
 
-        
+
 
             if ($tieneId && $detalle) {
 
@@ -837,9 +839,11 @@ public function entregasShow($id)
                     ]);
                 }
 
+                $idsAConservar[] = $detalle->id;
+
             } elseif (!$tieneId) {
 
-                $orden->detalles()->create([
+                $nuevoDetalle = $orden->detalles()->create([
                     'item'                => $detalleRequest['item'] ?? 1,
                     'descripcion'         => $detalleRequest['descripcion'] ?? null,
                     'cantidad_solicitada' => $detalleRequest['cantidad_solicitada'],
@@ -849,19 +853,20 @@ public function entregasShow($id)
                     'proveedor_id'        => $detalleRequest['proveedor_id'] ?? null,
                     'proceso_bolsas_id'   => $detalleRequest['proceso_bolsas_id'] ?? null,
                 ]);
+
+                $idsAConservar[] = $nuevoDetalle->id;
             }
             // Si vino id pero no matchea en esta orden → se ignora
         }
 
         //  Eliminar detalles que el usuario quitó en el formulario.
         // Nunca se borran los que ya tienen entregas registradas (se perdería el histórico).
-        $idsRecibidos = collect($request->detalles)
-            ->pluck('id')
-            ->filter()
-            ->all();
-
+        // Importante: $idsAConservar incluye tanto los detalles existentes que
+        // vinieron en el request como los recién creados en este mismo guardado
+        // (estos últimos no tienen id todavía del lado del frontend), para no
+        // borrar en la misma transacción un ítem que se acaba de insertar.
         $orden->detalles()
-            ->when(!empty($idsRecibidos), fn ($q) => $q->whereNotIn('id', $idsRecibidos))
+            ->when(!empty($idsAConservar), fn ($q) => $q->whereNotIn('id', $idsAConservar))
             ->whereDoesntHave('entregas')
             ->delete();
 
