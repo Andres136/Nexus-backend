@@ -208,19 +208,21 @@ public function getAsignacionesByUsuario(int $userId, bool $soloActivas = true):
     }
 public function desactivarAsignacion($id, $observaciones = null)
 {
-    $asignacion = Asignaciones::with([
-        'usuario',
-        'usuarioRecibe',
-        'empresa',
-        'producto',
-        'sede'
-    ])->findOrFail($id);
+    return \Illuminate\Support\Facades\DB::transaction(function () use ($id, $observaciones) {
+        $asignacion = Asignaciones::with([
+            'usuario',
+            'usuarioRecibe',
+            'empresa',
+            'producto',
+            'sede'
+        ])->lockForUpdate()->findOrFail($id);
 
-    $asignacion->activo = 0;
-    $asignacion->fecha_devolucion = now();
-    $asignacion->observaciones = $observaciones ?? $asignacion->observaciones;
-    $asignacion->save();
+        $asignacion->activo = 0;
+        $asignacion->fecha_devolucion = now();
+        $asignacion->observaciones = $observaciones ?? $asignacion->observaciones;
+        $asignacion->save();
 
-    return $asignacion;
+        return $asignacion;
+    });
 }
 }
