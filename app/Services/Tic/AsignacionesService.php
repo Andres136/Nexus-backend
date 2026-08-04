@@ -216,12 +216,6 @@ public function desactivarAsignacion($id, $observaciones = null)
         'sede'
     ])->findOrFail($id);
 
-    // 🔥 limpiar conflictos
-    Asignaciones::where('producto_id', $asignacion->producto_id)
-        ->where('activo', 0)
-       ->update(['activo' => 2]);
-
-    // 🔥 ahora sí desactivar
     $asignacion->activo = 0;
     $asignacion->fecha_devolucion = now();
     $asignacion->observaciones = $observaciones ?? $asignacion->observaciones;
