@@ -220,7 +220,10 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
                 ->when(!empty($filters['bodega_id']), fn($bodega) => $bodega->where('bodega_id', $filters['bodega_id']));
         })
         ->get()
-        ->groupBy(fn($detalle) => $detalle->producto_id.'|'.($detalle->orden?->sede_id ?? 'null'));
+        // Agrupado solo por producto: un item pendiente de compra debe
+        // encontrarse aunque la OC proveedor se haya creado desde otra sede
+        // (compras suele centralizarse en una sede distinta a la de la OT).
+        ->groupBy('producto_id');
 
     // Inventario
     $inventario = Inventario::whereIn('producto_id', $productoIds)
@@ -277,8 +280,8 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
             $totalRecibido = $origenesCompra->sum('cantidad_recibida_aplicada');
         } else {
             $detallesProveedorEstimados = $detalles
-                ->flatMap(function ($d) use ($proveedorDetallesFallback, $oc) {
-                    return $proveedorDetallesFallback[$d->product_id.'|'.($oc->sede_id ?? 'null')] ?? collect();
+                ->flatMap(function ($d) use ($proveedorDetallesFallback) {
+                    return $proveedorDetallesFallback[$d->product_id] ?? collect();
                 })
                 ->unique('id')
                 ->values();
@@ -375,7 +378,7 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
                     ->unique('id')
                     ->values();
             } else {
-                $detallesProveedor = ($proveedorDetallesFallback[$d->product_id.'|'.($oc->sede_id ?? 'null')] ?? collect())
+                $detallesProveedor = ($proveedorDetallesFallback[$d->product_id] ?? collect())
                     ->unique('id')
                     ->values();
                 $compraSolicitada = $detallesProveedor->sum('cantidad_solicitada');
