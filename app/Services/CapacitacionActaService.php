@@ -110,6 +110,11 @@ class CapacitacionActaService
                 'elaborada_por' => $user->id,
             ])->save();
 
+            // Si ya existe acta, la capacitación se da por realizada (salvo que esté cancelada).
+            if ($capacitacion->estado !== 'cancelada' && $capacitacion->estado !== 'realizada') {
+                $capacitacion->update(['estado' => 'realizada']);
+            }
+
             return $acta->fresh(['elaborador:id,name,email', 'envios.usuario:id,name,email']);
         });
     }
