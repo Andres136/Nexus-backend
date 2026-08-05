@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Crm;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Crm\InspeccionesRequest;
+use App\Http\Requests\Crm\InspeccionUpdateRequest;
 use App\Models\Crm\Inspeccion;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class InspeccionController extends Controller
@@ -15,7 +15,11 @@ class InspeccionController extends Controller
      */
     public function index()
     {
-        //
+        $inspecciones = Inspeccion::with('vehiculo')
+            ->orderBy('fecha')
+            ->get();
+
+        return response()->json($inspecciones);
     }
 
     /**
@@ -23,26 +27,22 @@ class InspeccionController extends Controller
      */
     public function store(InspeccionesRequest $request)
     {
+        $rutaDocumento = null;
 
-            //traer el nombre original del archivo
-            $nombre = $request->file('documento')->getClientOriginalName();
-            $uniqueName = time() . $nombre;
-            //subir el archivo y almacenar su ruta
+        if ($request->hasFile('documento')) {
+            $uniqueName = time() . $request->file('documento')->getClientOriginalName();
             $rutaDocumento = $request->file('documento')->storeAs('inspecciones', $uniqueName, 'public');
-    
+        }
 
         $inspeccion = Inspeccion::create([
             'vehiculo_id' => $request->vehiculo_id,
             'fecha' => $request->fecha,
+            'fecha_realizado' => $request->fecha_realizado,
             'responsable' => $request->responsable,
             'observaciones' => $request->observaciones,
             'estado_general' => $request->estado_general,
             'documento' => $rutaDocumento,
-            
-
         ]);
-
-        $inspeccion->save();
 
         return response()->json([
             'message' => 'Inspección creada correctamente',
@@ -55,34 +55,35 @@ class InspeccionController extends Controller
      */
     public function show(string $id)
     {
-        //
+        $inspeccion = Inspeccion::with('vehiculo')->findOrFail($id);
+
+        return response()->json($inspeccion);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(InspeccionUpdateRequest $request, string $id)
     {
         $inspeccion = Inspeccion::findOrFail($id);
 
         // Verificar si se ha subido un nuevo documento
         if ($request->hasFile('documento')) {
-            // Obtener el nombre original del archivo
-            $nombre = $request->file('documento')->getClientOriginalName();
-            $uniqueName = time() . $nombre;
-            // Subir el archivo y almacenar su ruta
-            $rutaDocumento = $request->file('documento')->storeAs('inspecciones', $uniqueName, 'public');
-            $inspeccion->documento = $rutaDocumento;
+            if ($inspeccion->documento && Storage::disk('public')->exists($inspeccion->documento)) {
+                Storage::disk('public')->delete($inspeccion->documento);
+            }
+
+            $uniqueName = time() . $request->file('documento')->getClientOriginalName();
+            $inspeccion->documento = $request->file('documento')->storeAs('inspecciones', $uniqueName, 'public');
         }
 
-        // Actualizar otros campos
         $inspeccion->vehiculo_id = $request->vehiculo_id;
         $inspeccion->fecha = $request->fecha;
+        $inspeccion->fecha_realizado = $request->fecha_realizado;
         $inspeccion->responsable = $request->responsable;
         $inspeccion->observaciones = $request->observaciones;
         $inspeccion->estado_general = $request->estado_general;
 
-        // Guardar los cambios
         $inspeccion->save();
 
         return response()->json([

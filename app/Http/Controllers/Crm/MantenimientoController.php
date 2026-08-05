@@ -16,7 +16,11 @@ class MantenimientoController extends Controller
      */
     public function index()
     {
-        //
+        $mantenimientos = Mantenimiento::with('vehiculo')
+            ->orderBy('fecha_programada')
+            ->get();
+
+        return response()->json($mantenimientos);
     }
 
     /**
@@ -24,12 +28,13 @@ class MantenimientoController extends Controller
      */
     public function store(MantenimientoRequest $request)
     {
-      //obtener el nombre del archivo
-      $nombreArchivo = $request->file('archivo')->getClientOriginalName();
+        $nombreArchivo = null;
 
-      $uniqueName = time() . $nombreArchivo;
-        $nombreArchivo = $request->file('archivo')->storeAs('mantenimientos', $uniqueName, 'public');
- 
+        if ($request->hasFile('archivo')) {
+            $uniqueName = time() . $request->file('archivo')->getClientOriginalName();
+            $nombreArchivo = $request->file('archivo')->storeAs('mantenimientos', $uniqueName, 'public');
+        }
+
             $mantenimiento = Mantenimiento::create([
                 'vehiculo_id'=> $request->vehiculo_id,
                 'fecha_programada'=> $request->fecha_programada,
@@ -42,7 +47,7 @@ class MantenimientoController extends Controller
                 'archivo' => $nombreArchivo, // Guardar el nombre del archivo en la base de datos
                 'kilometraje_actual' => $request->kilometraje_actual, // Guardar el kilometraje actual
             ]);
-    
+
             return response()->json([
                 'message' => 'Mantenimiento creado exitosamente',
                 'mantenimiento' => $mantenimiento
@@ -54,7 +59,9 @@ class MantenimientoController extends Controller
      */
     public function show(string $id)
     {
-        //
+        $mantenimiento = Mantenimiento::with('vehiculo')->findOrFail($id);
+
+        return response()->json($mantenimiento);
     }
 
     /**
@@ -74,12 +81,13 @@ class MantenimientoController extends Controller
 
      // Verificar si se ha subido un nuevo archivo
         if ($request->hasFile('archivo')) {
-            // Obtener el nombre del nuevo archivo
-            $nombreArchivo = time() . '.' . $request->archivo->getClientOriginalExtension();
-            // Mover el nuevo archivo a la carpeta public/archivos
-            $request->archivo->move(public_path('archivos'), $nombreArchivo);
-            // Actualizar el campo archivo en la base de datos
-            $mantenimiento->archivo = $nombreArchivo;
+            // Eliminar el archivo anterior si existía
+            if ($mantenimiento->archivo && Storage::disk('public')->exists($mantenimiento->archivo)) {
+                Storage::disk('public')->delete($mantenimiento->archivo);
+            }
+
+            $uniqueName = time() . $request->file('archivo')->getClientOriginalName();
+            $mantenimiento->archivo = $request->file('archivo')->storeAs('mantenimientos', $uniqueName, 'public');
         }
         $mantenimiento->save();
         return response()->json([
