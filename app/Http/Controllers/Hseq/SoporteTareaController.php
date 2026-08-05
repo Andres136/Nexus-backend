@@ -81,6 +81,11 @@ class SoporteTareaController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        $soporte = $this->soporteTareaService->eliminar((int) $id);
+
+        return response()->json([
+            'message' => 'Soporte eliminado correctamente',
+            'data' => $soporte
+        ]);
     }
 }

@@ -657,9 +657,11 @@ Route::apiResource('respuestas-inspecciones', RespuestaInspeccionController::cla
 Route::get('indicador-semestral', [HallazgoNovedadController::class, 'indicadorSemestral']);
 
 Route::apiResource('hallazgo-inspecciones', HallazgoNovedadController::class);
-Route::apiResource('hseq-dashboard', HseqDashboardController::class);
 Route::get('hseq-descargar-hallazgos-pdf', [HseqDashboardController::class, 'descargarHallazgosPdf']);
 Route::get('hseq-dashboard/inspecciones/finalizadas', [HseqDashboardController::class, 'inspeccionesFinalizadas']);
+Route::get('hseq-dashboard/hallazgos', [HseqDashboardController::class, 'hallazgos']);
+Route::post('hseq-dashboard/hallazgos/{id}/cerrar', [HseqDashboardController::class, 'cerrarHallazgo']);
+Route::apiResource('hseq-dashboard', HseqDashboardController::class);
 Route::apiResource('hallazgos', HallazgoNovedadController::class);
 Route::apiResource('seguimiento-hallazgos', HallazgoSeguimientoController::class);
 Route::apiResource('soporte-tareas', SoporteTareaController::class);

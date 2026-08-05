@@ -53,7 +53,11 @@ class InspeccionHseqController extends Controller
     public function update(Request $request, string $id)
     {
         $data = $request->all();
-        $inspeccion = $this->inspeccionService->update($id, $data);
+        try {
+            $inspeccion = $this->inspeccionService->update($id, $data);
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
         return response()->json([
             'message' => 'Inspección actualizada exitosamente',
             'data' => $inspeccion
