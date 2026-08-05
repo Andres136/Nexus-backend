@@ -826,6 +826,7 @@ Route::prefix('nomina')->group(function () {
     Route::apiResource('nominas', NominaController::class)->only(['index', 'show']);
 
     Route::get('horas-extras/exportar', [HoraExtraController::class, 'exportar']);
+    Route::get('horas-extras/empleados-frecuentes', [HoraExtraController::class, 'empleadosFrecuentes']);
     Route::patch('horas-extras/aprobar-todas', [HoraExtraController::class, 'aprobarTodas']);
     Route::apiResource('horas-extras', HoraExtraController::class)->except(['update']);
     Route::patch('horas-extras/{uuid}', [HoraExtraController::class, 'update']);

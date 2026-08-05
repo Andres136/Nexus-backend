@@ -315,4 +315,23 @@ class HoraExtraService
             Log::info('Hora extra eliminada', ['uuid' => $horaExtra->uuid]);
         });
     }
+
+    /**
+     * IDs de empleados con más horas extra registradas (cualquier estado),
+     * para priorizarlos en el selector del formulario de creación en vez de
+     * dejar solo el orden alfabético.
+     */
+    public function empleadosFrecuentes(array $filters = [], int $limit = 10): array
+    {
+        return HoraExtra::query()
+            ->select('user_id')
+            ->selectRaw('COUNT(*) as total')
+            ->when(!empty($filters['sede_id']), fn ($q) => $q->where('sede_id', $filters['sede_id']))
+            ->groupBy('user_id')
+            ->orderByDesc('total')
+            ->limit($limit)
+            ->pluck('user_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
 }

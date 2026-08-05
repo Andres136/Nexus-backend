@@ -56,6 +56,20 @@ class HoraExtraController extends Controller
     }
 
     /**
+     * GET /nomina/horas-extras/empleados-frecuentes
+     * IDs de los empleados con más horas extra registradas, para priorizarlos
+     * en el selector del formulario de creación.
+     */
+    public function empleadosFrecuentes(Request $request): JsonResponse
+    {
+        $ids = $this->horaExtraService->empleadosFrecuentes([
+            'sede_id' => $request->query('sede_id'),
+        ]);
+
+        return response()->json($ids);
+    }
+
+    /**
      * PATCH /nomina/horas-extras/aprobar-todas
      * Aprueba todas las horas extras pendientes que cumplan los filtros aplicados.
      */
