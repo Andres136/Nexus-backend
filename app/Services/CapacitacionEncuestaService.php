@@ -123,6 +123,13 @@ class CapacitacionEncuestaService
             ->select('id', 'name', 'apellidos', 'email', 'sede_id')
             ->with('contratacionActivaNomina.empresa:id,nombre')
             ->where('estado_id', 3)
+            // estado_id solo refleja si la cuenta está habilitada para
+            // iniciar sesión — se apaga/enciende manualmente y es
+            // independiente de la nómina. Al liquidar un contrato
+            // (ContratacionService::cambiarEstado) solo se actualiza
+            // contrataciones.status, nunca users.estado_id, así que un
+            // empleado ya liquidado seguía apareciendo aquí como activo.
+            ->whereHas('contratacionActivaNomina')
             ->whereNotNull('email')
             ->when(!empty($filters['search']), function ($query) use ($filters) {
                 $search = trim($filters['search']);

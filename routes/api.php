@@ -657,9 +657,11 @@ Route::apiResource('respuestas-inspecciones', RespuestaInspeccionController::cla
 Route::get('indicador-semestral', [HallazgoNovedadController::class, 'indicadorSemestral']);
 
 Route::apiResource('hallazgo-inspecciones', HallazgoNovedadController::class);
-Route::apiResource('hseq-dashboard', HseqDashboardController::class);
 Route::get('hseq-descargar-hallazgos-pdf', [HseqDashboardController::class, 'descargarHallazgosPdf']);
 Route::get('hseq-dashboard/inspecciones/finalizadas', [HseqDashboardController::class, 'inspeccionesFinalizadas']);
+Route::get('hseq-dashboard/hallazgos', [HseqDashboardController::class, 'hallazgos']);
+Route::post('hseq-dashboard/hallazgos/{id}/cerrar', [HseqDashboardController::class, 'cerrarHallazgo']);
+Route::apiResource('hseq-dashboard', HseqDashboardController::class);
 Route::apiResource('hallazgos', HallazgoNovedadController::class);
 Route::apiResource('seguimiento-hallazgos', HallazgoSeguimientoController::class);
 Route::apiResource('soporte-tareas', SoporteTareaController::class);
@@ -826,6 +828,7 @@ Route::prefix('nomina')->group(function () {
     Route::apiResource('nominas', NominaController::class)->only(['index', 'show']);
 
     Route::get('horas-extras/exportar', [HoraExtraController::class, 'exportar']);
+    Route::get('horas-extras/empleados-frecuentes', [HoraExtraController::class, 'empleadosFrecuentes']);
     Route::patch('horas-extras/aprobar-todas', [HoraExtraController::class, 'aprobarTodas']);
     Route::apiResource('horas-extras', HoraExtraController::class)->except(['update']);
     Route::patch('horas-extras/{uuid}', [HoraExtraController::class, 'update']);

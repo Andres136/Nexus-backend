@@ -156,6 +156,19 @@ class ContratacionService
 
             $contratacion->update(['status' => $status ? 1 : 0]);
 
+            // Al liquidar/terminar el contrato, el usuario deja de ser
+            // empleado de la empresa: se apaga su cuenta (users.estado_id)
+            // para que no siga apareciendo como activo en ningún selector
+            // del sistema (era la causa de que ex-empleados siguieran
+            // saliendo en buscadores de usuarios en toda la app). No se hace
+            // lo inverso al reactivar un contrato, para no pisar una
+            // suspensión de cuenta hecha por otro motivo (ej. seguridad).
+            if (!$status) {
+                User::where('id', $contratacion->users_id)
+                    ->where('estado_id', EstadoEnum::ACTIVO->value)
+                    ->update(['estado_id' => EstadoEnum::INACTIVO->value]);
+            }
+
             Log::info('Estado de contratación actualizado', [
                 'uuid' => $contratacion->uuid,
                 'status' => $contratacion->status,
