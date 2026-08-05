@@ -5,6 +5,7 @@ namespace App\Services\Tic;
 use App\Models\Crm\Sede;
 use App\Models\Tic\Asignaciones;
 use App\Models\User;
+use Illuminate\Validation\ValidationException;
 
 class AsignacionesService
 {
@@ -192,6 +193,16 @@ public function getAsignacionesByUsuario(int $userId, bool $soloActivas = true):
 
     public function asignarProducto($data)
     {
+        $tieneActiva = Asignaciones::where('producto_id', $data['producto_id'])
+            ->where('activo', 1)
+            ->exists();
+
+        if ($tieneActiva) {
+            throw ValidationException::withMessages([
+                'producto_id' => 'Este equipo ya tiene una asignación activa. Desactívala antes de asignarlo de nuevo.',
+            ]);
+        }
+
         // Lógica para asignar un producto a un usuario
         $asignacion = new \App\Models\Tic\Asignaciones();
         $asignacion->id_usuario =auth()->id();
@@ -216,12 +227,6 @@ public function desactivarAsignacion($id, $observaciones = null)
         'sede'
     ])->findOrFail($id);
 
-    // 🔥 limpiar conflictos
-    Asignaciones::where('producto_id', $asignacion->producto_id)
-        ->where('activo', 0)
-       ->update(['activo' => 2]);
-
-    // 🔥 ahora sí desactivar
     $asignacion->activo = 0;
     $asignacion->fecha_devolucion = now();
     $asignacion->observaciones = $observaciones ?? $asignacion->observaciones;
