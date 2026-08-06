@@ -19,9 +19,12 @@ class MantenimientoEquiposController extends Controller
     {
         $this->mantenimientoEquiposService = $mantenimientoEquiposService;
     }
-    public function index()
+    public function index(Request $request)
     {
-        $mantenimientos = $this->mantenimientoEquiposService->obtenerMantenimientos();
+        $mantenimientos = $this->mantenimientoEquiposService->obtenerMantenimientos(
+            $request->query('mes') ? (int) $request->query('mes') : null,
+            $request->query('anio') ? (int) $request->query('anio') : null,
+        );
         return response()->json($mantenimientos);
     }
 

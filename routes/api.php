@@ -134,6 +134,7 @@ use App\Http\Controllers\SessionController;
 use App\Http\Controllers\TareaController;
 use App\Http\Controllers\Tic\AsignacionesController;
 use App\Http\Controllers\Tic\MantenimientoEquiposController;
+use App\Http\Controllers\Tic\MantenimientoActaController;
 use App\Http\Controllers\Traslados\EnvioInternoController;
 use App\Http\Controllers\Traslados\ResponsabilidadesController;
 use App\Http\Controllers\Traslados\TrasladosBodegaController;
@@ -158,6 +159,8 @@ Route::post('/r/{token}', [EncuestaController::class, 'responder']);
 Route::get('capacitacion-encuestas/publica/{token}', [CapacitacionEncuestaController::class, 'showPublica']);
 Route::get('capacitacion-actas/publica/{token}', [CapacitacionActaController::class, 'publica']);
 Route::post('capacitacion-actas/publica/{token}/firmar', [CapacitacionActaController::class, 'firmar']);
+Route::get('mantenimiento-actas/publica/{token}', [MantenimientoActaController::class, 'publica']);
+Route::post('mantenimiento-actas/publica/{token}/firmar', [MantenimientoActaController::class, 'firmar']);
 Route::get('corporate-documents', [CorporateDocumentController::class, 'index']);
 Route::get('corporate-documents/{slug}/download', [CorporateDocumentController::class, 'downloadFile']);
 Route::post('corporate-documents/{slug}/download', [CorporateDocumentController::class, 'download']);
@@ -624,6 +627,8 @@ Route::apiResource('categorias',CategoriaController::class);
 
 Route::get('obtener-mantenimientos-tic', [MantenimientoEquiposController::class, 'obtenerMantenimientos']);
 Route::put('mantenimiento-equipos-tic/{id}/actualizar-estado', [MantenimientoEquiposController::class, 'actualizarEstado']);
+Route::post('mantenimiento-equipos-tic/{mantenimiento}/acta', [MantenimientoActaController::class, 'generar']);
+Route::get('mantenimiento-equipos-tic/{mantenimiento}/acta', [MantenimientoActaController::class, 'show']);
 
 //RUTAS PARA ACTUALIZAR DEPARTAMENTOSRUTAS PARA ORDENES DE SERVICIO
 Route::apiResource('ordenes-servicio', OrdenesServicioController::class);
