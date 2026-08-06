@@ -28,9 +28,19 @@ class DeliveryEventController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $deliveryEvents = DeliveryEvent::with(self::EAGER_LOAD)->get();
+        $query = DeliveryEvent::with(self::EAGER_LOAD);
+
+        if ($request->filled('desde')) {
+            $query->whereDate('fecha_entrega', '>=', $request->input('desde'));
+        }
+
+        if ($request->filled('hasta')) {
+            $query->whereDate('fecha_entrega', '<=', $request->input('hasta'));
+        }
+
+        $deliveryEvents = $query->get();
 
         return response()->json(['data' => $deliveryEvents], 200);
     }
