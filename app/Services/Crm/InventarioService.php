@@ -633,6 +633,7 @@ public function descontarStockMasivo(array $items, $user)
                     if ($disponible >= $restante) {
                         $inv->decrement('stock', $restante);
                         $detalleOriginal[] = [
+                            'detalle_id'         => $detalleId,
                             'producto_id'        => $productoId,
                             'bodega_id'          => $bodegaId,
                             'inventario_id'      => $inv->id,
@@ -644,6 +645,7 @@ public function descontarStockMasivo(array $items, $user)
                     } else {
                         $inv->decrement('stock', $disponible);
                         $detalleOriginal[] = [
+                            'detalle_id'         => $detalleId,
                             'producto_id'        => $productoId,
                             'bodega_id'          => $bodegaId,
                             'inventario_id'      => $inv->id,
@@ -664,6 +666,7 @@ public function descontarStockMasivo(array $items, $user)
                     $productoEq = \App\Models\Crm\product::find($eqId);
 
                     $eqResp = [
+                        'detalle_id'       => $detalleId,
                         'producto_id'      => $eqId,
                         'producto_nombre'  => $productoEq?->name ?? "Producto #{$eqId}",
                         'razon'            => $razon,
@@ -920,6 +923,36 @@ else {
     $inv->increment('stock', $cantidad);
 }
 
+        }
+
+        // Mantener sincronizada la ejecución de cada línea al reversar un
+        // descuento. Los movimientos nuevos guardan detalle_id tanto para el
+        // producto original como para sus equivalentes.
+        $cantidadesPorDetalle = collect($detalle['bodegas'] ?? [])
+            ->concat(collect($detalle['equivalentes'] ?? [])->flatMap(
+                fn ($equivalente) => collect($equivalente['bodegas'] ?? [])->map(
+                    fn ($bodega) => array_merge($bodega, [
+                        'detalle_id' => $equivalente['detalle_id'] ?? null,
+                    ])
+                )
+            ))
+            ->filter(fn ($item) => ! empty($item['detalle_id']))
+            ->groupBy('detalle_id')
+            ->map(fn ($items) => $items->sum(
+                fn ($item) => (float) ($item['cantidad_descontada'] ?? 0)
+            ));
+
+        foreach ($cantidadesPorDetalle as $detalleId => $cantidad) {
+            $ordenDetalle = Orden_Compra_Detalle::lockForUpdate()->find($detalleId);
+            if (! $ordenDetalle) {
+                continue;
+            }
+
+            $ordenDetalle->cantidad_ejecutada_kg = max(
+                0,
+                (float) $ordenDetalle->cantidad_ejecutada_kg - $cantidad
+            );
+            $ordenDetalle->save();
         }
 
         // Crear movimiento reverso

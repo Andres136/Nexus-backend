@@ -30,9 +30,10 @@ class OrdenTrabajoService
     public function generarOrdenTrabajo(Orden_Compra $ordenCompra, array $data, $userId)
     {
         return DB::transaction(function () use ($ordenCompra, $data, $userId) {
-            
-           
-            
+
+            // 0. Validar los productos de cada detalle antes de tocar la BD
+            $this->validarProductos($ordenCompra, $data['detalles'] ?? []);
+
             // 1. Crear u obtener la orden de trabajo
             $ordenTrabajo = OrdenDeTrabajo::firstOrCreate(
                 ['orden_compra_id' => $ordenCompra->id],
