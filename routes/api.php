@@ -526,6 +526,8 @@ Route::apiResource('/eventos-entrega', DeliveryEventController::class);
 Route::get('/eventos-entrega-por-usuario', [DeliveryEventController::class, 'listarEntregasPorUsuario']);
 //Cambio de estado de la entrega
 Route::post('/eventos-entrega/{deliveryEvent}/change-status', [DeliveryEventController::class, 'changeStatus']);
+//Registrar lo recogido en el proveedor (no toca inventario)
+Route::post('/eventos-entrega/{deliveryEvent}/registrar-recogida', [DeliveryEventController::class, 'registrarRecogida']);
 
 Route::apiResource('procesos', ProcesoController::class);
 

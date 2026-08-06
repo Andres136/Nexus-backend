@@ -254,6 +254,7 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
         },
         'detalles.procesoBolsas',
         'detalles.proveedor',
+        'detalles.recogidas.record',
         'empresa',
         'detalles.producto',
         'sede'
@@ -296,6 +297,10 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
                 : 'Completo';
         }
 
+        // Lo que algún conductor registró como recogido en el proveedor (Rutas).
+        // Es informativo: no mueve inventario ni cuenta como recepción formal.
+        $ultimaRecogida = $detalle->recogidas->sortByDesc('created_at')->first();
+
         return [
             'id' => $detalle->id,
             'item' => $detalle->item,
@@ -305,6 +310,8 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
             //  ahora 100% consistentes
             'cantidad_entregada' => $entregadoGlobal,
             'cantidad_entregada_sede' => $entregadoSede,
+            'cantidad_recogida' => (float) $detalle->recogidas->sum('cantidad_recogida'),
+            'ultima_recogida_fecha' => optional($ultimaRecogida?->record?->fecha_real)->format('Y-m-d'),
 
             'estado_producto' => $estado,
             'updated_at' => $detalle->updated_at,
@@ -589,11 +596,13 @@ public function entregasShow($id)
     public function buscarAbiertas(Request $request)
     {
         $search = $request->input('search');
+        $proveedorId = $request->input('proveedor_id');
 
         $ordenes = OrdenCompraProveedor::with('proveedor:id,nombre')
             ->whereHas('detalles', function ($q) {
                 $q->whereColumn('cantidad_entregada', '<', 'cantidad_solicitada');
             })
+            ->when($proveedorId, fn ($q) => $q->where('proveedor_id', $proveedorId))
             ->when($search, function ($q) use ($search) {
                 $q->where(function ($qq) use ($search) {
                     $qq->where('numero_orden', 'LIKE', "%{$search}%")

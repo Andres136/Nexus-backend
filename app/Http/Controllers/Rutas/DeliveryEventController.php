@@ -3,77 +3,111 @@
 namespace App\Http\Controllers\Rutas;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Rutas\RegistrarRecogidaRequest;
 use App\Http\Requests\Rutas\StoreDeliveryEventRequest;
+use App\Http\Requests\Rutas\UpdateDeliveryEventRequest;
 use App\Mail\DeliveryStatusMail;
 use App\Models\Rutas\DeliveryEvent;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 
 class DeliveryEventController extends Controller
 {
+    private const EAGER_LOAD = [
+        'orden.ordenTrabajo.cliente',
+        'proveedor',
+        'ordenesCompraProveedor.detalles',
+        'vehiculo',
+        'lastRecord',
+        'records.detalles',
+        'records.archivos',
+        'usuario',
+    ];
+
     /**
      * Display a listing of the resource.
      */
- public function index()
-{
-    $query = DeliveryEvent::with(['orden.ordenTrabajo.cliente', 'vehiculo', 'lastRecord', 'records', 'usuario']);
+    public function index()
+    {
+        $deliveryEvents = DeliveryEvent::with(self::EAGER_LOAD)->get();
 
-
-    $deliveryEvents = $query->get();
-
-    return response()->json(['data' => $deliveryEvents], 200);
-}
+        return response()->json(['data' => $deliveryEvents], 200);
+    }
 
 
     /**
      * Store a newly created resource in storage.
      */
-public function store(StoreDeliveryEventRequest $request)
-{
-    $user = auth()->user();
+    public function store(StoreDeliveryEventRequest $request)
+    {
+        $user = auth()->user();
 
-    // Roles permitidos para crear planeación
-    $rolesPermitidos = [1, 2, 4, 7,6]; // admin, logística, coordinador
+        // Roles permitidos para crear planeación
+        $rolesPermitidos = [1, 2, 4, 7, 6]; // admin, logística, coordinador
 
-    if (!in_array($user->role_id, $rolesPermitidos)) {
+        if (!in_array($user->role_id, $rolesPermitidos)) {
+            return response()->json([
+                'message' => 'No tiene permiso para crear eventos de entrega.'
+            ], 403);
+        }
+
+        $data = $request->validated();
+        $ordenesCompraProveedorIds = $data['ordenes_compra_proveedor_ids'] ?? [];
+        unset($data['ordenes_compra_proveedor_ids']);
+
+        $deliveryEvent = DeliveryEvent::create($data);
+
+        if ($deliveryEvent->tipo === 'recogida') {
+            $deliveryEvent->ordenesCompraProveedor()->sync($ordenesCompraProveedorIds);
+        }
+
+        if ($deliveryEvent->orden) {
+            $cliente = $deliveryEvent->orden->cliente;
+
+            if ($cliente && $cliente->email) {
+                Mail::to($cliente->email)->send(new DeliveryStatusMail($deliveryEvent, $cliente));
+            }
+        }
+
         return response()->json([
-            'message' => 'No tiene permiso para crear eventos de entrega.'
-        ], 403);
+            'message' => 'Evento de entrega creado con éxito',
+            'data' => $deliveryEvent->load(self::EAGER_LOAD)
+        ], 201);
     }
-
-    // Si pasa la validación, crea el evento
-    $deliveryEvent = DeliveryEvent::create($request->validated());
-
-$cliente = $deliveryEvent->orden->cliente;
-
-if ($cliente && $cliente->email) {
-    // Aquí puedes enviar una notificación o correo al cliente si es necesario
-    Mail::to($cliente->email)->send(new DeliveryStatusMail($deliveryEvent,$cliente));
-}
-
-    return response()->json([
-        'message' => 'Evento de entrega creado con éxito',
-        'data' => $deliveryEvent
-    ], 201);
-}
 
     /**
      * Display the specified resource.
      */
     public function show(string $id)
     {
-        $deliveryEvent = DeliveryEvent::with(['orden', 'usuario', 'vehiculo', 'lastRecord', 'records'])->findOrFail($id);
+        $deliveryEvent = DeliveryEvent::with(self::EAGER_LOAD)->findOrFail($id);
         return response()->json(['data' => $deliveryEvent], 200);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(UpdateDeliveryEventRequest $request, string $id)
     {
         $deliveryEvent = DeliveryEvent::findOrFail($id);
-        $deliveryEvent->update($request->all());
-        return response()->json(['message' => 'Evento de entrega actualizado con éxito', 'data' => $deliveryEvent], 200);
+
+        $data = $request->validated();
+        $ordenesCompraProveedorIds = $data['ordenes_compra_proveedor_ids'] ?? [];
+        unset($data['ordenes_compra_proveedor_ids']);
+
+        $deliveryEvent->update($data);
+
+        if ($deliveryEvent->tipo === 'recogida') {
+            $deliveryEvent->ordenesCompraProveedor()->sync($ordenesCompraProveedorIds);
+        } else {
+            $deliveryEvent->ordenesCompraProveedor()->sync([]);
+        }
+
+        return response()->json([
+            'message' => 'Evento de entrega actualizado con éxito',
+            'data' => $deliveryEvent->load(self::EAGER_LOAD)
+        ], 200);
     }
 
     /**
@@ -87,78 +121,122 @@ if ($cliente && $cliente->email) {
     }
 
 
-public function changeStatus(Request $request, DeliveryEvent $deliveryEvent)
-{
-    $request->validate([
-        'estado' => 'required|in:pendiente,en_ruta,completado,cancelado'
-    ]);
+    public function changeStatus(Request $request, DeliveryEvent $deliveryEvent)
+    {
+        $request->validate([
+            'estado' => 'required|in:pendiente,en_ruta,completado,cancelado'
+        ]);
 
-    // 1️⃣ Estado anterior
-    $estadoAnterior = $deliveryEvent->estado;
+        // 1️⃣ Estado anterior
+        $estadoAnterior = $deliveryEvent->estado;
 
-    // 2️⃣ Evitar reprocesar el mismo estado
-    if ($estadoAnterior === $request->estado) {
+        // 2️⃣ Evitar reprocesar el mismo estado
+        if ($estadoAnterior === $request->estado) {
+            return response()->json([
+                'message' => 'El estado ya es el mismo, no se realizaron cambios.',
+                'event' => $deliveryEvent
+            ], 200);
+        }
+
+        // 3️⃣ Actualizar estado
+        $deliveryEvent->update([
+            'estado' => $request->estado
+        ]);
+
+        // 4️⃣ Enviar correo al cliente (solo aplica a entregas ligadas a una orden de cliente)
+        if ($deliveryEvent->orden) {
+            $cliente = $deliveryEvent->orden->cliente ?? null;
+
+            if ($cliente && $cliente->email) {
+                Mail::to($cliente->email)
+                    ->send(new DeliveryStatusMail($deliveryEvent, $cliente));
+            }
+        }
+
         return response()->json([
-            'message' => 'El estado ya es el mismo, no se realizaron cambios.',
+            'message' => 'Estado actualizado correctamente',
             'event' => $deliveryEvent
         ], 200);
     }
 
-    // 3️⃣ Actualizar estado
-    $deliveryEvent->update([
-        'estado' => $request->estado
-    ]);
 
-    // 4️⃣ Enviar correo al cliente
-    $cliente = $deliveryEvent->orden->cliente ?? null;
+    public function addRecord(StoreDeliveryEventRequest $request, DeliveryEvent $deliveryEvent)
+    {
+        $data = $request->validated();
+        unset($data['ordenes_compra_proveedor_ids']);
 
-    if ($cliente && $cliente->email) {
-        Mail::to($cliente->email)
-            ->send(new DeliveryStatusMail($deliveryEvent, $cliente));
+        $record = $deliveryEvent->records()->create([
+            ...$data,
+            'usuario_id' => auth()->id()
+        ]);
+
+        return response()->json([
+            'message' => 'Registro de entrega añadido',
+            'record' => $record
+        ]);
     }
 
-    return response()->json([
-        'message' => 'Estado actualizado correctamente',
-        'event' => $deliveryEvent
-    ], 200);
+    /**
+     * Registra lo que el conductor recogió físicamente en el proveedor.
+     * Es puramente informativo: NO toca `orden_compra_proveedor_detalles.cantidad_entregada`
+     * ni el inventario — esa recepción formal sigue siendo el flujo existente de bodega
+     * (EntregaProveedorController -> EntregasService).
+     */
+    public function registrarRecogida(RegistrarRecogidaRequest $request, DeliveryEvent $deliveryEvent)
+    {
+        $data = $request->validated();
+
+        $deliveryEvent = DB::transaction(function () use ($request, $data, $deliveryEvent) {
+            $record = $deliveryEvent->records()->create([
+                'fecha_real' => now()->toDateString(),
+                'hora_real' => now()->toTimeString(),
+                'resultado' => 'entregado',
+                'observaciones' => $data['observaciones'] ?? null,
+                'usuario_id' => auth()->id(),
+            ]);
+
+            foreach ($data['detalles'] as $detalle) {
+                $record->detalles()->create([
+                    'orden_compra_proveedor_detalle_id' => $detalle['orden_compra_proveedor_detalle_id'],
+                    'cantidad_recogida' => $detalle['cantidad_recogida'],
+                ]);
+            }
+
+            foreach ($request->file('archivos', []) as $archivo) {
+                $ruta = $archivo->store('recogidas-proveedor', 'public');
+
+                $record->archivos()->create([
+                    'archivo' => $ruta,
+                    'tipo' => 'evidencia',
+                ]);
+            }
+
+            $deliveryEvent->update(['estado' => 'completado']);
+
+            return $deliveryEvent;
+        });
+
+        return response()->json([
+            'message' => 'Recogida registrada correctamente',
+            'data' => $deliveryEvent->load(self::EAGER_LOAD)
+        ], 200);
+    }
+
+    //Listar  entregas por usuraio autenticado
+    public function listarEntregasPorUsuario()
+    {
+        $user = auth()->user();
+
+        $deliveryEvents = DeliveryEvent::with(self::EAGER_LOAD)
+            ->where('usuario_id', $user->id)
+            ->whereIn('estado', ['pendiente', 'en_ruta'])
+            ->orderBy('fecha_entrega', 'desc')
+            ->orderBy('hora', 'desc')
+            ->get();
+
+        return response()->json([
+            'user' => $user,
+            'data' => $deliveryEvents
+        ], 200);
+    }
 }
-
-
-public function addRecord(StoreDeliveryEventRequest $request, DeliveryEvent $deliveryEvent)
-{
-    $data = $request->validated();
-
-    $record = $deliveryEvent->records()->create([
-        ...$data,
-        'usuario_id' => auth()->id()
-    ]);
-
-    return response()->json([
-        'message' => 'Registro de entrega añadido',
-        'record' => $record
-    ]);
-}
-//Listar  entregas por usuraio autenticado
-public function listarEntregasPorUsuario()
-{
-    $user = auth()->user();
-    
-    $deliveryEvents = DeliveryEvent::with([
-        'orden.ordenTrabajo.cliente',
-        'vehiculo', 
-        'lastRecord', 
-        'records', 
-        'usuario'
-    ])
-    ->where('usuario_id', $user->id)
-    ->whereIn('estado', ['pendiente', 'en_ruta'])
-    ->orderBy('fecha_entrega', 'desc')
-    ->orderBy('hora', 'desc')
-    ->get();
-
-    return response()->json([
-        'user' => $user,
-        'data' => $deliveryEvents
-    ], 200);
-}
-}         
