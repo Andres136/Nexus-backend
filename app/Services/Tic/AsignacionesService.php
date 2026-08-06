@@ -204,11 +204,14 @@ public function desactivarAsignacion($id, $observaciones = null)
             'sede'
         ])->lockForUpdate()->findOrFail($id);
 
-    $asignacion->activo = 0;
-    $asignacion->fecha_devolucion = now();
-    $asignacion->observaciones = $observaciones ?? $asignacion->observaciones;
-    $asignacion->save();
+        $asignacion->activo = 0;
+        $asignacion->fecha_devolucion = now();
+        $asignacion->observaciones = $observaciones ?? $asignacion->observaciones;
+        $asignacion->save();
 
-    return $asignacion;
+        $this->actaService->generarAutomatico($asignacion, 'devolucion', auth()->user());
+
+        return $asignacion->fresh(['usuario', 'usuarioRecibe', 'empresa', 'producto', 'sede', 'actaDevolucion']);
+    });
 }
 }
