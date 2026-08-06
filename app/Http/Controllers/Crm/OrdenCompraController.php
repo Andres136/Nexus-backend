@@ -200,6 +200,11 @@ public function generarOrdenTrabajo(OrdenTrabajoRequest $request, $id)
             'pdf_url' => $resultado['pdf_url'],
         ], 201);
         
+    } catch (ValidationException $e) {
+        return response()->json([
+            'message' => 'Hay errores de validación en la Orden de Trabajo.',
+            'errors' => $e->errors(),
+        ], 422);
     } catch (Exception $e) {
         return response()->json([
             'message' => 'Error al generar/actualizar la Orden de Trabajo',
@@ -253,8 +258,18 @@ public function obtenerOrdenesTrabajo(Request $request)
         'user',
       
         'entregas.usuario:id,name',
-        'movimientosStock:id,orden_trabajo_id,created_at,usuario_id',
+        'movimientosStock' => fn ($query) => $query
+            ->where('anulado', false)
+            ->whereIn('tipo', ['descuento', 'descuento_masivo'])
+            ->select('id', 'orden_trabajo_id', 'created_at', 'usuario_id'),
     ])
+        ->withCount([
+            'detalles as detalles_a_descontar_count' => fn ($query) => $query
+                ->where('cantidad_requerida_kg', '>', 0),
+            'detalles as detalles_pendientes_descuento_count' => fn ($query) => $query
+                ->where('cantidad_requerida_kg', '>', 0)
+                ->whereRaw('COALESCE(cantidad_ejecutada_kg, 0) < cantidad_requerida_kg'),
+        ])
         ->whereNot('estado_id', EstadoEnum::INACTIVO->value)
         ->whereHas('ordenCompra', function ($q) {
             $q->whereNot('estado_id', EstadoEnum::INACTIVO->value);
@@ -340,6 +355,15 @@ public function obtenerOrdenesTrabajo(Request $request)
         ->paginate(10)
         
         ->appends(request()->query());
+
+    $ordenesTrabajo->getCollection()->transform(function ($orden) {
+        $orden->stock_descontado_completo =
+            $orden->movimientosStock->isNotEmpty()
+            && $orden->detalles_a_descontar_count > 0
+            && $orden->detalles_pendientes_descuento_count === 0;
+
+        return $orden;
+    });
 
 
     return response()->json($ordenesTrabajo);

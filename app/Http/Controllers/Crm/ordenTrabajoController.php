@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Crm;
 
 use App\EstadoEnum;
 use App\Http\Controllers\Controller;
+use App\Models\Crm\AlistamientoOt;
 use App\Models\Crm\OrdenDeTrabajo;
 use App\Services\Crm\GestionCarteraService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -36,7 +37,7 @@ class ordenTrabajoController extends Controller
     public function generarPDF($id)
     {
           $orden = OrdenDeTrabajo::with([
-            'ordenCompra.detalles.producto',
+            'ordenCompra.detalles.product',
             'ordenCompra.estado',
             'cliente',
             'user',
@@ -56,16 +57,21 @@ class ordenTrabajoController extends Controller
             return $d;
         });
 
+        $alistamientos = AlistamientoOt::where('orden_trabajo_id', $orden->id)
+            ->with(['producto', 'bodega.sede'])
+            ->get();
+
         $totalKg = $detalles->sum(fn($d) => (float) ($d->cantidad_requerida_kg ?? 0));
         $valorTotal = $orden->ordenCompra->valor_total ?? $detalles->sum('valor_total');
 
         $pdf = Pdf::loadView('pdf.orden_trabajo', [
             'orden' => $orden,
             'detalles' => $detalles,
+            'alistamientos' => $alistamientos,
             'totalKg' => $totalKg,
             'valorTotal' => $valorTotal,
             'observaciones' => $orden->observaciones ?? 'Sin observaciones',
-            'empresa' => $orden->empresa->nombre ?? 'N/A',
+            'empresa' => $orden->ordenCompra->empresa->nombre ?? 'N/A',
             'carteraInfo' => app(GestionCarteraService::class)->resumenCarteraCliente($orden->ordenCompra->cliente_id),
         ]);
 
