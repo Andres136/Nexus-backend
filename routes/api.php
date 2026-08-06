@@ -133,6 +133,9 @@ use App\Http\Controllers\Rutas\DeliveryEventController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\TareaController;
 use App\Http\Controllers\Tic\AsignacionesController;
+use App\Http\Controllers\Tic\AsignacionActaController;
+use App\Http\Controllers\Tic\SalidaTemporalController;
+use App\Http\Controllers\Tic\SalidaTemporalActaController;
 use App\Http\Controllers\Tic\MantenimientoEquiposController;
 use App\Http\Controllers\Tic\MantenimientoActaController;
 use App\Http\Controllers\Traslados\EnvioInternoController;
@@ -161,6 +164,10 @@ Route::get('capacitacion-actas/publica/{token}', [CapacitacionActaController::cl
 Route::post('capacitacion-actas/publica/{token}/firmar', [CapacitacionActaController::class, 'firmar']);
 Route::get('mantenimiento-actas/publica/{token}', [MantenimientoActaController::class, 'publica']);
 Route::post('mantenimiento-actas/publica/{token}/firmar', [MantenimientoActaController::class, 'firmar']);
+Route::get('asignacion-actas/publica/{token}', [AsignacionActaController::class, 'publica']);
+Route::post('asignacion-actas/publica/{token}/firmar', [AsignacionActaController::class, 'firmar']);
+Route::get('salida-temporal-actas/publica/{token}', [SalidaTemporalActaController::class, 'publica']);
+Route::post('salida-temporal-actas/publica/{token}/firmar', [SalidaTemporalActaController::class, 'firmar']);
 Route::get('corporate-documents', [CorporateDocumentController::class, 'index']);
 Route::get('corporate-documents/{slug}/download', [CorporateDocumentController::class, 'downloadFile']);
 Route::post('corporate-documents/{slug}/download', [CorporateDocumentController::class, 'download']);
@@ -609,6 +616,8 @@ Route::apiResource('novedades', NovedadController::class);
 
 //RUTAS DE ASGINACION DE EQUIPOS TIC
 Route::get('asignaciones/usuario/{userId}', [AsignacionesController::class, 'byUsuario']);
+Route::post('asignaciones/{asignacion}/salidas-temporales', [SalidaTemporalController::class, 'store']);
+Route::post('salidas-temporales/{salidaTemporal}/retorno', [SalidaTemporalController::class, 'retorno']);
 Route::apiResource('asignaciones', AsignacionesController::class);
 
 Route::get('/productos-asignar', [CrmProductController::class, 'productQuery']);
