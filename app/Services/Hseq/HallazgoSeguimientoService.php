@@ -22,4 +22,11 @@ public function crearSeguimiento($hallazgoId, $observacion)
     {
         return HallazgoSeguimento::where('hallazgo_id', $hallazgoId)->with('usuario')->get();
     }
+
+    //eliminar un seguimiento
+    public function eliminarSeguimiento($id)
+    {
+        $seguimiento = HallazgoSeguimento::findOrFail($id);
+        $seguimiento->delete();
+    }
 }

@@ -682,7 +682,10 @@ Route::get('hseq-dashboard/hallazgos', [HseqDashboardController::class, 'hallazg
 Route::post('hseq-dashboard/hallazgos/{id}/cerrar', [HseqDashboardController::class, 'cerrarHallazgo']);
 Route::apiResource('hseq-dashboard', HseqDashboardController::class);
 Route::apiResource('hallazgos', HallazgoNovedadController::class);
-Route::apiResource('seguimiento-hallazgos', HallazgoSeguimientoController::class);
+Route::apiResource('seguimiento-hallazgos', HallazgoSeguimientoController::class)->except(['destroy']);
+Route::middleware('es_responsable_del_departamento')->group(function () {
+    Route::delete('seguimiento-hallazgos/{id}', [HallazgoSeguimientoController::class, 'destroy']);
+});
 Route::apiResource('soporte-tareas', SoporteTareaController::class);
 Route::get('soporte-tarea/{tarea_id}', [SoporteTareaController::class, 'getByTareaId']);
 Route::get('soporte-tareas/hallazgo/{soporte_id}', [SoporteTareaController::class, 'getByHallazgoId']);

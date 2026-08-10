@@ -60,6 +60,9 @@ class HallazgoSeguimientoController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        $this->hallazgoSeguimientoService->eliminarSeguimiento($id);
+        return response()->json([
+            'message' => 'Seguimiento eliminado exitosamente',
+        ]);
     }
 }
