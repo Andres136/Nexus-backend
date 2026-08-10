@@ -431,6 +431,7 @@ Route::post('/detalles-orden/prioridad-existente', [OrdenCompraProveedorControll
 Route::put('/detalles-orden/{id}', [EntregaProveedorController::class, 'updateDetalle']);
 Route::put('/ordenes-compra-proveedor/{id}/update-proveedor', [OrdenCompraProveedorController::class, 'updateProveedor']);
 Route::get('/ordenes-compra-proveedor-abiertas', [OrdenCompraProveedorController::class, 'buscarAbiertas']);
+Route::get('/ordenes-compra-proveedor-abiertas/buscar-item', [OrdenCompraProveedorController::class, 'buscarItemEnAbiertas']);
 Route::post('/ordenes-compra-proveedor/{id}/anexar-item', [OrdenCompraProveedorController::class, 'anexarItemProducto']);
 Route::delete('/detalles-orden/{id}', [EntregaProveedorController::class, 'eliminarItem']);
 //Entregas proveedor
@@ -528,6 +529,8 @@ Route::get('/eventos-entrega-por-usuario', [DeliveryEventController::class, 'lis
 Route::post('/eventos-entrega/{deliveryEvent}/change-status', [DeliveryEventController::class, 'changeStatus']);
 //Registrar lo recogido en el proveedor (no toca inventario)
 Route::post('/eventos-entrega/{deliveryEvent}/registrar-recogida', [DeliveryEventController::class, 'registrarRecogida']);
+//Vincular una OC encontrada por búsqueda de item a una recogida ya creada (sin desvincular las demás)
+Route::post('/eventos-entrega/{deliveryEvent}/anexar-orden', [DeliveryEventController::class, 'anexarOrden']);
 
 Route::apiResource('procesos', ProcesoController::class);
 

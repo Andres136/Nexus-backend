@@ -18,7 +18,8 @@ class RegistrarRecogidaRequest extends FormRequest
             'detalles.*.orden_compra_proveedor_detalle_id' => 'required|exists:orden_compra_proveedor_detalles,id',
             'detalles.*.cantidad_recogida' => 'required|numeric|min:0',
             'observaciones' => 'nullable|string|max:1000',
-            'archivos.*' => 'nullable|image|max:5120',
+            'archivos' => 'required|array|min:1',
+            'archivos.*' => 'required|image|max:5120',
         ];
     }
 
@@ -31,6 +32,9 @@ class RegistrarRecogidaRequest extends FormRequest
             'detalles.*.orden_compra_proveedor_detalle_id.exists' => 'La línea especificada no existe.',
             'detalles.*.cantidad_recogida.required' => 'La cantidad recogida es obligatoria.',
             'detalles.*.cantidad_recogida.numeric' => 'La cantidad recogida debe ser un número.',
+            'archivos.required' => 'Debes adjuntar al menos una foto de evidencia.',
+            'archivos.min' => 'Debes adjuntar al menos una foto de evidencia.',
+            'archivos.*.required' => 'Debes adjuntar al menos una foto de evidencia.',
             'archivos.*.image' => 'Cada archivo debe ser una imagen.',
             'archivos.*.max' => 'Cada imagen no puede exceder 5MB.',
         ];

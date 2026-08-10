@@ -347,6 +347,41 @@ class RequerimientoCompraService
         });
     }
 
+    // Vincula una OC creada por el formulario normal de compras (no por el flujo de
+    // generación automática) a un requerimiento aprobado. Se usa cuando el usuario pasó por
+    // el formulario real de "Crear orden de compra" prellenado desde un requerimiento, en vez
+    // de generar la OC a ciegas: cierra el ciclo igual que generarOrdenCompra(), pero sin crear
+    // la OC (ya existe).
+    public function vincularOrdenCompraGenerada(string $uuid, OrdenCompraProveedor $orden, User $user): void
+    {
+        $req = RequerimientoCompra::where('uuid', $uuid)->first();
+
+        if (! $req || $req->estado !== RequerimientoCompra::ESTADO_APROBADO) {
+            return;
+        }
+
+        foreach ($req->detalles as $detalle) {
+            $cantidad = (float) ($detalle->cantidad_aprobada ?? $detalle->cantidad_solicitada);
+            if ($cantidad > 0) {
+                $detalle->update(['cantidad_comprada' => $cantidad]);
+            }
+        }
+
+        $req->forceFill([
+            'orden_compra_id' => $orden->id,
+            'generado_oc_por' => $user->id,
+            'generado_oc_at' => now(),
+        ])->save();
+
+        $this->cambiarEstado(
+            $req,
+            RequerimientoCompra::ESTADO_OC_GENERADA,
+            $user,
+            'oc_generada',
+            "Orden de compra {$orden->numero_orden} generada desde el formulario de compras."
+        );
+    }
+
     public function validarBodegaPermitida(User $user, int $bodegaId): void
     {
         $permitida = $this->bodegasDisponibles($user)->contains('id', $bodegaId);

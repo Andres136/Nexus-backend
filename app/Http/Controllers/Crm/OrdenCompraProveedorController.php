@@ -13,6 +13,7 @@ use App\Models\Crm\OrdenCompraProveedor;
 use App\Models\Crm\OrdenCompraProveedorDetalle;
 use App\Models\Crm\OrdenCompraProveedorDetalleOrigen;
 use App\Models\Crm\OrdenDetalleObservaciones;
+use App\Services\Compras\RequerimientoCompraService;
 use App\Services\Crm\OrdenCompraService;
 use Barryvdh\DomPDF\Facade\Pdf ;
 use Carbon\Carbon;
@@ -144,7 +145,7 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
     /**
      * Store a newly created resource in storage.
      */
-    public function store(OrdenCompraProveedorRequest $request)
+    public function store(OrdenCompraProveedorRequest $request, RequerimientoCompraService $requerimientoCompraService)
     {
 
         $user = auth()->user();
@@ -211,6 +212,26 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
             }
 
             DB::commit();
+
+            // Si esta OC se creó desde el formulario prellenado de un requerimiento de compra
+            // aprobado, vinculamos el requerimiento (estado -> oc_generada) sin afectar la OC
+            // ya creada si algo falla aquí.
+            if ($request->filled('requerimiento_compra_uuid')) {
+                try {
+                    $requerimientoCompraService->vincularOrdenCompraGenerada(
+                        $request->requerimiento_compra_uuid,
+                        $ordenCompra,
+                        $user
+                    );
+                } catch (\Exception $e) {
+                    Log::warning('No se pudo vincular la OC al requerimiento de compra', [
+                        'orden_id' => $ordenCompra->id,
+                        'requerimiento_compra_uuid' => $request->requerimiento_compra_uuid,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
             return $this->show($ordenCompra->id);
 
             return response()->json(['message' => 'Orden de compra creada con éxito.',
@@ -588,6 +609,42 @@ public function entregasShow($id)
         );
 
         return response()->json(['message' => 'Detalle creado correctamente.']);
+    }
+
+    // Busca en qué OC(s) abierta(s) está un item, por descripción o código.
+    // Se usa en Rutas al registrar una recogida sin OC asignada de antemano:
+    // el conductor no sabe el número de orden, pero sí qué está recogiendo.
+    public function buscarItemEnAbiertas(Request $request)
+    {
+        $item = trim((string) $request->input('item', ''));
+        $proveedorId = $request->input('proveedor_id');
+
+        if (mb_strlen($item) < 2) {
+            return response()->json(['detalles' => []]);
+        }
+
+        $detalles = OrdenCompraProveedorDetalle::with('orden:id,numero_orden,proveedor_id')
+            ->whereColumn('cantidad_entregada', '<', 'cantidad_solicitada')
+            ->when($proveedorId, fn ($q) => $q->whereHas('orden', fn ($oq) => $oq->where('proveedor_id', $proveedorId)))
+            ->where(function ($q) use ($item) {
+                $q->where('descripcion', 'LIKE', "%{$item}%")
+                    ->orWhere('code', 'LIKE', "%{$item}%");
+            })
+            ->orderByDesc('id')
+            ->limit(20)
+            ->get();
+
+        return response()->json([
+            'detalles' => $detalles->map(fn ($d) => [
+                'id' => $d->id,
+                'code' => $d->code,
+                'descripcion' => $d->descripcion,
+                'cantidad_solicitada' => $d->cantidad_solicitada,
+                'cantidad_entregada' => $d->cantidad_entregada,
+                'orden_compra_proveedor_id' => $d->orden_id,
+                'numero_orden' => $d->orden?->numero_orden,
+            ]),
+        ]);
     }
 
     // Buscador liviano de OC proveedor abiertas (con al menos un detalle sin

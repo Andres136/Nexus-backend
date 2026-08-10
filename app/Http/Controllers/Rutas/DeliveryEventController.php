@@ -20,8 +20,9 @@ class DeliveryEventController extends Controller
         'ordenesCompraProveedor.detalles',
         'vehiculo',
         'lastRecord',
-        'records.detalles',
+        'records.detalles.detalle.orden',
         'records.archivos',
+        'records.usuario',
         'usuario',
     ];
 
@@ -137,6 +138,14 @@ class DeliveryEventController extends Controller
             'estado' => 'required|in:pendiente,en_ruta,completado,cancelado'
         ]);
 
+        // Para recogidas, "completado" es automático: solo lo marca EntregasService cuando
+        // bodega registra la entrega de lo que llegó. No se puede forzar manualmente.
+        if ($deliveryEvent->tipo === 'recogida' && $request->estado === 'completado') {
+            return response()->json([
+                'message' => 'Esta recogida se marca como completada automáticamente cuando bodega registra la entrega. No se puede completar manualmente.',
+            ], 422);
+        }
+
         // 1️⃣ Estado anterior
         $estadoAnterior = $deliveryEvent->estado;
 
@@ -170,6 +179,27 @@ class DeliveryEventController extends Controller
     }
 
 
+    /**
+     * Vincula una OC a una recogida ya creada, sin desvincular las que ya tenía.
+     * Se usa cuando el conductor busca un item por nombre/código (porque la recogida se
+     * agendó sin OC conocida) y el sistema encuentra en qué OC está: esa OC queda asociada
+     * al evento para que el calendario y el listado de "mis entregas" reflejen el número
+     * de órdenes real, sin esperar a que se registre la recogida completa.
+     */
+    public function anexarOrden(Request $request, DeliveryEvent $deliveryEvent)
+    {
+        $data = $request->validate([
+            'orden_compra_proveedor_id' => 'required|exists:orden_compra_proveedores,id',
+        ]);
+
+        $deliveryEvent->ordenesCompraProveedor()->syncWithoutDetaching([$data['orden_compra_proveedor_id']]);
+
+        return response()->json([
+            'message' => 'Orden vinculada a la recogida',
+            'data' => $deliveryEvent->load(self::EAGER_LOAD),
+        ], 200);
+    }
+
     public function addRecord(StoreDeliveryEventRequest $request, DeliveryEvent $deliveryEvent)
     {
         $data = $request->validated();
@@ -191,6 +221,9 @@ class DeliveryEventController extends Controller
      * Es puramente informativo: NO toca `orden_compra_proveedor_detalles.cantidad_entregada`
      * ni el inventario — esa recepción formal sigue siendo el flujo existente de bodega
      * (EntregaProveedorController -> EntregasService).
+     * El evento queda en "en_ruta" (ya recogido, va camino a bodega); solo pasa a
+     * "completado" cuando bodega registra la entrega de lo que llegó (ver
+     * EntregasService::marcarRecogidaComoCompletada).
      */
     public function registrarRecogida(RegistrarRecogidaRequest $request, DeliveryEvent $deliveryEvent)
     {
@@ -221,7 +254,7 @@ class DeliveryEventController extends Controller
                 ]);
             }
 
-            $deliveryEvent->update(['estado' => 'completado']);
+            $deliveryEvent->update(['estado' => 'en_ruta']);
 
             return $deliveryEvent;
         });
