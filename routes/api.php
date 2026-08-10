@@ -978,6 +978,7 @@ Route::get('dashboard-entregas-hoy', [DashboardController::class, 'ordenesEntreg
 
 
 Route::get('documentos/descargar/{id}', [DocumentoController::class, 'download']);
+Route::get('documentos/preview/{id}', [DocumentoController::class, 'preview']);
 
 Route::apiResource('documentos', DocumentoController::class);
 
