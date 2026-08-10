@@ -62,6 +62,7 @@ use App\Http\Controllers\Crm\VehiculoFotoController;
 use App\Http\Controllers\DashboardOperativoController;
 use App\Http\Controllers\DepartamentoController;
 use App\Http\Controllers\DocumentoController;
+use App\Http\Controllers\DocumentoDiligenciadoController;
 use App\Http\Controllers\DocumentoMaestroController;
 use App\Http\Controllers\ErrorController;
 use App\Http\Controllers\EstadoController;
@@ -986,6 +987,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('documentos-maestros', DocumentoMaestroController::class)->only(['index', 'show']);
     Route::middleware('es_responsable_del_departamento')->group(function () {
         Route::apiResource('documentos-maestros', DocumentoMaestroController::class)->only(['store', 'update', 'destroy']);
+    });
+
+    Route::get('documentos/{documentoId}/diligenciados', [DocumentoDiligenciadoController::class, 'index']);
+    Route::get('documentos/diligenciados/{id}/descargar', [DocumentoDiligenciadoController::class, 'descargar']);
+
+    Route::middleware('es_responsable_del_departamento')->group(function () {
+        Route::post('documentos/{documentoId}/diligenciados', [DocumentoDiligenciadoController::class, 'store']);
+        Route::delete('documentos/diligenciados/{id}', [DocumentoDiligenciadoController::class, 'destroy']);
     });
 });
 
