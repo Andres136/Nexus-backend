@@ -20,7 +20,7 @@
   .title h1 { margin: 0 0 3px; font-size: 15px; }
   .meta td { border: 1px solid #cbd5e1; padding: 6px; }
   h2 { margin: 14px 0 5px; color: #174a7e; font-size: 11px; text-transform: uppercase; }
-  .text { white-space: pre-wrap; text-align: justify; }
+  .text { white-space: pre-wrap; text-align: left; }
   .grid th, .grid td { border: 1px solid #cbd5e1; padding: 6px; vertical-align: top; }
   .grid th { background: #eaf1f8; color: #174a7e; font-size: 9px; }
   .signature { max-width: 105px; max-height: 44px; display: block; margin: 0 auto 2px; }

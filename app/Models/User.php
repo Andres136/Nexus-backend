@@ -52,6 +52,9 @@ class User extends Authenticatable
         'nombre_completo',
         'foto_perfil_url',
         'es_responsable_departamento',
+        'es_administrador',
+        'puede_gestionar_calidad',
+        'puede_asignar_tareas',
     ];
 
     public function getNombreCompletoAttribute(): string
@@ -103,6 +106,29 @@ class User extends Authenticatable
     {
         return $this->role_id === \App\RolEnum::ADMINISTRADOR->value
             || $this->esResponsableDeSuDepartamento();
+    }
+
+    public function getEsAdministradorAttribute(): bool
+    {
+        return $this->role_id === \App\RolEnum::ADMINISTRADOR->value;
+    }
+
+    public function getPuedeGestionarCalidadAttribute(): bool
+    {
+        return in_array($this->role_id, [
+            \App\RolEnum::ADMINISTRADOR->value,
+            \App\RolEnum::HSEQ->value,
+        ], true);
+    }
+
+    public function getPuedeAsignarTareasAttribute(): bool
+    {
+        return in_array($this->role_id, [
+            \App\RolEnum::ADMINISTRADOR->value,
+            \App\RolEnum::HSEQ->value,
+            \App\RolEnum::ADMINISTRATIVO->value,
+            \App\RolEnum::COMPRAS->value,
+        ], true);
     }
 
     //funcion para relacionar usuarios con roles

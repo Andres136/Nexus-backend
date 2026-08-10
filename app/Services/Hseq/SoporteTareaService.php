@@ -5,6 +5,7 @@ namespace App\Services\Hseq;
 use App\Models\Hseq\SoporteTarea;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class SoporteTareaService
 {
@@ -62,6 +63,22 @@ class SoporteTareaService
 
             return $soportesGuardados;
         });
+    }
+
+    /**
+     * Eliminar un soporte (registro + archivo físico)
+     */
+    public function eliminar(int $id)
+    {
+        $soporte = SoporteTarea::findOrFail($id);
+
+        if ($soporte->soporte_tarea && Storage::disk('public')->exists($soporte->soporte_tarea)) {
+            Storage::disk('public')->delete($soporte->soporte_tarea);
+        }
+
+        $soporte->delete();
+
+        return $soporte;
     }
 
     /**

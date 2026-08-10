@@ -66,6 +66,17 @@ class OrdenCompraProveedor extends Model
         return $this->belongsTo(Sede::class, 'sede_id');
     }
 
+    // Recogidas de Rutas (DeliveryEvent tipo=recogida) agendadas para esta OC
+    public function deliveryEvents()
+    {
+        return $this->belongsToMany(
+            \App\Models\Rutas\DeliveryEvent::class,
+            'delivery_event_orden_compra_proveedor',
+            'orden_compra_proveedor_id',
+            'delivery_event_id'
+        );
+    }
+
     //Relacion con el modelo producto
 
 }

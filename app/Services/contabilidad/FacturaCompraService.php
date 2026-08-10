@@ -40,6 +40,8 @@ class FacturaCompraService
             ...$data['factura'],
             'subtotal' => $subtotal,
             'total' => 0,
+            'total_impuestos' => 0,
+            'total_gastos' => 0,
             'numero_factura' => $numeroFactura,
             'estado_id' => EstadoEnum::PENDIENTE->value,
             'user_id' => auth()->id(),

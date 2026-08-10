@@ -26,16 +26,24 @@ class MantenimientoEquiposService
     }
 
 
-    //Traer mantenimientos 
-    public function obtenerMantenimientos()
+    //Traer mantenimientos (opcionalmente filtrados por mes/año, para no cargar todo el histórico de una vez)
+    public function obtenerMantenimientos(?int $mes = null, ?int $anio = null)
     {
-      $mantenimientos = MantenimientoEquipos::with([
+      $query = MantenimientoEquipos::with([
     'producto',
     'sede',
     'empresa',
     'usuario',
     'asignacion.usuarioRecibe',
-])->get()
+    'archivos',
+    'acta',
+]);
+
+      if ($mes && $anio) {
+          $query->whereYear('fecha_programada', $anio)->whereMonth('fecha_programada', $mes);
+      }
+
+      $mantenimientos = $query->get()
      ->map(function ($m) {
     return [
         'id' => $m->id,
@@ -59,6 +67,12 @@ class MantenimientoEquiposService
             'tipo' => $m->tipo,
             'costo' => $m->costo,
             'observaciones' => $m->observaciones,
+            'fecha_ejecucion' => $m->fecha_ejecucion,
+
+            // Soporte de la ejecución: evidencias y acta firmada, para verlo directo desde el calendario
+            'archivos' => $m->archivos,
+            'asignacion' => $m->asignacion,
+            'acta' => $m->acta,
         ],
     ];
 });
@@ -78,7 +92,7 @@ private function colorEstado($estado)
 //Lstar mantenimientos  todos los mantenimientos xon filtros
 public function listarMantenimientos(array $filters = [])
 {
-    $query = MantenimientoEquipos::with(['producto', 'sede', 'empresa', 'usuario', 'asignacion.usuarioRecibe', 'archivos']);
+    $query = MantenimientoEquipos::with(['producto', 'sede', 'empresa', 'usuario', 'asignacion.usuarioRecibe', 'archivos', 'acta']);
 
     if (!empty($filters['sede_id'])) {
         $query->where('sede_id', $filters['sede_id']);

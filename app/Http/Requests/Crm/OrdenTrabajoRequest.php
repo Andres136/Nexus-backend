@@ -35,6 +35,8 @@ class OrdenTrabajoRequest extends FormRequest
     ];
 }
 
+        // 🔹 Siempre validar la cantidad enviada, exista o no OT previa
+        $rules['detalles.*.cantidad_enviada'] = ['nullable', 'numeric', 'min:0'];
 
         return $rules;
     }
@@ -50,6 +52,8 @@ class OrdenTrabajoRequest extends FormRequest
            'detalles.required' => 'Debe agregar al menos un ítem.',
 'detalles.*.product_id.' => 'Debe seleccionar un producto.',
 'detalles.*.product_id.exists' => 'El producto seleccionado no existe.',
+'detalles.*.cantidad_enviada.numeric' => 'La cantidad enviada debe ser un valor numérico.',
+'detalles.*.cantidad_enviada.min' => 'La cantidad enviada no puede ser negativa.',
 
         ];
     }

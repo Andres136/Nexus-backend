@@ -13,6 +13,7 @@ use App\Models\Crm\OrdenCompraProveedor;
 use App\Models\Crm\OrdenCompraProveedorDetalle;
 use App\Models\Crm\OrdenCompraProveedorDetalleOrigen;
 use App\Models\Crm\OrdenDetalleObservaciones;
+use App\Services\Compras\RequerimientoCompraService;
 use App\Services\Crm\OrdenCompraService;
 use Barryvdh\DomPDF\Facade\Pdf ;
 use Carbon\Carbon;
@@ -144,7 +145,7 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
     /**
      * Store a newly created resource in storage.
      */
-    public function store(OrdenCompraProveedorRequest $request)
+    public function store(OrdenCompraProveedorRequest $request, RequerimientoCompraService $requerimientoCompraService)
     {
 
         $user = auth()->user();
@@ -211,6 +212,26 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
             }
 
             DB::commit();
+
+            // Si esta OC se creó desde el formulario prellenado de un requerimiento de compra
+            // aprobado, vinculamos el requerimiento (estado -> oc_generada) sin afectar la OC
+            // ya creada si algo falla aquí.
+            if ($request->filled('requerimiento_compra_uuid')) {
+                try {
+                    $requerimientoCompraService->vincularOrdenCompraGenerada(
+                        $request->requerimiento_compra_uuid,
+                        $ordenCompra,
+                        $user
+                    );
+                } catch (\Exception $e) {
+                    Log::warning('No se pudo vincular la OC al requerimiento de compra', [
+                        'orden_id' => $ordenCompra->id,
+                        'requerimiento_compra_uuid' => $request->requerimiento_compra_uuid,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
             return $this->show($ordenCompra->id);
 
             return response()->json(['message' => 'Orden de compra creada con éxito.',
@@ -254,6 +275,7 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
         },
         'detalles.procesoBolsas',
         'detalles.proveedor',
+        'detalles.recogidas.record',
         'empresa',
         'detalles.producto',
         'sede'
@@ -296,6 +318,10 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
                 : 'Completo';
         }
 
+        // Lo que algún conductor registró como recogido en el proveedor (Rutas).
+        // Es informativo: no mueve inventario ni cuenta como recepción formal.
+        $ultimaRecogida = $detalle->recogidas->sortByDesc('created_at')->first();
+
         return [
             'id' => $detalle->id,
             'item' => $detalle->item,
@@ -305,6 +331,8 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
             //  ahora 100% consistentes
             'cantidad_entregada' => $entregadoGlobal,
             'cantidad_entregada_sede' => $entregadoSede,
+            'cantidad_recogida' => (float) $detalle->recogidas->sum('cantidad_recogida'),
+            'ultima_recogida_fecha' => optional($ultimaRecogida?->record?->fecha_real)->format('Y-m-d'),
 
             'estado_producto' => $estado,
             'updated_at' => $detalle->updated_at,
@@ -583,17 +611,55 @@ public function entregasShow($id)
         return response()->json(['message' => 'Detalle creado correctamente.']);
     }
 
+    // Busca en qué OC(s) abierta(s) está un item, por descripción o código.
+    // Se usa en Rutas al registrar una recogida sin OC asignada de antemano:
+    // el conductor no sabe el número de orden, pero sí qué está recogiendo.
+    public function buscarItemEnAbiertas(Request $request)
+    {
+        $item = trim((string) $request->input('item', ''));
+        $proveedorId = $request->input('proveedor_id');
+
+        if (mb_strlen($item) < 2) {
+            return response()->json(['detalles' => []]);
+        }
+
+        $detalles = OrdenCompraProveedorDetalle::with('orden:id,numero_orden,proveedor_id')
+            ->whereColumn('cantidad_entregada', '<', 'cantidad_solicitada')
+            ->when($proveedorId, fn ($q) => $q->whereHas('orden', fn ($oq) => $oq->where('proveedor_id', $proveedorId)))
+            ->where(function ($q) use ($item) {
+                $q->where('descripcion', 'LIKE', "%{$item}%")
+                    ->orWhere('code', 'LIKE', "%{$item}%");
+            })
+            ->orderByDesc('id')
+            ->limit(20)
+            ->get();
+
+        return response()->json([
+            'detalles' => $detalles->map(fn ($d) => [
+                'id' => $d->id,
+                'code' => $d->code,
+                'descripcion' => $d->descripcion,
+                'cantidad_solicitada' => $d->cantidad_solicitada,
+                'cantidad_entregada' => $d->cantidad_entregada,
+                'orden_compra_proveedor_id' => $d->orden_id,
+                'numero_orden' => $d->orden?->numero_orden,
+            ]),
+        ]);
+    }
+
     // Buscador liviano de OC proveedor abiertas (con al menos un detalle sin
     // entregar por completo) para anexar un item desde el Dashboard Operativo,
     // sin importar si esa OC ya tenía o no el producto.
     public function buscarAbiertas(Request $request)
     {
         $search = $request->input('search');
+        $proveedorId = $request->input('proveedor_id');
 
         $ordenes = OrdenCompraProveedor::with('proveedor:id,nombre')
             ->whereHas('detalles', function ($q) {
                 $q->whereColumn('cantidad_entregada', '<', 'cantidad_solicitada');
             })
+            ->when($proveedorId, fn ($q) => $q->where('proveedor_id', $proveedorId))
             ->when($search, function ($q) use ($search) {
                 $q->where(function ($qq) use ($search) {
                     $qq->where('numero_orden', 'LIKE', "%{$search}%")
@@ -807,6 +873,8 @@ public function entregasShow($id)
 
  
 
+        $idsAConservar = [];
+
         foreach ($request->detalles as $detalleRequest) {
 
             $tieneId = !empty($detalleRequest['id']);
@@ -815,7 +883,7 @@ public function entregasShow($id)
                 ? $orden->detalles()->with('entregas')->where('id', $detalleRequest['id'])->first()
                 : null;
 
-        
+
 
             if ($tieneId && $detalle) {
 
@@ -837,9 +905,11 @@ public function entregasShow($id)
                     ]);
                 }
 
+                $idsAConservar[] = $detalle->id;
+
             } elseif (!$tieneId) {
 
-                $orden->detalles()->create([
+                $nuevoDetalle = $orden->detalles()->create([
                     'item'                => $detalleRequest['item'] ?? 1,
                     'descripcion'         => $detalleRequest['descripcion'] ?? null,
                     'cantidad_solicitada' => $detalleRequest['cantidad_solicitada'],
@@ -849,19 +919,20 @@ public function entregasShow($id)
                     'proveedor_id'        => $detalleRequest['proveedor_id'] ?? null,
                     'proceso_bolsas_id'   => $detalleRequest['proceso_bolsas_id'] ?? null,
                 ]);
+
+                $idsAConservar[] = $nuevoDetalle->id;
             }
             // Si vino id pero no matchea en esta orden → se ignora
         }
 
         //  Eliminar detalles que el usuario quitó en el formulario.
         // Nunca se borran los que ya tienen entregas registradas (se perdería el histórico).
-        $idsRecibidos = collect($request->detalles)
-            ->pluck('id')
-            ->filter()
-            ->all();
-
+        // Importante: $idsAConservar incluye tanto los detalles existentes que
+        // vinieron en el request como los recién creados en este mismo guardado
+        // (estos últimos no tienen id todavía del lado del frontend), para no
+        // borrar en la misma transacción un ítem que se acaba de insertar.
         $orden->detalles()
-            ->when(!empty($idsRecibidos), fn ($q) => $q->whereNotIn('id', $idsRecibidos))
+            ->when(!empty($idsAConservar), fn ($q) => $q->whereNotIn('id', $idsAConservar))
             ->whereDoesntHave('entregas')
             ->delete();
 

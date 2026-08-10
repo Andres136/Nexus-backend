@@ -55,4 +55,9 @@ public function archivos()
 {
     return $this->hasMany(MantenimientoArchivo::class, 'mantenimiento_id');
 }
+
+public function acta()
+{
+    return $this->hasOne(MantenimientoActa::class, 'mantenimiento_id');
+}
 }

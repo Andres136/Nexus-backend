@@ -50,5 +50,30 @@ class Asignaciones extends Model
         return $this->belongsTo(User::class, 'usuario_asignacion_id');
     }
 
-    
+    public function actas()
+    {
+        return $this->hasMany(AsignacionActa::class, 'asignacion_id');
+    }
+
+    public function actaAsignacion()
+    {
+        return $this->hasOne(AsignacionActa::class, 'asignacion_id')->where('tipo', 'asignacion');
+    }
+
+    public function actaDevolucion()
+    {
+        return $this->hasOne(AsignacionActa::class, 'asignacion_id')->where('tipo', 'devolucion');
+    }
+
+    public function salidasTemporales()
+    {
+        return $this->hasMany(SalidaTemporal::class, 'asignacion_id');
+    }
+
+    public function salidaTemporalAbierta()
+    {
+        return $this->hasOne(SalidaTemporal::class, 'asignacion_id')
+            ->where('estado', 'salida')
+            ->latestOfMany();
+    }
 }

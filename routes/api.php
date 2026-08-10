@@ -62,6 +62,8 @@ use App\Http\Controllers\Crm\VehiculoFotoController;
 use App\Http\Controllers\DashboardOperativoController;
 use App\Http\Controllers\DepartamentoController;
 use App\Http\Controllers\DocumentoController;
+use App\Http\Controllers\DocumentoDiligenciadoController;
+use App\Http\Controllers\DocumentoMaestroController;
 use App\Http\Controllers\ErrorController;
 use App\Http\Controllers\EstadoController;
 use App\Http\Controllers\Hseq\ConsumoServicioController;
@@ -133,7 +135,11 @@ use App\Http\Controllers\Rutas\DeliveryEventController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\TareaController;
 use App\Http\Controllers\Tic\AsignacionesController;
+use App\Http\Controllers\Tic\AsignacionActaController;
+use App\Http\Controllers\Tic\SalidaTemporalController;
+use App\Http\Controllers\Tic\SalidaTemporalActaController;
 use App\Http\Controllers\Tic\MantenimientoEquiposController;
+use App\Http\Controllers\Tic\MantenimientoActaController;
 use App\Http\Controllers\Traslados\EnvioInternoController;
 use App\Http\Controllers\Traslados\ResponsabilidadesController;
 use App\Http\Controllers\Traslados\TrasladosBodegaController;
@@ -158,6 +164,12 @@ Route::post('/r/{token}', [EncuestaController::class, 'responder']);
 Route::get('capacitacion-encuestas/publica/{token}', [CapacitacionEncuestaController::class, 'showPublica']);
 Route::get('capacitacion-actas/publica/{token}', [CapacitacionActaController::class, 'publica']);
 Route::post('capacitacion-actas/publica/{token}/firmar', [CapacitacionActaController::class, 'firmar']);
+Route::get('mantenimiento-actas/publica/{token}', [MantenimientoActaController::class, 'publica']);
+Route::post('mantenimiento-actas/publica/{token}/firmar', [MantenimientoActaController::class, 'firmar']);
+Route::get('asignacion-actas/publica/{token}', [AsignacionActaController::class, 'publica']);
+Route::post('asignacion-actas/publica/{token}/firmar', [AsignacionActaController::class, 'firmar']);
+Route::get('salida-temporal-actas/publica/{token}', [SalidaTemporalActaController::class, 'publica']);
+Route::post('salida-temporal-actas/publica/{token}/firmar', [SalidaTemporalActaController::class, 'firmar']);
 Route::get('corporate-documents', [CorporateDocumentController::class, 'index']);
 Route::get('corporate-documents/{slug}/download', [CorporateDocumentController::class, 'downloadFile']);
 Route::post('corporate-documents/{slug}/download', [CorporateDocumentController::class, 'download']);
@@ -421,6 +433,7 @@ Route::post('/detalles-orden/prioridad-existente', [OrdenCompraProveedorControll
 Route::put('/detalles-orden/{id}', [EntregaProveedorController::class, 'updateDetalle']);
 Route::put('/ordenes-compra-proveedor/{id}/update-proveedor', [OrdenCompraProveedorController::class, 'updateProveedor']);
 Route::get('/ordenes-compra-proveedor-abiertas', [OrdenCompraProveedorController::class, 'buscarAbiertas']);
+Route::get('/ordenes-compra-proveedor-abiertas/buscar-item', [OrdenCompraProveedorController::class, 'buscarItemEnAbiertas']);
 Route::post('/ordenes-compra-proveedor/{id}/anexar-item', [OrdenCompraProveedorController::class, 'anexarItemProducto']);
 Route::delete('/detalles-orden/{id}', [EntregaProveedorController::class, 'eliminarItem']);
 //Entregas proveedor
@@ -516,6 +529,10 @@ Route::apiResource('/eventos-entrega', DeliveryEventController::class);
 Route::get('/eventos-entrega-por-usuario', [DeliveryEventController::class, 'listarEntregasPorUsuario']);
 //Cambio de estado de la entrega
 Route::post('/eventos-entrega/{deliveryEvent}/change-status', [DeliveryEventController::class, 'changeStatus']);
+//Registrar lo recogido en el proveedor (no toca inventario)
+Route::post('/eventos-entrega/{deliveryEvent}/registrar-recogida', [DeliveryEventController::class, 'registrarRecogida']);
+//Vincular una OC encontrada por búsqueda de item a una recogida ya creada (sin desvincular las demás)
+Route::post('/eventos-entrega/{deliveryEvent}/anexar-orden', [DeliveryEventController::class, 'anexarOrden']);
 
 Route::apiResource('procesos', ProcesoController::class);
 
@@ -606,6 +623,8 @@ Route::apiResource('novedades', NovedadController::class);
 
 //RUTAS DE ASGINACION DE EQUIPOS TIC
 Route::get('asignaciones/usuario/{userId}', [AsignacionesController::class, 'byUsuario']);
+Route::post('asignaciones/{asignacion}/salidas-temporales', [SalidaTemporalController::class, 'store']);
+Route::post('salidas-temporales/{salidaTemporal}/retorno', [SalidaTemporalController::class, 'retorno']);
 Route::apiResource('asignaciones', AsignacionesController::class);
 
 Route::get('/productos-asignar', [CrmProductController::class, 'productQuery']);
@@ -624,6 +643,8 @@ Route::apiResource('categorias',CategoriaController::class);
 
 Route::get('obtener-mantenimientos-tic', [MantenimientoEquiposController::class, 'obtenerMantenimientos']);
 Route::put('mantenimiento-equipos-tic/{id}/actualizar-estado', [MantenimientoEquiposController::class, 'actualizarEstado']);
+Route::post('mantenimiento-equipos-tic/{mantenimiento}/acta', [MantenimientoActaController::class, 'generar']);
+Route::get('mantenimiento-equipos-tic/{mantenimiento}/acta', [MantenimientoActaController::class, 'show']);
 
 //RUTAS PARA ACTUALIZAR DEPARTAMENTOSRUTAS PARA ORDENES DE SERVICIO
 Route::apiResource('ordenes-servicio', OrdenesServicioController::class);
@@ -657,11 +678,16 @@ Route::apiResource('respuestas-inspecciones', RespuestaInspeccionController::cla
 Route::get('indicador-semestral', [HallazgoNovedadController::class, 'indicadorSemestral']);
 
 Route::apiResource('hallazgo-inspecciones', HallazgoNovedadController::class);
-Route::apiResource('hseq-dashboard', HseqDashboardController::class);
 Route::get('hseq-descargar-hallazgos-pdf', [HseqDashboardController::class, 'descargarHallazgosPdf']);
 Route::get('hseq-dashboard/inspecciones/finalizadas', [HseqDashboardController::class, 'inspeccionesFinalizadas']);
+Route::get('hseq-dashboard/hallazgos', [HseqDashboardController::class, 'hallazgos']);
+Route::post('hseq-dashboard/hallazgos/{id}/cerrar', [HseqDashboardController::class, 'cerrarHallazgo']);
+Route::apiResource('hseq-dashboard', HseqDashboardController::class);
 Route::apiResource('hallazgos', HallazgoNovedadController::class);
-Route::apiResource('seguimiento-hallazgos', HallazgoSeguimientoController::class);
+Route::apiResource('seguimiento-hallazgos', HallazgoSeguimientoController::class)->except(['destroy']);
+Route::middleware('es_responsable_del_departamento')->group(function () {
+    Route::delete('seguimiento-hallazgos/{id}', [HallazgoSeguimientoController::class, 'destroy']);
+});
 Route::apiResource('soporte-tareas', SoporteTareaController::class);
 Route::get('soporte-tarea/{tarea_id}', [SoporteTareaController::class, 'getByTareaId']);
 Route::get('soporte-tareas/hallazgo/{soporte_id}', [SoporteTareaController::class, 'getByHallazgoId']);
@@ -826,6 +852,7 @@ Route::prefix('nomina')->group(function () {
     Route::apiResource('nominas', NominaController::class)->only(['index', 'show']);
 
     Route::get('horas-extras/exportar', [HoraExtraController::class, 'exportar']);
+    Route::get('horas-extras/empleados-frecuentes', [HoraExtraController::class, 'empleadosFrecuentes']);
     Route::patch('horas-extras/aprobar-todas', [HoraExtraController::class, 'aprobarTodas']);
     Route::apiResource('horas-extras', HoraExtraController::class)->except(['update']);
     Route::patch('horas-extras/{uuid}', [HoraExtraController::class, 'update']);
@@ -952,8 +979,24 @@ Route::get('dashboard-entregas-hoy', [DashboardController::class, 'ordenesEntreg
 
 
 Route::get('documentos/descargar/{id}', [DocumentoController::class, 'download']);
+Route::get('documentos/preview/{id}', [DocumentoController::class, 'preview']);
 
 Route::apiResource('documentos', DocumentoController::class);
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::apiResource('documentos-maestros', DocumentoMaestroController::class)->only(['index', 'show']);
+    Route::middleware('es_responsable_del_departamento')->group(function () {
+        Route::apiResource('documentos-maestros', DocumentoMaestroController::class)->only(['store', 'update', 'destroy']);
+    });
+
+    Route::get('documentos/{documentoId}/diligenciados', [DocumentoDiligenciadoController::class, 'index']);
+    Route::get('documentos/diligenciados/{id}/descargar', [DocumentoDiligenciadoController::class, 'descargar']);
+
+    Route::middleware('es_responsable_del_departamento')->group(function () {
+        Route::post('documentos/{documentoId}/diligenciados', [DocumentoDiligenciadoController::class, 'store']);
+        Route::delete('documentos/diligenciados/{id}', [DocumentoDiligenciadoController::class, 'destroy']);
+    });
+});
 
 
 Route::apiResource('errores', ErrorController::class);

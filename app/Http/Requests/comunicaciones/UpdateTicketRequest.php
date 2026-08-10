@@ -23,10 +23,17 @@ class UpdateTicketRequest extends FormRequest
             'archivos'         => ['nullable', 'array'],
             'archivos.*'       => ['file', 'mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx,txt,zip', 'max:10240'],
             'prioridad'        => ['sometimes', 'in:baja,media,alta'],
-            'fecha_entrega'    => ['sometimes', 'required', 'date'],
+            'fecha_entrega'    => ['sometimes', 'required', 'date_format:Y-m-d'],
             'hora_entrega'     => ['sometimes', 'required', 'date_format:H:i'],
             'fecha_solucion'   => ['nullable', 'date'],
             'comentario'       => ['nullable', 'string', 'max:5000'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'fecha_entrega.date_format' => 'La fecha de entrega no es válida.',
         ];
     }
 }

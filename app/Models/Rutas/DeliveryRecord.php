@@ -39,4 +39,14 @@ class DeliveryRecord extends Model
     {
         return $this->belongsTo(User::class, 'usuario_id');
     }
+
+    public function detalles()
+    {
+        return $this->hasMany(DeliveryRecordDetalle::class, 'delivery_record_id');
+    }
+
+    public function archivos()
+    {
+        return $this->hasMany(DeliveryRecordArchivo::class, 'delivery_record_id');
+    }
 }

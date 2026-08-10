@@ -12,6 +12,8 @@ class InspeccionHseqService
     {
         return InspeccionHseq::create([
            'sede_id' => $data['sede_id'],
+           'empresa_id' => $data['empresa_id'] ?? null,
+           'bodega_id' => $data['bodega_id'] ?? null,
            'tipo_inspeccion_id' => $data['tipo_inspeccion_id'],
            'fecha' => $data['fecha'],
            'responsable_id' => auth()->id(),
@@ -28,6 +30,11 @@ class InspeccionHseqService
     public function update($id, array $data)
     {
         $inspeccion = $this->find($id);
+
+        if ($inspeccion->fecha < now()->toDateString()) {
+            throw new \RuntimeException('No se puede editar una inspección cuya fecha programada ya pasó.');
+        }
+
         $inspeccion->update($data);
         return $inspeccion;
     }
@@ -44,6 +51,7 @@ public function all($search = null, $perPage = 100)
 {
     $query = InspeccionHseq::with([
         'sede:id,nombre',
+        'bodega:id,nombre',
         'tipoInspeccion:id,nombre',
         'responsable:id,name'
     ]);

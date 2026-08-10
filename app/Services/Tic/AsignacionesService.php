@@ -5,12 +5,14 @@ namespace App\Services\Tic;
 use App\Models\Crm\Sede;
 use App\Models\Tic\Asignaciones;
 use App\Models\User;
+use Illuminate\Validation\ValidationException;
 
 class AsignacionesService
 {
+    public function __construct(private readonly AsignacionActaService $actaService) {}
 
     //Consltar todas las asignaciones
-   
+
 public function getAllAsignaciones(array $filters = [])
 {
     $query = Asignaciones::with([
@@ -19,6 +21,9 @@ public function getAllAsignaciones(array $filters = [])
         'producto',
         'empresa',
         'usuarioRecibe',
+        'actaAsignacion',
+        'actaDevolucion',
+        'salidaTemporalAbierta',
     ]);
 
     /*
@@ -88,26 +93,7 @@ public function getAllAsignaciones(array $filters = [])
     $perPage = $filters['per_page'] ?? 20;
     $paginado = $query->paginate($perPage);
 
-    /*
-    |--------------------------------------------------------------------------
-    | Transformación con URLs PDF
-    |--------------------------------------------------------------------------
-    */
- $data = collect($paginado->items())->map(function ($asignacion) {
-
-    $rutaAsignacion = public_path('storage/asignaciones/acta_asignacion_' . $asignacion->id . '.pdf');
-    $rutaDevolucion = public_path('storage/asignaciones/acta_devolucion_' . $asignacion->id . '.pdf');
-
-    $asignacion->acta_asignacion_url = file_exists($rutaAsignacion)
-        ? asset('storage/asignaciones/acta_asignacion_' . $asignacion->id . '.pdf')
-        : null;
-
-    $asignacion->acta_devolucion_url = file_exists($rutaDevolucion)
-        ? asset('storage/asignaciones/acta_devolucion_' . $asignacion->id . '.pdf')
-        : null;
-
-    return $asignacion;
-});
+    $data = collect($paginado->items());
 
     /*
     |--------------------------------------------------------------------------
@@ -163,25 +149,14 @@ public function getAsignacionesByUsuario(int $userId, bool $soloActivas = true):
         'producto',
         'empresa',
         'usuarioRecibe',
+        'actaAsignacion',
+        'actaDevolucion',
+        'salidaTemporalAbierta',
     ])
         ->where('usuario_asignacion_id', $userId)
         ->when($soloActivas, fn ($query) => $query->where('activo', true))
         ->latest()
-        ->get()
-        ->map(function ($asignacion) {
-            $rutaAsignacion = public_path('storage/asignaciones/acta_asignacion_' . $asignacion->id . '.pdf');
-            $rutaDevolucion = public_path('storage/asignaciones/acta_devolucion_' . $asignacion->id . '.pdf');
-
-            $asignacion->acta_asignacion_url = file_exists($rutaAsignacion)
-                ? asset('storage/asignaciones/acta_asignacion_' . $asignacion->id . '.pdf')
-                : null;
-
-            $asignacion->acta_devolucion_url = file_exists($rutaDevolucion)
-                ? asset('storage/asignaciones/acta_devolucion_' . $asignacion->id . '.pdf')
-                : null;
-
-            return $asignacion;
-        });
+        ->get();
 
     return [
         'tiene_asignaciones' => $asignaciones->isNotEmpty(),
@@ -192,6 +167,16 @@ public function getAsignacionesByUsuario(int $userId, bool $soloActivas = true):
 
     public function asignarProducto($data)
     {
+        $tieneActiva = Asignaciones::where('producto_id', $data['producto_id'])
+            ->where('activo', 1)
+            ->exists();
+
+        if ($tieneActiva) {
+            throw ValidationException::withMessages([
+                'producto_id' => 'Este equipo ya tiene una asignación activa. Desactívala antes de asignarlo de nuevo.',
+            ]);
+        }
+
         // Lógica para asignar un producto a un usuario
         $asignacion = new \App\Models\Tic\Asignaciones();
         $asignacion->id_usuario =auth()->id();
@@ -204,7 +189,9 @@ public function getAsignacionesByUsuario(int $userId, bool $soloActivas = true):
         $asignacion->activo = true;
         $asignacion->save();
 
-        return $asignacion;
+        $this->actaService->generarAutomatico($asignacion, 'asignacion', auth()->user());
+
+        return $asignacion->fresh(['usuario', 'usuarioRecibe', 'empresa', 'producto', 'sede', 'actaAsignacion']);
     }
 public function desactivarAsignacion($id, $observaciones = null)
 {
@@ -222,7 +209,9 @@ public function desactivarAsignacion($id, $observaciones = null)
         $asignacion->observaciones = $observaciones ?? $asignacion->observaciones;
         $asignacion->save();
 
-        return $asignacion;
+        $this->actaService->generarAutomatico($asignacion, 'devolucion', auth()->user());
+
+        return $asignacion->fresh(['usuario', 'usuarioRecibe', 'empresa', 'producto', 'sede', 'actaDevolucion']);
     });
 }
 }

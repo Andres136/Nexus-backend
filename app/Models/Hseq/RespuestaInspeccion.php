@@ -2,6 +2,7 @@
 
 namespace App\Models\Hseq;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
 class RespuestaInspeccion extends Model
@@ -12,6 +13,14 @@ class RespuestaInspeccion extends Model
         'pregunta_inspeccion_id',
         'respuesta',
         'observaciones',
+        'foto_cierre',
+        'observaciones_cierre',
+        'cerrado_en',
+        'cerrado_por',
+    ];
+
+    protected $casts = [
+        'cerrado_en' => 'datetime',
     ];
 
     public function inspeccion()
@@ -21,5 +30,9 @@ class RespuestaInspeccion extends Model
     public function pregunta()
     {
         return $this->belongsTo(PreguntaInspeccion::class, 'pregunta_inspeccion_id');
+    }
+    public function cerradoPor()
+    {
+        return $this->belongsTo(User::class, 'cerrado_por');
     }
 }

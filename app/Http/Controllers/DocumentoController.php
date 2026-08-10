@@ -56,6 +56,24 @@ class DocumentoController extends Controller
          //    El segundo parámetro es el nombre que verá el usuario al descargar
          return response()->download($filepath, basename($doc->documento));
      }
+
+     /**
+      * Preview the specified resource inline in the browser.
+      */
+     public function preview($id)
+     {
+         $doc = Documentos::findOrFail($id);
+
+         $filepath = storage_path('app/public/' . $doc->documento);
+
+         if (!file_exists($filepath)) {
+             return response()->json([
+                 'message' => 'Documento no encontrado'
+             ], 404);
+         }
+
+         return response()->file($filepath);
+     }
       
      
      
