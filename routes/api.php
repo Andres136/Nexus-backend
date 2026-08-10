@@ -62,6 +62,7 @@ use App\Http\Controllers\Crm\VehiculoFotoController;
 use App\Http\Controllers\DashboardOperativoController;
 use App\Http\Controllers\DepartamentoController;
 use App\Http\Controllers\DocumentoController;
+use App\Http\Controllers\DocumentoMaestroController;
 use App\Http\Controllers\ErrorController;
 use App\Http\Controllers\EstadoController;
 use App\Http\Controllers\Hseq\ConsumoServicioController;
@@ -979,6 +980,13 @@ Route::get('dashboard-entregas-hoy', [DashboardController::class, 'ordenesEntreg
 Route::get('documentos/descargar/{id}', [DocumentoController::class, 'download']);
 
 Route::apiResource('documentos', DocumentoController::class);
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::apiResource('documentos-maestros', DocumentoMaestroController::class)->only(['index', 'show']);
+    Route::middleware('es_responsable_del_departamento')->group(function () {
+        Route::apiResource('documentos-maestros', DocumentoMaestroController::class)->only(['store', 'update', 'destroy']);
+    });
+});
 
 
 Route::apiResource('errores', ErrorController::class);
