@@ -59,6 +59,7 @@ class TiketsService
             ->when(!empty($filters['departamento_id']), fn ($query) => $query->where('departamento_id', $filters['departamento_id']))
             ->when(!empty($filters['fecha_desde']), fn ($query) => $query->whereDate('created_at', '>=', $filters['fecha_desde']))
             ->when(!empty($filters['fecha_hasta']), fn ($query) => $query->whereDate('created_at', '<=', $filters['fecha_hasta']))
+            ->orderByRaw("FIELD(estado, 'pendiente', 'en_proceso', 'cerrado')")
             ->orderByRaw("FIELD(prioridad, 'alta', 'media', 'baja')")
             ->latest()
             ->paginate($perPage);
