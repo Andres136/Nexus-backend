@@ -22,7 +22,7 @@ class CerrarHallazgoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'foto' => 'required|file|mimes:jpg,jpeg,png,webp|max:20480', // 20 MB
+            'foto' => 'required|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx|max:20480', // 20 MB
             'observaciones_cierre' => 'nullable|string',
         ];
     }
@@ -30,10 +30,10 @@ class CerrarHallazgoRequest extends FormRequest
     public function messages()
     {
         return [
-            'foto.required' => 'Debes adjuntar una foto para cerrar el hallazgo.',
-            'foto.file' => 'El archivo de la foto no es válido.',
-            'foto.mimes' => 'La foto debe ser jpg, jpeg, png o webp.',
-            'foto.max' => 'La foto no puede superar los 20 MB.',
+            'foto.required' => 'Debes adjuntar una foto o archivo para cerrar el hallazgo.',
+            'foto.file' => 'El archivo adjunto no es válido.',
+            'foto.mimes' => 'El archivo debe ser jpg, jpeg, png, webp, pdf, doc, docx, xls o xlsx.',
+            'foto.max' => 'El archivo no puede superar los 20 MB.',
             'observaciones_cierre.string' => 'Las observaciones deben ser texto.',
         ];
     }
