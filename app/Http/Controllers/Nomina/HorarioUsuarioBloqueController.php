@@ -46,4 +46,27 @@ class HorarioUsuarioBloqueController extends Controller
             return response()->json(['success' => false, 'message' => 'Error al guardar el horario por bloques.'], 500);
         }
     }
+
+    public function cambiarEstado(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'user_id' => 'required|integer|exists:users,id',
+            'status' => 'required|boolean',
+        ]);
+
+        try {
+            $data = $this->service->cambiarEstado((int) $validated['user_id'], (bool) $validated['status']);
+
+            return response()->json([
+                'success' => true,
+                'message' => $validated['status']
+                    ? 'Horario por bloques activado. Vuelve a contar para horas esperadas y tardanza.'
+                    : 'Horario por bloques desactivado. El empleado vuelve a usar su horario individual o la jornada base.',
+                'data' => $data,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al cambiar el estado del horario por bloques', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al cambiar el estado del horario por bloques.'], 500);
+        }
+    }
 }

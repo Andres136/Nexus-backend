@@ -26,6 +26,13 @@ class HorarioUsuarioBloqueService
             ->get();
     }
 
+    public function cambiarEstado(int $userId, bool $status): Collection
+    {
+        HorarioUsuarioBloque::where('user_id', $userId)->update(['status' => $status]);
+
+        return $this->porUsuario($userId);
+    }
+
     public function guardarSemana(int $userId, array $bloques): Collection
     {
         return DB::transaction(function () use ($userId, $bloques) {
