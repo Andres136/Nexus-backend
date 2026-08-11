@@ -15,6 +15,8 @@ use Illuminate\Support\Str;
 
 class CapacitacionActaService
 {
+    public function __construct(private readonly TareaService $tareaService) {}
+
     public function listar(array $filters)
     {
         $perPage = min(max((int) ($filters['per_page'] ?? 20), 1), 100);
@@ -128,6 +130,7 @@ class CapacitacionActaService
             403,
             'Solo el usuario que creó el acta puede enviarla.'
         );
+        $primeraPublicacion = $acta->publicada_at === null;
         $usuarios = User::with('contratacionActivaNomina.empresa:id,nombre')
             ->whereIn('id', $userIds)
             ->where('estado_id', 3)
@@ -167,19 +170,82 @@ class CapacitacionActaService
             $enviados[] = ['user_id' => $usuario->id, 'nombre' => $usuario->name, 'email' => $usuario->email, 'link' => $link];
         }
 
-        if ($enviados) $acta->update(['publicada_at' => now()]);
+        if ($enviados) {
+            $acta->update(['publicada_at' => now()]);
+
+            if ($primeraPublicacion) {
+                $this->crearTareasDeCompromisos($acta, $remitente);
+            }
+        }
 
         return ['enviados' => $enviados, 'excluidos' => $excluidos];
     }
 
+    private function crearTareasDeCompromisos(CapacitacionActa $acta, User $remitente): void
+    {
+        $responsableIds = collect($acta->compromisos ?? [])
+            ->pluck('responsable')
+            ->filter()
+            ->unique();
+
+        if ($responsableIds->isEmpty()) {
+            return;
+        }
+
+        $responsables = User::whereIn('id', $responsableIds)->get()->keyBy('id');
+
+        foreach ($acta->compromisos as $compromiso) {
+            $responsable = $responsables->get($compromiso['responsable'] ?? null);
+
+            if (!$responsable || !$responsable->departamento_id) {
+                continue;
+            }
+
+            $this->tareaService->crear([
+                'nombre' => "Compromiso: {$acta->titulo}",
+                'descripcion' => $compromiso['descripcion'],
+                'fecha_fin' => $compromiso['fecha'] ?: null,
+                'departamento_id' => $responsable->departamento_id,
+                'user_id' => $responsable->id,
+            ], $remitente->id);
+        }
+    }
+
     public function publica(string $token): CapacitacionActaEnvio
     {
-        return CapacitacionActaEnvio::with([
+        $envio = CapacitacionActaEnvio::with([
             'usuario:id,name,email',
             'empresa:id,nombre',
             'acta.capacitacion:id,uuid,titulo,fecha_realizacion,hora_inicio,hora_fin,lugar,modalidad',
             'acta.elaborador:id,name,email',
         ])->where('token', $token)->firstOrFail();
+
+        if ($envio->acta) {
+            $envio->acta->setAttribute('compromisos', $this->compromisosConNombre($envio->acta));
+        }
+
+        return $envio;
+    }
+
+    // compromisos guarda el user_id del responsable (para poder generar
+    // tareas al publicar), así que para mostrarlo hay que resolver el
+    // nombre aparte — el frontend de edición del acta sí necesita el id
+    // crudo (para preseleccionar el <select>), por eso esto solo se aplica
+    // en las vistas de solo lectura (PDF y acta pública), no en show().
+    private function compromisosConNombre(CapacitacionActa $acta): array
+    {
+        $responsables = User::whereIn('id', collect($acta->compromisos ?? [])->pluck('responsable')->filter()->unique())
+            ->get(['id', 'name', 'apellidos'])
+            ->keyBy('id');
+
+        return collect($acta->compromisos ?? [])->map(function ($compromiso) use ($responsables) {
+            $responsable = $responsables->get($compromiso['responsable'] ?? null);
+
+            return [
+                ...$compromiso,
+                'responsable_nombre' => $responsable ? trim("{$responsable->name} {$responsable->apellidos}") : null,
+            ];
+        })->all();
     }
 
     public function firmar(string $token, array $data, string $ip, ?string $userAgent): CapacitacionActaEnvio
@@ -232,6 +298,8 @@ class CapacitacionActaService
             : $acta->envios->pluck('empresa')->filter()->unique('id')->sole();
 
         abort_if($acta->envios->isEmpty(), 422, 'No hay destinatarios de esta empresa en el acta.');
+
+        $acta->setAttribute('compromisos', $this->compromisosConNombre($acta));
 
         return compact('acta', 'empresa');
     }
