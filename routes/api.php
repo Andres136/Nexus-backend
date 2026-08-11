@@ -623,7 +623,9 @@ Route::apiResource('novedades', NovedadController::class);
 
 
 //RUTAS DE ASGINACION DE EQUIPOS TIC
+Route::get('asignaciones/exportar', [AsignacionesController::class, 'exportar']);
 Route::get('asignaciones/usuario/{userId}', [AsignacionesController::class, 'byUsuario']);
+Route::patch('asignaciones/{id}/accesorios', [AsignacionesController::class, 'actualizarAccesorios']);
 Route::post('asignaciones/{asignacion}/salidas-temporales', [SalidaTemporalController::class, 'store']);
 Route::post('salidas-temporales/{salidaTemporal}/retorno', [SalidaTemporalController::class, 'retorno']);
 Route::apiResource('asignaciones', AsignacionesController::class);

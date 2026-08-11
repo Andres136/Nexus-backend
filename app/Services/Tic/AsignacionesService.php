@@ -13,19 +13,8 @@ class AsignacionesService
 
     //Consltar todas las asignaciones
 
-public function getAllAsignaciones(array $filters = [])
+private function aplicarFiltros($query, array $filters)
 {
-    $query = Asignaciones::with([
-        'usuario',
-        'sede',
-        'producto',
-        'empresa',
-        'usuarioRecibe',
-        'actaAsignacion',
-        'actaDevolucion',
-        'salidaTemporalAbierta',
-    ]);
-
     /*
     |--------------------------------------------------------------------------
     | Filtro por usuario
@@ -77,6 +66,24 @@ public function getAllAsignaciones(array $filters = [])
             $q->where('name', 'like', '%' . $filters['search'] . '%');
         });
     }
+
+    return $query;
+}
+
+public function getAllAsignaciones(array $filters = [])
+{
+    $query = Asignaciones::with([
+        'usuario',
+        'sede',
+        'producto',
+        'empresa',
+        'usuarioRecibe',
+        'actaAsignacion',
+        'actaDevolucion',
+        'salidaTemporalAbierta',
+    ]);
+
+    $this->aplicarFiltros($query, $filters);
 
     /*
     |--------------------------------------------------------------------------
@@ -139,6 +146,23 @@ public function getAllAsignaciones(array $filters = [])
         'usuarios_filtro' => $usuariosFiltro,
         'sedes_filtro' => $sedesFiltro,
     ];
+}
+
+public function getAllAsignacionesParaExportar(array $filters = [])
+{
+    $query = Asignaciones::with(['usuario', 'sede', 'producto', 'empresa', 'usuarioRecibe']);
+
+    $this->aplicarFiltros($query, $filters);
+
+    return $query->latest()->get();
+}
+
+public function actualizarAccesorios(int $id, ?string $accesorios): Asignaciones
+{
+    $asignacion = Asignaciones::findOrFail($id);
+    $asignacion->update(['accesorios' => $accesorios]);
+
+    return $asignacion;
 }
 
 public function getAsignacionesByUsuario(int $userId, bool $soloActivas = true): array

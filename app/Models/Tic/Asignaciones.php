@@ -22,6 +22,7 @@ class Asignaciones extends Model
         'fecha_devolucion',
         'usuario_asignacion_id',
         'observaciones',
+        'accesorios',
         'activo',
     ];
     public $timestamps = true;
