@@ -20,6 +20,15 @@ class HorarioUsuarioSemanalService
             ->get();
     }
 
+    public function todos(): Collection
+    {
+        return HorarioUsuarioSemanal::with(self::WITH)
+            ->where('status', true)
+            ->orderBy('user_id')
+            ->orderBy('dia_semana')
+            ->get();
+    }
+
     public function porUsuarioYFecha(int $userId, ?string $fecha = null): ?HorarioUsuarioSemanal
     {
         $diaSemana = Carbon::parse($fecha ?? now(config('app.timezone')))->dayOfWeekIso;

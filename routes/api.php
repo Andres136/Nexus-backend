@@ -89,6 +89,7 @@ use App\Http\Controllers\Nomina\ConfiguracionNominaController;
 use App\Http\Controllers\Nomina\ComisionController;
 use App\Http\Controllers\Nomina\DescuentoController;
 use App\Http\Controllers\Nomina\HorarioOperacionDiariaController;
+use App\Http\Controllers\Nomina\HorarioUsuarioBloqueController;
 use App\Http\Controllers\Nomina\HorarioUsuarioSemanalController;
 use App\Http\Controllers\Nomina\IncapacidadController;
 use App\Http\Controllers\Nomina\JornadaLaboralController;
@@ -771,6 +772,8 @@ Route::prefix('nomina')->group(function () {
     Route::put('horario-operacion/hoy', [HorarioOperacionDiariaController::class, 'update']);
     Route::get('horarios-usuario-semanales', [HorarioUsuarioSemanalController::class, 'index']);
     Route::post('horarios-usuario-semanales', [HorarioUsuarioSemanalController::class, 'store']);
+    Route::get('horarios-usuario-bloques', [HorarioUsuarioBloqueController::class, 'index']);
+    Route::post('horarios-usuario-bloques', [HorarioUsuarioBloqueController::class, 'store']);
     Route::apiResource('tipo-contratos', TipoContratoController::class);
     Route::get('contratacion/empleados', [ContratacionController::class, 'getEmpleados']);
     Route::get('contratacion/{uuid}/certificado', [ContratacionController::class, 'certificado']);
