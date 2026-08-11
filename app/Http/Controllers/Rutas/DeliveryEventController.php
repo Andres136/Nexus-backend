@@ -8,15 +8,20 @@ use App\Http\Requests\Rutas\StoreDeliveryEventRequest;
 use App\Http\Requests\Rutas\UpdateDeliveryEventRequest;
 use App\Mail\DeliveryStatusMail;
 use App\Models\Rutas\DeliveryEvent;
+use App\Models\Crm\OrdenCompraProveedorDetalle;
+use App\Services\Crm\Orden_servicio\OrdenesServicioService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class DeliveryEventController extends Controller
 {
     private const EAGER_LOAD = [
         'orden.ordenTrabajo.cliente',
         'proveedor',
+        'ordenServicio.proveedor',
         'ordenesCompraProveedor.detalles',
         'vehiculo',
         'lastRecord',
@@ -225,11 +230,66 @@ class DeliveryEventController extends Controller
      * "completado" cuando bodega registra la entrega de lo que llegó (ver
      * EntregasService::marcarRecogidaComoCompletada).
      */
-    public function registrarRecogida(RegistrarRecogidaRequest $request, DeliveryEvent $deliveryEvent)
+    public function registrarRecogida(
+        RegistrarRecogidaRequest $request,
+        DeliveryEvent $deliveryEvent,
+        OrdenesServicioService $ordenesServicioService
+    )
     {
         $data = $request->validated();
 
-        $deliveryEvent = DB::transaction(function () use ($request, $data, $deliveryEvent) {
+        if ($deliveryEvent->tipo !== 'recogida') {
+            throw ValidationException::withMessages([
+                'recogida' => ['El evento seleccionado no corresponde a una recogida.'],
+            ]);
+        }
+
+        if (!empty($data['generar_orden_servicio']) && $deliveryEvent->orden_servicio_id) {
+            throw ValidationException::withMessages([
+                'generar_orden_servicio' => ['Esta recogida ya tiene una orden de servicio.'],
+            ]);
+        }
+
+        if (!empty($data['generar_orden_servicio'])
+            && (int) $data['proveedor_destino_id'] === (int) $deliveryEvent->proveedor_id) {
+            throw ValidationException::withMessages([
+                'proveedor_destino_id' => ['El proveedor destino debe ser diferente al proveedor donde se recoge.'],
+            ]);
+        }
+
+        $detalleIds = collect($data['detalles'])
+            ->pluck('orden_compra_proveedor_detalle_id')
+            ->map(fn ($id) => (int) $id);
+
+        if ($detalleIds->duplicates()->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'detalles' => ['No puedes registrar el mismo ítem más de una vez.'],
+            ]);
+        }
+
+        $detallesCompra = OrdenCompraProveedorDetalle::with('orden')
+            ->whereIn('id', $detalleIds)
+            ->get()
+            ->keyBy('id');
+
+        $detalleNoValido = $detalleIds->first(function ($id) use ($detallesCompra, $deliveryEvent) {
+            $detalle = $detallesCompra->get($id);
+            return !$detalle || (int) optional($detalle->orden)->proveedor_id !== (int) $deliveryEvent->proveedor_id;
+        });
+
+        if ($detalleNoValido) {
+            throw ValidationException::withMessages([
+                'detalles' => ['Todos los ítems deben pertenecer a órdenes del proveedor donde se realiza la recogida.'],
+            ]);
+        }
+
+        $resultado = DB::transaction(function () use (
+            $request,
+            $data,
+            $deliveryEvent,
+            $ordenesServicioService,
+            $detallesCompra
+        ) {
             $record = $deliveryEvent->records()->create([
                 'fecha_real' => now()->toDateString(),
                 'hora_real' => now()->toTimeString(),
@@ -256,12 +316,42 @@ class DeliveryEventController extends Controller
 
             $deliveryEvent->update(['estado' => 'en_ruta']);
 
-            return $deliveryEvent;
+            $ordenServicio = null;
+            $pdfUrl = null;
+
+            if (!empty($data['generar_orden_servicio'])) {
+                $ordenServicio = $ordenesServicioService->createOrdenServicio([
+                    'empresa_id' => $data['empresa_id'],
+                    'fecha' => now('America/Bogota')->toDateString(),
+                    'proveedor_id' => $data['proveedor_destino_id'],
+                    'observaciones' => $data['os_observaciones'] ?? $data['observaciones'] ?? null,
+                    'detalles' => collect($data['detalles'])->map(fn ($detalle) => [
+                        'orden_compra_detalle_id' => $detalle['orden_compra_proveedor_detalle_id'],
+                        'cantidad' => $detalle['cantidad_recogida'],
+                    ])->all(),
+                ]);
+
+                $fileName = "orden_servicio_{$ordenServicio->numero_os}.pdf";
+                $pdf = $ordenesServicioService->generarPdf($ordenServicio);
+                Storage::disk('public')->put("ordenes_servicio/{$fileName}", $pdf->output());
+                $pdfUrl = asset("storage/ordenes_servicio/{$fileName}");
+
+                $deliveryEvent->update(['orden_servicio_id' => $ordenServicio->id]);
+
+                $ordenIds = $detallesCompra->pluck('orden_id')->unique()->all();
+                $deliveryEvent->ordenesCompraProveedor()->syncWithoutDetaching($ordenIds);
+            }
+
+            return compact('ordenServicio', 'pdfUrl');
         });
 
         return response()->json([
-            'message' => 'Recogida registrada correctamente',
-            'data' => $deliveryEvent->load(self::EAGER_LOAD)
+            'message' => $resultado['ordenServicio']
+                ? 'Recogida registrada y orden de servicio generada correctamente'
+                : 'Recogida registrada correctamente',
+            'data' => $deliveryEvent->fresh()->load(self::EAGER_LOAD),
+            'orden_servicio' => $resultado['ordenServicio'],
+            'pdf_url' => $resultado['pdfUrl'],
         ], 200);
     }
 
