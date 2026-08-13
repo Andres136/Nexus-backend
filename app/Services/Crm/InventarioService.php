@@ -2,6 +2,7 @@
 
 namespace App\Services\Crm;
 
+use App\EstadoEnum;
 use App\Models\Crm\bodega;
 use App\Models\Crm\categoria;
 use App\Models\Crm\Inventario;
@@ -377,6 +378,7 @@ public function registrarEnvioConDescuento($data, $user)
             'sede_destino_id' => $data['sede_destino_id'],
             'empresa_id'      => $data['empresa_id'] ?? null,
             'usuario_id'      => $user->id,
+            'responsable_id'  => $data['responsable_id'] ?? null,
             'estado_id'       => $data['estado_id'] ?? 1,
             'fecha_envio'     => now(),
             'notas'           => $data['notas'] ?? null,
@@ -560,6 +562,7 @@ public function regenerarPdfEnvio(Envio_internos $envio): string
     $envio->load([
         'empresa',
         'usuario',
+        'responsable',
         'sedeOrigen',
         'sedeDestino',
         'detalles.product',
@@ -567,6 +570,145 @@ public function regenerarPdfEnvio(Envio_internos $envio): string
     ]);
 
     return $this->generarPdfEnvio($envio, $envio->detalles);
+}
+
+/**
+ * Confirmar la recepción de un traslado interno: el responsable asignado
+ * indica en qué bodega de la sede destino quedó cada producto y esa
+ * cantidad se suma al inventario de esa bodega.
+ */
+public function confirmarRecepcionEnvio(int $envioId, array $detallesPayload, $user): array
+{
+    DB::beginTransaction();
+
+    try {
+        $envio = Envio_internos::lockForUpdate()->findOrFail($envioId);
+
+        $esResponsable = (int) $envio->responsable_id === (int) $user->id;
+        $esAdmin = in_array($user->role_id, [1, 2, 4]);
+
+        if (!$esResponsable && !$esAdmin) {
+            throw new \Exception('No tiene autorización para confirmar la recepción de este traslado.');
+        }
+
+        if ((int) $envio->estado_id === EstadoEnum::COMPLETADO->value) {
+            throw new \Exception('Este traslado ya fue recibido anteriormente.');
+        }
+
+        $detallesEnvio = Detalles_envio_internos::where('envio_interno_id', $envio->id)
+            ->get()
+            ->keyBy('id');
+
+        $resumenMovimiento = [];
+
+        foreach ($detallesPayload as $item) {
+            $detalleId = $item['detalle_id'] ?? null;
+            $detalle = $detallesEnvio->get($detalleId);
+
+            if (!$detalle) {
+                throw new \Exception("El detalle {$detalleId} no pertenece a este traslado.");
+            }
+
+            $bodegaDestinoId = (int) ($item['bodega_destino_id'] ?? 0);
+            $cantidadRecibida = (float) ($item['cantidad_recibida'] ?? 0);
+            $nombreProducto = $detalle->descripcion ?: "producto {$detalle->product_id}";
+
+            if ($bodegaDestinoId <= 0) {
+                throw new \Exception("Debe indicar la bodega destino para {$nombreProducto}.");
+            }
+            if ($cantidadRecibida <= 0) {
+                throw new \Exception("La cantidad recibida debe ser mayor que 0 para {$nombreProducto}.");
+            }
+
+            $bodegaDestino = bodega::find($bodegaDestinoId);
+            if (!$bodegaDestino || (int) $bodegaDestino->sede_id !== (int) $envio->sede_destino_id) {
+                throw new \Exception("La bodega seleccionada no pertenece a la sede destino del traslado.");
+            }
+
+            $empresaId = Inventario::where('producto_id', $detalle->product_id)
+                ->where('bodega_id', $detalle->bodega_origen_id)
+                ->value('empresa_id') ?? $envio->empresa_id;
+
+            $inventarioDestino = Inventario::where([
+                'producto_id' => $detalle->product_id,
+                'sede_id'     => $envio->sede_destino_id,
+                'bodega_id'   => $bodegaDestinoId,
+                'empresa_id'  => $empresaId,
+            ])->lockForUpdate()->first();
+
+            if (!$inventarioDestino) {
+                $inventarioDestino = Inventario::create([
+                    'producto_id' => $detalle->product_id,
+                    'sede_id'     => $envio->sede_destino_id,
+                    'bodega_id'   => $bodegaDestinoId,
+                    'empresa_id'  => $empresaId,
+                    'user_id'     => $user->id,
+                    'stock'       => 0,
+                    'min_stock'   => 0,
+                    'max_stock'   => 0,
+                ]);
+            }
+
+            $inventarioDestino->increment('stock', $cantidadRecibida);
+
+            $detalle->update([
+                'bodega_destino_id' => $bodegaDestinoId,
+                'cantidad_recibida' => $cantidadRecibida,
+            ]);
+
+            $resumenMovimiento[] = [
+                'detalle_id'        => $detalle->id,
+                'producto_id'       => $detalle->product_id,
+                'bodega_destino_id' => $bodegaDestinoId,
+                'cantidad_recibida' => $cantidadRecibida,
+                'inventario_id'     => $inventarioDestino->id,
+            ];
+        }
+
+        MovimientoStock::create([
+            'tipo'             => 'recepcion_traslado',
+            'envio_interno_id' => $envio->id,
+            'usuario_id'       => $user->id,
+            'sede_origen_id'   => $envio->sede_origen_id,
+            'sede_destino_id'  => $envio->sede_destino_id,
+            'cantidad'         => collect($resumenMovimiento)->sum('cantidad_recibida'),
+            'detalle'          => [
+                'envio_id' => $envio->id,
+                'detalles' => $resumenMovimiento,
+                'fecha'    => now()->toDateTimeString(),
+                'observacion' => "Recepción confirmada del traslado #{$envio->id}",
+            ],
+        ]);
+
+        $envio->update([
+            'estado_id'       => EstadoEnum::COMPLETADO->value,
+            'fecha_recepcion' => now(),
+        ]);
+
+        DB::commit();
+
+        return [
+            'success' => true,
+            'message' => 'Recepción confirmada, el stock ya está disponible en la sede destino.',
+            'envio'   => $envio->fresh([
+                'sedeOrigen',
+                'sedeDestino',
+                'empresa',
+                'usuario',
+                'responsable',
+                'detalles.product',
+                'detalles.bodegaOrigen',
+                'detalles.bodegaDestino',
+            ]),
+        ];
+    } catch (\Throwable $e) {
+        DB::rollBack();
+
+        return [
+            'success' => false,
+            'message' => $e->getMessage(),
+        ];
+    }
 }
 
 

@@ -499,6 +499,10 @@ Route::get('movimientos-stock/{id}/pdf', [CrmProductController::class, 'getMovim
 Route::apiResource('traslados-internos', EnvioInternoController::class);
   
 Route::get('traslados-internos-sedes', [EnvioInternoController::class, 'traerSedes']);
+Route::get('traslados-internos-usuarios-sede', [EnvioInternoController::class, 'traerUsuariosPorSede']);
+Route::get('traslados-internos-bodegas-sede', [EnvioInternoController::class, 'traerBodegasPorSede']);
+Route::get('mis-traslados', [EnvioInternoController::class, 'misTraslados']);
+Route::post('traslados-internos/{id}/confirmar-recepcion', [EnvioInternoController::class, 'confirmarRecepcion']);
 Route::get('traslados-internos-ordenes-compra', [EnvioInternoController::class, 'traerOrdenesCompra']);
 Route::get('/oc-traslados/{id}', [EnvioInternoController::class, 'mostrarOC']);
 Route::get('ordenes-compra-pendientes', [EnvioInternoController::class, 'traerOrdenesCompraPendientes']);

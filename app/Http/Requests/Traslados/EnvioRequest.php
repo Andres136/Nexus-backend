@@ -18,14 +18,15 @@ class EnvioRequest extends FormRequest
             //  General
         
             'sede_destino_id' => 'required|exists:sedes,id|different:sede_origen_id',
+            'responsable_id' => 'required|exists:users,id',
             'notas' => 'nullable|string|max:500',
             'empresa_id' => 'required|exists:empresas,id',
 
-     
+
 
             // Detalles
             'detalles' => 'required|array|min:1',
-            'detalles.*.orden_compra_id' => 'required|exists:orden_compra_proveedores,id',
+            'detalles.*.orden_compra_id' => 'nullable|exists:orden_compra_proveedores,id',
             'detalles.*.product_id' => 'required|exists:products,id',
             'detalles.*.descripcion' => 'required|string|max:255',
             'detalles.*.novedades' => 'nullable|string|max:255',
@@ -76,6 +77,8 @@ public function withValidator($validator)
             'sede_destino_id.required' => 'La sede de destino es obligatoria.',
             'sede_destino_id.exists' => 'La sede de destino seleccionada no es válida.',
             'sede_destino_id.different' => 'La sede de destino debe ser diferente a la sede de origen.',
+            'responsable_id.required' => 'El responsable que recibe es obligatorio.',
+            'responsable_id.exists' => 'El responsable seleccionado no es válido.',
             'notas.max' => 'Las notas no pueden exceder los 500 caracteres.',
 
           
@@ -84,7 +87,6 @@ public function withValidator($validator)
             'detalles.required' => 'Debe agregar al menos un detalle de envío.',
             'detalles.array' => 'El formato de los detalles de envío no es válido.',
             'detalles.min' => 'Debe agregar al menos un detalle de envío.',
-            'detalles.*.orden_compra_id.required' => 'El ID de la orden de compra es obligatorio en cada detalle.',
             'detalles.*.orden_compra_id.exists' => 'El ID de la orden de compra en uno de los detalles no es válido.',
             'detalles.*.product_id.required' => 'El ID del producto es obligatorio en cada detalle.',
             'detalles.*.product_id.exists' => 'El ID del producto en uno de los detalles no es válido.',
