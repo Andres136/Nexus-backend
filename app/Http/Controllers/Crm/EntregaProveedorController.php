@@ -116,6 +116,7 @@ public function referenciasFaltantes()
         'detalles.observaciones.usuario',
         'detalles.observaciones.proceso',
         'detalles.entregas',
+        'detalles.ordenesServicioDetalles.ordenServicio.proveedor',
     ])
     // 🔥 SOLO TRAE ÓRDENES QUE TIENEN FALTANTES
     ->whereHas('detalles', function ($q) {
@@ -145,6 +146,7 @@ public function referenciasFaltantes()
                 'porcentaje_entregado' => $detalle->cantidad_solicitada > 0
                     ? round(($totalEntregado / $detalle->cantidad_solicitada) * 100, 2)
                     : 0,
+                'ordenes_servicio' => $this->mapearOrdenesServicio($detalle),
                 'observaciones' => $detalle->observaciones->map(fn ($obs) => [
                     'id' => $obs->id,
                     'observacion' => $obs->observacion,
@@ -178,6 +180,7 @@ public function referenciasFaltantesbyId($ordenId)
         'detalles.observaciones.usuario',
         'detalles.observaciones.proceso',
         'detalles.entregas',
+        'detalles.ordenesServicioDetalles.ordenServicio.proveedor',
     ])->findOrFail($ordenId);
 
     $faltantes = collect();
@@ -206,6 +209,7 @@ public function referenciasFaltantesbyId($ordenId)
             'porcentaje_entregado' => $detalle->cantidad_solicitada > 0
                 ? round(($totalEntregado / $detalle->cantidad_solicitada) * 100, 2)
                 : 0,
+            'ordenes_servicio' => $this->mapearOrdenesServicio($detalle),
             'observaciones' => $detalle->observaciones->map(fn ($obs) => [
                 'id' => $obs->id,
                 'observacion' => $obs->observacion,
@@ -228,6 +232,32 @@ public function referenciasFaltantesbyId($ordenId)
     return response()->json([
         'referencias_faltantes' => $faltantes->values(),
     ]);
+}
+
+private function mapearOrdenesServicio(OrdenCompraProveedorDetalle $detalle)
+{
+    return $detalle->ordenesServicioDetalles
+        ->map(function ($detalleOs) {
+            $ordenServicio = $detalleOs->ordenServicio;
+
+            if (! $ordenServicio) {
+                return null;
+            }
+
+            return [
+                'id' => $ordenServicio->id,
+                'numero_os' => $ordenServicio->numero_os,
+                'estado' => $ordenServicio->estado,
+                'cantidad' => (float) $detalleOs->cantidad,
+                'proveedor' => $ordenServicio->proveedor?->nombre ?? 'N/A',
+                'pdf_url' => asset(
+                    "storage/ordenes_servicio/orden_servicio_{$ordenServicio->numero_os}.pdf"
+                ),
+            ];
+        })
+        ->filter()
+        ->unique('id')
+        ->values();
 }
     
     public function updateDetalle(Request $request, $id)

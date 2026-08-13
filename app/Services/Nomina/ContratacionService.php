@@ -110,8 +110,8 @@ class ContratacionService
     public function create(array $data): Contratacion
     {
         return DB::transaction(function () use ($data) {
-            if ($this->tieneContratoActivo((int) $data['users_id'])) {
-                throw new LogicException('Este empleado ya tiene un contrato activo. Debes inactivar o finalizar el contrato actual antes de registrar uno nuevo.');
+            if ($this->tieneContratoActivo((int) $data['users_id'], (int) $data['empresa_id'])) {
+                throw new LogicException('Este empleado ya tiene un contrato activo con esta empresa. Debes inactivar o finalizar el contrato actual antes de registrar uno nuevo.');
             }
 
             $data = $this->normalizarEconomicos($data, true);
@@ -125,9 +125,10 @@ class ContratacionService
         });
     }
 
-    private function tieneContratoActivo(int $userId, ?string $excludeUuid = null): bool
+    private function tieneContratoActivo(int $userId, int $empresaId, ?string $excludeUuid = null): bool
     {
         return Contratacion::where('users_id', $userId)
+            ->where('empresa_id', $empresaId)
             ->where('status', true)
             ->when($excludeUuid, fn($q) => $q->where('uuid', '!=', $excludeUuid))
             ->exists();

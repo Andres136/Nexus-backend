@@ -20,14 +20,15 @@ class HorarioUsuarioSemanalController extends Controller
     public function index(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'user_id' => 'required|integer|exists:users,id',
+            'user_id' => 'nullable|integer|exists:users,id',
         ]);
 
         try {
-            return response()->json([
-                'success' => true,
-                'data' => $this->service->porUsuario((int) $validated['user_id']),
-            ]);
+            $data = isset($validated['user_id'])
+                ? $this->service->porUsuario((int) $validated['user_id'])
+                : $this->service->todos();
+
+            return response()->json(['success' => true, 'data' => $data]);
         } catch (\Exception $e) {
             Log::error('Error al listar horarios semanales por usuario', ['error' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => 'Error al obtener el horario semanal.'], 500);

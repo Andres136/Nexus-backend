@@ -37,7 +37,7 @@ class NuevaTareaAsignada extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('✅ Nueva Tarea Asignada - ' . ($this->tarea->titulo ?? $this->tarea->nombre ?? 'Tarea Importante'))
+            ->subject('Nueva tarea asignada - ' . ($this->tarea->titulo ?? $this->tarea->nombre ?? 'Tarea Importante'))
             ->view('emails.nueva-tarea', [
                 'usuario' => $notifiable,
                 'tarea' => $this->tarea,

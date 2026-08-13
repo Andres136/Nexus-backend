@@ -70,4 +70,12 @@ class OrdenCompraProveedorDetalle extends Model
     {
         return $this->hasMany(\App\Models\Rutas\DeliveryRecordDetalle::class, 'orden_compra_proveedor_detalle_id');
     }
+
+    public function ordenesServicioDetalles()
+    {
+        return $this->hasMany(
+            \App\Models\Crm\Orden_servicio\OrdenServicioDetalle::class,
+            'orden_compra_detalle_id'
+        );
+    }
 }

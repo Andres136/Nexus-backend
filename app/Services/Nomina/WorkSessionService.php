@@ -4,6 +4,7 @@ namespace App\Services\Nomina;
 
 use App\Models\Nomina\HoraExtra;
 use App\Models\Nomina\HorarioOperacionDiaria;
+use App\Models\Nomina\HorarioUsuarioBloque;
 use App\Models\Nomina\HorarioUsuarioSemanal;
 use App\Models\Nomina\JornadaLaboral;
 use App\Models\Nomina\Permiso;
@@ -23,7 +24,7 @@ class WorkSessionService
 {
     private const WITH = ['empleado', 'kiosko', 'jornadaLaboral'];
 
-    private const TOLERANCIA_ENTRADA_MINUTOS = 15;
+    private const TOLERANCIA_ENTRADA_MINUTOS = 1;
 
     private const ALMUERZO_PERMITIDO_MINUTOS = 60;
 
@@ -507,6 +508,22 @@ class WorkSessionService
             $operativa->horario_usuario_semanal = $horarioUsuario->toArray();
         }
 
+        // Si el usuario tiene bloques ese día, el inicio del primer bloque es
+        // su hora de entrada esperada para efectos de tardanza (el kiosko
+        // sigue marcando una sola entrada/salida — esto solo cambia contra
+        // qué hora se compara esa marcación). Se limpia hora_entrada_limite
+        // porque venía calculada para la hora_entrada anterior (jornada base
+        // u horario individual), no para la del bloque; así vuelve a aplicar
+        // la tolerancia estándar (TOLERANCIA_ENTRADA_MINUTOS) sobre la nueva
+        // hora de entrada.
+        $bloquesUsuario = $this->resolverHorarioUsuarioBloques($data, $session);
+        if ($bloquesUsuario->isNotEmpty()) {
+            $primerBloque = $bloquesUsuario->sortBy('hora_inicio')->first();
+            $operativa->hora_entrada = $primerBloque->hora_inicio;
+            $operativa->hora_entrada_limite = null;
+            $operativa->horario_usuario_bloques = $bloquesUsuario->toArray();
+        }
+
         return $operativa;
     }
 
@@ -524,6 +541,21 @@ class WorkSessionService
             ->where('dia_semana', Carbon::parse($fecha)->dayOfWeekIso)
             ->where('status', true)
             ->first();
+    }
+
+    private function resolverHorarioUsuarioBloques(array $data, ?WorkSession $session = null): \Illuminate\Support\Collection
+    {
+        $userId = $data['user_id'] ?? $session?->user_id;
+        $fecha = $data['registro_diario'] ?? $session?->registro_diario;
+
+        if (! $userId || ! $fecha) {
+            return collect();
+        }
+
+        return HorarioUsuarioBloque::where('user_id', $userId)
+            ->where('dia_semana', Carbon::parse($fecha)->dayOfWeekIso)
+            ->where('status', true)
+            ->get();
     }
 
     private function validarCreacionDesdeKiosko(array $data): void
@@ -823,9 +855,27 @@ class WorkSessionService
     {
         $total = 0;
         $sesionesPorFecha = $sessions->keyBy(fn (WorkSession $session) => Carbon::parse($session->registro_diario)->toDateString());
+        // Bloques del usuario (horario de referencia, independiente de la marcación
+        // del kiosko): si existen para un día, reemplazan por completo el cálculo de
+        // ese día en vez de combinarse con HorarioUsuarioSemanal/jornada base.
+        $bloquesPorDia = HorarioUsuarioBloque::where('user_id', $userId)
+            ->where('status', true)
+            ->get()
+            ->groupBy('dia_semana');
         $cursor = $inicio->copy();
 
         while ($cursor->lte($fin)) {
+            $bloquesDelDia = $bloquesPorDia->get($cursor->dayOfWeekIso);
+
+            if ($bloquesDelDia && $bloquesDelDia->isNotEmpty()) {
+                $total += $bloquesDelDia->sum(fn (HorarioUsuarioBloque $bloque) => max(
+                    0,
+                    $this->minutosHora($bloque->hora_fin) - $this->minutosHora($bloque->hora_inicio)
+                ));
+                $cursor->addDay();
+                continue;
+            }
+
             $horario = HorarioUsuarioSemanal::where('user_id', $userId)
                 ->where('dia_semana', $cursor->dayOfWeekIso)
                 ->where('status', true)

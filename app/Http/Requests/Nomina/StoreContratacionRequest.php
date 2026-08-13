@@ -92,18 +92,19 @@ class StoreContratacionRequest extends FormRequest
     {
         return [
             function (Validator $validator) {
-                if (!$this->filled('users_id')) {
+                if (!$this->filled('users_id') || !$this->filled('empresa_id')) {
                     return;
                 }
 
                 $tieneContratoActivo = Contratacion::where('users_id', $this->input('users_id'))
+                    ->where('empresa_id', $this->input('empresa_id'))
                     ->where('status', true)
                     ->exists();
 
                 if ($tieneContratoActivo) {
                     $validator->errors()->add(
                         'users_id',
-                        'Este empleado ya tiene un contrato activo. Debes inactivar o finalizar el contrato actual antes de registrar uno nuevo.'
+                        'Este empleado ya tiene un contrato activo con esta empresa. Debes inactivar o finalizar el contrato actual antes de registrar uno nuevo.'
                     );
                 }
             },

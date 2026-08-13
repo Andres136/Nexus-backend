@@ -6,6 +6,7 @@ use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\OrdenCompraProveedor;
 use App\Models\Crm\OrdenDeTrabajo;
 use App\Models\Crm\Proveedor;
+use App\Models\Crm\Orden_servicio\OrdenServicio;
 use App\Models\Crm\Vehiculo;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +19,7 @@ class DeliveryEvent extends Model
         'tipo',
         'orden_id',
         'proveedor_id',
+        'orden_servicio_id',
         'fecha_entrega',
         'hora',
         'usuario_id',
@@ -38,6 +40,11 @@ class DeliveryEvent extends Model
     public function proveedor()
     {
         return $this->belongsTo(Proveedor::class, 'proveedor_id');
+    }
+
+    public function ordenServicio()
+    {
+        return $this->belongsTo(OrdenServicio::class, 'orden_servicio_id');
     }
 
     // Órdenes de compra a proveedor adjuntas a esta recogida

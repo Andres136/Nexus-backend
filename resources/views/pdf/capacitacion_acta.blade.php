@@ -85,7 +85,7 @@
         @foreach($acta->compromisos as $compromiso)
           <tr>
             <td>{{ $compromiso['descripcion'] ?? '' }}</td>
-            <td>{{ $compromiso['responsable'] ?? '—' }}</td>
+            <td>{{ $compromiso['responsable_nombre'] ?? '—' }}</td>
             <td>{{ $compromiso['fecha'] ?? '—' }}</td>
           </tr>
         @endforeach

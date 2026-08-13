@@ -52,7 +52,7 @@ class CapacitacionActaController extends Controller
             'desarrollo' => 'required|string|max:30000',
             'compromisos' => 'nullable|array',
             'compromisos.*.descripcion' => 'required|string|max:1000',
-            'compromisos.*.responsable' => 'nullable|string|max:255',
+            'compromisos.*.responsable' => 'nullable|integer|exists:users,id',
             'compromisos.*.fecha' => 'nullable|date',
             'conclusiones' => 'nullable|string|max:5000',
         ]);
