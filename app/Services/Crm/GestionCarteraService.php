@@ -18,8 +18,9 @@ class GestionCarteraService
     /**
      * Verifica si el cliente de la Orden de Compra tiene facturas vencidas o
      * próximas a vencer (mismo umbral de 8 días que VerificarFacturasCartera).
-     * Si es así, notifica al usuario que creó la orden Y envía un correo al
-     * cliente (mismo patrón ya usado al generar OT y al iniciar alistamiento).
+     * Si es así, notifica al usuario que creó la orden. El correo al cliente
+     * solo se envía cuando tiene al menos una factura vencida; las facturas
+     * próximas a vencer por sí solas no generan correo externo.
      * Devuelve un resumen para el frontend, o null si no hay nada.
      */
     public function verificarYNotificarCarteraCliente(Orden_Compra $ordenCompra): ?array
@@ -34,13 +35,18 @@ class GestionCarteraService
         $ordenCompra->user?->notify(new CarteraClienteAlCrearOcNotification($ordenCompra, $resumen));
 
         $cliente = $ordenCompra->cliente;
-        if ($cliente && $cliente->email) {
+        if ($cliente && $cliente->email && $this->debeEnviarCorreoAlCliente($resumen)) {
             Mail::to($cliente->email)->send(
                 new OrdenCompraCarteraClienteMail($ordenCompra, $cliente, $resumen)
             );
         }
 
         return $resumen;
+    }
+
+    public function debeEnviarCorreoAlCliente(?array $resumen): bool
+    {
+        return (bool) ($resumen['tiene_vencida'] ?? false);
     }
 
     /**

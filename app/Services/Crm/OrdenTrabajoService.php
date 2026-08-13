@@ -232,16 +232,17 @@ class OrdenTrabajoService
         $operacionesId = Departamentos::where('nombre', 'Operaciones')->value('id');
 
         // Estado de cartera del cliente, para incluirlo en los avisos de abajo
-        $carteraInfo = app(GestionCarteraService::class)->resumenCarteraCliente($ordenCompra->cliente_id);
+        $gestionCarteraService = app(GestionCarteraService::class);
+        $carteraInfo = $gestionCarteraService->resumenCarteraCliente($ordenCompra->cliente_id);
 
         // 1. Notificar al usuario que creó la orden de compra
         if ($ordenCompra->user) {
             $ordenCompra->user->notify(new OrdenTrabajoGeneradaParaCreador($ordenTrabajo, $carteraInfo));
         }
 
-        // 1.b Notificar al cliente que su orden avanzó a producción
+        // 1.b Notificar al cliente solo cuando tiene cartera vencida
         $cliente = $ordenCompra->cliente;
-        if ($cliente && $cliente->email) {
+        if ($cliente && $cliente->email && $gestionCarteraService->debeEnviarCorreoAlCliente($carteraInfo)) {
             Mail::to($cliente->email)->send(
                 new OrdenTrabajoGeneradaClienteMail($ordenTrabajo, $ordenCompra, $cliente, $carteraInfo)
             );

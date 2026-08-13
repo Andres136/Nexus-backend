@@ -105,19 +105,20 @@ public function crearAlistamiento($data, $usuarioAuthId)
 
 /**
  * Si el cliente de la Orden de Compra tiene cartera vencida o próxima a
- * vencer, avisa por correo al cliente y notifica al usuario que creó la OC
- * para que gestione la cartera antes de que llegue al despacho.
+ * vencer, notifica al usuario que creó la OC. El correo al cliente solo se
+ * envía si existe al menos una factura vencida.
  */
 private function avisarCarteraSiAplica(Alistamiento $alist, $ordenCompra): void
 {
-    $carteraInfo = app(GestionCarteraService::class)->resumenCarteraCliente($ordenCompra->cliente_id);
+    $gestionCarteraService = app(GestionCarteraService::class);
+    $carteraInfo = $gestionCarteraService->resumenCarteraCliente($ordenCompra->cliente_id);
 
     if (!$carteraInfo) {
         return;
     }
 
     $cliente = $ordenCompra->cliente;
-    if ($cliente && $cliente->email) {
+    if ($cliente && $cliente->email && $gestionCarteraService->debeEnviarCorreoAlCliente($carteraInfo)) {
         Mail::to($cliente->email)->send(
             new AlistamientoIniciadoClienteMail($alist, $ordenCompra, $cliente, $carteraInfo)
         );
