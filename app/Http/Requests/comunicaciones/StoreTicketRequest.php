@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\comunicaciones;
 
+use App\Support\DiasHabiles;
+use Carbon\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreTicketRequest extends FormRequest
@@ -31,7 +33,12 @@ class StoreTicketRequest extends FormRequest
             'archivos'            => ['nullable', 'array'],
             'archivos.*'          => ['file', 'mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx,txt,zip', 'max:10240'],
             'prioridad'           => ['nullable', 'in:baja,media,alta'],
-            'fecha_entrega'       => ['required', 'date_format:Y-m-d'],
+            'fecha_entrega'       => ['required', 'date_format:Y-m-d', function ($attribute, $value, $fail) {
+                $minimo = DiasHabiles::sumar(Carbon::now(), 3);
+                if (Carbon::createFromFormat('Y-m-d', $value)->lt($minimo)) {
+                    $fail("La fecha de entrega debe ser de al menos 3 días hábiles a partir de hoy ({$minimo->format('d/m/Y')} o después).");
+                }
+            }],
             'hora_entrega'        => ['required', 'date_format:H:i'],
             'fecha_solucion'      => ['nullable', 'date'],
         ];
