@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Nomina;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Nomina\EnviarRespuestasCuestionarioRequest;
+use App\Http\Requests\Nomina\GuardarBorradorCuestionarioRequest;
 use App\Services\Nomina\CuestionarioService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -33,6 +34,17 @@ class CuestionarioRespuestaController extends Controller
         } catch (ValidationException $e) {
             return response()->json(['success' => false, 'message' => collect($e->errors())->flatten()->first()], 403);
         }
+    }
+
+    public function guardarBorrador(GuardarBorradorCuestionarioRequest $request, string $cuestionario): JsonResponse
+    {
+        $this->cuestionarioService->guardarBorrador(
+            $cuestionario,
+            $request->user()->id,
+            $request->validated('respuestas')
+        );
+
+        return response()->json(['success' => true]);
     }
 
     public function store(EnviarRespuestasCuestionarioRequest $request, string $cuestionario): JsonResponse

@@ -20,7 +20,7 @@ class CuestionarioService
         return Cuestionario::with('convocatoria')
             ->where('estado', 'publicado')
             ->whereHas('convocatoria.postulaciones', fn ($q) => $q->where('user_id', $userId))
-            ->whereDoesntHave('respuestas', fn ($q) => $q->where('user_id', $userId))
+            ->whereDoesntHave('respuestas', fn ($q) => $q->where('user_id', $userId)->whereNotNull('enviado_en'))
             ->get()
             ->filter(fn (Cuestionario $c) => now()->lessThan($c->publicado_en->copy()->addSeconds($c->duracion_segundos)))
             ->sortByDesc('publicado_en')
@@ -165,9 +165,16 @@ class CuestionarioService
             return ['cuestionario' => null, 'mis_respuestas' => []];
         }
 
-        $misRespuestas = CuestionarioRespuesta::where('cuestionario_id', $cuestionario->id)
+        // Solo las respuestas ya enviadas cuentan como "ya respondió"; las
+        // que quedaron autoguardadas en borrador (enviado_en null) se
+        // devuelven aparte para poder rellenar el formulario sin bloquear
+        // el envío final.
+        $respuestasUsuario = CuestionarioRespuesta::where('cuestionario_id', $cuestionario->id)
             ->where('user_id', $userId)
-            ->get(['pregunta_id', 'valor']);
+            ->get(['pregunta_id', 'valor', 'enviado_en']);
+
+        $misRespuestas = $respuestasUsuario->whereNotNull('enviado_en')->values();
+        $miBorrador = $respuestasUsuario->whereNull('enviado_en')->values();
 
         // Antes de publicarse no se exponen las preguntas, solo el estado
         // de "sala de espera" (evita filtrar el contenido antes de tiempo).
@@ -177,7 +184,51 @@ class CuestionarioService
             $cuestionario->load('preguntas');
         }
 
-        return ['cuestionario' => $cuestionario, 'mis_respuestas' => $misRespuestas];
+        return ['cuestionario' => $cuestionario, 'mis_respuestas' => $misRespuestas, 'mi_borrador' => $miBorrador];
+    }
+
+    /**
+     * Autoguardado mientras el postulante escribe: upsert por pregunta sin
+     * marcar enviado_en, para no dejar nada perdido si se cierra el
+     * cuestionario o se agota el tiempo antes del envío final.
+     */
+    public function guardarBorrador(string $cuestionarioUuid, int $userId, array $respuestas): void
+    {
+        $cuestionario = Cuestionario::where('uuid', $cuestionarioUuid)->firstOrFail();
+
+        if ($cuestionario->estado !== 'publicado') {
+            return;
+        }
+
+        if (now()->greaterThan($cuestionario->publicado_en->copy()->addSeconds($cuestionario->duracion_segundos))) {
+            return;
+        }
+
+        $yaEnviado = CuestionarioRespuesta::where('cuestionario_id', $cuestionario->id)
+            ->where('user_id', $userId)
+            ->whereNotNull('enviado_en')
+            ->exists();
+
+        if ($yaEnviado) {
+            return;
+        }
+
+        $preguntasValidas = $cuestionario->preguntas()->pluck('id')->all();
+
+        foreach ($respuestas as $respuesta) {
+            if (! in_array((int) $respuesta['pregunta_id'], $preguntasValidas, true)) {
+                continue;
+            }
+
+            CuestionarioRespuesta::updateOrCreate(
+                [
+                    'cuestionario_id' => $cuestionario->id,
+                    'pregunta_id' => $respuesta['pregunta_id'],
+                    'user_id' => $userId,
+                ],
+                ['valor' => (string) ($respuesta['valor'] ?? '')]
+            );
+        }
     }
 
     public function guardarRespuestas(string $cuestionarioUuid, int $userId, array $respuestas): Collection
@@ -199,6 +250,7 @@ class CuestionarioService
 
             $yaRespondio = CuestionarioRespuesta::where('cuestionario_id', $cuestionario->id)
                 ->where('user_id', $userId)
+                ->whereNotNull('enviado_en')
                 ->exists();
 
             if ($yaRespondio) {
@@ -214,12 +266,17 @@ class CuestionarioService
                     continue;
                 }
 
-                CuestionarioRespuesta::create([
-                    'cuestionario_id' => $cuestionario->id,
-                    'pregunta_id' => $respuesta['pregunta_id'],
-                    'user_id' => $userId,
-                    'valor' => $respuesta['valor'],
-                ]);
+                CuestionarioRespuesta::updateOrCreate(
+                    [
+                        'cuestionario_id' => $cuestionario->id,
+                        'pregunta_id' => $respuesta['pregunta_id'],
+                        'user_id' => $userId,
+                    ],
+                    [
+                        'valor' => $respuesta['valor'],
+                        'enviado_en' => now(),
+                    ]
+                );
             }
 
             return CuestionarioRespuesta::where('cuestionario_id', $cuestionario->id)
@@ -234,6 +291,7 @@ class CuestionarioService
 
         return CuestionarioRespuesta::with(['usuario', 'pregunta', 'calificador'])
             ->where('cuestionario_id', $cuestionario->id)
+            ->whereNotNull('enviado_en')
             ->get()
             ->groupBy('user_id')
             ->values();
@@ -246,6 +304,7 @@ class CuestionarioService
         return CuestionarioRespuesta::with(['usuario', 'pregunta', 'calificador'])
             ->where('cuestionario_id', $cuestionario->id)
             ->where('user_id', $userId)
+            ->whereNotNull('enviado_en')
             ->get();
     }
 

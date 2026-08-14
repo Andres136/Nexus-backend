@@ -802,6 +802,7 @@ Route::prefix('nomina')->group(function () {
     Route::get('cuestionarios/{uuid}/respuestas', [CuestionarioController::class, 'respuestas']);
     Route::get('cuestionarios/{uuid}/respuestas/{userId}', [CuestionarioController::class, 'respuestasUsuario']);
     Route::post('cuestionarios/{cuestionario}/respuestas', [CuestionarioRespuestaController::class, 'store']);
+    Route::put('cuestionarios/{cuestionario}/respuestas/borrador', [CuestionarioRespuestaController::class, 'guardarBorrador']);
     Route::patch('cuestionarios/respuestas/{respuesta}/calificar', [CuestionarioController::class, 'calificar']);
     Route::get('horario-operacion/hoy', [HorarioOperacionDiariaController::class, 'show']);
     Route::put('horario-operacion/hoy', [HorarioOperacionDiariaController::class, 'update']);
