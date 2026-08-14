@@ -2,6 +2,7 @@
 
 namespace App\Models\RegistroDiario;
 
+use App\Models\Hseq\EficaciaEvaluacion;
 use App\Models\Hseq\HallazgoNovedad;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
@@ -38,5 +39,10 @@ class Novedades extends Model
     public function hallazgos()
     {
         return $this->hasMany(HallazgoNovedad::class, 'novedad_id');
+    }
+
+    public function evaluacionesEficacia()
+    {
+        return $this->hasMany(EficaciaEvaluacion::class, 'novedad_id');
     }
 }

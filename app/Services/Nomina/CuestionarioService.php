@@ -196,11 +196,24 @@ class CuestionarioService
     {
         $cuestionario = Cuestionario::where('uuid', $cuestionarioUuid)->firstOrFail();
 
-        if ($cuestionario->estado !== 'publicado') {
-            return;
-        }
+        // El frontend intenta un guardado inmediato (sin esperar el debounce)
+        // justo cuando se acaba el tiempo o cuando detecta que Talento
+        // Humano cerró el cuestionario, para no perder lo último escrito.
+        // Ese guardado puede llegar unos segundos después del corte exacto
+        // por la latencia de red, así que se acepta un margen de gracia en
+        // vez de rechazarlo silenciosamente.
+        $margenGracia = 20;
+        $puedeGuardar = match (true) {
+            $cuestionario->estado === 'publicado' => now()->lessThanOrEqualTo(
+                $cuestionario->publicado_en->copy()->addSeconds($cuestionario->duracion_segundos)->addSeconds($margenGracia)
+            ),
+            $cuestionario->estado === 'cerrado' && $cuestionario->cerrado_en => now()->lessThanOrEqualTo(
+                $cuestionario->cerrado_en->copy()->addSeconds($margenGracia)
+            ),
+            default => false,
+        };
 
-        if (now()->greaterThan($cuestionario->publicado_en->copy()->addSeconds($cuestionario->duracion_segundos))) {
+        if (! $puedeGuardar) {
             return;
         }
 

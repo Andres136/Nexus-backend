@@ -71,6 +71,7 @@ use App\Http\Controllers\Hseq\AnalisisProductoNoConformeController;
 use App\Http\Controllers\Hseq\ProductoNoConformeController;
 use App\Http\Controllers\Hseq\HallazgoNovedadController;
 use App\Http\Controllers\Hseq\HallazgoSeguimientoController;
+use App\Http\Controllers\Hseq\EficaciaEvaluacionController;
 use App\Http\Controllers\Hseq\HseqDashboardController;
 use App\Http\Controllers\Hseq\InspeccionHseqController;
 use App\Http\Controllers\Hseq\PreguntaInspeccionController;
@@ -699,6 +700,8 @@ Route::apiResource('seguimiento-hallazgos', HallazgoSeguimientoController::class
 Route::middleware('es_responsable_del_departamento')->group(function () {
     Route::delete('seguimiento-hallazgos/{id}', [HallazgoSeguimientoController::class, 'destroy']);
 });
+Route::get('novedades/{novedad}/eficacia', [EficaciaEvaluacionController::class, 'index']);
+Route::post('novedades/{novedad}/eficacia', [EficaciaEvaluacionController::class, 'store']);
 Route::apiResource('soporte-tareas', SoporteTareaController::class);
 Route::get('soporte-tarea/{tarea_id}', [SoporteTareaController::class, 'getByTareaId']);
 Route::get('soporte-tareas/hallazgo/{soporte_id}', [SoporteTareaController::class, 'getByHallazgoId']);
