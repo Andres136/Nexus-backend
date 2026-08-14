@@ -83,9 +83,12 @@ class CuestionarioService
     {
         $cuestionario = Cuestionario::with('preguntas')->where('uuid', $uuid)->firstOrFail();
 
-        if ($cuestionario->estado !== 'borrador') {
+        // Se permite publicar desde "borrador" (primera vez) o desde
+        // "cerrado" (reabrirlo si el creador se arrepiente del cierre); solo
+        // se bloquea si ya está publicado ahora mismo.
+        if ($cuestionario->estado === 'publicado') {
             throw ValidationException::withMessages([
-                'estado' => 'Este cuestionario ya fue publicado.',
+                'estado' => 'Este cuestionario ya está publicado.',
             ]);
         }
 
@@ -98,6 +101,7 @@ class CuestionarioService
         $cuestionario->update([
             'estado' => 'publicado',
             'publicado_en' => now(),
+            'cerrado_en' => null,
         ]);
 
         $cuestionario = $cuestionario->fresh(['preguntas', 'convocatoria']);
