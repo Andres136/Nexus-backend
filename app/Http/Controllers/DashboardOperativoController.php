@@ -115,11 +115,17 @@ $filters = $request->all();
         $request->validate(['observaciones' => 'nullable|string|max:2000']);
 
         $detalle = Orden_Compra_Detalle::findOrFail($id);
-        $detalle->update(['observaciones' => $request->observaciones]);
+        $detalle->update([
+            'observaciones_calidad' => $request->observaciones,
+            'observaciones_calidad_usuario_id' => $request->user()->id,
+            'observaciones_calidad_at' => now(),
+        ]);
 
         return response()->json([
             'message' => 'Observación guardada correctamente',
-            'observaciones' => $detalle->observaciones,
+            'observaciones' => $detalle->observaciones_calidad,
+            'observaciones_usuario' => $request->user()->name,
+            'observaciones_at' => $detalle->observaciones_calidad_at,
         ]);
     }
 

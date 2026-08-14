@@ -727,7 +727,12 @@ public function descontarStockMasivo(array $items, $user)
             $ordenTrabajoId  = $item['orden_trabajo_id'] ?? null;
             $ordenCompraId   = $item['orden_compra_id'] ?? null;
             $detalleId = $item['detalle_id'] ?? null;
-            $sedeId          = $user->sede_id;
+
+            // El stock a descontar es el de la sede de la orden, no el de la sede
+            // del usuario que cierra la orden (pueden ser distintas).
+            $sedeId = $ordenCompraId
+                ? (\App\Models\Crm\Orden_Compra::find($ordenCompraId)?->sede_id ?? $user->sede_id)
+                : $user->sede_id;
 
             $cantidadCubierta = 0;
             $detalleOriginal  = [];
@@ -895,8 +900,8 @@ if (!$movimiento) {
             'equivalentes' => [],
             'errores'      => [],
         ],
-        'sede_origen_id'   => $user->sede_id ?? null,
-        'sede_destino_id'  => $user->sede_id ?? null,
+        'sede_origen_id'   => $sedeId ?? null,
+        'sede_destino_id'  => $sedeId ?? null,
         'envio_interno_id' => null,
         'razon'            => 'Descuento masivo',
     ]);

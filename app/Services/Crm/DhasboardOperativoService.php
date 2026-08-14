@@ -152,6 +152,7 @@ $sedeId = $filters['sede_id'] ?? null;
 $ordenes = Orden_Compra::with([
         'cliente',
         'detalles.product',
+        'detalles.observacionCalidadUsuario:id,name',
         'sede'
     ])
     ->whereIn('estado_id', [
@@ -255,7 +256,11 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
         ->filter(fn($items) => $items->isNotEmpty());
 
     // Flujo de Trabajo (OT)
-    $ordenesTrabajo = DB::table('orden_de_trabajos')->whereIn('orden_compra_id', $ordenIds)->get()->keyBy('orden_compra_id');
+    $ordenesTrabajo = DB::table('orden_de_trabajos')
+        ->leftJoin('users', 'orden_de_trabajos.revisada_por', '=', 'users.id')
+        ->whereIn('orden_compra_id', $ordenIds)
+        ->select('orden_de_trabajos.*', 'users.name as revisada_por_nombre')
+        ->get()->keyBy('orden_compra_id');
 
     // Despachos
     $despachos = DB::table('delivery_events')
@@ -347,7 +352,7 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
 
         // --- LÓGICA DE INVENTARIO Y PRODUCTOS ---
         $stockDisponible = 0;
-        $productosData = $detalles->map(function ($d) use (
+        $productosData = $detalles->values()->map(function ($d, $idx) use (
             $oc,
             $origenesCompra,
             $proveedorDetallesFallback,
@@ -420,6 +425,7 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
 
             return [
                 'detalle_id' => $d->id,
+                'numero_item' => $idx + 1,
                 'producto_id' => $d->product_id,
                 'codigo' => $d->product?->code,
                 'producto' => optional($d->product)->name,
@@ -430,7 +436,9 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
                 'stock' => $stock,
                 'estado' => $estadoItem,
                 'tiene_equivalente' => $tieneEquivalente,
-                'observaciones' => $d->observaciones,
+                'observaciones' => $d->observaciones_calidad,
+                'observaciones_usuario' => optional($d->observacionCalidadUsuario)->name,
+                'observaciones_at' => $d->observaciones_calidad_at,
                 'compra_proveedor' => [
                     'trazabilidad' => $usaTrazabilidadExactaProducto ? 'exacta' : 'estimada',
                     'total_solicitado' => $compraSolicitada,
@@ -489,6 +497,7 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
             'orden_trabajo_id'   => $ot->id ?? null,
             'revisada' => $ot ? ($ot->revisada ==1 ? true : false) : null,
             'revisada_at' => $ot->revisada_at ?? null,
+            'revisada_por_nombre' => $ot->revisada_por_nombre ?? null,
             'numero'          => $oc->numero,
             'fecha_entrega'     => $oc->fecha_entrega,
             'cliente'         => optional($oc->cliente)->nombre,

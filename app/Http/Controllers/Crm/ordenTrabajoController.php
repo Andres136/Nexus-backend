@@ -23,6 +23,7 @@ class ordenTrabajoController extends Controller
             'ordenCompra.cliente',
             'ordenCompra.sede',
             'ordenCompra.detalles.product',
+            'ordenCompra.detalles.observacionCalidadUsuario:id,name',
 
         ])
             ->whereHas('ordenCompra', function ($q) {
