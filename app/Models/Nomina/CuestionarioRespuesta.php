@@ -14,6 +14,7 @@ class CuestionarioRespuesta extends Model
         'pregunta_id',
         'user_id',
         'valor',
+        'enviado_en',
         'calificacion',
         'calificado_por',
         'calificado_en',
@@ -21,6 +22,7 @@ class CuestionarioRespuesta extends Model
 
     protected $casts = [
         'calificacion' => 'integer',
+        'enviado_en' => 'datetime',
         'calificado_en' => 'datetime',
     ];
 
