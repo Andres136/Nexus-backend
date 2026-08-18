@@ -226,20 +226,22 @@ public function getAllProducts(Request $request)
 
         $query = Product::query()
 
-            ->when($request->search, function ($q) use ($request) {
+            ->when(trim((string) $request->search) !== '', function ($q) use ($request) {
 
-                $q->where(function ($sub) use ($request) {
+                $search = trim($request->search);
 
-                    $sub->where('name', 'like', "%{$request->search}%")
-                        ->orWhere('description', 'like', "%{$request->search}%")
-                        ->orWhere('code', 'like', "%{$request->search}%");
+                $q->where(function ($sub) use ($search) {
+
+                    $sub->where('name', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%")
+                        ->orWhere('code', 'like', "%{$search}%");
 
                 });
 
             });
 
         // SOLO limitar cuando NO hay búsqueda
-        if (!$request->search) {
+        if (trim((string) $request->search) === '') {
             $query->limit(50);
         }
 

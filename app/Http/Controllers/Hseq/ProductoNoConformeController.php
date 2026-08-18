@@ -51,7 +51,10 @@ class ProductoNoConformeController extends Controller
             'proceso_id' => $usuario->procesos()->oldest('id')->value('id'),
         ]);
 
-        $producto = $this->service->crear($data);
+        $archivos = $request->file('archivos', []);
+        unset($data['archivos']);
+
+        $producto = $this->service->crear($data, $archivos);
 
         return response()->json([
             'message' => 'Producto no conforme creado exitosamente',
