@@ -75,7 +75,8 @@ class OrdenCompraController extends Controller
             'user',
             'estado',
             'detalles.product',
-            'ordenTrabajo'
+            'ordenTrabajo',
+            'actualizadoPor:id,name'
         )
         ->withExists('ordenTrabajo') // ✅ agrega flag booleano
         ->when($search, function ($query, $search) {
@@ -475,6 +476,7 @@ $path = $request->file('cliente_documento')->store('documentos_clientes', 'publi
                 'observaciones'     => $request->observaciones,
                 'empresa_id'        => $request->empresa_id,
                 'orden_compra_cliente' => $request->orden_compra_cliente,
+                'actualizado_por'   => auth()->id(),
 
             ]);
 
