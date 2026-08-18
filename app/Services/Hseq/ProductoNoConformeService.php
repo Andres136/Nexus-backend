@@ -23,6 +23,7 @@ class ProductoNoConformeService
         'ordenCompraProveedor:id,numero_orden',
         'estado:id,nombre',
         'analisis',
+        'archivos',
     ];
 
     public function listar(array $filtros)
@@ -78,7 +79,7 @@ class ProductoNoConformeService
         return $query->latest()->paginate($perPage);
     }
 
-    public function crear(array $data): ProductoNoConforme
+    public function crear(array $data, array $archivos = []): ProductoNoConforme
     {
         $productos = $data['productos'] ?? [];
         unset($data['productos']);
@@ -90,6 +91,11 @@ class ProductoNoConformeService
                 'producto_id' => $item['producto_id'],
                 'cantidad_afectada' => $item['cantidad_afectada'],
             ]);
+        }
+
+        foreach ($archivos as $archivo) {
+            $ruta = $archivo->store('productos_no_conformes', 'public');
+            $reporte->archivos()->create(['archivo' => $ruta]);
         }
 
         $this->notificarResponsablesCalidad($reporte);

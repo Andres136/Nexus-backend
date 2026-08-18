@@ -33,7 +33,9 @@ class StoreProductoNoConformeRequest extends FormRequest
             'fecha_reporte' => 'required|date',
             'descripcion_inicial' => 'required|string',
             'tipo_falla' => 'required|string',
-            'estado_id' => 'required|exists:estados,id'
+            'estado_id' => 'required|exists:estados,id',
+            'archivos' => 'nullable|array',
+            'archivos.*' => 'file|mimes:pdf,jpg,jpeg,png|max:20480',
         ];
     }
 
@@ -64,7 +66,11 @@ class StoreProductoNoConformeRequest extends FormRequest
             'tipo_falla.required' => 'El tipo de falla es obligatorio.',
             'tipo_falla.string' => 'El tipo de falla debe ser una cadena de texto.',
             'estado_id.required' => 'El ID del estado es obligatorio.',
-            'estado_id.exists' => 'El estado especificado no existe.'
+            'estado_id.exists' => 'El estado especificado no existe.',
+            'archivos.array' => 'Los archivos deben enviarse como una lista.',
+            'archivos.*.file' => 'Cada evidencia debe ser un archivo válido.',
+            'archivos.*.mimes' => 'Cada archivo debe ser PDF, JPG, JPEG o PNG.',
+            'archivos.*.max' => 'Cada archivo no debe superar los 20 MB.',
         ];
     }
 }
