@@ -401,6 +401,7 @@ class EncuestaService
                 'nombre'        => $e->cliente?->nombre,
                 'email'         => $e->cliente?->email,
                 'estado'        => $e->estado,
+                'token'         => $e->token,
                 'enviado_el'    => $e->sent_at?->format('Y-m-d H:i'),
                 'respondido_el' => $e->responded_at?->format('Y-m-d H:i'),
             ];
