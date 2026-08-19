@@ -4,12 +4,23 @@ namespace App\Services\Crm;
 
 use App\EstadoEnum;
 use App\Models\Crm\CarteraGestionMensualUsuario;
+use App\RolEnum;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class ComercialDashboardService
 {
+    // Roles con meta individual real (excluye GERENTE_COMERCIAL, que tiene
+    // vista global y no una cuota propia — mismo criterio que
+    // SeguimientoController/ClienteService). Sin este filtro, cualquier
+    // usuario de otro rol con una orden a su nombre entraba al divisor de
+    // la meta y diluía/inflaba el "toca a X millones" de cada ejecutivo.
+    private const ROLES_COMERCIALES = [
+        RolEnum::COMERCIAL->value,
+        RolEnum::EJECUTIVO_COMERCIAL->value,
+    ];
+
     public function getResumenMesActual(?int $userId = null): array
     {
         $inactivo = EstadoEnum::INACTIVO->value;
@@ -21,6 +32,7 @@ class ComercialDashboardService
         $usuarios = DB::table('users')
             ->join('clientes', 'clientes.user_id', '=', 'users.id')
             ->where('users.estado_id', '!=', $inactivo)
+            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->when($userId, fn ($query) => $query->where('users.id', $userId))
             ->select('users.id', 'users.name')
             ->distinct()
@@ -77,6 +89,7 @@ class ComercialDashboardService
                      ->where('clientes.estado_id', '!=', $inactivo);
             })
             ->where('users.estado_id', '!=', $inactivo)
+            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->select(
                 'users.id as user_id',
                 'users.name as usuario',
@@ -93,6 +106,7 @@ class ComercialDashboardService
         $cotizaciones = DB::table('cotizaciones')
             ->join('users', 'cotizaciones.user_id', '=', 'users.id')
             ->where('users.estado_id', '!=', $inactivo)
+            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->select(
                 'users.id as user_id',
                 'users.name as usuario',
@@ -112,6 +126,7 @@ class ComercialDashboardService
                      ->where('clientes.estado_id', '!=', $inactivo);
             })
             ->where('users.estado_id', '!=', $inactivo)
+            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->select(
                 'users.id as user_id',
                 'users.name as usuario',
@@ -129,6 +144,7 @@ class ComercialDashboardService
         $fielesMensual = DB::table('orden__compras as o')
             ->join('users', 'o.user_id', '=', 'users.id')
             ->where('users.estado_id', '!=', $inactivo)
+            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->joinSub(
                 DB::table('orden__compras')
                     ->join('clientes', function ($join) use ($inactivo) {
@@ -163,6 +179,7 @@ class ComercialDashboardService
             ->leftJoin('orden__compras', 'orden__compras.cliente_id', '=', 'clientes.id')
             ->where('users.estado_id', '!=', $inactivo)
             ->where('clientes.estado_id', '!=', $inactivo)
+            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->select(
                 'users.id as user_id',
                 'users.name as usuario',
@@ -216,6 +233,7 @@ class ComercialDashboardService
         $usuariosConVentasPorMes = DB::table('orden__compras')
             ->join('users', 'orden__compras.user_id', '=', 'users.id')
             ->where('users.estado_id', '!=', $inactivo)
+            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->select(
                 DB::raw('DATE_FORMAT(orden__compras.created_at, "%Y-%m") as mes'),
                 DB::raw('COUNT(DISTINCT orden__compras.user_id) as total_usuarios')
@@ -458,6 +476,7 @@ unset($r);
                      ->where('clientes.estado_id', '!=', $inactivo);
             })
             ->where('users.estado_id', '!=', $inactivo)
+            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->select(
                 'users.id as user_id',
                 'users.name as usuario',
@@ -472,6 +491,7 @@ unset($r);
         $cotizaciones = DB::table('cotizaciones')
             ->join('users', 'cotizaciones.user_id', '=', 'users.id')
             ->where('users.estado_id', '!=', $inactivo)
+            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->select(
                 'users.id as user_id',
                 'users.name as usuario',
@@ -490,6 +510,7 @@ unset($r);
                      ->where('clientes.estado_id', '!=', $inactivo);
             })
             ->where('users.estado_id', '!=', $inactivo)
+            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->select(
                 'users.id as user_id',
                 'users.name as usuario',
@@ -605,6 +626,7 @@ unset($r);
                      ->where('clientes.estado_id', '!=', $inactivo);
             })
             ->where('users.estado_id', '!=', $inactivo)
+            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->select(
                 'users.id as user_id',
                 'users.name as usuario',
@@ -621,6 +643,7 @@ unset($r);
         $cotizaciones = DB::table('cotizaciones')
             ->join('users', 'cotizaciones.user_id', '=', 'users.id')
             ->where('users.estado_id', '!=', $inactivo)
+            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->select(
                 'users.id as user_id',
                 'users.name as usuario',
@@ -640,6 +663,7 @@ unset($r);
                      ->where('clientes.estado_id', '!=', $inactivo);
             })
             ->where('users.estado_id', '!=', $inactivo)
+            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->select(
                 'users.id as user_id',
                 'users.name as usuario',
@@ -657,6 +681,7 @@ unset($r);
         $fielesTrimestral = DB::table('orden__compras as o')
             ->join('users', 'o.user_id', '=', 'users.id')
             ->where('users.estado_id', '!=', $inactivo)
+            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->joinSub(
                 DB::table('orden__compras')
                     ->join('clientes', function ($join) use ($inactivo) {
@@ -726,6 +751,7 @@ unset($r);
         $usuariosConVentasPorTrimestre = DB::table('orden__compras')
             ->join('users', 'orden__compras.user_id', '=', 'users.id')
             ->where('users.estado_id', '!=', $inactivo)
+            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->select(
                 DB::raw('CONCAT(YEAR(orden__compras.created_at), "-Q", QUARTER(orden__compras.created_at)) as trimestre'),
                 DB::raw('COUNT(DISTINCT orden__compras.user_id) as total_usuarios')
