@@ -25,8 +25,9 @@ class StoreTicketRequest extends FormRequest
     {
         return [
             'user_asignado_id'    => ['nullable', 'integer', 'exists:users,id'],
-            'producto_id'         => ['nullable', 'integer', 'exists:products,id'],
+            'producto_id'         => ['nullable', 'integer', 'exists:products,id', 'required_if:tipo,soporte_equipo'],
             'departamento_id'     => ['nullable', 'integer', 'exists:departamentos,id'],
+            'tipo'                => ['required', 'in:solicitud,soporte_equipo,desarrollo_nexus'],
             'descripcion'         => ['required', 'string', 'max:5000'],
             'estado'              => ['nullable', 'in:pendiente,en_proceso,cerrado'],
             'archivo'             => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx,txt,zip', 'max:10240'],
@@ -47,6 +48,9 @@ class StoreTicketRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'tipo.required'        => 'El tipo de ticket es obligatorio.',
+            'tipo.in'              => 'El tipo debe ser solicitud, soporte de equipo o desarrollo Nexus.',
+            'producto_id.required_if' => 'Selecciona el equipo asignado para un ticket de soporte de equipo.',
             'descripcion.required' => 'La descripción del ticket es obligatoria.',
             'descripcion.max'      => 'La descripción no puede superar 5000 caracteres.',
             'estado.in'            => 'El estado debe ser pendiente, en proceso o cerrado.',

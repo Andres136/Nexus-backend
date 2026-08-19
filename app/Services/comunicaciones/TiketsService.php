@@ -55,6 +55,7 @@ class TiketsService
             })
             ->when(!empty($filters['estado']), fn ($query) => $query->where('estado', $filters['estado']))
             ->when(!empty($filters['prioridad']), fn ($query) => $query->where('prioridad', $filters['prioridad']))
+            ->when(!empty($filters['tipo']), fn ($query) => $query->where('tipo', $filters['tipo']))
             ->when(!empty($filters['producto_id']), fn ($query) => $query->where('producto_id', $filters['producto_id']))
             ->when(!empty($filters['departamento_id']), fn ($query) => $query->where('departamento_id', $filters['departamento_id']))
             ->when(!empty($filters['fecha_desde']), fn ($query) => $query->whereDate('created_at', '>=', $filters['fecha_desde']))
@@ -214,6 +215,7 @@ class TiketsService
 
         $tickets = Ticket::with(['departamento:id,nombre'])
             ->when(!empty($filters['departamento_id']), fn ($query) => $query->where('departamento_id', $filters['departamento_id']))
+            ->when(!empty($filters['tipo']), fn ($query) => $query->where('tipo', $filters['tipo']))
             ->whereBetween('created_at', [$fechaDesde, $fechaHasta])
             ->get();
 
@@ -545,6 +547,7 @@ class TiketsService
             'user_asignado_id',
             'producto_id',
             'departamento_id',
+            'tipo',
             'descripcion',
             'archivo',
             'archivos',
