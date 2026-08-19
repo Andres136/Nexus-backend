@@ -13,13 +13,43 @@ class ComercialDashboardService
 {
     // Roles con meta individual real (excluye GERENTE_COMERCIAL, que tiene
     // vista global y no una cuota propia — mismo criterio que
-    // SeguimientoController/ClienteService). Sin este filtro, cualquier
-    // usuario de otro rol con una orden a su nombre entraba al divisor de
-    // la meta y diluía/inflaba el "toca a X millones" de cada ejecutivo.
+    // SeguimientoController/ClienteService). Solo estos roles cuentan en el
+    // divisor de la meta ("toca a X millones" se reparte solo entre ellos).
     private const ROLES_COMERCIALES = [
         RolEnum::COMERCIAL->value,
         RolEnum::EJECUTIVO_COMERCIAL->value,
     ];
+
+    // Usuarios de otros roles (admin, gerente, etc.) sí pueden tener
+    // órdenes/gestiones a su nombre y esa actividad no debe desaparecer del
+    // dashboard. En vez de excluirlos, sus filas se consolidan en un único
+    // pseudo-usuario "Otros" (id 0) que se trata como un vendedor más: entra
+    // al reparto de la meta individual igual que cualquier ejecutivo (si
+    // "Otros" tuvo ventas ese mes, la meta se divide entre N ejecutivos + 1).
+    private const OTROS_USER_ID = 0;
+    private const OTROS_USUARIO = 'Otros';
+
+    // CASE SQL (sin alias) para agrupar cualquier usuario fuera de
+    // ROLES_COMERCIALES en el pseudo-usuario "Otros", reutilizable tanto en
+    // SELECT como dentro de COUNT(DISTINCT ...). Los ids de ROLES_COMERCIALES
+    // son enteros fijos del enum (no input de usuario), seguro de interpolar
+    // directo en el SQL.
+    private function caseUserIdAgrupado(): string
+    {
+        $roles = implode(',', self::ROLES_COMERCIALES);
+        return "CASE WHEN users.role_id IN ({$roles}) THEN users.id ELSE " . self::OTROS_USER_ID . ' END';
+    }
+
+    private function selectUserIdAgrupado(): \Illuminate\Database\Query\Expression
+    {
+        return DB::raw($this->caseUserIdAgrupado() . ' as user_id');
+    }
+
+    private function selectUsuarioAgrupado(): \Illuminate\Database\Query\Expression
+    {
+        $roles = implode(',', self::ROLES_COMERCIALES);
+        return DB::raw("CASE WHEN users.role_id IN ({$roles}) THEN users.name ELSE '" . self::OTROS_USUARIO . "' END as usuario");
+    }
 
     public function getResumenMesActual(?int $userId = null): array
     {
@@ -89,33 +119,31 @@ class ComercialDashboardService
                      ->where('clientes.estado_id', '!=', $inactivo);
             })
             ->where('users.estado_id', '!=', $inactivo)
-            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->select(
-                'users.id as user_id',
-                'users.name as usuario',
+                $this->selectUserIdAgrupado(),
+                $this->selectUsuarioAgrupado(),
                 DB::raw('DATE_FORMAT(seguimiento_clientes.created_at, "%Y-%m") as mes'),
                 DB::raw('COUNT(*) as gestiones'),
                 DB::raw('COUNT(DISTINCT seguimiento_clientes.cliente_id) as clientes_gestionados')
             )
             ->where('seguimiento_clientes.created_at', '>=', $inicio)
             ->when($userId, fn ($q) => $q->where('users.id', $userId))
-            ->groupBy('users.id', 'users.name', 'mes')
+            ->groupBy('user_id', 'usuario', 'mes')
             ->get();
 
         // 2️⃣ Cotizaciones — solo usuarios activos
         $cotizaciones = DB::table('cotizaciones')
             ->join('users', 'cotizaciones.user_id', '=', 'users.id')
             ->where('users.estado_id', '!=', $inactivo)
-            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->select(
-                'users.id as user_id',
-                'users.name as usuario',
+                $this->selectUserIdAgrupado(),
+                $this->selectUsuarioAgrupado(),
                 DB::raw('DATE_FORMAT(cotizaciones.created_at, "%Y-%m") as mes'),
                 DB::raw('COUNT(*) as cotizaciones')
             )
             ->where('cotizaciones.created_at', '>=', $inicio)
             ->when($userId, fn ($q) => $q->where('users.id', $userId))
-            ->groupBy('users.id', 'users.name', 'mes')
+            ->groupBy('user_id', 'usuario', 'mes')
             ->get();
 
         // 3️⃣ Órdenes — clientes_con_orden solo activos, y solo usuarios activos
@@ -126,10 +154,9 @@ class ComercialDashboardService
                      ->where('clientes.estado_id', '!=', $inactivo);
             })
             ->where('users.estado_id', '!=', $inactivo)
-            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->select(
-                'users.id as user_id',
-                'users.name as usuario',
+                $this->selectUserIdAgrupado(),
+                $this->selectUsuarioAgrupado(),
                 DB::raw('DATE_FORMAT(orden__compras.created_at, "%Y-%m") as mes'),
                 DB::raw('COUNT(*) as ordenes'),
                 DB::raw('SUM(orden__compras.valor_total) as valor'),
@@ -137,14 +164,13 @@ class ComercialDashboardService
             )
             ->where('orden__compras.created_at', '>=', $inicio)
             ->when($userId, fn ($q) => $q->where('users.id', $userId))
-            ->groupBy('users.id', 'users.name', 'mes')
+            ->groupBy('user_id', 'usuario', 'mes')
             ->get();
 
         // 4️⃣ Fidelización — solo clientes activos con 2+ órdenes, y solo usuarios activos
         $fielesMensual = DB::table('orden__compras as o')
             ->join('users', 'o.user_id', '=', 'users.id')
             ->where('users.estado_id', '!=', $inactivo)
-            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->joinSub(
                 DB::table('orden__compras')
                     ->join('clientes', function ($join) use ($inactivo) {
@@ -161,13 +187,13 @@ class ComercialDashboardService
                                    ->on('o.cliente_id', '=', 'fieles.cliente_id')
             )
             ->select(
-                'users.id as user_id',
+                $this->selectUserIdAgrupado(),
                 DB::raw('DATE_FORMAT(o.created_at, "%Y-%m") as mes'),
                 DB::raw('COUNT(DISTINCT o.cliente_id) as clientes_fieles')
             )
             ->where('o.created_at', '>=', $inicio)
             ->when($userId, fn ($q) => $q->where('o.user_id', $userId))
-            ->groupBy('users.id', 'mes')
+            ->groupBy('user_id', 'mes')
             ->get();
 
         // 4️⃣.5 Nuevos registros de clientes por vendedor/mes: prospectos
@@ -179,17 +205,16 @@ class ComercialDashboardService
             ->leftJoin('orden__compras', 'orden__compras.cliente_id', '=', 'clientes.id')
             ->where('users.estado_id', '!=', $inactivo)
             ->where('clientes.estado_id', '!=', $inactivo)
-            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->select(
-                'users.id as user_id',
-                'users.name as usuario',
+                $this->selectUserIdAgrupado(),
+                $this->selectUsuarioAgrupado(),
                 DB::raw('DATE_FORMAT(clientes.created_at, "%Y-%m") as mes'),
                 DB::raw('COUNT(DISTINCT clientes.id) as clientes_nuevos'),
                 DB::raw('COUNT(DISTINCT CASE WHEN orden__compras.id IS NULL THEN clientes.id END) as prospectos_nuevos')
             )
             ->where('clientes.created_at', '>=', $inicio)
             ->when($userId, fn ($q) => $q->where('users.id', $userId))
-            ->groupBy('users.id', 'mes')
+            ->groupBy('user_id', 'usuario', 'mes')
             ->get();
 
         // 5️⃣ Cartera: vencidas por usuario (solo usuarios activos)
@@ -229,14 +254,17 @@ class ComercialDashboardService
             ->get()
             ->keyBy('periodo');
 
-        // 7️⃣ Usuarios activos con ventas por mes (divisor de la meta individual)
+        // 7️⃣ Usuarios activos con ventas por mes (divisor de la meta individual).
+        // COUNT(DISTINCT CASE...) cuenta cada ejecutivo real por su id, y
+        // colapsa a todos los usuarios de otros roles en un solo valor (0):
+        // si "Otros" vendió ese mes, cuenta como una unidad más del reparto,
+        // igual que si fuera un ejecutivo adicional.
         $usuariosConVentasPorMes = DB::table('orden__compras')
             ->join('users', 'orden__compras.user_id', '=', 'users.id')
             ->where('users.estado_id', '!=', $inactivo)
-            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->select(
                 DB::raw('DATE_FORMAT(orden__compras.created_at, "%Y-%m") as mes'),
-                DB::raw('COUNT(DISTINCT orden__compras.user_id) as total_usuarios')
+                DB::raw('COUNT(DISTINCT ' . $this->caseUserIdAgrupado() . ') as total_usuarios')
             )
             ->where('orden__compras.created_at', '>=', $inicio)
             ->where('orden__compras.valor_total', '>', 0)
@@ -253,7 +281,7 @@ class ComercialDashboardService
 
                 if (!isset($resultado[$key])) {
                     $resultado[$key] = [
-                        'user_id'                   => $r->user_id,
+                        'user_id'                   => (int) $r->user_id,
                         'usuario'                   => $r->usuario ?? '',
                         'mes'                       => $r->mes,
                         'gestiones'                 => 0,
@@ -476,31 +504,29 @@ unset($r);
                      ->where('clientes.estado_id', '!=', $inactivo);
             })
             ->where('users.estado_id', '!=', $inactivo)
-            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->select(
-                'users.id as user_id',
-                'users.name as usuario',
+                $this->selectUserIdAgrupado(),
+                $this->selectUsuarioAgrupado(),
                 DB::raw('CEIL(DAY(seguimiento_clientes.created_at) / 7) as semana_mes'),
                 DB::raw('COUNT(*) as total')
             )
             ->whereBetween('seguimiento_clientes.created_at', [$inicio, $fin])
             ->when($userId, fn ($q) => $q->where('seguimiento_clientes.user_id', $userId))
-            ->groupBy('users.id', 'users.name', 'semana_mes')
+            ->groupBy('user_id', 'usuario', 'semana_mes')
             ->get();
 
         $cotizaciones = DB::table('cotizaciones')
             ->join('users', 'cotizaciones.user_id', '=', 'users.id')
             ->where('users.estado_id', '!=', $inactivo)
-            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->select(
-                'users.id as user_id',
-                'users.name as usuario',
+                $this->selectUserIdAgrupado(),
+                $this->selectUsuarioAgrupado(),
                 DB::raw('CEIL(DAY(cotizaciones.created_at) / 7) as semana_mes'),
                 DB::raw('COUNT(*) as total')
             )
             ->whereBetween('cotizaciones.created_at', [$inicio, $fin])
             ->when($userId, fn ($q) => $q->where('cotizaciones.user_id', $userId))
-            ->groupBy('users.id', 'users.name', 'semana_mes')
+            ->groupBy('user_id', 'usuario', 'semana_mes')
             ->get();
 
         $ordenes = DB::table('orden__compras')
@@ -510,10 +536,9 @@ unset($r);
                      ->where('clientes.estado_id', '!=', $inactivo);
             })
             ->where('users.estado_id', '!=', $inactivo)
-            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->select(
-                'users.id as user_id',
-                'users.name as usuario',
+                $this->selectUserIdAgrupado(),
+                $this->selectUsuarioAgrupado(),
                 DB::raw('CEIL(DAY(orden__compras.created_at) / 7) as semana_mes'),
                 DB::raw('COUNT(*) as total'),
                 DB::raw('COALESCE(SUM(orden__compras.valor_total),0) as ventas'),
@@ -521,7 +546,7 @@ unset($r);
             )
             ->whereBetween('orden__compras.created_at', [$inicio, $fin])
             ->when($userId, fn ($q) => $q->where('orden__compras.user_id', $userId))
-            ->groupBy('users.id', 'users.name', 'semana_mes')
+            ->groupBy('user_id', 'usuario', 'semana_mes')
             ->get();
 
         // Cartera gestionada por semana: a diferencia del % mensual (que es
@@ -626,33 +651,31 @@ unset($r);
                      ->where('clientes.estado_id', '!=', $inactivo);
             })
             ->where('users.estado_id', '!=', $inactivo)
-            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->select(
-                'users.id as user_id',
-                'users.name as usuario',
+                $this->selectUserIdAgrupado(),
+                $this->selectUsuarioAgrupado(),
                 DB::raw('CONCAT(YEAR(seguimiento_clientes.created_at), "-Q", QUARTER(seguimiento_clientes.created_at)) as trimestre'),
                 DB::raw('COUNT(*) as gestiones'),
                 DB::raw('COUNT(DISTINCT seguimiento_clientes.cliente_id) as clientes_gestionados')
             )
             ->where('seguimiento_clientes.created_at', '>=', $inicio)
             ->when($userId, fn ($q) => $q->where('users.id', $userId))
-            ->groupBy('users.id', 'users.name', 'trimestre')
+            ->groupBy('user_id', 'usuario', 'trimestre')
             ->get();
 
         // 2️⃣ Cotizaciones — solo usuarios activos
         $cotizaciones = DB::table('cotizaciones')
             ->join('users', 'cotizaciones.user_id', '=', 'users.id')
             ->where('users.estado_id', '!=', $inactivo)
-            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->select(
-                'users.id as user_id',
-                'users.name as usuario',
+                $this->selectUserIdAgrupado(),
+                $this->selectUsuarioAgrupado(),
                 DB::raw('CONCAT(YEAR(cotizaciones.created_at), "-Q", QUARTER(cotizaciones.created_at)) as trimestre'),
                 DB::raw('COUNT(*) as cotizaciones')
             )
             ->where('cotizaciones.created_at', '>=', $inicio)
             ->when($userId, fn ($q) => $q->where('users.id', $userId))
-            ->groupBy('users.id', 'users.name', 'trimestre')
+            ->groupBy('user_id', 'usuario', 'trimestre')
             ->get();
 
         // 3️⃣ Órdenes — solo usuarios activos
@@ -663,10 +686,9 @@ unset($r);
                      ->where('clientes.estado_id', '!=', $inactivo);
             })
             ->where('users.estado_id', '!=', $inactivo)
-            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->select(
-                'users.id as user_id',
-                'users.name as usuario',
+                $this->selectUserIdAgrupado(),
+                $this->selectUsuarioAgrupado(),
                 DB::raw('CONCAT(YEAR(orden__compras.created_at), "-Q", QUARTER(orden__compras.created_at)) as trimestre'),
                 DB::raw('COUNT(*) as ordenes'),
                 DB::raw('SUM(orden__compras.valor_total) as valor'),
@@ -674,14 +696,13 @@ unset($r);
             )
             ->where('orden__compras.created_at', '>=', $inicio)
             ->when($userId, fn ($q) => $q->where('users.id', $userId))
-            ->groupBy('users.id', 'users.name', 'trimestre')
+            ->groupBy('user_id', 'usuario', 'trimestre')
             ->get();
 
         // 4️⃣ Fidelización — clientes activos con 2+ órdenes en el trimestre, solo usuarios activos
         $fielesTrimestral = DB::table('orden__compras as o')
             ->join('users', 'o.user_id', '=', 'users.id')
             ->where('users.estado_id', '!=', $inactivo)
-            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->joinSub(
                 DB::table('orden__compras')
                     ->join('clientes', function ($join) use ($inactivo) {
@@ -703,13 +724,13 @@ unset($r);
                                    ->on(DB::raw('CONCAT(YEAR(o.created_at), "-Q", QUARTER(o.created_at))'), '=', 'fieles.trimestre')
             )
             ->select(
-                'users.id as user_id',
+                $this->selectUserIdAgrupado(),
                 DB::raw('CONCAT(YEAR(o.created_at), "-Q", QUARTER(o.created_at)) as trimestre'),
                 DB::raw('COUNT(DISTINCT o.cliente_id) as clientes_fieles')
             )
             ->where('o.created_at', '>=', $inicio)
             ->when($userId, fn ($q) => $q->where('o.user_id', $userId))
-            ->groupBy('users.id', 'trimestre')
+            ->groupBy('user_id', 'trimestre')
             ->get();
 
         // 5️⃣ Cartera vencidas por usuario (solo usuarios activos)
@@ -747,14 +768,16 @@ unset($r);
             ->get()
             ->keyBy('trimestre');
 
-        // 7️⃣ Usuarios activos con ventas por trimestre (divisor de la meta individual)
+        // 7️⃣ Usuarios activos con ventas por trimestre (divisor de la meta
+        // individual). Igual que en getMesAMes: COUNT(DISTINCT CASE...)
+        // cuenta cada ejecutivo real y colapsa a otros roles en un solo
+        // valor (0), así "Otros" cuenta como una unidad más si vendió.
         $usuariosConVentasPorTrimestre = DB::table('orden__compras')
             ->join('users', 'orden__compras.user_id', '=', 'users.id')
             ->where('users.estado_id', '!=', $inactivo)
-            ->whereIn('users.role_id', self::ROLES_COMERCIALES)
             ->select(
                 DB::raw('CONCAT(YEAR(orden__compras.created_at), "-Q", QUARTER(orden__compras.created_at)) as trimestre'),
-                DB::raw('COUNT(DISTINCT orden__compras.user_id) as total_usuarios')
+                DB::raw('COUNT(DISTINCT ' . $this->caseUserIdAgrupado() . ') as total_usuarios')
             )
             ->where('orden__compras.created_at', '>=', $inicio)
             ->where('orden__compras.valor_total', '>', 0)
@@ -771,7 +794,7 @@ unset($r);
 
                 if (!isset($resultado[$key])) {
                     $resultado[$key] = [
-                        'user_id'              => $r->user_id,
+                        'user_id'              => (int) $r->user_id,
                         'usuario'              => $r->usuario ?? '',
                         'trimestre'            => $r->trimestre,
                         'gestiones'            => 0,
