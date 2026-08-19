@@ -406,9 +406,12 @@ private function _actualizar(FacturaCompra $factura, array $data)
         return new FacturaCompraResource(
             $factura->load([
                 'detalles.impuestos',
+                'detalles.producto',
                 'pagos',
                 'gastos',
-                'impuestos'
+                'impuestos',
+                'proveedor',
+                'empresa',
             ])
         );
     });

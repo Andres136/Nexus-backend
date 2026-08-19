@@ -536,6 +536,10 @@ Route::get('prestamos-entre-empresas', [InventorieController::class, 'listarPres
 Route::get('prestamos-entre-empresas/exportar', [InventorieController::class, 'exportarPrestamosEntreEmpresas']);
 Route::get('prestamos-entre-empresas/movimiento/{movimientoStockId}/pdf', [InventorieController::class, 'descargarPdfPrestamosMovimiento']);
 
+//Kardex de inventario (costo promedio ponderado, entradas/salidas con saldo corriente)
+Route::get('kardex', [InventorieController::class, 'listarKardex']);
+Route::get('kardex/exportar', [InventorieController::class, 'exportarKardex']);
+
 /*DESCONTAR STOCK VIA EXCEL*/
 
 

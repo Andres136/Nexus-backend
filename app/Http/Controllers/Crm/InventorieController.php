@@ -11,6 +11,7 @@ use App\Models\Crm\Inventario;
 use App\Models\Crm\MovimientoStock;
 use App\Models\Crm\product;
 use App\Services\Crm\InventarioService;
+use App\Services\Crm\KardexService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -33,15 +34,18 @@ protected $inventarioService;
 protected $movimientoPDFService;
 protected $anularMovimientoService;
 protected $movimientoStockService;
+protected $kardexService;
 
 
     public function __construct(InventarioService $inventarioService,
-     InventarioService $movimientoPDFService, InventarioService $anularMovimientoService, InventarioService $movimientoStockService)
+     InventarioService $movimientoPDFService, InventarioService $anularMovimientoService, InventarioService $movimientoStockService,
+     KardexService $kardexService)
     {
         $this->inventarioService = $inventarioService;
         $this->movimientoPDFService = $movimientoPDFService;
         $this->anularMovimientoService = $anularMovimientoService;
         $this->movimientoStockService = $movimientoStockService;
+        $this->kardexService = $kardexService;
     }
 
  public function index(Request $request)
@@ -597,6 +601,61 @@ public function exportarPrestamosEntreEmpresas(Request $request)
 
     $headings = ['ID', 'Producto', 'Bodega', 'Empresa prestamista', 'Empresa prestataria', 'Cantidad', 'Orden de compra', 'Movimiento', 'Compensado', 'Fecha'];
     $filename = 'prestamos_entre_empresas_' . now()->format('Y-m-d_His') . '.xlsx';
+
+    return Excel::download(new \App\Exports\GenericExport($filas, $headings), $filename);
+}
+
+/**
+ * GET /kardex
+ */
+public function listarKardex(Request $request)
+{
+    $kardex = $this->kardexService->listar($request);
+
+    return response()->json([
+        'success' => true,
+        'data' => $kardex->items(),
+        'meta' => [
+            'current_page' => $kardex->currentPage(),
+            'last_page' => $kardex->lastPage(),
+            'per_page' => $kardex->perPage(),
+            'total' => $kardex->total(),
+        ],
+    ], 200);
+}
+
+/**
+ * GET /kardex/exportar
+ */
+public function exportarKardex(Request $request)
+{
+    $movimientos = $this->kardexService->exportar($request);
+
+    if ($movimientos->isEmpty()) {
+        return response()->json([
+            'message' => 'No hay movimientos de kardex para exportar con los filtros seleccionados.',
+        ], 422);
+    }
+
+    $filas = $movimientos->map(fn ($k) => [
+        'ID' => $k->id,
+        'Producto' => $k->inventario?->producto?->name,
+        'Bodega' => $k->inventario?->bodega?->nombre,
+        'Sede' => $k->inventario?->sede?->nombre,
+        'Empresa' => $k->inventario?->empresa?->nombre,
+        'Tipo' => $k->tipo,
+        'Cantidad' => $k->cantidad,
+        'Costo unitario' => $k->costo_unitario,
+        'Costo total' => $k->costo_total,
+        'Saldo cantidad' => $k->saldo_cantidad,
+        'Saldo costo unitario' => $k->saldo_costo_unitario,
+        'Saldo costo total' => $k->saldo_costo_total,
+        'Usuario' => $k->usuario?->name,
+        'Fecha' => optional($k->created_at)->format('Y-m-d H:i'),
+    ]);
+
+    $headings = ['ID', 'Producto', 'Bodega', 'Sede', 'Empresa', 'Tipo', 'Cantidad', 'Costo unitario', 'Costo total', 'Saldo cantidad', 'Saldo costo unitario', 'Saldo costo total', 'Usuario', 'Fecha'];
+    $filename = 'kardex_' . now()->format('Y-m-d_His') . '.xlsx';
 
     return Excel::download(new \App\Exports\GenericExport($filas, $headings), $filename);
 }
