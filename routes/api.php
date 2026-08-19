@@ -527,13 +527,14 @@ Route::put('productos/{id}', [CrmProductController::class, 'edit']);
 
 Route::apiResource('inventarios',InventorieController::class);
 //Anular movimiento de stock
-Route::post('anular-movimiento-stock/{movimientoId}', [InventorieController::class, 'importar']);
+Route::post('anular-movimiento-stock/{movimientoId}', [InventorieController::class, 'anularMovimiento']);
 //Consultar movimientos de stock
 Route::get('movimientos-stock', [InventorieController::class, 'listarMovimientosStock']);
 Route::get('movimientos-stock/exportar', [InventorieController::class, 'exportarMovimientosStock']);
 //Préstamos de stock entre empresas (trazabilidad de descuentos/traslados que cruzaron inventario de otra empresa)
 Route::get('prestamos-entre-empresas', [InventorieController::class, 'listarPrestamosEntreEmpresas']);
 Route::get('prestamos-entre-empresas/exportar', [InventorieController::class, 'exportarPrestamosEntreEmpresas']);
+Route::get('prestamos-entre-empresas/movimiento/{movimientoStockId}/pdf', [InventorieController::class, 'descargarPdfPrestamosMovimiento']);
 
 /*DESCONTAR STOCK VIA EXCEL*/
 

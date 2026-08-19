@@ -479,9 +479,15 @@ public function anularMovimiento(int $movimientoId)
 {
     $user = auth()->user();
 
+    if (!$user->es_responsable_inventario) {
+        return response()->json([
+            'message' => 'Solo el responsable de inventario puede anular movimientos de stock.',
+        ], 403);
+    }
+
     $resultado = $this->anularMovimientoService->anularMovimiento($movimientoId, $user);
 
-    return response()->json($resultado, $resultado['success'] ? 200 : 400); 
+    return response()->json($resultado, $resultado['success'] ? 200 : 400);
 
 }
 //Consultar movimientos de stock
@@ -593,6 +599,21 @@ public function exportarPrestamosEntreEmpresas(Request $request)
     $filename = 'prestamos_entre_empresas_' . now()->format('Y-m-d_His') . '.xlsx';
 
     return Excel::download(new \App\Exports\GenericExport($filas, $headings), $filename);
+}
+
+/**
+ * GET /prestamos-entre-empresas/movimiento/{movimientoStockId}/pdf
+ * PDF con todos los items de préstamo entre empresas de un mismo movimiento.
+ */
+public function descargarPdfPrestamosMovimiento(int $movimientoStockId)
+{
+    try {
+        $pdf = $this->movimientoStockService->generarPdfPrestamosPorMovimiento($movimientoStockId);
+
+        return $pdf->download("prestamos_movimiento_{$movimientoStockId}.pdf");
+    } catch (\Throwable $e) {
+        return response()->json(['message' => $e->getMessage()], 422);
+    }
 }
 
 

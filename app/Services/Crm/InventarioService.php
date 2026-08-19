@@ -1447,46 +1447,126 @@ public function exportarMovimientos(Request $request, $user)
 }
 
 /**
- * Listado paginado de préstamos de stock entre empresas (auditoría de
- * descuentos/traslados que tomaron inventario de una empresa distinta a la
- * dueña de la operación).
+ * Listado paginado de préstamos de stock entre empresas, agrupado por
+ * movimiento (un movimiento de descuento/traslado puede haber tomado stock
+ * prestado de varios items/bodegas a la vez). El detalle item por item queda
+ * para el PDF de cada movimiento, no para esta tabla.
  */
 public function listarPrestamosEntreEmpresas(Request $request)
 {
-    $query = $this->construirQueryPrestamosEntreEmpresas($request);
+    $filtro = $this->filtrosPrestamosEntreEmpresas($request);
 
-    $prestamos = $query->paginate($request->get('per_page', 20));
+    $grupos = (clone $filtro)
+        ->select('movimiento_stock_id')
+        ->selectRaw('MAX(created_at) as fecha')
+        ->selectRaw('COUNT(*) as total_items')
+        ->selectRaw('SUM(cantidad) as total_cantidad')
+        ->groupBy('movimiento_stock_id')
+        ->orderByDesc('fecha')
+        ->paginate($request->get('per_page', 20));
+
+    $movimientoIds = collect($grupos->items())->pluck('movimiento_stock_id');
+
+    $movimientos = MovimientoStock::whereIn('id', $movimientoIds)
+        ->with(['usuario:id,name', 'ordenCompra:id,orden_compra_cliente'])
+        ->get()
+        ->keyBy('id');
+
+    $empresasPorMovimiento = PrestamoStockEmpresa::with([
+        'empresaPrestamista:id,nombre',
+        'empresaPrestataria:id,nombre',
+    ])
+        ->whereIn('movimiento_stock_id', $movimientoIds)
+        ->get()
+        ->groupBy('movimiento_stock_id');
+
+    $data = collect($grupos->items())->map(function ($g) use ($movimientos, $empresasPorMovimiento) {
+        $mov = $movimientos->get($g->movimiento_stock_id);
+
+        $empresas = $empresasPorMovimiento->get($g->movimiento_stock_id, collect())
+            ->map(fn ($p) => [
+                'empresa_prestamista' => $p->empresaPrestamista?->nombre,
+                'empresa_prestataria' => $p->empresaPrestataria?->nombre,
+            ])
+            ->unique()
+            ->values();
+
+        return [
+            'movimiento_stock_id' => $g->movimiento_stock_id,
+            'tipo' => $mov?->tipo,
+            'usuario' => $mov?->usuario,
+            'orden_trabajo_id' => $mov?->orden_trabajo_id,
+            'orden_compra' => $mov?->ordenCompra,
+            'orden_compra_id' => $mov?->orden_compra_id,
+            'total_items' => $g->total_items,
+            'total_cantidad' => $g->total_cantidad,
+            'empresas' => $empresas,
+            'fecha' => $g->fecha,
+        ];
+    });
 
     return [
         'success' => true,
-        'data' => $prestamos->items(),
+        'data' => $data,
         'meta' => [
-            'current_page' => $prestamos->currentPage(),
-            'last_page' => $prestamos->lastPage(),
-            'per_page' => $prestamos->perPage(),
-            'total' => $prestamos->total(),
+            'current_page' => $grupos->currentPage(),
+            'last_page' => $grupos->lastPage(),
+            'per_page' => $grupos->perPage(),
+            'total' => $grupos->total(),
         ],
     ];
 }
 
 /**
- * Mismos filtros que listarPrestamosEntreEmpresas(), sin paginar, para exportar.
+ * Mismos filtros que listarPrestamosEntreEmpresas(), sin agrupar ni paginar,
+ * para exportar a Excel (ahí sí interesa el detalle item por item).
  */
 public function exportarPrestamosEntreEmpresas(Request $request)
 {
-    return $this->construirQueryPrestamosEntreEmpresas($request)->get();
+    return $this->filtrosPrestamosEntreEmpresas($request)
+        ->with([
+            'producto:id,name,code',
+            'bodega:id,nombre',
+            'empresaPrestamista:id,nombre',
+            'empresaPrestataria:id,nombre',
+            'ordenCompra:id,orden_compra_cliente',
+            'movimientoStock:id,tipo,orden_trabajo_id,created_at',
+        ])
+        ->orderBy('created_at', 'DESC')
+        ->get();
 }
 
-private function construirQueryPrestamosEntreEmpresas(Request $request)
+/**
+ * Genera (sin guardar en disco) el PDF con todos los items de préstamo entre
+ * empresas que ocurrieron dentro de un mismo movimiento de stock.
+ */
+public function generarPdfPrestamosPorMovimiento(int $movimientoStockId)
 {
-    $query = PrestamoStockEmpresa::with([
+    $movimiento = MovimientoStock::with(['usuario:id,name', 'ordenTrabajo:id', 'ordenCompra:id,orden_compra_cliente'])
+        ->findOrFail($movimientoStockId);
+
+    $items = PrestamoStockEmpresa::with([
         'producto:id,name,code',
         'bodega:id,nombre',
         'empresaPrestamista:id,nombre',
         'empresaPrestataria:id,nombre',
-        'ordenCompra:id,orden_compra_cliente',
-        'movimientoStock:id,tipo,orden_trabajo_id,created_at',
+    ])
+        ->where('movimiento_stock_id', $movimientoStockId)
+        ->get();
+
+    if ($items->isEmpty()) {
+        throw new \Exception('Este movimiento no tiene préstamos entre empresas registrados.');
+    }
+
+    return Pdf::loadView('pdf.prestamo_stock_empresa', [
+        'movimiento' => $movimiento,
+        'items' => $items,
     ]);
+}
+
+private function filtrosPrestamosEntreEmpresas(Request $request)
+{
+    $query = PrestamoStockEmpresa::query();
 
     if ($request->filled('empresa_prestamista_id')) {
         $query->where('empresa_prestamista_id', $request->empresa_prestamista_id);
@@ -1516,7 +1596,7 @@ private function construirQueryPrestamosEntreEmpresas(Request $request)
         $query->where('compensado', $request->boolean('compensado'));
     }
 
-    return $query->orderBy('created_at', 'DESC');
+    return $query;
 }
 
 }
