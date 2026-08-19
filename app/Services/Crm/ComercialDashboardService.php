@@ -503,6 +503,29 @@ unset($r);
             ->groupBy('users.id', 'users.name', 'semana_mes')
             ->get();
 
+        // Cartera gestionada por semana: a diferencia del % mensual (que es
+        // un snapshot congelado porque su denominador "vencidas" es un
+        // estado en vivo), esto es un CONTEO de gestiones de cartera
+        // registradas esa semana (gestion_cartera_historial.created_at) — un
+        // hecho histórico estable, igual que gestiones/cotizaciones/órdenes,
+        // que no cambia si después se paga la deuda. No lleva el filtro
+        // "estado = pendiente actualmente" que sí tiene el cálculo mensual,
+        // justamente para no heredar el mismo problema de recalculo en vivo.
+        $carteraGestionada = DB::table('gestion_cartera_historial as gh')
+            ->join('gestion_cartera as gc', 'gh.gestion_cartera_id', '=', 'gc.id')
+            ->join('users', 'gc.user_comercial_id', '=', 'users.id')
+            ->where('users.estado_id', '!=', $inactivo)
+            ->select(
+                'users.id as user_id',
+                'users.name as usuario',
+                DB::raw('CEIL(DAY(gh.created_at) / 7) as semana_mes'),
+                DB::raw('COUNT(DISTINCT gh.id) as total')
+            )
+            ->whereBetween('gh.created_at', [$inicio, $fin])
+            ->when($userId, fn ($q) => $q->where('gc.user_comercial_id', $userId))
+            ->groupBy('users.id', 'users.name', 'semana_mes')
+            ->get();
+
         // Consolidar por usuario, con las semanas del mes ya inicializadas en
         // 0 para que cada vendedor tenga una fila por semana aunque no haya
         // tenido actividad esa semana (necesario para dibujar una línea
@@ -525,6 +548,7 @@ unset($r);
                     'ordenes' => 0,
                     'valor_ventas' => 0,
                     'clientes_con_orden' => 0,
+                    'cartera_gestionada' => 0,
                 ]])->all(),
             ];
         };
@@ -544,6 +568,11 @@ unset($r);
             $porUsuario[$r->user_id]['semanas'][$r->semana_mes]['ordenes'] = (int) $r->total;
             $porUsuario[$r->user_id]['semanas'][$r->semana_mes]['valor_ventas'] = (float) $r->ventas;
             $porUsuario[$r->user_id]['semanas'][$r->semana_mes]['clientes_con_orden'] = (int) $r->clientes_con_orden;
+        }
+
+        foreach ($carteraGestionada as $r) {
+            $asegurarUsuario($r->user_id, $r->usuario);
+            $porUsuario[$r->user_id]['semanas'][$r->semana_mes]['cartera_gestionada'] = (int) $r->total;
         }
 
         $usuarios = collect($porUsuario)
