@@ -530,6 +530,10 @@ Route::apiResource('inventarios',InventorieController::class);
 Route::post('anular-movimiento-stock/{movimientoId}', [InventorieController::class, 'importar']);
 //Consultar movimientos de stock
 Route::get('movimientos-stock', [InventorieController::class, 'listarMovimientosStock']);
+Route::get('movimientos-stock/exportar', [InventorieController::class, 'exportarMovimientosStock']);
+//Préstamos de stock entre empresas (trazabilidad de descuentos/traslados que cruzaron inventario de otra empresa)
+Route::get('prestamos-entre-empresas', [InventorieController::class, 'listarPrestamosEntreEmpresas']);
+Route::get('prestamos-entre-empresas/exportar', [InventorieController::class, 'exportarPrestamosEntreEmpresas']);
 
 /*DESCONTAR STOCK VIA EXCEL*/
 

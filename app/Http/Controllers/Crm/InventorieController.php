@@ -502,6 +502,99 @@ public  function listarMovimientosStock(Request $request)
     return response()->json($resultado, 200);
 }
 
+/**
+ * GET /movimientos-stock/exportar
+ * Exporta a Excel los movimientos que cumplan los mismos filtros que la lista.
+ */
+public function exportarMovimientosStock(Request $request)
+{
+    $user = auth()->user();
+    $movimientos = $this->movimientoStockService->exportarMovimientos($request, $user);
+
+    if ($movimientos->isEmpty()) {
+        return response()->json([
+            'message' => 'No hay movimientos para exportar con los filtros seleccionados.',
+        ], 422);
+    }
+
+    $sedes = \App\Models\Crm\Sede::pluck('nombre', 'id');
+    $bodegas = bodega::pluck('nombre', 'id');
+
+    $filas = $movimientos->map(function (MovimientoStock $mov) use ($sedes, $bodegas) {
+        $prestamos = $mov->prestamos->map(function ($p) {
+            return sprintf(
+                '%s → %s (%s u.)',
+                $p->empresaPrestamista?->nombre ?? '—',
+                $p->empresaPrestataria?->nombre ?? '—',
+                $p->cantidad
+            );
+        })->implode(' | ');
+
+        return [
+            'ID' => $mov->id,
+            'Tipo' => $mov->tipo,
+            'Producto' => $mov->producto?->name,
+            'Usuario' => $mov->usuario?->name,
+            'Sede origen' => $sedes[$mov->sede_origen_id] ?? null,
+            'Sede destino' => $sedes[$mov->sede_destino_id] ?? null,
+            'Bodega origen' => $bodegas[$mov->bodega_origen_id] ?? null,
+            'Orden de trabajo' => $mov->orden_trabajo_id,
+            'Orden de compra' => $mov->ordenCompra?->orden_compra_cliente ?? $mov->orden_compra_id,
+            'Cantidad' => $mov->cantidad,
+            'Préstamo entre empresas' => $prestamos ?: '',
+            'Anulado' => $mov->anulado ? 'Sí' : 'No',
+            'Fecha' => optional($mov->created_at)->format('Y-m-d H:i'),
+        ];
+    });
+
+    $headings = ['ID', 'Tipo', 'Producto', 'Usuario', 'Sede origen', 'Sede destino', 'Bodega origen', 'Orden de trabajo', 'Orden de compra', 'Cantidad', 'Préstamo entre empresas', 'Anulado', 'Fecha'];
+    $filename = 'movimientos_stock_' . now()->format('Y-m-d_His') . '.xlsx';
+
+    return Excel::download(new \App\Exports\GenericExport($filas, $headings), $filename);
+}
+
+/**
+ * GET /prestamos-entre-empresas
+ */
+public function listarPrestamosEntreEmpresas(Request $request)
+{
+    $resultado = $this->movimientoStockService->listarPrestamosEntreEmpresas($request);
+
+    return response()->json($resultado, 200);
+}
+
+/**
+ * GET /prestamos-entre-empresas/exportar
+ */
+public function exportarPrestamosEntreEmpresas(Request $request)
+{
+    $prestamos = $this->movimientoStockService->exportarPrestamosEntreEmpresas($request);
+
+    if ($prestamos->isEmpty()) {
+        return response()->json([
+            'message' => 'No hay préstamos entre empresas para exportar con los filtros seleccionados.',
+        ], 422);
+    }
+
+    $filas = $prestamos->map(fn ($p) => [
+        'ID' => $p->id,
+        'Producto' => $p->producto?->name,
+        'Bodega' => $p->bodega?->nombre,
+        'Empresa prestamista' => $p->empresaPrestamista?->nombre,
+        'Empresa prestataria' => $p->empresaPrestataria?->nombre,
+        'Cantidad' => $p->cantidad,
+        'Orden de compra' => $p->ordenCompra?->orden_compra_cliente ?? $p->orden_compra_id,
+        'Movimiento' => $p->movimientoStock?->tipo,
+        'Compensado' => $p->compensado ? 'Sí' : 'No',
+        'Fecha' => optional($p->created_at)->format('Y-m-d H:i'),
+    ]);
+
+    $headings = ['ID', 'Producto', 'Bodega', 'Empresa prestamista', 'Empresa prestataria', 'Cantidad', 'Orden de compra', 'Movimiento', 'Compensado', 'Fecha'];
+    $filename = 'prestamos_entre_empresas_' . now()->format('Y-m-d_His') . '.xlsx';
+
+    return Excel::download(new \App\Exports\GenericExport($filas, $headings), $filename);
+}
+
 
 
 public function exportarInventarioExcel(Request $request)
