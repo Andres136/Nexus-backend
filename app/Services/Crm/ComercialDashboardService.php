@@ -3,13 +3,16 @@
 namespace App\Services\Crm;
 
 use App\EstadoEnum;
+use App\Models\Crm\CarteraGestionMensualUsuario;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class ComercialDashboardService
 {
     public function getResumenMesActual(?int $userId = null): array
     {
+        $inactivo = EstadoEnum::INACTIVO->value;
         $mesActual = now()->format('Y-m');
         $metricas = collect($this->getMesAMes($userId, now()->startOfMonth()->toDateTimeString()))
             ->where('mes', $mesActual)
@@ -17,6 +20,7 @@ class ComercialDashboardService
 
         $usuarios = DB::table('users')
             ->join('clientes', 'clientes.user_id', '=', 'users.id')
+            ->where('users.estado_id', '!=', $inactivo)
             ->when($userId, fn ($query) => $query->where('users.id', $userId))
             ->select('users.id', 'users.name')
             ->distinct()
@@ -65,13 +69,14 @@ class ComercialDashboardService
     {
         $inactivo = EstadoEnum::INACTIVO->value;
 
-        // 1️⃣ Gestiones — solo sobre clientes activos
+        // 1️⃣ Gestiones — solo sobre clientes activos y usuarios activos
         $gestiones = DB::table('seguimiento_clientes')
             ->join('users', 'seguimiento_clientes.user_id', '=', 'users.id')
             ->join('clientes', function ($join) use ($inactivo) {
                 $join->on('seguimiento_clientes.cliente_id', '=', 'clientes.id')
                      ->where('clientes.estado_id', '!=', $inactivo);
             })
+            ->where('users.estado_id', '!=', $inactivo)
             ->select(
                 'users.id as user_id',
                 'users.name as usuario',
@@ -84,9 +89,10 @@ class ComercialDashboardService
             ->groupBy('users.id', 'users.name', 'mes')
             ->get();
 
-        // 2️⃣ Cotizaciones
+        // 2️⃣ Cotizaciones — solo usuarios activos
         $cotizaciones = DB::table('cotizaciones')
             ->join('users', 'cotizaciones.user_id', '=', 'users.id')
+            ->where('users.estado_id', '!=', $inactivo)
             ->select(
                 'users.id as user_id',
                 'users.name as usuario',
@@ -98,13 +104,14 @@ class ComercialDashboardService
             ->groupBy('users.id', 'users.name', 'mes')
             ->get();
 
-        // 3️⃣ Órdenes — clientes_con_orden solo activos
+        // 3️⃣ Órdenes — clientes_con_orden solo activos, y solo usuarios activos
         $ordenes = DB::table('orden__compras')
             ->join('users', 'orden__compras.user_id', '=', 'users.id')
             ->join('clientes', function ($join) use ($inactivo) {
                 $join->on('orden__compras.cliente_id', '=', 'clientes.id')
                      ->where('clientes.estado_id', '!=', $inactivo);
             })
+            ->where('users.estado_id', '!=', $inactivo)
             ->select(
                 'users.id as user_id',
                 'users.name as usuario',
@@ -118,9 +125,10 @@ class ComercialDashboardService
             ->groupBy('users.id', 'users.name', 'mes')
             ->get();
 
-        // 4️⃣ Fidelización — solo clientes activos con 2+ órdenes
+        // 4️⃣ Fidelización — solo clientes activos con 2+ órdenes, y solo usuarios activos
         $fielesMensual = DB::table('orden__compras as o')
             ->join('users', 'o.user_id', '=', 'users.id')
+            ->where('users.estado_id', '!=', $inactivo)
             ->joinSub(
                 DB::table('orden__compras')
                     ->join('clientes', function ($join) use ($inactivo) {
@@ -146,9 +154,31 @@ class ComercialDashboardService
             ->groupBy('users.id', 'mes')
             ->get();
 
-        // 5️⃣ Cartera: vencidas por usuario
+        // 4️⃣.5 Nuevos registros de clientes por vendedor/mes: prospectos
+        // (nunca han tenido una orden de compra) vs clientes reales (ya
+        // tienen al menos 1 orden alguna vez, evaluado al momento de la
+        // consulta, no al mes de registro).
+        $clientesNuevos = DB::table('clientes')
+            ->join('users', 'clientes.user_id', '=', 'users.id')
+            ->leftJoin('orden__compras', 'orden__compras.cliente_id', '=', 'clientes.id')
+            ->where('users.estado_id', '!=', $inactivo)
+            ->where('clientes.estado_id', '!=', $inactivo)
+            ->select(
+                'users.id as user_id',
+                'users.name as usuario',
+                DB::raw('DATE_FORMAT(clientes.created_at, "%Y-%m") as mes'),
+                DB::raw('COUNT(DISTINCT clientes.id) as clientes_nuevos'),
+                DB::raw('COUNT(DISTINCT CASE WHEN orden__compras.id IS NULL THEN clientes.id END) as prospectos_nuevos')
+            )
+            ->where('clientes.created_at', '>=', $inicio)
+            ->when($userId, fn ($q) => $q->where('users.id', $userId))
+            ->groupBy('users.id', 'mes')
+            ->get();
+
+        // 5️⃣ Cartera: vencidas por usuario (solo usuarios activos)
         $carteraPorUsuario = DB::table('gestion_cartera as gc')
             ->join('users', 'gc.user_comercial_id', '=', 'users.id')
+            ->where('users.estado_id', '!=', $inactivo)
             ->select(
                 'users.id as user_id',
                 DB::raw('COUNT(DISTINCT gc.id) as cartera_vencidas')
@@ -160,10 +190,11 @@ class ComercialDashboardService
             ->get()
             ->keyBy('user_id');
 
-        // Gestionadas por mes
+        // Gestionadas por mes (solo usuarios activos)
         $carteraGestionadasPorUsuarioMes = DB::table('gestion_cartera as gc')
             ->join('gestion_cartera_historial as gh', 'gc.id', '=', 'gh.gestion_cartera_id')
             ->join('users', 'gc.user_comercial_id', '=', 'users.id')
+            ->where('users.estado_id', '!=', $inactivo)
             ->selectRaw('users.id as user_id, DATE_FORMAT(gh.created_at, "%Y-%m") as mes, COUNT(DISTINCT gc.id) as gestionadas')
             ->where('gc.estado', 'pendiente')
             ->whereDate('gc.fecha_vencimiento', '<', now())
@@ -181,14 +212,16 @@ class ComercialDashboardService
             ->get()
             ->keyBy('periodo');
 
-        // 7️⃣ Usuarios con ventas por mes
+        // 7️⃣ Usuarios activos con ventas por mes (divisor de la meta individual)
         $usuariosConVentasPorMes = DB::table('orden__compras')
+            ->join('users', 'orden__compras.user_id', '=', 'users.id')
+            ->where('users.estado_id', '!=', $inactivo)
             ->select(
-                DB::raw('DATE_FORMAT(created_at, "%Y-%m") as mes'),
-                DB::raw('COUNT(DISTINCT user_id) as total_usuarios')
+                DB::raw('DATE_FORMAT(orden__compras.created_at, "%Y-%m") as mes'),
+                DB::raw('COUNT(DISTINCT orden__compras.user_id) as total_usuarios')
             )
-            ->where('created_at', '>=', $inicio)
-            ->where('valor_total', '>', 0)
+            ->where('orden__compras.created_at', '>=', $inicio)
+            ->where('orden__compras.valor_total', '>', 0)
             ->groupBy('mes')
             ->get()
             ->keyBy('mes');
@@ -196,7 +229,7 @@ class ComercialDashboardService
         // 8️⃣ Consolidar
         $resultado = [];
 
-        foreach ([$gestiones, $cotizaciones, $ordenes, $fielesMensual] as $coleccion) {
+        foreach ([$gestiones, $cotizaciones, $ordenes, $fielesMensual, $clientesNuevos] as $coleccion) {
             foreach ($coleccion as $r) {
                 $key = $r->user_id . '_' . $r->mes;
 
@@ -212,6 +245,8 @@ class ComercialDashboardService
                         'valor_ventas'              => 0,
                         'clientes_con_orden'        => 0,
                         'clientes_fieles'           => 0,
+                        'clientes_nuevos'           => 0,
+                        'prospectos_nuevos'         => 0,
                         'cartera_vencidas'          => 0,
                         'cartera_gestionadas'       => 0,
                         'conversion_pct'            => 0,
@@ -237,23 +272,52 @@ class ComercialDashboardService
                     $resultado[$key]['clientes_con_orden'] = (int)   $r->clientes_con_orden;
                 }
                 if (isset($r->clientes_fieles)) $resultado[$key]['clientes_fieles'] = (int) $r->clientes_fieles;
+                if (isset($r->clientes_nuevos)) {
+                    $resultado[$key]['clientes_nuevos']   = (int) $r->clientes_nuevos;
+                    $resultado[$key]['prospectos_nuevos'] = (int) $r->prospectos_nuevos;
+                }
             }
         }
 
         // 9️⃣ Cartera + meta + KPIs mensuales
-        foreach ($resultado as &$r) {
-            $c        = $carteraPorUsuario[$r['user_id']] ?? null;
-            $vencidas = $c ? (int) $c->cartera_vencidas : 0;
+        //
+        // La cartera vencida/gestionada se congela por usuario+mes en
+        // cartera_gestion_mensual_usuario (ver guardarSnapshotCarteraMensualPorUsuario,
+        // corrido a diario). Sin el snapshot, "vencida" se recalcula contra
+        // now() y, como las deudas van pasando de 'pendiente' a 'completado' al
+        // pagarse, un mes ya cerrado iría bajando su propio dato retroactivamente
+        // cada vez que alguien pagara — el snapshot es la foto real de ese mes.
+        // Solo el mes en curso puede caer al cálculo en vivo, como respaldo si el
+        // comando diario aún no ha corrido hoy; un mes pasado sin snapshot (p.ej.
+        // meses anteriores a este despliegue) queda en 0 en vez de recalcularse.
+        $carteraSnapshotsPorUsuarioMes = CarteraGestionMensualUsuario::get()
+            ->keyBy(fn ($s) => $s->user_id . '_' . $s->anio . '-' . str_pad($s->mes, 2, '0', STR_PAD_LEFT));
+        $mesActualStr = now()->format('Y-m');
 
-            $gestionadasMes = collect($carteraGestionadasPorUsuarioMes[$r['user_id']] ?? [])
-                ->firstWhere('mes', $r['mes']);
-            $gestionadas = $gestionadasMes ? (int) $gestionadasMes->gestionadas : 0;
+        foreach ($resultado as &$r) {
+            $snapshot = $carteraSnapshotsPorUsuarioMes->get($r['user_id'] . '_' . $r['mes']);
+
+            if ($snapshot) {
+                $vencidas    = (int) $snapshot->cartera_vencidas;
+                $gestionadas = (int) $snapshot->cartera_gestionadas;
+                $pctCartera  = (float) $snapshot->cartera_pct_gestion;
+            } elseif ($r['mes'] === $mesActualStr) {
+                $c        = $carteraPorUsuario[$r['user_id']] ?? null;
+                $vencidas = $c ? (int) $c->cartera_vencidas : 0;
+
+                $gestionadasMes = collect($carteraGestionadasPorUsuarioMes[$r['user_id']] ?? [])
+                    ->firstWhere('mes', $r['mes']);
+                $gestionadas = $gestionadasMes ? (int) $gestionadasMes->gestionadas : 0;
+                $pctCartera  = $vencidas > 0 ? round(($gestionadas / $vencidas) * 100, 2) : 0;
+            } else {
+                $vencidas    = 0;
+                $gestionadas = 0;
+                $pctCartera  = 0;
+            }
 
             $r['cartera_vencidas']    = $vencidas;
             $r['cartera_gestionadas'] = $gestionadas;
-            $r['cartera_pct_gestion'] = $vencidas > 0
-                ? round(($gestionadas / $vencidas) * 100, 2)
-                : 0;
+            $r['cartera_pct_gestion'] = $pctCartera;
 
             $metaMes        = (float) ($metas[$r['mes']]->valor_meta ?? 0);
             $totalUsuarios  = max(1, (int) ($usuariosConVentasPorMes[$r['mes']]->total_usuarios ?? 1));
@@ -320,11 +384,62 @@ unset($r);
         return collect($resultado)->sortBy('mes')->values()->all();
     }
 
+    /**
+     * Congela el % de gestión sobre cartera vencida del mes en curso, por
+     * usuario (mismo patrón que KpiService::guardarSnapshotCarteraMensual,
+     * pero por vendedor en vez de global para la empresa). Pensado para
+     * correr diariamente: mientras el mes no termine, cada corrida
+     * actualiza sus propias filas; en cuanto cambia el mes, deja de
+     * tocarlas y el valor queda fijo con el de la última corrida de ese mes.
+     */
+    public function guardarSnapshotCarteraMensualPorUsuario(): Collection
+    {
+        $hoy = now();
+        $inactivo = EstadoEnum::INACTIVO->value;
+
+        $vencidasPorUsuario = DB::table('gestion_cartera as gc')
+            ->join('users', 'gc.user_comercial_id', '=', 'users.id')
+            ->where('users.estado_id', '!=', $inactivo)
+            ->where('gc.estado', 'pendiente')
+            ->whereDate('gc.fecha_vencimiento', '<', $hoy)
+            ->select('users.id as user_id', DB::raw('COUNT(DISTINCT gc.id) as total'))
+            ->groupBy('users.id')
+            ->pluck('total', 'user_id');
+
+        $gestionadasPorUsuario = DB::table('gestion_cartera as gc')
+            ->join('gestion_cartera_historial as gh', 'gc.id', '=', 'gh.gestion_cartera_id')
+            ->join('users', 'gc.user_comercial_id', '=', 'users.id')
+            ->where('users.estado_id', '!=', $inactivo)
+            ->where('gc.estado', 'pendiente')
+            ->whereDate('gc.fecha_vencimiento', '<', $hoy)
+            ->select('users.id as user_id', DB::raw('COUNT(DISTINCT gc.id) as total'))
+            ->groupBy('users.id')
+            ->pluck('total', 'user_id');
+
+        return $vencidasPorUsuario->keys()
+            ->map(function ($userId) use ($vencidasPorUsuario, $gestionadasPorUsuario, $hoy) {
+                $vencidas = (int) $vencidasPorUsuario[$userId];
+                $gestionadas = (int) ($gestionadasPorUsuario[$userId] ?? 0);
+                $pct = $vencidas > 0 ? round(($gestionadas / $vencidas) * 100, 2) : 0;
+
+                return CarteraGestionMensualUsuario::updateOrCreate(
+                    ['user_id' => $userId, 'anio' => $hoy->year, 'mes' => $hoy->month],
+                    [
+                        'cartera_vencidas' => $vencidas,
+                        'cartera_gestionadas' => $gestionadas,
+                        'cartera_pct_gestion' => $pct,
+                    ]
+                );
+            })
+            ->values();
+    }
+
     // Desglose del mes elegido en semanas (1..5, semana de calendario dentro
     // del mes, no semana ISO del año — evita que una semana cruce el límite
-    // de mes, que sería confuso para "las semanas de junio"). Agregado sobre
-    // todos los vendedores (o uno solo si se pasa $userId), sin cartera ni
-    // metas: esas métricas no tienen una lectura semanal con sentido.
+    // de mes, que sería confuso para "las semanas de junio"), por vendedor
+    // (o uno solo si se pasa $userId), para comparar avance semana a semana
+    // entre usuarios. Sin cartera ni metas: esas métricas no tienen una
+    // lectura semanal con sentido.
     public function getSemanasDelMes(?int $userId, string $mes): array
     {
         $inactivo = EstadoEnum::INACTIVO->value;
@@ -333,66 +448,118 @@ unset($r);
         $totalSemanas = (int) ceil($inicio->daysInMonth / 7);
 
         // Mismos filtros que getMesAMes: solo clientes activos cuentan para
-        // gestiones y órdenes, para que la suma de las semanas cuadre con el
-        // total mensual que ya se muestra en el dashboard.
+        // gestiones y órdenes, y solo usuarios activos, para que la suma de
+        // las semanas cuadre con el total mensual que ya se muestra en el
+        // dashboard.
         $gestiones = DB::table('seguimiento_clientes')
+            ->join('users', 'seguimiento_clientes.user_id', '=', 'users.id')
             ->join('clientes', function ($join) use ($inactivo) {
                 $join->on('seguimiento_clientes.cliente_id', '=', 'clientes.id')
                      ->where('clientes.estado_id', '!=', $inactivo);
             })
+            ->where('users.estado_id', '!=', $inactivo)
             ->select(
+                'users.id as user_id',
+                'users.name as usuario',
                 DB::raw('CEIL(DAY(seguimiento_clientes.created_at) / 7) as semana_mes'),
                 DB::raw('COUNT(*) as total')
             )
             ->whereBetween('seguimiento_clientes.created_at', [$inicio, $fin])
             ->when($userId, fn ($q) => $q->where('seguimiento_clientes.user_id', $userId))
-            ->groupBy('semana_mes')
-            ->pluck('total', 'semana_mes');
+            ->groupBy('users.id', 'users.name', 'semana_mes')
+            ->get();
 
         $cotizaciones = DB::table('cotizaciones')
+            ->join('users', 'cotizaciones.user_id', '=', 'users.id')
+            ->where('users.estado_id', '!=', $inactivo)
             ->select(
-                DB::raw('CEIL(DAY(created_at) / 7) as semana_mes'),
+                'users.id as user_id',
+                'users.name as usuario',
+                DB::raw('CEIL(DAY(cotizaciones.created_at) / 7) as semana_mes'),
                 DB::raw('COUNT(*) as total')
             )
-            ->whereBetween('created_at', [$inicio, $fin])
-            ->when($userId, fn ($q) => $q->where('user_id', $userId))
-            ->groupBy('semana_mes')
-            ->pluck('total', 'semana_mes');
+            ->whereBetween('cotizaciones.created_at', [$inicio, $fin])
+            ->when($userId, fn ($q) => $q->where('cotizaciones.user_id', $userId))
+            ->groupBy('users.id', 'users.name', 'semana_mes')
+            ->get();
 
         $ordenes = DB::table('orden__compras')
+            ->join('users', 'orden__compras.user_id', '=', 'users.id')
             ->join('clientes', function ($join) use ($inactivo) {
                 $join->on('orden__compras.cliente_id', '=', 'clientes.id')
                      ->where('clientes.estado_id', '!=', $inactivo);
             })
+            ->where('users.estado_id', '!=', $inactivo)
             ->select(
+                'users.id as user_id',
+                'users.name as usuario',
                 DB::raw('CEIL(DAY(orden__compras.created_at) / 7) as semana_mes'),
                 DB::raw('COUNT(*) as total'),
-                DB::raw('COALESCE(SUM(valor_total),0) as ventas'),
+                DB::raw('COALESCE(SUM(orden__compras.valor_total),0) as ventas'),
                 DB::raw('COUNT(DISTINCT orden__compras.cliente_id) as clientes_con_orden')
             )
             ->whereBetween('orden__compras.created_at', [$inicio, $fin])
             ->when($userId, fn ($q) => $q->where('orden__compras.user_id', $userId))
-            ->groupBy('semana_mes')
-            ->get()
-            ->keyBy('semana_mes');
+            ->groupBy('users.id', 'users.name', 'semana_mes')
+            ->get();
 
-        $semanas = collect(range(1, $totalSemanas))->map(function ($semana) use ($gestiones, $cotizaciones, $ordenes) {
-            $orden = $ordenes->get($semana);
+        // Consolidar por usuario, con las semanas del mes ya inicializadas en
+        // 0 para que cada vendedor tenga una fila por semana aunque no haya
+        // tenido actividad esa semana (necesario para dibujar una línea
+        // continua por vendedor en el gráfico).
+        $porUsuario = [];
 
-            return [
-                'semana' => $semana,
-                'label' => "Sem {$semana}",
-                'gestiones' => (int) ($gestiones[$semana] ?? 0),
-                'cotizaciones' => (int) ($cotizaciones[$semana] ?? 0),
-                'ordenes' => (int) ($orden->total ?? 0),
-                'valor_ventas' => (float) ($orden->ventas ?? 0),
-                'clientes_con_orden' => (int) ($orden->clientes_con_orden ?? 0),
+        $asegurarUsuario = function (int $userId, string $usuario) use (&$porUsuario, $totalSemanas) {
+            if (isset($porUsuario[$userId])) {
+                return;
+            }
+
+            $porUsuario[$userId] = [
+                'user_id' => $userId,
+                'usuario' => $usuario,
+                'semanas' => collect(range(1, $totalSemanas))->mapWithKeys(fn ($s) => [$s => [
+                    'semana' => $s,
+                    'label' => "Sem {$s}",
+                    'gestiones' => 0,
+                    'cotizaciones' => 0,
+                    'ordenes' => 0,
+                    'valor_ventas' => 0,
+                    'clientes_con_orden' => 0,
+                ]])->all(),
             ];
-        })->values();
+        };
+
+        foreach ($gestiones as $r) {
+            $asegurarUsuario($r->user_id, $r->usuario);
+            $porUsuario[$r->user_id]['semanas'][$r->semana_mes]['gestiones'] = (int) $r->total;
+        }
+
+        foreach ($cotizaciones as $r) {
+            $asegurarUsuario($r->user_id, $r->usuario);
+            $porUsuario[$r->user_id]['semanas'][$r->semana_mes]['cotizaciones'] = (int) $r->total;
+        }
+
+        foreach ($ordenes as $r) {
+            $asegurarUsuario($r->user_id, $r->usuario);
+            $porUsuario[$r->user_id]['semanas'][$r->semana_mes]['ordenes'] = (int) $r->total;
+            $porUsuario[$r->user_id]['semanas'][$r->semana_mes]['valor_ventas'] = (float) $r->ventas;
+            $porUsuario[$r->user_id]['semanas'][$r->semana_mes]['clientes_con_orden'] = (int) $r->clientes_con_orden;
+        }
+
+        $usuarios = collect($porUsuario)
+            ->map(fn ($u) => [
+                'user_id' => $u['user_id'],
+                'usuario' => $u['usuario'],
+                'semanas' => array_values($u['semanas']),
+            ])
+            ->sortBy('usuario')
+            ->values()
+            ->all();
 
         return [
             'mes' => $mes,
-            'semanas' => $semanas,
+            'semanas_totales' => $totalSemanas,
+            'usuarios' => $usuarios,
         ];
     }
 
@@ -401,13 +568,14 @@ unset($r);
         $inactivo = EstadoEnum::INACTIVO->value;
         $periodoExpr = DB::raw('CONCAT(YEAR(created_at), "-Q", QUARTER(created_at)) as trimestre');
 
-        // 1️⃣ Gestiones
+        // 1️⃣ Gestiones — solo usuarios activos
         $gestiones = DB::table('seguimiento_clientes')
             ->join('users', 'seguimiento_clientes.user_id', '=', 'users.id')
             ->join('clientes', function ($join) use ($inactivo) {
                 $join->on('seguimiento_clientes.cliente_id', '=', 'clientes.id')
                      ->where('clientes.estado_id', '!=', $inactivo);
             })
+            ->where('users.estado_id', '!=', $inactivo)
             ->select(
                 'users.id as user_id',
                 'users.name as usuario',
@@ -420,9 +588,10 @@ unset($r);
             ->groupBy('users.id', 'users.name', 'trimestre')
             ->get();
 
-        // 2️⃣ Cotizaciones
+        // 2️⃣ Cotizaciones — solo usuarios activos
         $cotizaciones = DB::table('cotizaciones')
             ->join('users', 'cotizaciones.user_id', '=', 'users.id')
+            ->where('users.estado_id', '!=', $inactivo)
             ->select(
                 'users.id as user_id',
                 'users.name as usuario',
@@ -434,13 +603,14 @@ unset($r);
             ->groupBy('users.id', 'users.name', 'trimestre')
             ->get();
 
-        // 3️⃣ Órdenes
+        // 3️⃣ Órdenes — solo usuarios activos
         $ordenes = DB::table('orden__compras')
             ->join('users', 'orden__compras.user_id', '=', 'users.id')
             ->join('clientes', function ($join) use ($inactivo) {
                 $join->on('orden__compras.cliente_id', '=', 'clientes.id')
                      ->where('clientes.estado_id', '!=', $inactivo);
             })
+            ->where('users.estado_id', '!=', $inactivo)
             ->select(
                 'users.id as user_id',
                 'users.name as usuario',
@@ -454,9 +624,10 @@ unset($r);
             ->groupBy('users.id', 'users.name', 'trimestre')
             ->get();
 
-        // 4️⃣ Fidelización — clientes activos con 2+ órdenes en el trimestre
+        // 4️⃣ Fidelización — clientes activos con 2+ órdenes en el trimestre, solo usuarios activos
         $fielesTrimestral = DB::table('orden__compras as o')
             ->join('users', 'o.user_id', '=', 'users.id')
+            ->where('users.estado_id', '!=', $inactivo)
             ->joinSub(
                 DB::table('orden__compras')
                     ->join('clientes', function ($join) use ($inactivo) {
@@ -487,9 +658,10 @@ unset($r);
             ->groupBy('users.id', 'trimestre')
             ->get();
 
-        // 5️⃣ Cartera vencidas por usuario
+        // 5️⃣ Cartera vencidas por usuario (solo usuarios activos)
         $carteraPorUsuario = DB::table('gestion_cartera as gc')
             ->join('users', 'gc.user_comercial_id', '=', 'users.id')
+            ->where('users.estado_id', '!=', $inactivo)
             ->select('users.id as user_id', DB::raw('COUNT(DISTINCT gc.id) as cartera_vencidas'))
             ->where('gc.estado', 'pendiente')
             ->whereDate('gc.fecha_vencimiento', '<', now())
@@ -498,10 +670,11 @@ unset($r);
             ->get()
             ->keyBy('user_id');
 
-        // Gestionadas por trimestre
+        // Gestionadas por trimestre (solo usuarios activos)
         $carteraGestionadasPorUsuarioTrimestre = DB::table('gestion_cartera as gc')
             ->join('gestion_cartera_historial as gh', 'gc.id', '=', 'gh.gestion_cartera_id')
             ->join('users', 'gc.user_comercial_id', '=', 'users.id')
+            ->where('users.estado_id', '!=', $inactivo)
             ->selectRaw('users.id as user_id, CONCAT(YEAR(gh.created_at), "-Q", QUARTER(gh.created_at)) as trimestre, COUNT(DISTINCT gc.id) as gestionadas')
             ->where('gc.estado', 'pendiente')
             ->whereDate('gc.fecha_vencimiento', '<', now())
@@ -520,14 +693,16 @@ unset($r);
             ->get()
             ->keyBy('trimestre');
 
-        // 7️⃣ Usuarios con ventas por trimestre
+        // 7️⃣ Usuarios activos con ventas por trimestre (divisor de la meta individual)
         $usuariosConVentasPorTrimestre = DB::table('orden__compras')
+            ->join('users', 'orden__compras.user_id', '=', 'users.id')
+            ->where('users.estado_id', '!=', $inactivo)
             ->select(
-                DB::raw('CONCAT(YEAR(created_at), "-Q", QUARTER(created_at)) as trimestre'),
-                DB::raw('COUNT(DISTINCT user_id) as total_usuarios')
+                DB::raw('CONCAT(YEAR(orden__compras.created_at), "-Q", QUARTER(orden__compras.created_at)) as trimestre'),
+                DB::raw('COUNT(DISTINCT orden__compras.user_id) as total_usuarios')
             )
-            ->where('created_at', '>=', $inicio)
-            ->where('valor_total', '>', 0)
+            ->where('orden__compras.created_at', '>=', $inicio)
+            ->where('orden__compras.valor_total', '>', 0)
             ->groupBy('trimestre')
             ->get()
             ->keyBy('trimestre');
