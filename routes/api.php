@@ -309,6 +309,7 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
  Route::get('ordenes-compra-facturar', [OrdenCompraController::class, 'ordenesFacturar']);
 
   Route::post('/orden-trabajo/{id}', [OrdenCompraController::class, 'generarOrdenTrabajo']);
+  Route::post('/orden-trabajo/{id}/entrega', [OrdenCompraController::class, 'actualizarOrdenTrabajo']);
   Route::get('tareas-vencidas', [NotificacionOrdenController::class, 'EnviarTaskVencida']);
   Route::apiResource('macroprocesos', MacroProcesoController::class);
   Route::apiResource('estados', EstadoController::class);

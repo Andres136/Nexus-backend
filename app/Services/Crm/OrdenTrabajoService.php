@@ -27,55 +27,85 @@ use Illuminate\Support\Facades\Storage;
 
 class OrdenTrabajoService
 {
-    public function generarOrdenTrabajo(Orden_Compra $ordenCompra, array $data, $userId)
+    /**
+     * Flujo 1: primera generación de la OT. Falla si ya existe una para la OC.
+     */
+    public function crearOrdenTrabajo(Orden_Compra $ordenCompra, array $data, $userId)
     {
         return DB::transaction(function () use ($ordenCompra, $data, $userId) {
 
-            // 0. Validar los productos de cada detalle antes de tocar la BD
+            if (OrdenDeTrabajo::where('orden_compra_id', $ordenCompra->id)->exists()) {
+                throw ValidationException::withMessages([
+                    'orden_trabajo' => 'Ya existe una Orden de Trabajo para esta Orden de Compra.',
+                ]);
+            }
+
             $this->validarProductos($ordenCompra, $data['detalles'] ?? []);
 
-            // 1. Crear u obtener la orden de trabajo
-            $ordenTrabajo = OrdenDeTrabajo::firstOrCreate(
-                ['orden_compra_id' => $ordenCompra->id],
-                [
-                    'cliente_id'    => $ordenCompra->cliente_id,
-                    'user_id'       => auth()->user()->id,
-                    'fecha_entrega' => Carbon::parse($ordenCompra->fecha_entrega, 'America/Bogota'),
-                    'observaciones' => $data['observaciones'] ?? '',
-                    'valor_total'   => $ordenCompra->valor_total,
-                    'estado_id'     => 1,
-                    'fecha_despacho' => null,
-                ]
-            );
-
-            $fueCreada = $ordenTrabajo->wasRecentlyCreated;
-
-            // 2. Procesar detalles
-            $resultado = $this->procesarDetalles($ordenCompra, $ordenTrabajo, $data['detalles'] ?? [], $userId);
-            
-            // 3. Actualizar orden de trabajo con totales
-            $ordenTrabajo->update([
-                'faltantes' => $resultado['totalFaltantes'],
-                'observaciones' => $data['observaciones'] ?? ''
+            $ordenTrabajo = OrdenDeTrabajo::create([
+                'orden_compra_id' => $ordenCompra->id,
+                'cliente_id'    => $ordenCompra->cliente_id,
+                'user_id'       => auth()->user()->id,
+                'fecha_entrega' => Carbon::parse($ordenCompra->fecha_entrega, 'America/Bogota'),
+                'observaciones' => $data['observaciones'] ?? '',
+                'valor_total'   => $ordenCompra->valor_total,
+                'estado_id'     => 1,
+                'fecha_despacho' => null,
             ]);
 
-            // 4. Actualizar estados
-            $this->actualizarEstados($ordenCompra, $ordenTrabajo, $resultado, $data);
-
-            // 5. Enviar notificaciones
-            $this->enviarNotificaciones($ordenCompra, $ordenTrabajo, $resultado['totalFaltantes']);
-
-            // 6. Generar PDF
-            $pdfUrl = $this->generarPDF($ordenTrabajo, $ordenCompra);
-
-            return [
-                'ordenTrabajo' => $ordenTrabajo,
-                'totalFaltantes' => $resultado['totalFaltantes'],
-                'ordenCompleta' => $resultado['ordenCompleta'],
-                'pdf_url' => $pdfUrl,
-                'fueCreada' => $fueCreada
-            ];
+            return $this->procesarYFinalizar($ordenCompra, $ordenTrabajo, $data, $userId, true);
         });
+    }
+
+    /**
+     * Flujo 2: registrar una entrega/actualización sobre una OT ya existente.
+     * Falla si todavía no se ha generado la OT.
+     */
+    public function actualizarOrdenTrabajo(Orden_Compra $ordenCompra, array $data, $userId)
+    {
+        return DB::transaction(function () use ($ordenCompra, $data, $userId) {
+
+            $ordenTrabajo = OrdenDeTrabajo::where('orden_compra_id', $ordenCompra->id)->first();
+
+            if (!$ordenTrabajo) {
+                throw ValidationException::withMessages([
+                    'orden_trabajo' => 'No existe una Orden de Trabajo para esta Orden de Compra. Debes generarla primero.',
+                ]);
+            }
+
+            $this->validarProductos($ordenCompra, $data['detalles'] ?? []);
+
+            return $this->procesarYFinalizar($ordenCompra, $ordenTrabajo, $data, $userId, false);
+        });
+    }
+
+    private function procesarYFinalizar(Orden_Compra $ordenCompra, OrdenDeTrabajo $ordenTrabajo, array $data, $userId, bool $fueCreada)
+    {
+        // Procesar detalles
+        $resultado = $this->procesarDetalles($ordenCompra, $ordenTrabajo, $data['detalles'] ?? [], $userId);
+
+        // Actualizar orden de trabajo con totales
+        $ordenTrabajo->update([
+            'faltantes' => $resultado['totalFaltantes'],
+            'observaciones' => $data['observaciones'] ?? ''
+        ]);
+
+        // Actualizar estados
+        $this->actualizarEstados($ordenCompra, $ordenTrabajo, $resultado, $data);
+
+        // Enviar notificaciones
+        $this->enviarNotificaciones($ordenCompra, $ordenTrabajo, $resultado['totalFaltantes']);
+
+        // Generar PDF
+        $pdfUrl = $this->generarPDF($ordenTrabajo, $ordenCompra);
+
+        return [
+            'ordenTrabajo' => $ordenTrabajo,
+            'totalFaltantes' => $resultado['totalFaltantes'],
+            'ordenCompleta' => $resultado['ordenCompleta'],
+            'pdf_url' => $pdfUrl,
+            'fueCreada' => $fueCreada
+        ];
     }
 
     private function procesarDetalles($ordenCompra, $ordenTrabajo, $detalles, $userId)

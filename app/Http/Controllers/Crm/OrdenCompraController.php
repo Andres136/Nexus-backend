@@ -182,25 +182,27 @@ public function generarOrdenTrabajo(OrdenTrabajoRequest $request, $id)
         
         $this->validarDocumentoCliente($ordenCompra);
         
-        // Determinar sede (mantener lógica exacta)
+        // Determinar sede (mantener lógica exacta). Solo se usa en memoria para
+        // esta ejecución (notificaciones, descuento de stock); no se persiste en
+        // la Orden de Compra: generar/actualizar la OT no debe modificar la OC.
         $sedeId = $this->determinarSede($request, $ordenCompra, $user);
         $ordenCompra->sede_id = $sedeId;
-        $ordenCompra->save();
-        
-        // ✅ Usar el service con toda la lógica
+
+        // ✅ Usar el service con toda la lógica (solo creación)
         $ordenTrabajoService = app(OrdenTrabajoService::class);
-        $resultado = $ordenTrabajoService->generarOrdenTrabajo(
-            $ordenCompra, 
+        $resultado = $ordenTrabajoService->crearOrdenTrabajo(
+            $ordenCompra,
             $request->all(), // Pasar todos los datos del request
             $user->id
         );
-        
+
         return response()->json([
-            'message' => 'Orden de Trabajo generada/actualizada con éxito',
+            'message' => 'Orden de Trabajo generada con éxito',
+            'fue_creada' => true,
             'ordenTrabajo' => $resultado['ordenTrabajo'],
             'pdf_url' => $resultado['pdf_url'],
         ], 201);
-        
+
     } catch (ValidationException $e) {
         return response()->json([
             'message' => 'Hay errores de validación en la Orden de Trabajo.',
@@ -208,7 +210,55 @@ public function generarOrdenTrabajo(OrdenTrabajoRequest $request, $id)
         ], 422);
     } catch (Exception $e) {
         return response()->json([
-            'message' => 'Error al generar/actualizar la Orden de Trabajo',
+            'message' => 'Error al generar la Orden de Trabajo',
+            'error' => $e->getMessage(),
+        ], 500);
+    }
+}
+
+/**
+ * Flujo 2: registrar una entrega/actualización sobre una OT ya generada.
+ */
+public function actualizarOrdenTrabajo(OrdenTrabajoRequest $request, $id)
+{
+    $user = auth()->user();
+
+    try {
+        $ordenCompra = Orden_Compra::findOrFail($id);
+
+        if ((int) $ordenCompra->estado_id === EstadoEnum::INACTIVO->value) {
+            return response()->json([
+                'message' => 'No se puede actualizar la Orden de Trabajo de una Orden de Compra inactiva.',
+            ], 422);
+        }
+
+        // Determinar sede solo en memoria (notificaciones/descuento de stock);
+        // no se persiste en la Orden de Compra.
+        $sedeId = $this->determinarSede($request, $ordenCompra, $user);
+        $ordenCompra->sede_id = $sedeId;
+
+        $ordenTrabajoService = app(OrdenTrabajoService::class);
+        $resultado = $ordenTrabajoService->actualizarOrdenTrabajo(
+            $ordenCompra,
+            $request->all(),
+            $user->id
+        );
+
+        return response()->json([
+            'message' => 'Orden de Trabajo actualizada con éxito',
+            'fue_creada' => false,
+            'ordenTrabajo' => $resultado['ordenTrabajo'],
+            'pdf_url' => $resultado['pdf_url'],
+        ], 200);
+
+    } catch (ValidationException $e) {
+        return response()->json([
+            'message' => 'Hay errores de validación en la Orden de Trabajo.',
+            'errors' => $e->errors(),
+        ], 422);
+    } catch (Exception $e) {
+        return response()->json([
+            'message' => 'Error al actualizar la Orden de Trabajo',
             'error' => $e->getMessage(),
         ], 500);
     }
