@@ -55,6 +55,12 @@ class MovimientoStock extends Model
     {
         return $this->belongsTo(OrdenDeTrabajo::class, 'orden_trabajo_id');
     }
+
+    // Préstamos de stock entre empresas originados por este movimiento
+    public function prestamos()
+    {
+        return $this->hasMany(PrestamoStockEmpresa::class, 'movimiento_stock_id');
+    }
     //relacion con sede
     public function sede()
     {

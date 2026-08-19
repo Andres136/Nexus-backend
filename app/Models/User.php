@@ -55,6 +55,7 @@ class User extends Authenticatable
         'es_administrador',
         'puede_gestionar_calidad',
         'puede_asignar_tareas',
+        'es_responsable_inventario',
     ];
 
     public function getNombreCompletoAttribute(): string
@@ -106,6 +107,25 @@ class User extends Authenticatable
     {
         return $this->role_id === \App\RolEnum::ADMINISTRADOR->value
             || $this->esResponsableDeSuDepartamento();
+    }
+
+    /**
+     * Mismo criterio que TrasladoBodegaService::validarResponsableInventario():
+     * la responsabilidad "inventario" se asigna vía el módulo de Responsabilidades
+     * (tabla responsabilidades_user, pivot "activo"), no por role_id ni departamento.
+     */
+    public function getEsResponsableInventarioAttribute(): bool
+    {
+        if ($this->role_id === \App\RolEnum::ADMINISTRADOR->value) {
+            return true;
+        }
+
+        $idInventario = \App\Models\Traslados\Responsabilidad::where('codigo', 'inventario')->value('id');
+
+        return $idInventario && $this->responsabilidades()
+            ->where('responsabilidad_id', $idInventario)
+            ->wherePivot('activo', true)
+            ->exists();
     }
 
     public function getEsAdministradorAttribute(): bool

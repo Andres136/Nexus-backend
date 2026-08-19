@@ -8,6 +8,7 @@ use App\Models\contabilidad\FacturaCompra;
 use App\Models\contabilidad\FormaPago;
 use App\Models\contabilidad\Impuesto;
 use App\RolEnum;
+use App\Services\Crm\KardexService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -15,7 +16,8 @@ use Illuminate\Support\Facades\Storage;
 class FacturaCompraService
 {
     public function __construct(
-        private readonly FacturaCompraEstadoService $estadoService
+        private readonly FacturaCompraEstadoService $estadoService,
+        private readonly KardexService $kardexService
     ) {
     }
 
@@ -57,6 +59,23 @@ class FacturaCompraService
                 ...$detalle,
                 'total' => $base
             ]);
+
+            // Toma solo el precio de esta línea para actualizar (costo
+            // promedio ponderado) el Inventario que YA exista para ese
+            // producto en la empresa+sede de la factura. No crea inventario
+            // ni toca stock — eso lo maneja Entregas de Proveedor. No afecta
+            // el resto de la creación de la factura.
+            $this->kardexService->actualizarCostoPorFactura(
+                $detalle['producto_id'],
+                $factura->empresa_id,
+                $factura->sede_id,
+                $detalle['cantidad'],
+                $detalle['precio_unitario'],
+                [
+                    'factura_compra_detalle_id' => $detalleModel->id,
+                    'usuario_id' => auth()->id(),
+                ]
+            );
 
             $impuestosDetalle = 0;
 
@@ -387,9 +406,12 @@ private function _actualizar(FacturaCompra $factura, array $data)
         return new FacturaCompraResource(
             $factura->load([
                 'detalles.impuestos',
+                'detalles.producto',
                 'pagos',
                 'gastos',
-                'impuestos'
+                'impuestos',
+                'proveedor',
+                'empresa',
             ])
         );
     });

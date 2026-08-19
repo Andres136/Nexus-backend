@@ -309,6 +309,7 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
  Route::get('ordenes-compra-facturar', [OrdenCompraController::class, 'ordenesFacturar']);
 
   Route::post('/orden-trabajo/{id}', [OrdenCompraController::class, 'generarOrdenTrabajo']);
+  Route::post('/orden-trabajo/{id}/entrega', [OrdenCompraController::class, 'actualizarOrdenTrabajo']);
   Route::get('tareas-vencidas', [NotificacionOrdenController::class, 'EnviarTaskVencida']);
   Route::apiResource('macroprocesos', MacroProcesoController::class);
   Route::apiResource('estados', EstadoController::class);
@@ -526,9 +527,18 @@ Route::put('productos/{id}', [CrmProductController::class, 'edit']);
 
 Route::apiResource('inventarios',InventorieController::class);
 //Anular movimiento de stock
-Route::post('anular-movimiento-stock/{movimientoId}', [InventorieController::class, 'importar']);
+Route::post('anular-movimiento-stock/{movimientoId}', [InventorieController::class, 'anularMovimiento']);
 //Consultar movimientos de stock
 Route::get('movimientos-stock', [InventorieController::class, 'listarMovimientosStock']);
+Route::get('movimientos-stock/exportar', [InventorieController::class, 'exportarMovimientosStock']);
+//Préstamos de stock entre empresas (trazabilidad de descuentos/traslados que cruzaron inventario de otra empresa)
+Route::get('prestamos-entre-empresas', [InventorieController::class, 'listarPrestamosEntreEmpresas']);
+Route::get('prestamos-entre-empresas/exportar', [InventorieController::class, 'exportarPrestamosEntreEmpresas']);
+Route::get('prestamos-entre-empresas/movimiento/{movimientoStockId}/pdf', [InventorieController::class, 'descargarPdfPrestamosMovimiento']);
+
+//Kardex de inventario (costo promedio ponderado, entradas/salidas con saldo corriente)
+Route::get('kardex', [InventorieController::class, 'listarKardex']);
+Route::get('kardex/exportar', [InventorieController::class, 'exportarKardex']);
 
 /*DESCONTAR STOCK VIA EXCEL*/
 
