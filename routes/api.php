@@ -1064,7 +1064,10 @@ Route::get('/seguimientos', [SeguimientoController::class, 'index']);
 
 Route::get('procesos/departamento/{departamento_id}', [ProcesoController::class, 'index']);
 
-Route::get('download/{id}', [DocumentosAdministrativosController::class, 'downloand']);
+Route::get('download/{id}', [DocumentosAdministrativosController::class, 'downloand'])
+    ->middleware('auth:sanctum');
+Route::get('documentos-administrativos/{id}/preview', [DocumentosAdministrativosController::class, 'preview'])
+    ->middleware('auth:sanctum');
 Route::delete('documentos-administrativos/{id}', [DocumentosAdministrativosController::class, 'destroy'])
     ->middleware('auth:sanctum');
 Route::apiResource('carpetas', CarpetaController::class)

@@ -103,11 +103,7 @@ table { border-collapse: collapse; width: 100%; }
 
 <div class="cuerpo">
   Su tipo de contrato es <strong>{{ $contratacion->tipoContrato->nombre ?? '—' }}</strong>
-  @if($contratacion->fin_contrato)
-  con fecha de terminación el <strong>{{ \Carbon\Carbon::parse($contratacion->fin_contrato)->locale('es')->translatedFormat('d \d\e F \d\e Y') }}</strong>
-  @else
-  a término indefinido
-  @endif.
+  a término indefinido.
   Al momento de expedición del presente certificado, el empleado se encuentra activo en la empresa.
 </div>
 
