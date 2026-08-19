@@ -334,6 +334,7 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
   Route::get('capacitaciones/{capacitacionUuid}/acta/pdf', [CapacitacionActaController::class, 'pdf']);
   Route::put('capacitaciones/{capacitacionUuid}/acta', [CapacitacionActaController::class, 'guardar']);
   Route::post('capacitaciones/{capacitacionUuid}/acta/enviar', [CapacitacionActaController::class, 'enviar']);
+  Route::put('capacitaciones/{capacitacionUuid}/acta/reasignar', [CapacitacionActaController::class, 'reasignar']);
   Route::get('capacitacion-encuestas-usuarios', [CapacitacionEncuestaController::class, 'usuarios']);
   Route::get('capacitacion-encuestas/{uuid}/resultados', [CapacitacionEncuestaController::class, 'resultados']);
   Route::post('capacitacion-encuestas/{uuid}/enviar', [CapacitacionEncuestaController::class, 'enviar']);

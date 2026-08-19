@@ -72,6 +72,18 @@ class CapacitacionActaController extends Controller
         return response()->json($this->service->enviar($capacitacionUuid, $data['user_ids'], $request->user()));
     }
 
+    public function reasignar(Request $request, string $capacitacionUuid)
+    {
+        $data = $request->validate([
+            'user_id' => 'required|integer|exists:users,id',
+        ]);
+
+        return response()->json([
+            'message' => 'Acta reasignada correctamente.',
+            'acta' => $this->service->reasignar($capacitacionUuid, $data['user_id'], $request->user()),
+        ]);
+    }
+
     public function publica(string $token)
     {
         return response()->json($this->service->publica($token));
