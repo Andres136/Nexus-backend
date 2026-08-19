@@ -121,6 +121,46 @@ class CapacitacionActaService
         });
     }
 
+    /**
+     * Transfiere quién gestiona el acta (elaborada_por) a otro usuario. Solo
+     * quien ya puede gestionarla (o un administrador) puede reasignarla. Si
+     * el acta todavía no existe, se crea vacía ya asignada a ese usuario —
+     * así se puede delegar antes de empezar a llenarla.
+     */
+    public function reasignar(string $capacitacionUuid, int $nuevoElaboradorId, User $user): CapacitacionActa
+    {
+        return DB::transaction(function () use ($capacitacionUuid, $nuevoElaboradorId, $user) {
+            $capacitacion = Capacitacion::where('uuid', $capacitacionUuid)->lockForUpdate()->firstOrFail();
+
+            $acta = CapacitacionActa::where('capacitacion_id', $capacitacion->id)
+                ->lockForUpdate()
+                ->first();
+
+            $esAdmin = (int) $user->role_id === RolEnum::ADMINISTRADOR->value;
+            $puedeGestionar = $acta
+                ? (int) $acta->elaborada_por === (int) $user->id
+                : $this->puedeCrear($capacitacion, $user);
+
+            abort_unless($esAdmin || $puedeGestionar, 403, 'No puedes reasignar el acta de esta capacitación.');
+
+            if (!$acta) {
+                $acta = new CapacitacionActa([
+                    'capacitacion_id' => $capacitacion->id,
+                    'numero' => $this->siguienteNumero(),
+                    // titulo/desarrollo son NOT NULL en la tabla; se reemplazan en
+                    // cuanto el responsable asignado guarde el contenido real.
+                    'titulo' => "Acta de capacitación — {$capacitacion->titulo}",
+                    'desarrollo' => '',
+                ]);
+            }
+
+            $acta->elaborada_por = $nuevoElaboradorId;
+            $acta->save();
+
+            return $acta->fresh(['elaborador:id,name,email', 'envios.usuario:id,name,email']);
+        });
+    }
+
     public function enviar(string $capacitacionUuid, array $userIds, User $remitente): array
     {
         $capacitacion = Capacitacion::where('uuid', $capacitacionUuid)->firstOrFail();
