@@ -52,6 +52,7 @@ use App\Http\Controllers\Crm\ordenTrabajoController;
 use App\Http\Controllers\Crm\procesoBolsasController;
 use App\Http\Controllers\Crm\ProductController as CrmProductController;
 use App\Http\Controllers\Crm\ProveedorController;
+use App\Http\Controllers\Crm\TrazabilidadController;
 use App\Http\Controllers\Crm\RevisionComparendoController;
 use App\Http\Controllers\Crm\SedeController;
 use App\Http\Controllers\Crm\SeguimientoController;
@@ -406,6 +407,11 @@ Route::apiResource('alistamientos-ot', AlistamientoOtController::class);
 Route::post('/orden-trabajo/{id}/marcar-revisada', [ordenTrabajoController::class, 'marcarRevisada']);
 //Revisar orden de trabajo
 Route::post('/orden-trabajo/{id}/revisar', [ordenTrabajoController::class, 'revisarOrdenTrabajo']);
+
+// Trazabilidad: orden de compra -> orden de trabajo/entrega, y producto -> orden a proveedor/alistamiento
+Route::get('/trazabilidad/ordenes-compra/buscar', [TrazabilidadController::class, 'buscarOrdenesCompra']);
+Route::get('/trazabilidad/ordenes-compra/{id}', [TrazabilidadController::class, 'ordenCompraDetalle']);
+Route::get('/trazabilidad/productos/{producto}', [TrazabilidadController::class, 'productoTrazabilidad']);
 
 Route::get('pqrs', [PqrController::class, 'index']);
 Route::delete('/pqrs/{id}', [PqrController::class, 'destroy']);

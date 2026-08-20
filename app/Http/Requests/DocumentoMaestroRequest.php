@@ -25,6 +25,7 @@ class DocumentoMaestroRequest extends FormRequest
         return [
             'departamento_id' => 'required|integer|exists:departamentos,id',
             'user_id' => 'required|integer|exists:users,id',
+            'nombre' => 'required|string|max:255',
             'tipo_documento' => 'required|string|max:100',
             'codigo' => [
                 'required',
@@ -52,6 +53,7 @@ class DocumentoMaestroRequest extends FormRequest
             'departamento_id.exists' => 'El departamento seleccionado no existe.',
             'user_id.required' => 'El líder del proceso es obligatorio.',
             'user_id.exists' => 'El usuario seleccionado no existe.',
+            'nombre.required' => 'El nombre del documento es obligatorio.',
             'tipo_documento.required' => 'El tipo de documento es obligatorio.',
             'codigo.required' => 'El código es obligatorio.',
             'codigo.unique' => 'Ya existe un documento con este código en el departamento.',

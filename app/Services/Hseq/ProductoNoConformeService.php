@@ -19,7 +19,7 @@ class ProductoNoConformeService
         'comercial:id,name',
         'proceso:id,nombre',
         'items.producto:id,name',
-        'ordenCompra:id,code',
+        'ordenCompra:id,orden_compra_cliente',
         'ordenCompraProveedor:id,numero_orden',
         'estado:id,nombre',
         'analisis',

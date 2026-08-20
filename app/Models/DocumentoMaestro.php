@@ -11,6 +11,7 @@ class DocumentoMaestro extends Model
     protected $fillable = [
         'departamento_id',
         'user_id',
+        'nombre',
         'tipo_documento',
         'codigo',
         'fecha_emision',
