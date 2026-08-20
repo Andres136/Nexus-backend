@@ -26,7 +26,9 @@ class OrdenDeTrabajo extends Model
         'documento_revisado_por',
         'revisada',
         'revisada_por',
-        'revisada_at'
+        'revisada_at',
+        'despacho_revisado_at',
+        'despacho_revisado_por',
 
     ];
 
@@ -90,5 +92,10 @@ public function usuarioRevisor()
     return $this->belongsTo(User::class, 'documento_revisado_por');
 }
 
+    //Relacion de usuario que revisó la orden de trabajo al momento del despacho
+    public function usuarioDespachoRevisor()
+    {
+        return $this->belongsTo(User::class, 'despacho_revisado_por');
+    }
 
 }

@@ -405,8 +405,10 @@ Route::apiResource('alistamientos-ot', AlistamientoOtController::class);
 
 //Marcar orden de trabajo como revisada
 Route::post('/orden-trabajo/{id}/marcar-revisada', [ordenTrabajoController::class, 'marcarRevisada']);
-//Revisar orden de trabajo
+//Revisar orden de trabajo (barrido diario del dashboard operativo/VSM)
 Route::post('/orden-trabajo/{id}/revisar', [ordenTrabajoController::class, 'revisarOrdenTrabajo']);
+//Revisar orden de trabajo al momento del despacho (detalle de orden de trabajo)
+Route::post('/orden-trabajo/{id}/marcar-despacho-revisado', [ordenTrabajoController::class, 'marcarDespachoRevisado']);
 
 // Trazabilidad: orden de compra -> orden de trabajo/entrega, y producto -> orden a proveedor/alistamiento
 Route::get('/trazabilidad/ordenes-compra/buscar', [TrazabilidadController::class, 'buscarOrdenesCompra']);

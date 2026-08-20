@@ -20,6 +20,8 @@ class ordenTrabajoController extends Controller
             'user',
             'estado',
             'usuarioRevisor',
+            'usuarioReviso',
+            'usuarioDespachoRevisor',
             'ordenCompra.cliente',
             'ordenCompra.sede',
             'ordenCompra.detalles.product',
@@ -103,7 +105,26 @@ public function marcarRevisada($id)
     ]);
 }
 
-//Funcion revisar orden de trabajo 
+// Revisión al momento del despacho: distinta de revisarOrdenTrabajo() (barrido
+// diario del dashboard operativo/VSM). Aquí se confirma quién revisó la OT en
+// el flujo de esta pantalla (detalle de orden de trabajo), típicamente al
+// momento de despachar.
+public function marcarDespachoRevisado($id)
+{
+    $orden = OrdenDeTrabajo::findOrFail($id);
+
+    $orden->update([
+        'despacho_revisado_at'  => now(),
+        'despacho_revisado_por' => auth()->id(),
+    ]);
+
+    return response()->json([
+        'message' => 'Orden de trabajo revisada para despacho',
+        'orden'   => $orden,
+    ]);
+}
+
+//Funcion revisar orden de trabajo
 public function revisarOrdenTrabajo($id)
 {
     $orden = OrdenDeTrabajo::findOrFail($id);

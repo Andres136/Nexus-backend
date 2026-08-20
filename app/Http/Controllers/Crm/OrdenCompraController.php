@@ -83,8 +83,12 @@ class OrdenCompraController extends Controller
             return $query->whereHas('cliente', function ($query) use ($search) {
                 $query->where('nombre', 'LIKE', "%$search%");
             })
+                ->orWhere('id', 'LIKE', "%$search%")
                 ->orWhere('fecha_entrega', 'LIKE', "%$search%")
-                ->orWhere('orden_compra_cliente', 'LIKE', "%$search%");
+                ->orWhere('orden_compra_cliente', 'LIKE', "%$search%")
+                ->orWhereHas('ordenTrabajo', function ($query) use ($search) {
+                    $query->where('id', 'LIKE', "%$search%");
+                });
         })
         ->orderBy('orden_trabajo_exists', 'asc') // ✅ primero sin OT
         ->orderBy('created_at', 'desc') // ✅ más recientes dentro del grupo
