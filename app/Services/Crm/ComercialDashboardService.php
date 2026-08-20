@@ -254,6 +254,22 @@ class ComercialDashboardService
             ->get()
             ->keyBy('periodo');
 
+        // 5️⃣.5 Clientes activos asignados por vendedor (constante en el mes,
+        // no varía semana/mes a mes — es el "tamaño de cartera" contra el que
+        // se mide cuánto gestionó: gestion_comercial_pct = gestionados / esto).
+        $clientesActivosPorUsuario = DB::table('clientes')
+            ->join('users', 'clientes.user_id', '=', 'users.id')
+            ->where('users.estado_id', '!=', $inactivo)
+            ->where('clientes.estado_id', '!=', $inactivo)
+            ->select(
+                $this->selectUserIdAgrupado(),
+                DB::raw('COUNT(*) as total')
+            )
+            ->when($userId, fn ($q) => $q->where('users.id', $userId))
+            ->groupBy('user_id')
+            ->get()
+            ->keyBy('user_id');
+
         // 7️⃣ Usuarios activos con ventas por mes (divisor de la meta individual).
         // COUNT(DISTINCT CASE...) cuenta cada ejecutivo real por su id, y
         // colapsa a todos los usuarios de otros roles en un solo valor (0):
@@ -300,6 +316,7 @@ class ComercialDashboardService
                         'trimestre'                 => '',
                         'fidelizacion_pct'          => 0,
                         'cartera_pct_gestion'       => 0,
+                        'gestion_comercial_pct'     => 0,
                         'meta_individual'           => 0,
                         'cumplimiento_pct'          => 0,
                     ];
@@ -380,6 +397,11 @@ class ComercialDashboardService
 
             $r['fidelizacion_pct'] = $r['clientes_con_orden'] > 0
                 ? round(($r['clientes_fieles'] / $r['clientes_con_orden']) * 100, 2)
+                : 0;
+
+            $clientesActivos = (int) ($clientesActivosPorUsuario[$r['user_id']]->total ?? 0);
+            $r['gestion_comercial_pct'] = $clientesActivos > 0
+                ? round(($r['clientes_gestionados'] / $clientesActivos) * 100, 2)
                 : 0;
 
             // Calcular trimestre natural (Q1–Q4)
@@ -508,12 +530,29 @@ unset($r);
                 $this->selectUserIdAgrupado(),
                 $this->selectUsuarioAgrupado(),
                 DB::raw('CEIL(DAY(seguimiento_clientes.created_at) / 7) as semana_mes'),
-                DB::raw('COUNT(*) as total')
+                DB::raw('COUNT(*) as total'),
+                DB::raw('COUNT(DISTINCT seguimiento_clientes.cliente_id) as clientes_gestionados')
             )
             ->whereBetween('seguimiento_clientes.created_at', [$inicio, $fin])
             ->when($userId, fn ($q) => $q->where('seguimiento_clientes.user_id', $userId))
             ->groupBy('user_id', 'usuario', 'semana_mes')
             ->get();
+
+        // Clientes activos asignados por vendedor (constante en el mes, no
+        // por semana — es el "tamaño de cartera" contra el que se mide la
+        // cobertura semanal). Mismo criterio que getResumenMesActual.
+        $clientesActivosPorUsuario = DB::table('clientes')
+            ->join('users', 'clientes.user_id', '=', 'users.id')
+            ->where('users.estado_id', '!=', $inactivo)
+            ->where('clientes.estado_id', '!=', $inactivo)
+            ->select(
+                $this->selectUserIdAgrupado(),
+                DB::raw('COUNT(*) as total')
+            )
+            ->when($userId, fn ($q) => $q->where('users.id', $userId))
+            ->groupBy('user_id')
+            ->get()
+            ->keyBy('user_id');
 
         $cotizaciones = DB::table('cotizaciones')
             ->join('users', 'cotizaciones.user_id', '=', 'users.id')
@@ -595,6 +634,7 @@ unset($r);
                     'valor_ventas' => 0,
                     'clientes_con_orden' => 0,
                     'cartera_gestionada' => 0,
+                    'gestion_comercial_pct' => 0,
                 ]])->all(),
             ];
         };
@@ -602,6 +642,11 @@ unset($r);
         foreach ($gestiones as $r) {
             $asegurarUsuario($r->user_id, $r->usuario);
             $porUsuario[$r->user_id]['semanas'][$r->semana_mes]['gestiones'] = (int) $r->total;
+
+            $clientesActivos = (int) ($clientesActivosPorUsuario[$r->user_id]->total ?? 0);
+            $porUsuario[$r->user_id]['semanas'][$r->semana_mes]['gestion_comercial_pct'] = $clientesActivos > 0
+                ? round(((int) $r->clientes_gestionados / $clientesActivos) * 100, 2)
+                : 0;
         }
 
         foreach ($cotizaciones as $r) {
@@ -768,6 +813,21 @@ unset($r);
             ->get()
             ->keyBy('trimestre');
 
+        // 6️⃣.5 Clientes activos asignados por vendedor (constante, no varía
+        // por trimestre — ver mismo criterio en getMesAMes).
+        $clientesActivosPorUsuario = DB::table('clientes')
+            ->join('users', 'clientes.user_id', '=', 'users.id')
+            ->where('users.estado_id', '!=', $inactivo)
+            ->where('clientes.estado_id', '!=', $inactivo)
+            ->select(
+                $this->selectUserIdAgrupado(),
+                DB::raw('COUNT(*) as total')
+            )
+            ->when($userId, fn ($q) => $q->where('users.id', $userId))
+            ->groupBy('user_id')
+            ->get()
+            ->keyBy('user_id');
+
         // 7️⃣ Usuarios activos con ventas por trimestre (divisor de la meta
         // individual). Igual que en getMesAMes: COUNT(DISTINCT CASE...)
         // cuenta cada ejecutivo real y colapsa a otros roles en un solo
@@ -806,12 +866,13 @@ unset($r);
                         'clientes_fieles'      => 0,
                         'cartera_vencidas'     => 0,
                         'cartera_gestionadas'  => 0,
-                        'conversion_pct'       => 0,
-                        'fidelizacion_pct'     => 0,
-                        'cartera_pct_gestion'  => 0,
-                        'meta_trimestre'       => 0,
-                        'meta_individual'      => 0,
-                        'cumplimiento_pct'     => 0,
+                        'conversion_pct'        => 0,
+                        'fidelizacion_pct'      => 0,
+                        'cartera_pct_gestion'   => 0,
+                        'gestion_comercial_pct' => 0,
+                        'meta_trimestre'        => 0,
+                        'meta_individual'       => 0,
+                        'cumplimiento_pct'      => 0,
                     ];
                 }
 
@@ -861,6 +922,11 @@ unset($r);
 
             $r['fidelizacion_pct'] = $r['clientes_con_orden'] > 0
                 ? round(($r['clientes_fieles'] / $r['clientes_con_orden']) * 100, 2)
+                : 0;
+
+            $clientesActivos = (int) ($clientesActivosPorUsuario[$r['user_id']]->total ?? 0);
+            $r['gestion_comercial_pct'] = $clientesActivos > 0
+                ? round(($r['clientes_gestionados'] / $clientesActivos) * 100, 2)
                 : 0;
         }
         unset($r);
