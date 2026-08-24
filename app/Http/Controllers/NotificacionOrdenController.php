@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Departamentos;
 use App\Models\User;
+use App\RolEnum;
 use App\Notifications\Crm\TareaVencidaNotificacion;
 use App\Notifications\NotifyAdminUserLoggedIn;
 use App\Notifications\OrdenCompraNotificacionMejorada;
@@ -44,7 +45,7 @@ class NotificacionOrdenController extends Controller
         $operacionesId = Departamentos::where('nombre', 'Operaciones')->value('id');
 
   
-        $rolesPermitidos= [4,6]; // Agrega aquí los role_id permitidos
+        $rolesPermitidos = [RolEnum::ADMINISTRATIVO->value, RolEnum::INVENTARIO->value, RolEnum::COMPRAS->value];
         $usuariosNotificar = User::where('departamento_id', $operacionesId)
             ->whereIn('role_id', $rolesPermitidos) // Filtrar por roles permitidos
             ->whereNotNull('email') // Solo usuarios con email válido
