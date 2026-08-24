@@ -723,6 +723,7 @@ Route::middleware('es_responsable_del_departamento')->group(function () {
 });
 Route::get('novedades/{novedad}/eficacia', [EficaciaEvaluacionController::class, 'index']);
 Route::post('novedades/{novedad}/eficacia', [EficaciaEvaluacionController::class, 'store']);
+Route::patch('novedades/{novedad}/eficacia/{eficacia}/proxima-verificacion', [EficaciaEvaluacionController::class, 'actualizarProximaVerificacion']);
 Route::apiResource('soporte-tareas', SoporteTareaController::class);
 Route::get('soporte-tarea/{tarea_id}', [SoporteTareaController::class, 'getByTareaId']);
 Route::get('soporte-tareas/hallazgo/{soporte_id}', [SoporteTareaController::class, 'getByHallazgoId']);

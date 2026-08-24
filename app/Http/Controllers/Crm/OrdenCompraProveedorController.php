@@ -180,7 +180,11 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
                 'fecha_entrega' => $request->fecha_entrega,
             ]);
 
-            $mapaDetallesRequerimiento = [];
+            // Un item puede traer su propio requerimiento_compra_uuid (cola local, items
+            // agregados desde distintos requerimientos) o heredar el de cabecera (flujo
+            // viejo de un solo requerimiento). Agrupamos por uuid para vincular cada
+            // requerimiento involucrado, no solo el primero.
+            $mapaPorRequerimiento = [];
             foreach ($request->detalles as $i => $detalle) {
              $nuevoDetalle=   $ordenCompra->detalles()->create([
                     'item' => $i + 1,
@@ -194,7 +198,10 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
                 ]);
 
                 if (!empty($detalle['requerimiento_compra_detalle_id'])) {
-                    $mapaDetallesRequerimiento[$detalle['requerimiento_compra_detalle_id']] = $nuevoDetalle->id;
+                    $uuidEfectivo = $detalle['requerimiento_compra_uuid'] ?? $request->requerimiento_compra_uuid;
+                    if ($uuidEfectivo) {
+                        $mapaPorRequerimiento[$uuidEfectivo][$detalle['requerimiento_compra_detalle_id']] = $nuevoDetalle->id;
+                    }
                 }
 
                 $this->crearOrigenesDetalleProveedor(
@@ -219,21 +226,21 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
 
             DB::commit();
 
-            // Si esta OC se creó desde el formulario prellenado de un requerimiento de compra
-            // aprobado, vinculamos el requerimiento (estado -> oc_generada) sin afectar la OC
-            // ya creada si algo falla aquí.
-            if ($request->filled('requerimiento_compra_uuid')) {
+            // Si algún item viene de un requerimiento de compra aprobado (por cabecera o
+            // por item), vinculamos cada requerimiento involucrado con SUS items en esta OC,
+            // sin afectar la OC ya creada si algo falla aquí.
+            foreach ($mapaPorRequerimiento as $uuidRequerimiento => $mapaDetalles) {
                 try {
                     $requerimientoCompraService->vincularOrdenCompraGenerada(
-                        $request->requerimiento_compra_uuid,
+                        $uuidRequerimiento,
                         $ordenCompra,
                         $user,
-                        $mapaDetallesRequerimiento
+                        $mapaDetalles
                     );
                 } catch (\Exception $e) {
                     Log::warning('No se pudo vincular la OC al requerimiento de compra', [
                         'orden_id' => $ordenCompra->id,
-                        'requerimiento_compra_uuid' => $request->requerimiento_compra_uuid,
+                        'requerimiento_compra_uuid' => $uuidRequerimiento,
                         'error' => $e->getMessage(),
                     ]);
                 }
@@ -692,7 +699,7 @@ public function entregasShow($id)
     // para el mismo producto, suma la cantidad ahí en vez de crear otra línea
     // duplicada; si no, crea la línea nueva. También registra/actualiza el
     // origen (trazabilidad hacia la OT del cliente) sumando sobre lo existente.
-    public function anexarItemProducto(Request $request, $id)
+    public function anexarItemProducto(Request $request, $id, RequerimientoCompraService $requerimientoCompraService)
     {
         $data = $request->validate([
             'producto_id' => 'required|exists:products,id',
@@ -705,9 +712,11 @@ public function entregasShow($id)
             'origen.sede_id' => 'nullable|exists:sedes,id',
             'origen.bodega_id' => 'nullable|exists:bodegas,id',
             'origen.prioridad_snapshot' => 'nullable|array',
+            'requerimiento_compra_uuid' => 'nullable|uuid|exists:requerimientos_compra,uuid',
+            'requerimiento_compra_detalle_id' => 'nullable|integer|exists:requerimiento_compra_detalles,id',
         ]);
 
-        return DB::transaction(function () use ($data, $id) {
+        return DB::transaction(function () use ($data, $id, $requerimientoCompraService, $request) {
             $orden = OrdenCompraProveedor::with('detalles')->lockForUpdate()->findOrFail($id);
 
             $detalle = $orden->detalles()->where('producto_id', $data['producto_id'])->first();
@@ -742,6 +751,17 @@ public function entregasShow($id)
                 $origen->cantidad_prioridad = (float) ($origen->cantidad_prioridad ?? 0) + (float) $data['cantidad'];
                 $origen->prioridad_snapshot = $origenData['prioridad_snapshot'] ?? $origen->prioridad_snapshot;
                 $origen->save();
+            }
+
+            // Si el item viene de un requerimiento de compra aprobado, marcamos ESE item como
+            // cubierto por esta OC (misma lógica que al crear una OC nueva desde el requerimiento).
+            if (!empty($data['requerimiento_compra_uuid']) && !empty($data['requerimiento_compra_detalle_id'])) {
+                $requerimientoCompraService->vincularOrdenCompraGenerada(
+                    $data['requerimiento_compra_uuid'],
+                    $orden,
+                    $request->user(),
+                    [$data['requerimiento_compra_detalle_id'] => $detalle->id]
+                );
             }
 
             return response()->json([

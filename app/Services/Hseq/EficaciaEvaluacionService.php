@@ -60,6 +60,15 @@ class EficaciaEvaluacionService
         });
     }
 
+    public function actualizarProximaVerificacion($novedadId, $eficaciaId, ?string $fecha): EficaciaEvaluacion
+    {
+        $evaluacion = EficaciaEvaluacion::where('novedad_id', $novedadId)->findOrFail($eficaciaId);
+
+        $evaluacion->update(['proxima_verificacion' => $fecha]);
+
+        return $evaluacion->fresh(['verificador', 'calificaciones.hallazgo']);
+    }
+
     /**
      * Resultado final de la Novedad a partir del promedio de las
      * calificaciones (1-5) de cada hallazgo: 1-2 → no eficaz, 3 → parcial,
