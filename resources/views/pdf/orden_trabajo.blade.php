@@ -63,17 +63,31 @@ body {
     font-weight: 600;
 }
 
-/* OBSERVACIONES OC */
+/* OBSERVACIONES OC / DIRECCIÓN / EMBALAJE */
+.alert-row {
+    width: 100%;
+    margin-bottom: 10px;
+}
+.alert-col {
+    float: left;
+    width: 32%;
+    margin-right: 2%;
+}
+.alert-col:last-child { margin-right: 0; }
+.alert-clear { clear: both; }
 .alert {
     border: 1px solid #f0ad4e;
     background: #fff7e6;
     padding: 6px;
-    margin-bottom: 10px;
 }
 .alert h3 {
     margin: 0 0 3px;
     font-size: 11px;
     color: #d9822b;
+}
+.alert p {
+    margin: 0;
+    font-size: 9px;
 }
 
 /* TABLE */
@@ -179,17 +193,33 @@ td:first-child { max-width: 60px; }
     </div>
 </div>
 
-@if($orden->ordenCompra && $orden->ordenCompra->observaciones)
-<div class="alert">
-    <h3>Observaciones de la Orden de Compra</h3>
-    {{ $orden->ordenCompra->observaciones }}
-</div>
-@endif
-<!-- Dirección -->
-@if($orden->ordenCompra && $orden->ordenCompra->ubicacion_entrega)
-<div class="alert">
-    <h3>Dirección de Entrega</h3>
-    {{ $orden->ordenCompra->ubicacion_entrega }}
+@if($orden->ordenCompra && ($orden->ordenCompra->observaciones || $orden->ordenCompra->ubicacion_entrega || $orden->ordenCompra->descripcion_embalaje))
+<div class="alert-row">
+    <div class="alert-col">
+        @if($orden->ordenCompra->observaciones)
+        <div class="alert">
+            <h3>Observaciones de la Orden de Compra</h3>
+            <p>{{ $orden->ordenCompra->observaciones }}</p>
+        </div>
+        @endif
+    </div>
+    <div class="alert-col">
+        @if($orden->ordenCompra->ubicacion_entrega)
+        <div class="alert">
+            <h3>Dirección de Entrega</h3>
+            <p>{{ $orden->ordenCompra->ubicacion_entrega }}</p>
+        </div>
+        @endif
+    </div>
+    <div class="alert-col">
+        @if($orden->ordenCompra->descripcion_embalaje)
+        <div class="alert">
+            <h3>Descripción del Embalaje</h3>
+            <p>{{ $orden->ordenCompra->descripcion_embalaje }}</p>
+        </div>
+        @endif
+    </div>
+    <div class="alert-clear"></div>
 </div>
 @endif
 

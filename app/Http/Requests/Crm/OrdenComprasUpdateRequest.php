@@ -27,6 +27,7 @@ class OrdenComprasUpdateRequest extends FormRequest
             'fecha_entrega' => 'required',
             'cliente_id' => 'required',
             'ubicacion_entrega' => 'required',
+            'descripcion_embalaje' => 'required|string',
             'observaciones' => 'required',
             'empresa_id' => 'required|exists:empresas,id',
             'cliente_documento' => 'sometimes|file|mimes:pdf,doc,docx,xls,xlsx|max:10240',
@@ -50,7 +51,7 @@ class OrdenComprasUpdateRequest extends FormRequest
         $rules['detalles.*.cliente_clb'] = 'required_with:detalles';
         $rules['detalles.*.cantidad_requerida_kg'] = 'required_with:detalles';
         $rules['detalles.*.descripcion'] = 'required_with:detalles';
-        $rules['detalles.*.tipo_embalaje'] = 'sometimes|nullable|string';
+        $rules['detalles.*.tipo_embalaje'] = 'required_with:detalles|string';
         $rules['detalles.*.codigo_embalaje'] = 'sometimes|nullable|string';
         $rules['detalles.*.valor_total'] = 'required_with:detalles|numeric|regex:/^\d+(\.\d{1,2})?$/';
 
@@ -65,6 +66,7 @@ class OrdenComprasUpdateRequest extends FormRequest
             'fecha_entrega.required' => 'La fecha de entrega es obligatoria',
             'cliente_id.required' => 'El cliente es obligatorio',
             'ubicacion_entrega.required' => 'La ubicación de entrega es obligatoria',
+            'descripcion_embalaje.required' => 'Debes describir el embalaje',
             'observaciones.required' => 'Las observaciones son obligatorias',
             'empresa_id.required' => 'La empresa es obligatoria',
             'empresa_id.exists' => 'La empresa seleccionada no es válida',
@@ -89,6 +91,7 @@ class OrdenComprasUpdateRequest extends FormRequest
             'detalles.*.cliente_clb.required_with' => 'El cliente es obligatorio',
             'detalles.*.cantidad_requerida_kg.required_with' => 'La cantidad requerida en kg es obligatoria',
             'detalles.*.unidad_empaque.required_with' => 'La unidad de empaque es obligatoria',
+            'detalles.*.tipo_embalaje.required_with' => 'Debes seleccionar el tipo de embalaje',
             'detalles.*.descripcion.required_with' => 'La descripcion es Obligatoria',
             'detalles.*.valor_total.required_with' => 'El valor total es obligatorio',
 
