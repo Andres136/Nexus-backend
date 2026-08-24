@@ -126,6 +126,7 @@ use App\Http\Controllers\Nomina\PostulacionConvocatoriaController;
 use App\Http\Controllers\Nomina\CuestionarioController;
 use App\Http\Controllers\Nomina\CuestionarioRespuestaController;
 use App\Http\Controllers\NotificacionOrdenController;
+use App\Http\Controllers\ImplementacionModuloController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PqrController;
 use App\Http\Controllers\Productividad\AdminProductividadController;
@@ -307,6 +308,7 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
   Route::apiResource('requerimientos-compra', RequerimientoCompraController::class)->only(['index', 'store', 'show']);
   Route::get('/notificaciones', [NotificacionOrdenController::class, 'listarNotificaciones']);
   Route::post('/notificaciones/{id}/marcar-leida', [NotificacionOrdenController::class, 'marcarComoLeida']);
+  Route::get('/implementaciones-modulos/vigentes', [ImplementacionModuloController::class, 'vigentes']);
  Route::get('ordenes-compra-facturar', [OrdenCompraController::class, 'ordenesFacturar']);
 
   Route::post('/orden-trabajo/{id}', [OrdenCompraController::class, 'generarOrdenTrabajo']);
@@ -982,6 +984,11 @@ Route::middleware(['auth:sanctum', 'es_responsable_del_departamento'])->group(fu
 Route::middleware(['auth:sanctum', 'role:1'])->group(function () {
   Route::apiResource('empresas', EmpresaController::class);
 
+});
+
+//**RUTAS PARA ADMINISTRAR IMPLEMENTACIONES DE MÓDULOS — SOLO ADMINISTRADOR */
+Route::middleware(['auth:sanctum', 'role:1'])->group(function () {
+  Route::apiResource('implementaciones-modulos', ImplementacionModuloController::class)->except(['show']);
 });
 
 //**RUTA PARA INFORME DE RENDIMIENTO CON IA — SOLO ADMINISTRADOR */
