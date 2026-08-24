@@ -26,9 +26,9 @@ class HseqDashboardController extends Controller
      /**
      * Display the dashboard data.
      */ 
-    public function index()
+    public function index(Request $request)
     {
-        return response()->json($this->dashboardService->getDashboard());
+        return response()->json($this->dashboardService->getDashboard($request->all()));
     }
 
     /**

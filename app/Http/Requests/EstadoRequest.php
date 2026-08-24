@@ -22,7 +22,7 @@ class EstadoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nombre' => 'required|string|max:100'
+            'nombre' => 'required|string|max:100|unique:estados,nombre'
         ];
     }
     public function messages(): array
@@ -30,7 +30,8 @@ class EstadoRequest extends FormRequest
         return [
             'nombre.required' => 'El campo nombre es requerido',
             'nombre.string' => 'El campo nombre debe ser una cadena de texto',
-            'nombre.max' => 'El campo nombre debe tener un máximo de 100 caracteres'
+            'nombre.max' => 'El campo nombre debe tener un máximo de 100 caracteres',
+            'nombre.unique' => 'Ya existe un estado con ese nombre'
         ];
     }
 }

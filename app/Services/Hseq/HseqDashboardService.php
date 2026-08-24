@@ -81,12 +81,20 @@ class HseqDashboardService
 
         $noCumple = $this->applyFilters($noCumple, $filters)->count();
 
+        $noCumpleCerradas = DB::table('respuesta_inspecciones as r')
+            ->join('inspecciones_hseq as i', 'i.id', '=', 'r.inspeccion_id')
+            ->where('r.respuesta', 0)
+            ->whereNotNull('r.cerrado_en'); // 🔥 fallas ya cerradas
+
+        $noCumpleCerradas = $this->applyFilters($noCumpleCerradas, $filters)->count();
+
         return [
             'total_inspecciones' => $total,
             'finalizadas' => $finalizadas,
             'pendientes' => $pendientes,
             'porcentaje_cumplimiento' => $total > 0 ? round(($finalizadas / $total) * 100, 2) : 0,
             'total_fallas' => $noCumple,
+            'total_fallas_cerradas' => $noCumpleCerradas,
         ];
     }
 

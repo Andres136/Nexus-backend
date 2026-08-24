@@ -297,9 +297,15 @@ class ProductoNoConformeService
             ]);
 
         // 🔹 Con análisis vs sin análisis
-        $conAnalisis    = DB::table('analisis_productos_no_conformes')->whereIn('producto_no_conforme_id', $ids)->count();
+        // distinct() porque un producto puede tener más de una fila de análisis
+        // (la tabla no tiene restricción única sobre producto_no_conforme_id);
+        // contar filas en vez de productos distintos podía dar sin_analisis negativo.
+        $conAnalisis    = DB::table('analisis_productos_no_conformes')
+            ->whereIn('producto_no_conforme_id', $ids)
+            ->distinct()
+            ->count('producto_no_conforme_id');
         $total          = $ids->count();
-        $sinAnalisis    = $total - $conAnalisis;
+        $sinAnalisis    = max(0, $total - $conAnalisis);
 
         return [
             'resumen' => [
