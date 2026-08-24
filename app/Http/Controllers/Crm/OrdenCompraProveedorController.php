@@ -180,6 +180,7 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
                 'fecha_entrega' => $request->fecha_entrega,
             ]);
 
+            $mapaDetallesRequerimiento = [];
             foreach ($request->detalles as $i => $detalle) {
              $nuevoDetalle=   $ordenCompra->detalles()->create([
                     'item' => $i + 1,
@@ -191,6 +192,11 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
                     'code' => $detalle['code'] ?? null, // Nuevo campo código
                     'producto_id' => $detalle['producto_id'] ?? null, // Nuevo campo producto_id
                 ]);
+
+                if (!empty($detalle['requerimiento_compra_detalle_id'])) {
+                    $mapaDetallesRequerimiento[$detalle['requerimiento_compra_detalle_id']] = $nuevoDetalle->id;
+                }
+
                 $this->crearOrigenesDetalleProveedor(
                     $nuevoDetalle,
                     $detalle['origenes'] ?? [],
@@ -221,7 +227,8 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
                     $requerimientoCompraService->vincularOrdenCompraGenerada(
                         $request->requerimiento_compra_uuid,
                         $ordenCompra,
-                        $user
+                        $user,
+                        $mapaDetallesRequerimiento
                     );
                 } catch (\Exception $e) {
                     Log::warning('No se pudo vincular la OC al requerimiento de compra', [

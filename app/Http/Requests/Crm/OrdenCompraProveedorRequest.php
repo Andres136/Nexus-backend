@@ -30,6 +30,7 @@ class OrdenCompraProveedorRequest extends FormRequest
             'empresa_id' => 'required|exists:empresas,id',
             'producto_id' => 'nullable|exists:products,id',
             'requerimiento_compra_uuid' => 'nullable|uuid|exists:requerimientos_compra,uuid',
+            'detalles.*.requerimiento_compra_detalle_id' => 'nullable|integer|exists:requerimiento_compra_detalles,id',
             'detalles.*.code'=>'nullable|string|max:100',
             'detalles.*.descripcion' => 'required|string|max:255',
            'detalles.*.cantidad_solicitada' => 'required|numeric|min:0.01',

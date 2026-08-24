@@ -30,6 +30,9 @@ class RequerimientoCompraService
         'ordenCompra.proveedor:id,nombre',
         'detalles.producto:id,name,code,description',
         'detalles.proveedorSugerido:id,nombre',
+        'detalles.ordenCompraProveedorDetalle:id,orden_id',
+        'detalles.ordenCompraProveedorDetalle.orden:id,numero_orden,proveedor_id',
+        'detalles.ordenCompraProveedorDetalle.orden.proveedor:id,nombre',
         'eventos.usuario:id,name,apellidos',
     ];
 
@@ -352,33 +355,54 @@ class RequerimientoCompraService
     // el formulario real de "Crear orden de compra" prellenado desde un requerimiento, en vez
     // de generar la OC a ciegas: cierra el ciclo igual que generarOrdenCompra(), pero sin crear
     // la OC (ya existe).
-    public function vincularOrdenCompraGenerada(string $uuid, OrdenCompraProveedor $orden, User $user): void
+    //
+    // $mapaDetalles: [requerimiento_compra_detalle_id => orden_compra_proveedor_detalle_id]
+    // Solo los items incluidos en ESTA orden se marcan como comprados; el requerimiento puede
+    // necesitar varias OC (una por proveedor) antes de quedar totalmente cubierto, así que
+    // aceptamos re-entrar mientras esté 'aprobado' o parcialmente cubierto ('oc_parcial').
+    public function vincularOrdenCompraGenerada(string $uuid, OrdenCompraProveedor $orden, User $user, array $mapaDetalles = []): void
     {
         $req = RequerimientoCompra::where('uuid', $uuid)->first();
 
-        if (! $req || $req->estado !== RequerimientoCompra::ESTADO_APROBADO) {
+        $estadosPermiten = [RequerimientoCompra::ESTADO_APROBADO, RequerimientoCompra::ESTADO_OC_PARCIAL];
+        if (! $req || ! in_array($req->estado, $estadosPermiten, true)) {
             return;
         }
 
-        foreach ($req->detalles as $detalle) {
-            $cantidad = (float) ($detalle->cantidad_aprobada ?? $detalle->cantidad_solicitada);
-            if ($cantidad > 0) {
-                $detalle->update(['cantidad_comprada' => $cantidad]);
-            }
+        if (empty($mapaDetalles)) {
+            return;
         }
 
+        $detallesPorId = $req->detalles->keyBy('id');
+        foreach ($mapaDetalles as $requerimientoDetalleId => $ordenDetalleId) {
+            $detalle = $detallesPorId->get((int) $requerimientoDetalleId);
+            if (! $detalle) {
+                continue;
+            }
+
+            $cantidad = (float) ($detalle->cantidad_aprobada ?? $detalle->cantidad_solicitada);
+            $detalle->update([
+                'cantidad_comprada' => $cantidad,
+                'orden_compra_proveedor_detalle_id' => $ordenDetalleId,
+            ]);
+        }
+
+        $todosCubiertos = $req->detalles()->whereNull('orden_compra_proveedor_detalle_id')->doesntExist();
+
         $req->forceFill([
-            'orden_compra_id' => $orden->id,
+            'orden_compra_id' => $orden->id, // referencia a la OC más reciente, informativa
             'generado_oc_por' => $user->id,
             'generado_oc_at' => now(),
         ])->save();
 
         $this->cambiarEstado(
             $req,
-            RequerimientoCompra::ESTADO_OC_GENERADA,
+            $todosCubiertos ? RequerimientoCompra::ESTADO_OC_GENERADA : RequerimientoCompra::ESTADO_OC_PARCIAL,
             $user,
-            'oc_generada',
-            "Orden de compra {$orden->numero_orden} generada desde el formulario de compras."
+            $todosCubiertos ? 'oc_generada' : 'oc_parcial',
+            $todosCubiertos
+                ? "Orden de compra {$orden->numero_orden} generada desde el formulario de compras."
+                : "Orden de compra {$orden->numero_orden} cubre parte de los items; quedan pendientes por comprar."
         );
     }
 

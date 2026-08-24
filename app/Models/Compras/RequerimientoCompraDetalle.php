@@ -2,6 +2,7 @@
 
 namespace App\Models\Compras;
 
+use App\Models\Crm\OrdenCompraProveedorDetalle;
 use App\Models\Crm\product;
 use App\Models\Crm\Proveedor;
 use Illuminate\Database\Eloquent\Model;
@@ -20,6 +21,7 @@ class RequerimientoCompraDetalle extends Model
         'proveedor_sugerido_id',
         'referencia_sugerida',
         'observacion',
+        'orden_compra_proveedor_detalle_id',
     ];
 
     protected $casts = [
@@ -42,5 +44,13 @@ class RequerimientoCompraDetalle extends Model
     public function proveedorSugerido()
     {
         return $this->belongsTo(Proveedor::class, 'proveedor_sugerido_id');
+    }
+
+    // OC (a proveedor) que ya cubre este item puntual. Nula mientras el item
+    // sigue pendiente de compra; permite que un mismo requerimiento se cubra
+    // con varias OC (una por proveedor) sin perder trazabilidad por item.
+    public function ordenCompraProveedorDetalle()
+    {
+        return $this->belongsTo(OrdenCompraProveedorDetalle::class, 'orden_compra_proveedor_detalle_id');
     }
 }
