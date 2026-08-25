@@ -312,20 +312,9 @@ public function obtenerOrdenesTrabajo(Request $request)
         'cliente',
         'estado',
         'user',
-      
         'entregas.usuario:id,name',
-        'movimientosStock' => fn ($query) => $query
-            ->where('anulado', false)
-            ->whereIn('tipo', ['descuento', 'descuento_masivo'])
-            ->select('id', 'orden_trabajo_id', 'created_at', 'usuario_id'),
     ])
-        ->withCount([
-            'detalles as detalles_a_descontar_count' => fn ($query) => $query
-                ->where('cantidad_requerida_kg', '>', 0),
-            'detalles as detalles_pendientes_descuento_count' => fn ($query) => $query
-                ->where('cantidad_requerida_kg', '>', 0)
-                ->whereRaw('COALESCE(cantidad_ejecutada_kg, 0) < cantidad_requerida_kg'),
-        ])
+        ->conEstadoStock()
         ->whereNot('estado_id', EstadoEnum::INACTIVO->value)
         ->whereHas('ordenCompra', function ($q) {
             $q->whereNot('estado_id', EstadoEnum::INACTIVO->value);
@@ -413,10 +402,7 @@ public function obtenerOrdenesTrabajo(Request $request)
         ->appends(request()->query());
 
     $ordenesTrabajo->getCollection()->transform(function ($orden) {
-        $orden->stock_descontado_completo =
-            $orden->movimientosStock->isNotEmpty()
-            && $orden->detalles_a_descontar_count > 0
-            && $orden->detalles_pendientes_descuento_count === 0;
+        $orden->stock_descontado_completo = $orden->calcularStockDescontadoCompleto();
 
         return $orden;
     });

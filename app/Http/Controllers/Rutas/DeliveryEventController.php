@@ -10,7 +10,9 @@ use App\Mail\DeliveryStatusMail;
 use App\Models\Rutas\DeliveryEvent;
 use App\Models\Crm\OrdenCompraProveedorDetalle;
 use App\Services\Crm\Orden_servicio\OrdenesServicioService;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -18,25 +20,48 @@ use Illuminate\Validation\ValidationException;
 
 class DeliveryEventController extends Controller
 {
-    private const EAGER_LOAD = [
-        'orden.ordenTrabajo.cliente',
-        'proveedor',
-        'ordenServicio.proveedor',
-        'ordenesCompraProveedor.detalles',
-        'vehiculo',
-        'lastRecord',
-        'records.detalles.detalle.orden',
-        'records.archivos',
-        'records.usuario',
-        'usuario',
-    ];
+    // Closures (conEstadoStock) no pueden vivir en una const de clase, por eso es un método.
+    private static function eagerLoad(): array
+    {
+        return [
+            'orden.ordenTrabajo.cliente',
+            'orden.ordenTrabajo' => fn ($query) => $query->conEstadoStock(),
+            'proveedor',
+            'ordenServicio.proveedor',
+            'ordenesCompraProveedor.detalles',
+            'vehiculo',
+            'lastRecord',
+            'records.detalles.detalle.orden',
+            'records.archivos',
+            'records.usuario',
+            'usuario',
+        ];
+    }
+
+    /**
+     * Marca en cada evento la orden de trabajo con si ya se le descontó el stock por completo,
+     * para que el calendario pueda resaltar las entregas con inventario pendiente.
+     */
+    private function annotateStockStatus(Model|Collection $deliveryEvents): Model|Collection
+    {
+        $eventos = $deliveryEvents instanceof Collection ? $deliveryEvents : collect([$deliveryEvents]);
+
+        foreach ($eventos as $evento) {
+            $ordenTrabajo = $evento->orden->ordenTrabajo ?? null;
+            if ($ordenTrabajo) {
+                $ordenTrabajo->stock_descontado_completo = $ordenTrabajo->calcularStockDescontadoCompleto();
+            }
+        }
+
+        return $deliveryEvents;
+    }
 
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
     {
-        $query = DeliveryEvent::with(self::EAGER_LOAD);
+        $query = DeliveryEvent::with(self::eagerLoad());
 
         if ($request->filled('desde')) {
             $query->whereDate('fecha_entrega', '>=', $request->input('desde'));
@@ -46,7 +71,7 @@ class DeliveryEventController extends Controller
             $query->whereDate('fecha_entrega', '<=', $request->input('hasta'));
         }
 
-        $deliveryEvents = $query->get();
+        $deliveryEvents = $this->annotateStockStatus($query->get());
 
         return response()->json(['data' => $deliveryEvents], 200);
     }
@@ -88,7 +113,7 @@ class DeliveryEventController extends Controller
 
         return response()->json([
             'message' => 'Evento de entrega creado con éxito',
-            'data' => $deliveryEvent->load(self::EAGER_LOAD)
+            'data' => $this->annotateStockStatus($deliveryEvent->load(self::eagerLoad()))
         ], 201);
     }
 
@@ -97,8 +122,8 @@ class DeliveryEventController extends Controller
      */
     public function show(string $id)
     {
-        $deliveryEvent = DeliveryEvent::with(self::EAGER_LOAD)->findOrFail($id);
-        return response()->json(['data' => $deliveryEvent], 200);
+        $deliveryEvent = DeliveryEvent::with(self::eagerLoad())->findOrFail($id);
+        return response()->json(['data' => $this->annotateStockStatus($deliveryEvent)], 200);
     }
 
     /**
@@ -122,7 +147,7 @@ class DeliveryEventController extends Controller
 
         return response()->json([
             'message' => 'Evento de entrega actualizado con éxito',
-            'data' => $deliveryEvent->load(self::EAGER_LOAD)
+            'data' => $this->annotateStockStatus($deliveryEvent->load(self::eagerLoad()))
         ], 200);
     }
 
@@ -201,7 +226,7 @@ class DeliveryEventController extends Controller
 
         return response()->json([
             'message' => 'Orden vinculada a la recogida',
-            'data' => $deliveryEvent->load(self::EAGER_LOAD),
+            'data' => $deliveryEvent->load(self::eagerLoad()),
         ], 200);
     }
 
@@ -349,7 +374,7 @@ class DeliveryEventController extends Controller
             'message' => $resultado['ordenServicio']
                 ? 'Recogida registrada y orden de servicio generada correctamente'
                 : 'Recogida registrada correctamente',
-            'data' => $deliveryEvent->fresh()->load(self::EAGER_LOAD),
+            'data' => $deliveryEvent->fresh()->load(self::eagerLoad()),
             'orden_servicio' => $resultado['ordenServicio'],
             'pdf_url' => $resultado['pdfUrl'],
         ], 200);
@@ -360,12 +385,14 @@ class DeliveryEventController extends Controller
     {
         $user = auth()->user();
 
-        $deliveryEvents = DeliveryEvent::with(self::EAGER_LOAD)
-            ->where('usuario_id', $user->id)
-            ->whereIn('estado', ['pendiente', 'en_ruta'])
-            ->orderBy('fecha_entrega', 'desc')
-            ->orderBy('hora', 'desc')
-            ->get();
+        $deliveryEvents = $this->annotateStockStatus(
+            DeliveryEvent::with(self::eagerLoad())
+                ->where('usuario_id', $user->id)
+                ->whereIn('estado', ['pendiente', 'en_ruta'])
+                ->orderBy('fecha_entrega', 'desc')
+                ->orderBy('hora', 'desc')
+                ->get()
+        );
 
         return response()->json([
             'user' => $user,

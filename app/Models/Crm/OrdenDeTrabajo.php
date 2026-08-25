@@ -98,4 +98,29 @@ public function usuarioRevisor()
         return $this->belongsTo(User::class, 'despacho_revisado_por');
     }
 
+    // Carga lo necesario para poder calcular el estado del descuento de stock (ver calcularStockDescontadoCompleto)
+    public function scopeConEstadoStock($query)
+    {
+        return $query
+            ->with(['movimientosStock' => fn ($q) => $q
+                ->where('anulado', false)
+                ->whereIn('tipo', ['descuento', 'descuento_masivo'])
+                ->select('id', 'orden_trabajo_id', 'created_at', 'usuario_id')])
+            ->withCount([
+                'detalles as detalles_a_descontar_count' => fn ($q) => $q
+                    ->where('cantidad_requerida_kg', '>', 0),
+                'detalles as detalles_pendientes_descuento_count' => fn ($q) => $q
+                    ->where('cantidad_requerida_kg', '>', 0)
+                    ->whereRaw('COALESCE(cantidad_ejecutada_kg, 0) < cantidad_requerida_kg'),
+            ]);
+    }
+
+    // Requiere que se haya cargado con el scope conEstadoStock (movimientosStock filtrado + los withCount de detalles)
+    public function calcularStockDescontadoCompleto(): bool
+    {
+        return $this->movimientosStock->isNotEmpty()
+            && $this->detalles_a_descontar_count > 0
+            && $this->detalles_pendientes_descuento_count === 0;
+    }
+
 }
