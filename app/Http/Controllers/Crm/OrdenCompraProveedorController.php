@@ -886,6 +886,42 @@ public function entregasShow($id)
         }
     }
 
+    // Un ítem con entregas ya registradas movió inventario real: cambiar su producto o
+    // cantidad después de eso dejaría la trazabilidad y el stock ya descontado
+    // inconsistentes con lo que quedó guardado en la orden. En vez de ignorar el cambio
+    // en silencio (como antes), se rechaza la actualización completa y se avisa cuál ítem.
+    $erroresBloqueo = [];
+    foreach ($request->detalles as $index => $detalleRequest) {
+        if (empty($detalleRequest['id'])) {
+            continue;
+        }
+
+        $detalleExistente = $orden->detalles->firstWhere('id', $detalleRequest['id']);
+        if (! $detalleExistente || $detalleExistente->entregas->count() === 0) {
+            continue;
+        }
+
+        $cambioProducto = isset($detalleRequest['producto_id'])
+            && (int) $detalleRequest['producto_id'] !== (int) $detalleExistente->producto_id;
+        $cambioCantidad = isset($detalleRequest['cantidad_solicitada'])
+            && round((float) $detalleRequest['cantidad_solicitada'], 2) !== round((float) $detalleExistente->cantidad_solicitada, 2);
+        $cambioCode = array_key_exists('code', $detalleRequest)
+            && (string) ($detalleRequest['code'] ?? '') !== (string) ($detalleExistente->code ?? '');
+
+        if ($cambioProducto || $cambioCantidad || $cambioCode) {
+            $erroresBloqueo["detalles.{$index}.producto_id"] = [
+                "El ítem #{$detalleExistente->item} ya tiene entregas registradas (inventario descontado) y no se puede cambiar de producto ni de cantidad.",
+            ];
+        }
+    }
+
+    if (! empty($erroresBloqueo)) {
+        return response()->json([
+            'message' => 'Hay ítems con inventario ya registrado que no se pueden modificar.',
+            'errors' => $erroresBloqueo,
+        ], 422);
+    }
+
     DB::beginTransaction();
 
     try {
