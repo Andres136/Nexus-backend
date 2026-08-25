@@ -930,6 +930,13 @@ public function entregasShow($id)
                         'proveedor_id'        => $detalleRequest['proveedor_id'] ?? null,
                         'proceso_bolsas_id'   => $detalleRequest['proceso_bolsas_id'] ?? null,
                     ]);
+
+                    // El producto del ítem pudo cambiar (ej. se reemplazó por un equivalente).
+                    // Si no se sincroniza, la trazabilidad hacia la orden de compra del cliente
+                    // sigue apuntando al producto viejo: el faltante muestra esta orden como
+                    // "pedida" pero al abrirla el producto buscado ya no está ahí.
+                    OrdenCompraProveedorDetalleOrigen::where('orden_compra_proveedor_detalle_id', $detalle->id)
+                        ->update(['producto_id' => $detalleRequest['producto_id']]);
                 }
 
                 $idsAConservar[] = $detalle->id;

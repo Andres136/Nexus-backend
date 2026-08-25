@@ -98,7 +98,8 @@ public function usuarioRevisor()
         return $this->belongsTo(User::class, 'despacho_revisado_por');
     }
 
-    // Carga lo necesario para poder calcular el estado del descuento de stock (ver calcularStockDescontadoCompleto)
+    // Carga lo necesario para poder calcular el estado del descuento de stock y de envío
+    // (ver calcularStockDescontadoCompleto y calcularEstadoDespacho)
     public function scopeConEstadoStock($query)
     {
         return $query
@@ -112,15 +113,42 @@ public function usuarioRevisor()
                 'detalles as detalles_pendientes_descuento_count' => fn ($q) => $q
                     ->where('cantidad_requerida_kg', '>', 0)
                     ->whereRaw('COALESCE(cantidad_ejecutada_kg, 0) < cantidad_requerida_kg'),
+                'detalles as detalles_pendientes_envio_count' => fn ($q) => $q
+                    ->whereRaw('COALESCE(cantidad_enviada, 0) < cantidad'),
+                'detalles as detalles_con_envio_count' => fn ($q) => $q
+                    ->where('cantidad_enviada', '>', 0),
             ]);
     }
 
     // Requiere que se haya cargado con el scope conEstadoStock (movimientosStock filtrado + los withCount de detalles)
     public function calcularStockDescontadoCompleto(): bool
     {
+        // Ítems sin largo_cm/calibre (por ejemplo, productos por unidad) nunca generan
+        // cantidad_requerida_kg > 0, así que no hay nada que trackear en kg para ellos:
+        // basta con que se haya registrado el descuento para darlos por completos.
+        if ($this->detalles_a_descontar_count === 0) {
+            return $this->movimientosStock->isNotEmpty();
+        }
+
         return $this->movimientosStock->isNotEmpty()
-            && $this->detalles_a_descontar_count > 0
             && $this->detalles_pendientes_descuento_count === 0;
+    }
+
+    // Recorre todos los ítems de la OT y combina descuento de stock + unidades enviadas:
+    // 'completo' solo si TODOS los ítems quedaron descontados y enviados por completo,
+    // 'parcial' si hay algún avance (stock o envío) pero falta algo, 'pendiente' si no hay nada registrado.
+    // Requiere el scope conEstadoStock.
+    public function calcularEstadoDespacho(): string
+    {
+        $envioCompleto = $this->detalles_pendientes_envio_count === 0;
+
+        if ($this->calcularStockDescontadoCompleto() && $envioCompleto) {
+            return 'completo';
+        }
+
+        $hayAvance = $this->movimientosStock->isNotEmpty() || $this->detalles_con_envio_count > 0;
+
+        return $hayAvance ? 'parcial' : 'pendiente';
     }
 
 }

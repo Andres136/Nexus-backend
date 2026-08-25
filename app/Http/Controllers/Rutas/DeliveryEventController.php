@@ -39,8 +39,8 @@ class DeliveryEventController extends Controller
     }
 
     /**
-     * Marca en cada evento la orden de trabajo con si ya se le descontó el stock por completo,
-     * para que el calendario pueda resaltar las entregas con inventario pendiente.
+     * Marca en cada evento el estado de descuento/envío de la orden de trabajo (completo,
+     * parcial o pendiente), para que el calendario pueda resaltar las entregas incompletas.
      */
     private function annotateStockStatus(Model|Collection $deliveryEvents): Model|Collection
     {
@@ -50,6 +50,7 @@ class DeliveryEventController extends Controller
             $ordenTrabajo = $evento->orden->ordenTrabajo ?? null;
             if ($ordenTrabajo) {
                 $ordenTrabajo->stock_descontado_completo = $ordenTrabajo->calcularStockDescontadoCompleto();
+                $ordenTrabajo->estado_despacho = $ordenTrabajo->calcularEstadoDespacho();
             }
         }
 
