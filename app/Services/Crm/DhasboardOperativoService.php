@@ -60,7 +60,10 @@ public function getPrioridadesActivas($filters = [])
                 // origen.sede_id — ese campo se puebla a veces con la sede de
                 // la OC proveedor según el flujo (anexar vs priorizar
                 // existente) y no siempre coincide con lo que se ve en pantalla.
-                ->when(!empty($filters['sede_id']), fn($sede) => $sede->where('sede_id', $filters['sede_id']));
+                ->when(!empty($filters['sede_id']), fn($sede) => $sede->where('sede_id', $filters['sede_id']))
+                // Filtro por semana: rango sobre la fecha de entrega de la OC del cliente.
+                ->when(!empty($filters['fecha_inicio']), fn($f) => $f->whereDate('fecha_entrega', '>=', $filters['fecha_inicio']))
+                ->when(!empty($filters['fecha_fin']), fn($f) => $f->whereDate('fecha_entrega', '<=', $filters['fecha_fin']));
         })
         ->where('cantidad_prioridad', '>', 0)
         ->when(!empty($filters['proveedor_id']), function ($q) use ($filters) {
@@ -88,7 +91,13 @@ public function getPrioridadesActivas($filters = [])
         'ordenCompra.cliente',
         'ordenCompra.sede',
         'producto',
-    ])->paginate($perPage, ['*'], 'page', $page);
+    ])
+        // Primero las prioridades cuya OC tiene la fecha de entrega más próxima.
+        ->orderBy(
+            Orden_Compra::select('fecha_entrega')
+                ->whereColumn('id', 'orden_compra_proveedor_detalle_origenes.orden_compra_id')
+        )
+        ->paginate($perPage, ['*'], 'page', $page);
 
     $origenes = collect($paginador->items());
 
