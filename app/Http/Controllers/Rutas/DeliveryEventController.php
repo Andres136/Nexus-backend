@@ -183,16 +183,23 @@ class DeliveryEventController extends Controller
             'estado' => 'required|in:pendiente,en_ruta,completado,cancelado'
         ]);
 
-        // Solo quien creó la entrega puede cerrarla (completarla o cancelarla). El admin
-        // queda como excepción para no dejar una entrega bloqueada si el creador ya no está.
+        // Quien cierra la entrega (completarla o cancelarla) es el usuario asignado; si es
+        // transportadora no hay usuario propio manejando, así que cierra quien la creó. El
+        // admin queda como excepción para no dejar una entrega bloqueada.
         $user = auth()->user();
         $esCierre = in_array($request->estado, ['completado', 'cancelado']);
+        $responsableId = $deliveryEvent->es_transportadora
+            ? $deliveryEvent->creado_por
+            : $deliveryEvent->usuario_id;
+
         if ($esCierre
-            && $deliveryEvent->creado_por
-            && (int) $deliveryEvent->creado_por !== (int) $user->id
+            && $responsableId
+            && (int) $responsableId !== (int) $user->id
             && (int) $user->role_id !== 1) {
             return response()->json([
-                'message' => 'Solo quien creó esta entrega puede cerrarla (marcarla como completada o cancelada).',
+                'message' => $deliveryEvent->es_transportadora
+                    ? 'Solo quien creó esta entrega puede cerrarla (marcarla como completada o cancelada).'
+                    : 'Solo el usuario asignado a esta entrega puede cerrarla (marcarla como completada o cancelada).',
             ], 403);
         }
 
