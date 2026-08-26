@@ -35,6 +35,7 @@ class DeliveryEventController extends Controller
             'records.archivos',
             'records.usuario',
             'usuario',
+            'creador:id,name',
         ];
     }
 
@@ -98,7 +99,15 @@ class DeliveryEventController extends Controller
         $ordenesCompraProveedorIds = $data['ordenes_compra_proveedor_ids'] ?? [];
         unset($data['ordenes_compra_proveedor_ids']);
 
+        // Envío por transportadora: no hay usuario propio manejando, se asume el autenticado.
+        if (!empty($data['es_transportadora'])) {
+            $data['usuario_id'] = $user->id;
+        }
+
         $deliveryEvent = DeliveryEvent::create($data);
+        // No es mass-assignable: se fija aparte para que nadie pueda mandarlo por el request.
+        $deliveryEvent->creado_por = $user->id;
+        $deliveryEvent->save();
 
         if ($deliveryEvent->tipo === 'recogida') {
             $deliveryEvent->ordenesCompraProveedor()->sync($ordenesCompraProveedorIds);
@@ -138,6 +147,11 @@ class DeliveryEventController extends Controller
         $ordenesCompraProveedorIds = $data['ordenes_compra_proveedor_ids'] ?? [];
         unset($data['ordenes_compra_proveedor_ids']);
 
+        // Envío por transportadora: no hay usuario propio manejando, se asume el autenticado.
+        if (!empty($data['es_transportadora'])) {
+            $data['usuario_id'] = auth()->id();
+        }
+
         $deliveryEvent->update($data);
 
         if ($deliveryEvent->tipo === 'recogida') {
@@ -168,6 +182,19 @@ class DeliveryEventController extends Controller
         $request->validate([
             'estado' => 'required|in:pendiente,en_ruta,completado,cancelado'
         ]);
+
+        // Solo quien creó la entrega puede cerrarla (completarla o cancelarla). El admin
+        // queda como excepción para no dejar una entrega bloqueada si el creador ya no está.
+        $user = auth()->user();
+        $esCierre = in_array($request->estado, ['completado', 'cancelado']);
+        if ($esCierre
+            && $deliveryEvent->creado_por
+            && (int) $deliveryEvent->creado_por !== (int) $user->id
+            && (int) $user->role_id !== 1) {
+            return response()->json([
+                'message' => 'Solo quien creó esta entrega puede cerrarla (marcarla como completada o cancelada).',
+            ], 403);
+        }
 
         // Para recogidas, "completado" es automático: solo lo marca EntregasService cuando
         // bodega registra la entrega de lo que llegó. No se puede forzar manualmente.

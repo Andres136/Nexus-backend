@@ -27,6 +27,15 @@ class DeliveryEvent extends Model
         'cantidad',
         'observaciones',
         'estado',
+        'es_transportadora',
+        'transportadora_guia',
+        'transportadora_nombre',
+        'transportadora_cedula',
+        'transportadora_placa',
+    ];
+
+    protected $casts = [
+        'es_transportadora' => 'boolean',
     ];
 
 
@@ -61,6 +70,13 @@ class DeliveryEvent extends Model
     public function usuario()
     {
         return $this->belongsTo(User::class, 'usuario_id');
+    }
+
+    // Quién creó el evento. No es mass-assignable (no está en $fillable): se fija explícitamente
+    // en el controlador al crear, y solo esta persona puede cerrarlo (ver changeStatus).
+    public function creador()
+    {
+        return $this->belongsTo(User::class, 'creado_por');
     }
 
     // Relación con vehículos
