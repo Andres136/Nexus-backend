@@ -113,6 +113,7 @@ use App\Http\Controllers\Nomina\PermisoController;
 use App\Http\Controllers\Nomina\VacacionController;
 use App\Http\Controllers\Nomina\LlamadoAtencionController;
 use App\Http\Controllers\Nomina\DescargoController;
+use App\Http\Controllers\Nomina\DescargoActaController;
 use App\Http\Controllers\Nomina\LicenciaController;
 use App\Http\Controllers\Nomina\LiquidacionPrestacionController;
 use App\Http\Controllers\Nomina\LiquidacionRetiroController;
@@ -178,6 +179,8 @@ Route::get('asignacion-actas/publica/{token}', [AsignacionActaController::class,
 Route::post('asignacion-actas/publica/{token}/firmar', [AsignacionActaController::class, 'firmar']);
 Route::get('salida-temporal-actas/publica/{token}', [SalidaTemporalActaController::class, 'publica']);
 Route::post('salida-temporal-actas/publica/{token}/firmar', [SalidaTemporalActaController::class, 'firmar']);
+Route::get('descargo-actas/publica/{token}', [DescargoActaController::class, 'publica']);
+Route::post('descargo-actas/publica/{token}/firmar', [DescargoActaController::class, 'firmar']);
 Route::get('corporate-documents', [CorporateDocumentController::class, 'index']);
 Route::get('corporate-documents/{slug}/download', [CorporateDocumentController::class, 'downloadFile']);
 Route::post('corporate-documents/{slug}/download', [CorporateDocumentController::class, 'download']);
@@ -956,6 +959,8 @@ Route::prefix('nomina')->group(function () {
 
      Route::get('descargos/{uuid}/pdf', [DescargoController::class, 'pdf']);
      Route::apiResource('descargos', DescargoController::class)->except(['update']);
+     Route::post('descargos/{descargo}/acta', [DescargoActaController::class, 'generar']);
+     Route::get('descargos/{descargo}/acta', [DescargoActaController::class, 'show']);
 });
 
 
