@@ -729,6 +729,9 @@ Route::post('auditorias/{auditoria}/participantes', [AuditoriaController::class,
 Route::delete('auditorias/{auditoria}/participantes/{userId}', [AuditoriaController::class, 'quitarParticipante']);
 Route::apiResource('auditoria-preguntas', AuditoriaPreguntaController::class)->only(['store', 'update', 'destroy']);
 Route::patch('auditoria-preguntas/{auditoriaPregunta}/calificar', [AuditoriaPreguntaController::class, 'calificar']);
+// Sugerencia de preguntas con IA a partir de los requisitos ISO (+ proceso opcional). Solo rol 1 y 2.
+Route::post('auditorias/{auditoria}/preguntas-sugeridas', [AuditoriaPreguntaController::class, 'sugerir'])
+    ->middleware('role:' . RolEnum::ADMINISTRADOR->value . ',' . RolEnum::HSEQ->value);
 
 Route::get('indicador-semestral', [HallazgoNovedadController::class, 'indicadorSemestral']);
 
