@@ -65,6 +65,7 @@ use App\Http\Controllers\DepartamentoController;
 use App\Http\Controllers\DocumentoController;
 use App\Http\Controllers\DocumentoDiligenciadoController;
 use App\Http\Controllers\DocumentoMaestroController;
+use App\Http\Controllers\TipoDocumentoMaestroController;
 use App\Http\Controllers\ErrorController;
 use App\Http\Controllers\EstadoController;
 use App\Http\Controllers\Hseq\ConsumoServicioController;
@@ -1077,8 +1078,10 @@ Route::get('documentos/preview/{id}', [DocumentoController::class, 'preview']);
 Route::apiResource('documentos', DocumentoController::class);
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('tipos-documento-maestro', [TipoDocumentoMaestroController::class, 'index']);
     Route::apiResource('documentos-maestros', DocumentoMaestroController::class)->only(['index', 'show']);
     Route::middleware('es_responsable_del_departamento')->group(function () {
+        Route::post('tipos-documento-maestro', [TipoDocumentoMaestroController::class, 'store']);
         Route::apiResource('documentos-maestros', DocumentoMaestroController::class)->only(['store', 'update', 'destroy']);
     });
 
