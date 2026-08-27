@@ -3,6 +3,7 @@
 namespace App\Services\Hseq;
 
 use App\Models\Hseq\ClausulaIso;
+use Illuminate\Support\Facades\DB;
 
 class ClausulaIsoService
 {
@@ -11,6 +12,18 @@ class ClausulaIsoService
     public function create(array $data)
     {
         return ClausulaIso::create($data);
+    }
+
+    public function createForNormas(array $normas, array $data)
+    {
+        return DB::transaction(function () use ($normas, $data) {
+            return collect($normas)->map(fn ($norma) => ClausulaIso::create([
+                'norma_iso_id' => $norma['norma_iso_id'],
+                'codigo' => $norma['codigo'],
+                'descripcion' => $data['descripcion'],
+                'activa' => $data['activa'] ?? true,
+            ]));
+        });
     }
 
     public function update(ClausulaIso $clausulaIso, array $data)

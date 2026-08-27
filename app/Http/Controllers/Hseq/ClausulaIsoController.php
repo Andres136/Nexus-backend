@@ -48,9 +48,13 @@ class ClausulaIsoController extends Controller
     public function store(StoreClausulaIsoRequest $request)
     {
         $data = $request->validated();
-        $clausulaIso = $this->clausulaIsoService->create($data);
+        $clausulaIso = isset($data['normas'])
+            ? $this->clausulaIsoService->createForNormas($data['normas'], $data)
+            : $this->clausulaIsoService->create($data);
         return response()->json([
-            'message' => 'Cláusula ISO creada exitosamente',
+            'message' => isset($data['normas'])
+                ? 'Requisito registrado para las normas seleccionadas'
+                : 'Cláusula ISO creada exitosamente',
             'data' => $clausulaIso
         ], 201);
     }
