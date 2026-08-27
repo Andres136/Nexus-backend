@@ -69,6 +69,10 @@ use App\Http\Controllers\ErrorController;
 use App\Http\Controllers\EstadoController;
 use App\Http\Controllers\Hseq\ConsumoServicioController;
 use App\Http\Controllers\Hseq\AnalisisProductoNoConformeController;
+use App\Http\Controllers\Hseq\NormaIsoController;
+use App\Http\Controllers\Hseq\ClausulaIsoController;
+use App\Http\Controllers\Hseq\AuditoriaController;
+use App\Http\Controllers\Hseq\AuditoriaPreguntaController;
 use App\Http\Controllers\Hseq\ProductoNoConformeController;
 use App\Http\Controllers\Hseq\HallazgoNovedadController;
 use App\Http\Controllers\Hseq\HallazgoSeguimientoController;
@@ -569,6 +573,7 @@ Route::post('/eventos-entrega/{deliveryEvent}/registrar-recogida', [DeliveryEven
 Route::post('/eventos-entrega/{deliveryEvent}/anexar-orden', [DeliveryEventController::class, 'anexarOrden']);
 
 Route::apiResource('procesos', ProcesoController::class);
+Route::get('procesos-todos', [ProcesoController::class, 'todos']);
 
 //Guardar Rutas y permisos
 Route::post('/guardar-rutas', [PermissionController::class, 'guardarRutas']);
@@ -711,6 +716,19 @@ Route::apiResource('preguntas-inspecciones', PreguntaInspeccionController::class
 Route::get('preguntas-tipo-inspecciones', [PreguntaInspeccionController::class, 'preguntasPorTipoInspeccion']);
 Route::apiResource('inspecciones-hseq', InspeccionHseqController::class);
 Route::apiResource('respuestas-inspecciones', RespuestaInspeccionController::class);
+
+Route::apiResource('normas-iso', NormaIsoController::class);
+Route::get('normas-iso-paginado', [NormaIsoController::class, 'paginado']);
+Route::apiResource('clausulas-iso', ClausulaIsoController::class);
+Route::get('clausulas-iso/norma/{norma_iso_id}', [ClausulaIsoController::class, 'porNorma']);
+
+Route::apiResource('auditorias', AuditoriaController::class);
+Route::post('auditorias/{auditoria}/finalizar', [AuditoriaController::class, 'finalizar']);
+Route::post('auditorias/{auditoria}/participantes', [AuditoriaController::class, 'agregarParticipante']);
+Route::delete('auditorias/{auditoria}/participantes/{userId}', [AuditoriaController::class, 'quitarParticipante']);
+Route::apiResource('auditoria-preguntas', AuditoriaPreguntaController::class)->only(['store', 'update', 'destroy']);
+Route::patch('auditoria-preguntas/{auditoriaPregunta}/calificar', [AuditoriaPreguntaController::class, 'calificar']);
+
 Route::get('indicador-semestral', [HallazgoNovedadController::class, 'indicadorSemestral']);
 
 Route::apiResource('hallazgo-inspecciones', HallazgoNovedadController::class);
