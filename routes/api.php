@@ -1000,11 +1000,26 @@ Route::middleware(['auth:sanctum', 'es_responsable_del_departamento'])->group(fu
 
    Route::get ('/indicadoresAdmin',[IndicadoresProcesosController::class,'indexAdmin']);
    //Inventarios
-   
+
     //Categorias
 
     //Productos
-    
+
+    // ---- CUADRO DE MANDO INTEGRAL (BSC) ----
+    Route::prefix('bsc')->group(function () {
+        Route::get('/dashboard', [\App\Http\Controllers\Bsc\BscController::class, 'dashboard']);
+        Route::get('/perspectivas', [\App\Http\Controllers\Bsc\BscPerspectivaController::class, 'index']);
+        Route::match(['patch', 'post'], '/perspectivas/{perspectiva}', [\App\Http\Controllers\Bsc\BscPerspectivaController::class, 'update']);
+        Route::delete('/perspectivas/{perspectiva}/icono', [\App\Http\Controllers\Bsc\BscPerspectivaController::class, 'eliminarIcono']);
+        Route::get('/indicadores', [\App\Http\Controllers\Bsc\BscController::class, 'indicadores']);
+        Route::patch('/indicadores/{indicador}/clasificar', [\App\Http\Controllers\Bsc\BscController::class, 'clasificar']);
+        Route::get('/calculators', [\App\Http\Controllers\Bsc\BscController::class, 'calculators']);
+        Route::get('/objetivos', [\App\Http\Controllers\Bsc\BscController::class, 'objetivos']);
+        Route::post('/snapshot', [\App\Http\Controllers\Bsc\BscController::class, 'snapshot']);
+        Route::get('/etapas', [\App\Http\Controllers\Bsc\BscEtapaController::class, 'index']);
+        Route::patch('/etapas/{etapa}', [\App\Http\Controllers\Bsc\BscEtapaController::class, 'update']);
+        Route::get('/planes', [\App\Http\Controllers\Bsc\BscPlanController::class, 'index']);
+    });
 });
 
 

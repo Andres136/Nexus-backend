@@ -39,7 +39,7 @@ class PublicacionMarketingService
         return $publicacion;
     }
 
-    public function all($search = null, $perPage = 100)
+    public function all($search = null, $anio = null, $perPage = 1000)
     {
         $query = PublicacionMarketing::with([
             'responsable:id,name',
@@ -49,6 +49,10 @@ class PublicacionMarketingService
 
         if ($search) {
             $query->where('titulo', 'like', "%{$search}%");
+        }
+
+        if ($anio) {
+            $query->whereYear('fecha', $anio);
         }
 
         return $query->orderBy('fecha', 'desc')->paginate($perPage);

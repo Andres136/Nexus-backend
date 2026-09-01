@@ -33,3 +33,7 @@ Schedule::command('app:guardar-snapshot-cartera-mensual')->dailyAt('23:55');
 // ComercialDashboardService::guardarSnapshotCarteraMensualPorUsuario), para
 // el comparativo por usuario de ResumenDashboard.jsx.
 Schedule::command('app:guardar-snapshot-cartera-mensual-usuario')->dailyAt('23:56');
+// Congela los indicadores automáticos del Cuadro de Mando Integral (BSC) del
+// mes en curso (ver App\Services\Bsc\BscSnapshotService). Mismo criterio: al
+// pasar de mes el valor queda fijo con el de la última corrida de ese mes.
+Schedule::command('bsc:snapshot')->dailyAt('23:57');
