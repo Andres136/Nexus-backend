@@ -22,9 +22,10 @@ class StoreAuditoriaRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'departamento_id' => 'required|exists:departamentos,id',
             'fecha_inicio' => 'required|date',
             'fecha_fin' => 'required|date|after_or_equal:fecha_inicio',
-            'hora' => 'nullable|date_format:H:i',
+            'hora' => 'required|date_format:H:i',
             'lugar' => 'nullable|string|max:255',
             'objetivo' => 'nullable|string',
             'alcance' => 'nullable|string',
@@ -46,6 +47,9 @@ class StoreAuditoriaRequest extends FormRequest
             'fecha_fin.required' => 'La fecha de fin de la auditoría es obligatoria.',
             'fecha_fin.date' => 'La fecha de fin debe ser una fecha válida.',
             'fecha_fin.after_or_equal' => 'La fecha de fin no puede ser anterior a la fecha de inicio.',
+            'departamento_id.required' => 'Debes indicar a qué departamento se le hará la auditoría.',
+            'departamento_id.exists' => 'El departamento seleccionado no existe.',
+            'hora.required' => 'La hora en que se hará la auditoría es obligatoria.',
             'hora.date_format' => 'La hora debe tener el formato HH:MM.',
             'observaciones.string' => 'Las observaciones deben ser una cadena de texto.',
         ];

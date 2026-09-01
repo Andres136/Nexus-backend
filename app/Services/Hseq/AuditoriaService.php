@@ -2,10 +2,13 @@
 
 namespace App\Services\Hseq;
 
+use App\Mail\AuditoriaProgramadaMail;
 use App\Models\Hseq\Auditoria;
 use App\Models\Hseq\AuditoriaPregunta;
 use App\Models\User;
 use App\RolEnum;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class AuditoriaService
 {
@@ -31,6 +34,7 @@ class AuditoriaService
         $query = Auditoria::with([
             'participantes:id,name',
             'creador:id,name',
+            'departamento:id,nombre',
         ])->withCount('preguntas');
 
         if (!empty($filtros['participante_id'])) {
@@ -57,6 +61,7 @@ class AuditoriaService
         return Auditoria::with([
             'participantes:id,name',
             'creador:id,name',
+            'departamento:id,nombre',
             'preguntas.proceso:id,nombre',
             'preguntas.clausulas.norma',
             'preguntas.personasAuditadas:id,name',
@@ -75,6 +80,7 @@ class AuditoriaService
     public function create(array $data)
     {
         $auditoria = Auditoria::create([
+            'departamento_id' => $data['departamento_id'],
             'fecha_inicio' => $data['fecha_inicio'],
             'fecha_fin' => $data['fecha_fin'],
             'hora' => $data['hora'] ?? null,
@@ -94,7 +100,44 @@ class AuditoriaService
         $participantes = array_unique(array_merge([auth()->id()], $data['participantes'] ?? []));
         $auditoria->participantes()->sync($participantes);
 
-        return $auditoria->load(['participantes:id,name', 'creador:id,name']);
+        $auditoria->load([
+            'participantes:id,name',
+            'creador:id,name',
+            'departamento:id,nombre,responsable_id',
+            'departamento.responsable:id,name,email',
+        ]);
+
+        $this->notificarResponsableDepartamento($auditoria);
+
+        return $auditoria;
+    }
+
+    // Al programar la auditoría se avisa por correo SOLO al responsable del departamento que se
+    // va a auditar, con el cronograma (fechas/hora/lugar/objetivo). Si el departamento no tiene
+    // responsable o el usuario no tiene email, no se envía nada (no rompe la creación).
+    private function notificarResponsableDepartamento(Auditoria $auditoria): void
+    {
+        $responsable = $auditoria->departamento?->responsable;
+
+        if (! $responsable || ! $responsable->email) {
+            Log::info('Auditoría programada sin notificación: el departamento no tiene responsable con email.', [
+                'auditoria_id' => $auditoria->id,
+                'departamento_id' => $auditoria->departamento_id,
+            ]);
+            return;
+        }
+
+        $link = rtrim((string) config('app.frontend_url', config('app.url')), '/')
+            . '/auth/crm/hseq/auditorias/' . $auditoria->id;
+
+        try {
+            Mail::to($responsable->email)->queue(new AuditoriaProgramadaMail($auditoria, $link));
+        } catch (\Throwable $e) {
+            Log::error('No se pudo encolar el correo de auditoría programada.', [
+                'auditoria_id' => $auditoria->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     public function update($id, array $data)
@@ -113,10 +156,10 @@ class AuditoriaService
         // (los necesita el propio Service para agregarPregunta()/finalizar()): esta ruta
         // genérica de edición nunca debe permitir que el cliente los mande directamente.
         $auditoria->update(collect($data)->only([
-            'fecha_inicio', 'fecha_fin', 'hora', 'lugar', 'objetivo', 'alcance', 'observaciones',
+            'departamento_id', 'fecha_inicio', 'fecha_fin', 'hora', 'lugar', 'objetivo', 'alcance', 'observaciones',
         ])->toArray());
 
-        return $auditoria;
+        return $auditoria->load(['participantes:id,name', 'creador:id,name', 'departamento:id,nombre']);
     }
 
     public function agregarParticipante(Auditoria $auditoria, int $userId)
@@ -176,7 +219,17 @@ class AuditoriaService
     public function actualizarPregunta($id, array $data)
     {
         $pregunta = AuditoriaPregunta::with('auditoria')->findOrFail($id);
-        $this->validarPreguntaEditable($pregunta);
+
+        // La hora es solo agenda (no una respuesta): se puede reordenar aunque la pregunta ya
+        // esté calificada, siempre que la auditoría no esté completada.
+        $soloHora = count($data) === 1 && array_key_exists('hora', $data);
+        if ($soloHora) {
+            if ($pregunta->auditoria->estado === 'completada') {
+                throw new \RuntimeException('No se puede modificar una pregunta de una auditoría completada.');
+            }
+        } else {
+            $this->validarPreguntaEditable($pregunta);
+        }
 
         $pregunta->update(collect($data)->except(['clausulas_iso', 'personas_auditadas'])->toArray());
 
@@ -258,5 +311,26 @@ class AuditoriaService
             'preguntas.clausulas.norma',
             'preguntas.personasAuditadas:id,name',
         ]);
+    }
+
+    // Reabre una auditoría ya completada para poder seguir editando/calificando. Vuelve a
+    // 'en_ejecucion' si ya tiene preguntas calificadas, o a 'programada' si no; la calificación
+    // final se limpia y se recalcula cuando se vuelva a finalizar. No toca las preguntas.
+    public function reabrir($id)
+    {
+        $auditoria = $this->find($id);
+
+        if ($auditoria->estado !== 'completada') {
+            throw new \RuntimeException('Solo se puede reabrir una auditoría que está completada.');
+        }
+
+        $tieneCalificadas = $auditoria->preguntas->whereNotNull('calificacion')->isNotEmpty();
+
+        $auditoria->update([
+            'estado' => $tieneCalificadas ? 'en_ejecucion' : 'programada',
+            'calificacion_final' => null,
+        ]);
+
+        return $this->find($id);
     }
 }

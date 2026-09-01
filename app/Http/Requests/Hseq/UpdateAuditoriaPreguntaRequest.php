@@ -23,6 +23,7 @@ class UpdateAuditoriaPreguntaRequest extends FormRequest
     {
         return [
             'proceso_id' => 'sometimes|required|exists:departamentos,id',
+            'hora' => 'sometimes|nullable|date_format:H:i',
             'clausulas_iso' => 'sometimes|required|array|min:1',
             'clausulas_iso.*' => 'integer|exists:clausulas_iso,id',
             'pregunta' => 'sometimes|required|string|max:1000',
@@ -37,6 +38,7 @@ class UpdateAuditoriaPreguntaRequest extends FormRequest
         return [
             'proceso_id.required' => 'El proceso auditado es obligatorio.',
             'proceso_id.exists' => 'El proceso especificado no existe.',
+            'hora.date_format' => 'La hora debe tener el formato HH:MM.',
             'clausulas_iso.required' => 'Selecciona al menos una cláusula ISO.',
             'clausulas_iso.min' => 'Selecciona al menos una cláusula ISO.',
             'clausulas_iso.*.exists' => 'Una de las cláusulas ISO seleccionadas no existe.',

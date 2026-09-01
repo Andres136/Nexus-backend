@@ -145,6 +145,27 @@ class AuditoriaController extends Controller
     }
 
     /**
+     * Reopen a completed audit so it can be edited/graded again. Solo roles de gestión.
+     */
+    public function reabrir(Request $request, string $id)
+    {
+        if (!$this->puedeGestionarTodas($request->user())) {
+            return $this->denegado();
+        }
+
+        try {
+            $auditoria = $this->auditoriaService->reabrir($id);
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'message' => 'Auditoría reabierta exitosamente',
+            'data' => $auditoria,
+        ]);
+    }
+
+    /**
      * Add a participant (auditor) to the audit team.
      */
     public function agregarParticipante(Request $request, string $id)

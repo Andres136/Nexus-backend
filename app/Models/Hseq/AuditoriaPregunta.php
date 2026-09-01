@@ -14,6 +14,7 @@ class AuditoriaPregunta extends Model
     protected $fillable = [
         'auditoria_id',
         'proceso_id',
+        'hora',
         'tipo_hallazgo',
         'pregunta',
         'calificacion',

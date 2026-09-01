@@ -725,6 +725,7 @@ Route::get('clausulas-iso/norma/{norma_iso_id}', [ClausulaIsoController::class, 
 
 Route::apiResource('auditorias', AuditoriaController::class);
 Route::post('auditorias/{auditoria}/finalizar', [AuditoriaController::class, 'finalizar']);
+Route::post('auditorias/{auditoria}/reabrir', [AuditoriaController::class, 'reabrir']);
 Route::post('auditorias/{auditoria}/participantes', [AuditoriaController::class, 'agregarParticipante']);
 Route::delete('auditorias/{auditoria}/participantes/{userId}', [AuditoriaController::class, 'quitarParticipante']);
 Route::apiResource('auditoria-preguntas', AuditoriaPreguntaController::class)->only(['store', 'update', 'destroy']);
