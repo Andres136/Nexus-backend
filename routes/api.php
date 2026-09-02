@@ -4,6 +4,8 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CapacitacionController;
 use App\Http\Controllers\CapacitacionActaController;
 use App\Http\Controllers\CapacitacionEncuestaController;
+use App\Http\Controllers\comunicaciones\CertificacionController;
+use App\Http\Controllers\comunicaciones\VentanaWebController;
 use App\Http\Controllers\comunicaciones\PlantillaController;
 use App\Http\Controllers\comunicaciones\PublicacionMarketingController;
 use App\Http\Controllers\comunicaciones\RedSocialController;
@@ -250,7 +252,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
   Route::get('/user', function (Request $request) {
     return $request->user();
-  });  
+  });
 
   //Usuarios
   Route::apiResource('users', AuthController::class);
@@ -350,10 +352,10 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
   Route::get('capacitacion-encuestas/{uuid}/resultados', [CapacitacionEncuestaController::class, 'resultados']);
   Route::post('capacitacion-encuestas/{uuid}/enviar', [CapacitacionEncuestaController::class, 'enviar']);
   Route::apiResource('capacitacion-encuestas', CapacitacionEncuestaController::class);
-  
 
-  
- 
+
+
+
   Route::apiResource('registrar-documentacion', DocumentosAdministrativosController::class);
   Route::post('/documentos/mover-obseletos/{id}', [DocumentoController::class, 'moverAObseletos']);
 
@@ -436,7 +438,7 @@ Route::apiResource('datos-conductores', DatoCondutorController::class);
 Route::apiResource('/vehiculos/{vehiculo}/fotos',VehiculoFotoController::class);
 Route::get('/usuarios/all', [AuthController::class, 'indexUsuarios']);
 Route::get('/vehiculos-options', [VehiculoController::class, 'options']);
-Route::post('clientes/importar-excel', [ClienteController::class, 'importExcel']);   
+Route::post('clientes/importar-excel', [ClienteController::class, 'importExcel']);
 Route::apiResource('revision-comparendos',RevisionComparendoController::class);
 Route::get('/revision-comparendos/conductor/{id}', [RevisionComparendoController::class, 'porConductor']);
 //Crear plantilla de correo
@@ -447,6 +449,15 @@ Route::get('/plantillas/{id}/edit', [PlantillaController::class, 'edit']);
 Route::apiResource('redes-sociales', RedSocialController::class);
 Route::apiResource('tipos-post', TipoPostController::class);
 Route::apiResource('publicaciones-marketing', PublicacionMarketingController::class);
+//Certificaciones de la empresa
+Route::patch('certificaciones/{id}/activo', [CertificacionController::class, 'toggleActivo']);
+Route::apiResource('certificaciones', CertificacionController::class);
+//Ventana web pública (configuración única + registros del formulario)
+Route::get('ventana-web', [VentanaWebController::class, 'show']);
+Route::post('ventana-web', [VentanaWebController::class, 'update']);
+Route::get('ventana-web/registros', [VentanaWebController::class, 'registros']);
+Route::patch('ventana-web/registros/{id}/leido', [VentanaWebController::class, 'marcarLeido']);
+Route::delete('ventana-web/registros/{id}', [VentanaWebController::class, 'eliminarRegistro']);
 Route::get('tickets/estadisticas-paradas', [TicketController::class, 'estadisticasParadas']);
 Route::get('tickets/estadisticas-generales', [TicketController::class, 'estadisticasGenerales']);
 Route::get('tickets/resumen-asignados', [TicketController::class, 'resumenAsignados']);
@@ -522,7 +533,7 @@ Route::get('inventarios-exportar-exel', [InventorieController::class, 'exportarI
 Route::get('movimientos-stock/{id}/pdf', [CrmProductController::class, 'getMovimientoPDF']);
 //TRASLADOS INTERNOS
 Route::apiResource('traslados-internos', EnvioInternoController::class);
-  
+
 Route::get('traslados-internos-sedes', [EnvioInternoController::class, 'traerSedes']);
 Route::get('traslados-internos-usuarios-sede', [EnvioInternoController::class, 'traerUsuariosPorSede']);
 Route::get('traslados-internos-bodegas-sede', [EnvioInternoController::class, 'traerBodegasPorSede']);
@@ -635,7 +646,7 @@ Route::post('/alistamientos/{alistamiento_id}/agregar-usuario', [AlistamientoCon
 
 //**RUTAS PARA GESTIONAR RESPONSABILIDADES */
 
-Route::apiResource('responsabilidades', ResponsabilidadesController::class); 
+Route::apiResource('responsabilidades', ResponsabilidadesController::class);
 Route::post('responsabilidades/{id}/asignar', [ResponsabilidadesController::class, 'asignarResponsabilidad']);
 Route::put('responsabilidades/{pivotId}/update', [ResponsabilidadesController::class, 'actualizarAsignacion']);
 Route::delete('responsabilidades/{pivotId}/remover', [ResponsabilidadesController::class, 'desactivarAsignacion']);
@@ -826,7 +837,7 @@ Route::prefix('nomina/portal')->group(function () {
 
 //Rutas tipos de contratos nomina
 Route::prefix('nomina')->group(function () {
-        
+
     Route::get('configuracion', [ConfiguracionNominaController::class, 'show']);
     Route::put('configuracion', [ConfiguracionNominaController::class, 'update']);
     Route::post('configuracion/firma', [ConfiguracionNominaController::class, 'subirFirma']);
@@ -1166,3 +1177,8 @@ Route::post('/qrs/productos/pdf', [EventoController::class, 'crearQrMasivoConPdf
 
 Route::get('/orden-compras/{orden}/preview-documento', [OrdenCompraController::class, 'previewDocumento']);
 Route::get('obtener-reportes-bic', [ReporteBicConttroller::class, 'index']);
+Route::get('obtener-certificaciones',[CertificacionController::class,'publicas']);
+//Ventana web pública (sitio externo)
+Route::get('ventana-web-publica', [VentanaWebController::class, 'publica']);
+Route::post('ventana-web-registros', [VentanaWebController::class, 'registrar']);
+
