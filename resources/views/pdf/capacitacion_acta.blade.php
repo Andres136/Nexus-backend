@@ -56,7 +56,7 @@
 
   <table class="meta">
     <tr>
-      <td><strong>Capacitación:</strong> {{ $acta->capacitacion->titulo }}</td>
+      <td><strong>{{ $acta->capacitacion->tipo === 'reunion' ? 'Reunión' : 'Capacitación' }}:</strong> {{ $acta->capacitacion->titulo }}</td>
       <td style="width:32%"><strong>Fecha:</strong> {{ $acta->capacitacion->fecha_realizacion }}</td>
     </tr>
     <tr>
