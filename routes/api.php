@@ -790,6 +790,10 @@ Route::patch('/vsm/origenes/{id}/prioridad', [DashboardOperativoController::clas
 Route::delete('/vsm/origenes/{id}', [DashboardOperativoController::class, 'destroyOrigen']);
 Route::patch('/vsm/orden-compra-detalles/{id}/observacion', [DashboardOperativoController::class, 'updateObservacionItem']);
 Route::get('/vsm/ordenes-pdf', [DashboardOperativoController::class, 'exportarPdf']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/vsm/configuracion-historial', [DashboardOperativoController::class, 'configuracionHistorial']);
+    Route::put('/vsm/configuracion-historial', [DashboardOperativoController::class, 'actualizarConfiguracionHistorial']);
+});
 Route::apiResource('/vsm/ordenes', DashboardOperativoController::class);
 
 //RUTAS  PARA CONTABILIDAD

@@ -14,7 +14,10 @@ class CapacitacionActaController extends Controller
     public function index(Request $request)
     {
         return response()->json(
-            $this->service->listar($request->only(['search', 'estado', 'empresa_id', 'page', 'per_page']))
+            $this->service->listar(
+                $request->only(['search', 'estado', 'empresa_id', 'page', 'per_page']),
+                $request->user()
+            )
         );
     }
 
@@ -28,7 +31,8 @@ class CapacitacionActaController extends Controller
         $validated = $request->validate(['empresa_id' => 'nullable|integer|exists:empresas,id']);
         $data = $this->service->datosPdf(
             $capacitacionUuid,
-            isset($validated['empresa_id']) ? (int) $validated['empresa_id'] : null
+            isset($validated['empresa_id']) ? (int) $validated['empresa_id'] : null,
+            $request->user()
         );
 
         $nombre = "acta_{$data['acta']->numero}_" . str($data['empresa']->nombre)->slug('_') . '.pdf';

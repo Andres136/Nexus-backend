@@ -17,11 +17,13 @@ class CapacitacionActaService
 {
     public function __construct(private readonly TareaService $tareaService) {}
 
-    public function listar(array $filters)
+    public function listar(array $filters, User $user)
     {
         $perPage = min(max((int) ($filters['per_page'] ?? 20), 1), 100);
 
         return CapacitacionActa::query()
+            // Un acta solo la ve quien la elaboró; los administradores ven todas.
+            ->when(!$this->esAdmin($user), fn ($query) => $query->where('elaborada_por', $user->id))
             ->with([
                 'capacitacion:id,uuid,titulo,fecha_realizacion,estado',
                 'elaborador:id,name,email',
@@ -74,6 +76,16 @@ class CapacitacionActaService
             'envios.usuario:id,name,email',
             'envios.empresa:id,nombre',
         ])->where('capacitacion_id', $capacitacion->id)->first();
+
+        // El acta solo la puede ver quien la elaboró (o un administrador). Para
+        // delegarla a otra persona se usa "reasignar", que la pasa a su nombre.
+        if ($acta) {
+            abort_unless(
+                (int) $acta->elaborada_por === (int) $user->id || $this->esAdmin($user),
+                403,
+                'Solo el usuario que elaboró el acta puede consultarla.'
+            );
+        }
 
         return [
             'capacitacion' => $capacitacion,
@@ -317,10 +329,15 @@ class CapacitacionActaService
     private function puedeCrear(Capacitacion $capacitacion, User $user): bool
     {
         return (int) $capacitacion->user_id === (int) $user->id
-            || (int) $user->role_id === RolEnum::ADMINISTRADOR->value;
+            || $this->esAdmin($user);
     }
 
-    public function datosPdf(string $capacitacionUuid, ?int $empresaId): array
+    private function esAdmin(User $user): bool
+    {
+        return (int) $user->role_id === RolEnum::ADMINISTRADOR->value;
+    }
+
+    public function datosPdf(string $capacitacionUuid, ?int $empresaId, User $user): array
     {
         $capacitacion = Capacitacion::where('uuid', $capacitacionUuid)->firstOrFail();
         $acta = CapacitacionActa::with([
@@ -332,6 +349,12 @@ class CapacitacionActaService
                 ->orderBy('empresa_nombre')
                 ->orderBy('id'),
         ])->where('capacitacion_id', $capacitacion->id)->firstOrFail();
+
+        abort_unless(
+            (int) $acta->elaborada_por === (int) $user->id || $this->esAdmin($user),
+            403,
+            'Solo el usuario que elaboró el acta puede descargarla.'
+        );
 
         $empresa = $empresaId
             ? \App\Models\Crm\empresa::findOrFail($empresaId)
