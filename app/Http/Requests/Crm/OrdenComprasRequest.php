@@ -23,6 +23,7 @@ class OrdenComprasRequest extends FormRequest
             'empresa_id' => 'required|exists:empresas,id',
             'cliente_documento' =>  'required|mimes:pdf,doc,docx,xls,xlsx|max:10240', // 10MB in KB
             'orden_compra_cliente' => 'required|string|max:100',
+            'cotizacion_id' => 'nullable|integer|exists:cotizaciones,id',
         ];
 
         // Validaciones condicionales para detalles

@@ -28,6 +28,7 @@ class Orden_Compra extends Model
         'sede_id', // Agregar el campo sede_id
         'fecha_despacho', // Agregar el campo fecha_despacho
         'empresa_id',
+        'cotizacion_id',
         'cliente_documento',
         'orden_compra_cliente',
         'documento_revisado_at',
@@ -99,5 +100,11 @@ class Orden_Compra extends Model
     public function empresa()
     {
         return $this->belongsTo(empresa::class, 'empresa_id');
+    }
+
+    // Cotización de la que se generó esta Orden de Compra
+    public function cotizacion()
+    {
+        return $this->belongsTo(Cotizacion::class, 'cotizacion_id');
     }
 }
