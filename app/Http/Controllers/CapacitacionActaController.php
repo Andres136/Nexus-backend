@@ -28,12 +28,26 @@ class CapacitacionActaController extends Controller
 
     public function pdf(Request $request, string $capacitacionUuid)
     {
-        $validated = $request->validate(['empresa_id' => 'nullable|integer|exists:empresas,id']);
-        $data = $this->service->datosPdf(
-            $capacitacionUuid,
-            isset($validated['empresa_id']) ? (int) $validated['empresa_id'] : null,
-            $request->user()
-        );
+        $validated = $request->validate([
+            'empresa_id' => [
+                'nullable',
+                function ($attribute, $value, $fail) {
+                    if ($value === CapacitacionActaService::EMPRESA_EXTERNOS_KEY) {
+                        return;
+                    }
+                    if (!ctype_digit((string) $value) || !\App\Models\Crm\empresa::whereKey($value)->exists()) {
+                        $fail('La empresa seleccionada no es válida.');
+                    }
+                },
+            ],
+        ]);
+
+        $empresaId = $validated['empresa_id'] ?? null;
+        if ($empresaId !== null && $empresaId !== CapacitacionActaService::EMPRESA_EXTERNOS_KEY) {
+            $empresaId = (int) $empresaId;
+        }
+
+        $data = $this->service->datosPdf($capacitacionUuid, $empresaId, $request->user());
 
         $nombre = "acta_{$data['acta']->numero}_" . str($data['empresa']->nombre)->slug('_') . '.pdf';
 

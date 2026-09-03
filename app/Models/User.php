@@ -43,7 +43,8 @@ class User extends Authenticatable
         'departamento_id',
         'imagen',
         'foto_perfil',
-        'role_id',  
+        'role_id',
+        'es_asesor_externo',
         'estado_id'
         ,'sede_id'
     ];
@@ -293,6 +294,7 @@ public function actividadesOperativas()
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'es_asesor_externo' => 'boolean',
         ];
     }
 

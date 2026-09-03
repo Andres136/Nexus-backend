@@ -15,6 +15,12 @@ use Illuminate\Support\Str;
 
 class CapacitacionActaService
 {
+    /** Empresa "virtual" bajo la que se agrupan los asesores externos (sin contrato de nómina). */
+    public const EMPRESA_EXTERNOS = 'Asesores externos';
+
+    /** Valor que identifica el grupo de asesores externos en el parámetro empresa_id del PDF. */
+    public const EMPRESA_EXTERNOS_KEY = 'externos';
+
     public function __construct(private readonly TareaService $tareaService) {}
 
     public function listar(array $filters, User $user)
@@ -204,10 +210,15 @@ class CapacitacionActaService
                 continue;
             }
 
+            // Los asesores externos no tienen contrato de nómina (empresa_id
+            // queda null); se agrupan bajo una empresa "virtual" para el
+            // control de firmas y el PDF por empresa.
             $envio->fill([
                 'enviado_por' => $remitente->id,
                 'empresa_id' => $usuario->contratacionActivaNomina?->empresa_id,
-                'empresa_nombre' => $usuario->contratacionActivaNomina?->empresa?->nombre,
+                'empresa_nombre' => $usuario->es_asesor_externo
+                    ? self::EMPRESA_EXTERNOS
+                    : $usuario->contratacionActivaNomina?->empresa?->nombre,
                 'usuario_apellidos' => $usuario->apellidos,
                 'numero_documento' => $usuario->contratacionActivaNomina?->numero_documento,
                 'token' => Str::uuid()->toString(),
@@ -309,10 +320,14 @@ class CapacitacionActaService
                 ->firstOrFail();
             abort_if($envio->estado === 'firmada', 422, 'Esta acta ya fue firmada.');
 
+            $empresaNombreExterno = $envio->usuario?->es_asesor_externo ? self::EMPRESA_EXTERNOS : null;
+
             $envio->update([
                 'estado' => 'firmada',
                 'empresa_id' => $envio->empresa_id ?? $envio->usuario?->contratacionActivaNomina?->empresa_id,
-                'empresa_nombre' => $envio->empresa_nombre ?? $envio->usuario?->contratacionActivaNomina?->empresa?->nombre,
+                'empresa_nombre' => $envio->empresa_nombre
+                    ?? $envio->usuario?->contratacionActivaNomina?->empresa?->nombre
+                    ?? $empresaNombreExterno,
                 'usuario_apellidos' => $envio->usuario_apellidos ?? $envio->usuario?->apellidos,
                 'numero_documento' => $envio->numero_documento ?? $envio->usuario?->contratacionActivaNomina?->numero_documento,
                 'firmada_at' => now(),
@@ -337,15 +352,19 @@ class CapacitacionActaService
         return (int) $user->role_id === RolEnum::ADMINISTRADOR->value;
     }
 
-    public function datosPdf(string $capacitacionUuid, ?int $empresaId, User $user): array
+    public function datosPdf(string $capacitacionUuid, int|string|null $empresaId, User $user): array
     {
+        $externos = $empresaId === self::EMPRESA_EXTERNOS_KEY;
+        $empresaIdInt = $externos ? null : ($empresaId !== null ? (int) $empresaId : null);
+
         $capacitacion = Capacitacion::where('uuid', $capacitacionUuid)->firstOrFail();
         $acta = CapacitacionActa::with([
             'elaborador:id,name,apellidos,email',
             'capacitacion',
             'envios' => fn ($query) => $query
                 ->with(['usuario:id,name,apellidos,email', 'empresa'])
-                ->when($empresaId, fn ($envio) => $envio->where('empresa_id', $empresaId))
+                ->when($externos, fn ($envio) => $envio->whereNull('empresa_id'))
+                ->when($empresaIdInt, fn ($envio) => $envio->where('empresa_id', $empresaIdInt))
                 ->orderBy('empresa_nombre')
                 ->orderBy('id'),
         ])->where('capacitacion_id', $capacitacion->id)->firstOrFail();
@@ -356,9 +375,11 @@ class CapacitacionActaService
             'Solo el usuario que elaboró el acta puede descargarla.'
         );
 
-        $empresa = $empresaId
-            ? \App\Models\Crm\empresa::findOrFail($empresaId)
-            : $acta->envios->pluck('empresa')->filter()->unique('id')->sole();
+        $empresa = match (true) {
+            $externos => (object) ['nombre' => self::EMPRESA_EXTERNOS, 'logo' => null, 'nit' => null, 'direccion' => null, 'email' => null],
+            (bool) $empresaIdInt => \App\Models\Crm\empresa::findOrFail($empresaIdInt),
+            default => $acta->envios->pluck('empresa')->filter()->unique('id')->sole(),
+        };
 
         abort_if($acta->envios->isEmpty(), 422, 'No hay destinatarios de esta empresa en el acta.');
 

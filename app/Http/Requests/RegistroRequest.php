@@ -28,6 +28,7 @@ class RegistroRequest extends FormRequest
             'telefono' => 'required|string',
             'password' => 'required|string|min:8',
             'role_id' => 'required|integer|exists:roles,id',
+            'es_asesor_externo' => 'sometimes|boolean',
             'departamento_id' => 'required|integer|exists:departamentos,id',
             'sede_id' => 'required|integer|exists:sedes,id',
             'imagen' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',

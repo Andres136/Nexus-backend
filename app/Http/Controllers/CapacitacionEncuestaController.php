@@ -54,7 +54,7 @@ class CapacitacionEncuestaController extends Controller
     public function usuarios(Request $request)
     {
         return response()->json(
-            $this->service->usuarios($request->only(['search', 'sede_id']))
+            $this->service->usuarios($request->only(['search', 'sede_id', 'incluir_externos']))
         );
     }
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Roles;
+use App\RolEnum;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -44,6 +45,16 @@ class RolController extends Controller
     $rol = Roles::create([
         'nombre' => $request->input('nombre'),
     ]);
+
+    // 3️⃣ Todo rol nuevo hereda los permisos del rol "Invitado" como base,
+    //     así no queda en blanco (Acceso Denegado en todas las rutas) hasta
+    //     que un admin lo configure en "Asignar Permisos a Roles".
+    $invitado = Roles::find(RolEnum::INVITADO->value);
+    $permisosBase = $invitado
+        ? $invitado->permissions()->pluck('permission.id')->all()
+        : [];
+
+    $rol->permissions()->sync($permisosBase);
 
     return response()->json([
         'message' => 'Rol creado exitosamente',
