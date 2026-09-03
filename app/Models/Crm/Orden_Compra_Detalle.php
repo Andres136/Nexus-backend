@@ -54,6 +54,14 @@ public function entregas()
         ->orderBy('created_at','asc');
 }
 
+//Historial de correcciones al total enviado
+public function entregaCorrecciones()
+{
+    return $this->hasMany(\App\Models\Crm\OrdenTrabajoEntregaCorreccion::class, 'detalle_id', 'id')
+        ->with('usuario:id,name')
+        ->orderBy('created_at', 'asc');
+}
+
 //Relacion con la tabla productos
 public function product()
 {

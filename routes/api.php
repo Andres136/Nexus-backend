@@ -421,6 +421,8 @@ Route::post('/orden-trabajo/{id}/marcar-revisada', [ordenTrabajoController::clas
 Route::post('/orden-trabajo/{id}/revisar', [ordenTrabajoController::class, 'revisarOrdenTrabajo']);
 //Revisar orden de trabajo al momento del despacho (detalle de orden de trabajo)
 Route::post('/orden-trabajo/{id}/marcar-despacho-revisado', [ordenTrabajoController::class, 'marcarDespachoRevisado']);
+//Corregir el total enviado de un detalle (queda en el historial de correcciones)
+Route::post('/orden-trabajo/{id}/detalles/{detalleId}/corregir-total', [ordenTrabajoController::class, 'corregirTotalEnviado']);
 
 // Trazabilidad: orden de compra -> orden de trabajo/entrega, y producto -> orden a proveedor/alistamiento
 Route::get('/trazabilidad/ordenes-compra/buscar', [TrazabilidadController::class, 'buscarOrdenesCompra']);

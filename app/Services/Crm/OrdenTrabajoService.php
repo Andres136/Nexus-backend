@@ -8,6 +8,8 @@ use App\Models\Crm\AlistamientoOt;
 use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\OrdenDeTrabajo;
 use App\Models\Crm\OrdenTrabajoEntrega;
+use App\Models\Crm\OrdenTrabajoEntregaCorreccion;
+use App\Models\Crm\Orden_Compra_Detalle;
 use App\Models\Crm\product;
 use App\Models\Estados;
 use App\Models\User;
@@ -113,13 +115,13 @@ class OrdenTrabajoService
         $ordenCompleta = true;
         $totalFaltantes = 0;
 
-        foreach ($detalles as $detalleData) {
+        foreach ($detalles as $index => $detalleData) {
             if (!empty($detalleData['id'])) {
                 // Actualizar detalle existente
-                $resultado = $this->actualizarDetalle($ordenCompra, $ordenTrabajo, $detalleData, $userId);
+                $resultado = $this->actualizarDetalle($ordenCompra, $ordenTrabajo, $detalleData, $userId, $index);
             } else {
                 // Crear nuevo detalle
-                $resultado = $this->crearDetalle($ordenCompra, $ordenTrabajo, $detalleData, $userId);
+                $resultado = $this->crearDetalle($ordenCompra, $ordenTrabajo, $detalleData, $userId, $index);
             }
 
             if ($resultado['faltantes'] > 0) {
@@ -134,7 +136,7 @@ class OrdenTrabajoService
         ];
     }
 
-    private function actualizarDetalle($ordenCompra, $ordenTrabajo, $detalleData, $userId)
+    private function actualizarDetalle($ordenCompra, $ordenTrabajo, $detalleData, $userId, $index = 0)
     {
         $detalle = $ordenCompra->detalles()->find($detalleData['id']);
         if (!$detalle) return ['faltantes' => 0];
@@ -143,6 +145,17 @@ class OrdenTrabajoService
         $nuevaCantidadEnviada = (int) ($detalleData['cantidad_enviada'] ?? 0);
         $cantidadAnteriorEnviada = (int) $detalle->cantidad_enviada;
         $cantidadRequerida = (int) ($detalleData['cantidad'] ?? $detalle->cantidad);
+
+        // No se puede enviar más de lo requerido. Antes se recortaba en silencio
+        // (min()) y la fila de entrega quedaba inflada; ahora se rechaza.
+        if ($nuevaCantidadEnviada > 0 && ($cantidadAnteriorEnviada + $nuevaCantidadEnviada) > $cantidadRequerida) {
+            $disponible = max(0, $cantidadRequerida - $cantidadAnteriorEnviada);
+            throw ValidationException::withMessages([
+                "detalles.{$index}.cantidad_enviada" => [
+                    "La cantidad enviada supera lo requerido. Requerido: {$cantidadRequerida}, ya enviado: {$cantidadAnteriorEnviada}, disponible para enviar: {$disponible}.",
+                ],
+            ]);
+        }
 
         $totalCantidadEnviada = min($cantidadAnteriorEnviada + $nuevaCantidadEnviada, $cantidadRequerida);
         $faltantes = max(0, $cantidadRequerida - $totalCantidadEnviada);
@@ -177,7 +190,7 @@ class OrdenTrabajoService
         return ['faltantes' => $faltantes];
     }
 
-    private function crearDetalle($ordenCompra, $ordenTrabajo, $detalleData, $userId)
+    private function crearDetalle($ordenCompra, $ordenTrabajo, $detalleData, $userId, $index = 0)
     {
         // CREAR DETALLE CON CAMPOS EXACTOS DEL CONTROLLER
         $detalle = $ordenCompra->detalles()->create([
@@ -199,6 +212,14 @@ class OrdenTrabajoService
         $nuevaCantidadEnviada = (int) ($detalleData['cantidad_enviada'] ?? 0);
         $cantidadRequerida = (int) ($detalleData['cantidad'] ?? 0);
 
+        if ($nuevaCantidadEnviada > 0 && $nuevaCantidadEnviada > $cantidadRequerida) {
+            throw ValidationException::withMessages([
+                "detalles.{$index}.cantidad_enviada" => [
+                    "La cantidad enviada supera lo requerido. Requerido: {$cantidadRequerida}.",
+                ],
+            ]);
+        }
+
         $totalCantidadEnviada = min($nuevaCantidadEnviada, $cantidadRequerida);
         $faltantes = max(0, $cantidadRequerida - $totalCantidadEnviada);
 
@@ -216,7 +237,7 @@ class OrdenTrabajoService
         return ['faltantes' => $faltantes];
     }
 
-    private function registrarEntrega($ordenTrabajo, $detalle, $cantidad, $faltantes, $userId, $detalleData)
+    private function registrarEntrega($ordenTrabajo, $detalle, $cantidad, $faltantes, $userId, $detalleData, $esCorreccion = false)
     {
         OrdenTrabajoEntrega::create([
             'orden_trabajo_id' => $ordenTrabajo->id,
@@ -226,7 +247,96 @@ class OrdenTrabajoService
             'fecha_entrega' => Carbon::now('America/Bogota'),
             'usuario_id' => $userId,
             'observaciones' => $detalleData['observaciones'] ?? '',
+            'es_correccion' => $esCorreccion,
         ]);
+    }
+
+    /**
+     * Corregir el total enviado de un detalle cuando alguien se equivocó.
+     * Ajusta las entregas con una fila de corrección (puede ser negativa) y
+     * deja registro en el historial de quién lo hizo y por qué.
+     */
+    public function corregirTotalEnviado(int $ordenTrabajoId, int $detalleId, float $nuevoTotal, string $motivo, int $userId): array
+    {
+        return DB::transaction(function () use ($ordenTrabajoId, $detalleId, $nuevoTotal, $motivo, $userId) {
+            $ordenTrabajo = OrdenDeTrabajo::with('ordenCompra')->findOrFail($ordenTrabajoId);
+            $ordenCompra = $ordenTrabajo->ordenCompra;
+
+            $detalle = Orden_Compra_Detalle::where('id', $detalleId)
+                ->where('orden_compra_id', $ordenCompra->id)
+                ->firstOrFail();
+
+            $requerido = (float) $detalle->cantidad;
+            $anterior = (float) $detalle->cantidad_enviada;
+
+            if ($nuevoTotal < 0) {
+                throw ValidationException::withMessages([
+                    'cantidad_total' => ['El total enviado no puede ser negativo.'],
+                ]);
+            }
+
+            if ($nuevoTotal > $requerido) {
+                throw ValidationException::withMessages([
+                    'cantidad_total' => ["El total enviado no puede superar lo requerido ({$requerido})."],
+                ]);
+            }
+
+            if ((int) round($nuevoTotal * 100) === (int) round($anterior * 100)) {
+                throw ValidationException::withMessages([
+                    'cantidad_total' => ['El total enviado no cambió.'],
+                ]);
+            }
+
+            $delta = round($nuevoTotal - $anterior, 2);
+            $faltantes = max(0, $requerido - $nuevoTotal);
+
+            // Fila de ajuste en el historial de entregas (delta con signo)
+            $this->registrarEntrega(
+                $ordenTrabajo,
+                $detalle,
+                $delta,
+                $faltantes,
+                $userId,
+                ['observaciones' => "Corrección de total: {$motivo}"],
+                true
+            );
+
+            $detalle->update([
+                'cantidad_enviada' => $nuevoTotal,
+                'faltantes' => $faltantes,
+            ]);
+
+            $correccion = OrdenTrabajoEntregaCorreccion::create([
+                'orden_trabajo_id' => $ordenTrabajo->id,
+                'detalle_id' => $detalle->id,
+                'cantidad_anterior' => $anterior,
+                'cantidad_nueva' => $nuevoTotal,
+                'motivo' => $motivo,
+                'usuario_id' => $userId,
+            ]);
+
+            $this->recalcularEstado($ordenCompra, $ordenTrabajo);
+
+            return [
+                'correccion' => $correccion->load('usuario:id,name'),
+                'detalle' => $detalle->fresh(),
+            ];
+        });
+    }
+
+    private function recalcularEstado(Orden_Compra $ordenCompra, OrdenDeTrabajo $ordenTrabajo): void
+    {
+        $totalFaltantes = (float) $ordenCompra->detalles()->sum('faltantes');
+        $ordenCompleta = $totalFaltantes <= 0;
+
+        $ordenTrabajo->update(['faltantes' => $totalFaltantes]);
+
+        $this->actualizarEstados(
+            $ordenCompra,
+            $ordenTrabajo,
+            ['ordenCompleta' => $ordenCompleta],
+            []
+        );
     }
 
     private function actualizarEstados($ordenCompra, $ordenTrabajo, $resultado, $data)

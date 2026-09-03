@@ -4,12 +4,15 @@ namespace App\Http\Controllers\Crm;
 
 use App\EstadoEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Crm\CorregirEntregaTotalRequest;
 use App\Models\Crm\AlistamientoOt;
 use App\Models\Crm\OrdenDeTrabajo;
 use App\Services\Crm\GestionCarteraService;
+use App\Services\Crm\OrdenTrabajoService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class ordenTrabajoController extends Controller
 {
@@ -26,6 +29,7 @@ class ordenTrabajoController extends Controller
             'ordenCompra.sede',
             'ordenCompra.detalles.product',
             'ordenCompra.detalles.observacionCalidadUsuario:id,name',
+            'ordenCompra.detalles.entregaCorrecciones',
 
         ])
             ->whereHas('ordenCompra', function ($q) {
@@ -144,5 +148,32 @@ public function revisarOrdenTrabajo($id)
     ]);
 }
 
+/**
+ * Corregir el total enviado de un detalle de la OT (cuando alguien se equivocó).
+ * Deja registro en el historial de correcciones de quién lo hizo y por qué.
+ */
+public function corregirTotalEnviado(CorregirEntregaTotalRequest $request, $id, $detalleId, OrdenTrabajoService $service)
+{
+    try {
+        $resultado = $service->corregirTotalEnviado(
+            (int) $id,
+            (int) $detalleId,
+            (float) $request->validated()['cantidad_total'],
+            $request->validated()['motivo'],
+            auth()->id()
+        );
+
+        return response()->json([
+            'message' => 'Total enviado corregido correctamente',
+            'correccion' => $resultado['correccion'],
+            'detalle' => $resultado['detalle'],
+        ]);
+    } catch (ValidationException $e) {
+        return response()->json([
+            'message' => 'No se pudo corregir el total enviado.',
+            'errors' => $e->errors(),
+        ], 422);
+    }
+}
 
     }
