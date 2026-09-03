@@ -9,7 +9,7 @@ class AnalisisProductoNoConformeService
 {
     private array $with = [
         'productoNoConforme.cliente:id,nombre',
-        'productoNoConforme.producto:id,name',
+        'productoNoConforme.items.producto:id,name',
         'analista:id,name',
         'estado:id,nombre',
         'responsableCierre:id,name',

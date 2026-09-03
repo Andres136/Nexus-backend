@@ -22,6 +22,7 @@ class Orden_Compra extends Model
         'user_id',
         'estado_id',
         'ubicacion_entrega',
+        'descripcion_embalaje',
         'observaciones',
         'valor_total',
         'sede_id', // Agregar el campo sede_id
@@ -30,6 +31,7 @@ class Orden_Compra extends Model
         'cliente_documento',
         'orden_compra_cliente',
         'documento_revisado_at',
+        'actualizado_por',
 
     ];
 
@@ -77,6 +79,11 @@ class Orden_Compra extends Model
 {
     return $this->hasOne(OrdenDeTrabajo::class , 'orden_compra_id');
 }
+
+    public function actualizadoPor()
+    {
+        return $this->belongsTo(User::class, 'actualizado_por');
+    }
     public function sede()
     {
         return $this->belongsTo(Sede::class, 'sede_id');

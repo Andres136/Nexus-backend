@@ -15,6 +15,7 @@ class Capacitacion extends Model
     protected $fillable = [
         'uuid',
         'user_id',
+        'tipo',
         'titulo',
         'descripcion',
         'fecha_realizacion',

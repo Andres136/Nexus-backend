@@ -2,12 +2,15 @@
 
 namespace App\Services\Crm;
 
+use App\EstadoEnum;
 use App\Models\Crm\bodega;
 use App\Models\Crm\categoria;
 use App\Models\Crm\Inventario;
 use App\Models\Crm\MovimientoStock;
+use App\Models\Crm\Orden_Compra;
 use App\Models\Crm\Orden_Compra_Detalle;
 use App\Models\Crm\OrdenDeTrabajo;
+use App\Models\Crm\PrestamoStockEmpresa;
 use App\Models\Crm\product;
 use App\Models\Crm\Sede;
 use App\Models\Traslados\Detalles_envio_internos;
@@ -42,10 +45,10 @@ public function listarInventarios(Request $request, $user)
 
 
         //=====================
-        // 🔹 RELACION CON CATEGORIA 
-        
+        // 🔹 RELACION CON CATEGORIA
 
-        
+
+
 
         // ======================
         if ($request->filled('filtro_estatico')) {
@@ -208,7 +211,7 @@ $estadisticasPorFiltro['por_empresa'] = Inventario::select('empresa_id')
         $sedesDisponibles = Sede::all(['id', 'nombre']);
         $bodegasDisponibles = bodega::all(['id', 'nombre']);
         $categoriasDisponibles = categoria::all(['id', 'nombre']);
-       
+
 
         // ===============================
         // 🔹 CATÁLOGOS DE FILTRO (CORREGIDO)
@@ -290,8 +293,8 @@ if (in_array($user->role_id, $rolesPermitidos)) {
 }
 
 /**
- * Registrar Traslado de inventario entre sedes 
- * 
+ * Registrar Traslado de inventario entre sedes
+ *
  */
 
 
@@ -377,13 +380,20 @@ public function registrarEnvioConDescuento($data, $user)
             'sede_destino_id' => $data['sede_destino_id'],
             'empresa_id'      => $data['empresa_id'] ?? null,
             'usuario_id'      => $user->id,
+            'responsable_id'  => $data['responsable_id'] ?? null,
             'estado_id'       => $data['estado_id'] ?? 1,
             'fecha_envio'     => now(),
             'notas'           => $data['notas'] ?? null,
         ]);
 
+        $empresaEnvioId = $envio->empresa_id;
+
         $detallesRegistrados = [];
         $movimientos = []; // registros por inventario consumido (para auditoría)
+        // Consumos que salieron del inventario de otra empresa distinta a la
+        // dueña del envío: se registran como préstamo una vez exista el
+        // MovimientoStock consolidado, más abajo.
+        $prestamosPendientes = [];
 
         // 🟢 2) Registrar detalles (una o varias bodegas por producto)
         foreach ($data['detalles'] as $detalle) {
@@ -449,15 +459,17 @@ if ($stockTotal < $cantidad) {
                         // este inventario cubre todo lo que falta
                         $inv->stock = $disponible - $restante;
                         $inv->save();
+                        $this->registrarPrestamoPendiente($prestamosPendientes, $inv, $empresaEnvioId, $restante);
 
-                        $consumos[] = ['inventario_id' => $inv->id, 'consumido' => $restante];
+                        $consumos[] = ['inventario_id' => $inv->id, 'empresa_id' => $inv->empresa_id, 'consumido' => $restante];
                         $restante = 0;
                     } else {
                         // agotar este inventario y seguir
                         $inv->stock = 0;
                         $inv->save();
+                        $this->registrarPrestamoPendiente($prestamosPendientes, $inv, $empresaEnvioId, $disponible);
 
-                        $consumos[] = ['inventario_id' => $inv->id, 'consumido' => $disponible];
+                        $consumos[] = ['inventario_id' => $inv->id, 'empresa_id' => $inv->empresa_id, 'consumido' => $disponible];
                         $restante -= $disponible;
                     }
                 }
@@ -482,6 +494,8 @@ if ($stockTotal < $cantidad) {
                         'producto_id'     => $productoId,
                         'cantidad'        => $c['consumido'],
                         'inventario_id'   => $c['inventario_id'],
+                        'empresa_id'      => $c['empresa_id'],
+                        'detalle_envio_id'=> $detalleEnvio->id,
                         'bodega_origen_id'=> $bodegaId,
                         'tipo'            => 'envio_interno',
                         'usuario_id'      => $user->id,
@@ -493,7 +507,7 @@ if ($stockTotal < $cantidad) {
      // 🟢 5) Generar PDF y guardar ruta
         $pdfPath = $this->generarPdfEnvio($envio, $detallesRegistrados);
         // 🟢 3) Registrar movimiento consolidado (resumen)
-        MovimientoStock::create([
+        $movimientoConsolidado = MovimientoStock::create([
             'tipo'            => 'traslado_multiple',
             'envio_interno_id'=> $envio->id,
             'usuario_id'      => $user->id,
@@ -509,6 +523,19 @@ if ($stockTotal < $cantidad) {
             'pdf_path'      => $pdfPath ?? null,
         ]);
 
+        foreach ($prestamosPendientes as $prestamo) {
+            PrestamoStockEmpresa::create([
+                'movimiento_stock_id'    => $movimientoConsolidado->id,
+                'orden_compra_id'        => null,
+                'producto_id'            => $prestamo['producto_id'],
+                'bodega_id'              => $prestamo['bodega_id'],
+                'inventario_id'          => $prestamo['inventario_id'],
+                'empresa_prestamista_id' => $prestamo['empresa_prestamista_id'],
+                'empresa_prestataria_id' => $empresaEnvioId,
+                'cantidad'               => $prestamo['cantidad'],
+            ]);
+        }
+
         // 🟢 4) Asociar órdenes (se eliminó el bloque duplicado)
         if (!empty($data['ordenes_compra'])) {
             foreach ($data['ordenes_compra'] as $ordenId) {
@@ -519,7 +546,7 @@ if ($stockTotal < $cantidad) {
             }
         }
 
-   
+
 
         DB::commit();
 
@@ -540,7 +567,7 @@ if ($stockTotal < $cantidad) {
     }
 }
 
-private function generarPdfEnvio($envio, $detalles) 
+private function generarPdfEnvio($envio, $detalles)
 {
     $pdf = Pdf::loadView('pdf.envio-interno', [
         'envio' => $envio,
@@ -560,6 +587,7 @@ public function regenerarPdfEnvio(Envio_internos $envio): string
     $envio->load([
         'empresa',
         'usuario',
+        'responsable',
         'sedeOrigen',
         'sedeDestino',
         'detalles.product',
@@ -569,6 +597,231 @@ public function regenerarPdfEnvio(Envio_internos $envio): string
     return $this->generarPdfEnvio($envio, $envio->detalles);
 }
 
+/**
+ * Suma cantidad al inventario de una bodega/empresa destino, creando el
+ * registro si todavía no existe.
+ */
+private function acreditarInventarioDestino(int $productoId, int $sedeId, int $bodegaId, ?int $empresaId, float $cantidad, $userId): Inventario
+{
+    $inventario = Inventario::where([
+        'producto_id' => $productoId,
+        'sede_id'     => $sedeId,
+        'bodega_id'   => $bodegaId,
+        'empresa_id'  => $empresaId,
+    ])->lockForUpdate()->first();
+
+    if (!$inventario) {
+        $inventario = Inventario::create([
+            'producto_id' => $productoId,
+            'sede_id'     => $sedeId,
+            'bodega_id'   => $bodegaId,
+            'empresa_id'  => $empresaId,
+            'user_id'     => $userId,
+            'stock'       => 0,
+            'min_stock'   => 0,
+            'max_stock'   => 0,
+        ]);
+    }
+
+    $inventario->increment('stock', $cantidad);
+
+    return $inventario;
+}
+
+/**
+ * Confirmar la recepción de un traslado interno: el responsable asignado
+ * indica en qué bodega de la sede destino quedó cada producto y esa
+ * cantidad se suma al inventario de esa bodega.
+ */
+public function confirmarRecepcionEnvio(int $envioId, array $detallesPayload, $user): array
+{
+    DB::beginTransaction();
+
+    try {
+        $envio = Envio_internos::lockForUpdate()->findOrFail($envioId);
+
+        $esResponsable = (int) $envio->responsable_id === (int) $user->id;
+        $esAdmin = in_array($user->role_id, [1, 2, 4]);
+
+        if (!$esResponsable && !$esAdmin) {
+            throw new \Exception('No tiene autorización para confirmar la recepción de este traslado.');
+        }
+
+        if ((int) $envio->estado_id === EstadoEnum::COMPLETADO->value) {
+            throw new \Exception('Este traslado ya fue recibido anteriormente.');
+        }
+
+        $detallesEnvio = Detalles_envio_internos::where('envio_interno_id', $envio->id)
+            ->get()
+            ->keyBy('id');
+
+        // Consumos reales de inventario que se hicieron en origen (registrados en
+        // registrarEnvioConDescuento), agrupados por detalle de envío. Se usan para
+        // acreditar en destino a la MISMA empresa de la que salió el stock, en vez
+        // de adivinarla de nuevo acá.
+        $movimientoOrigen = MovimientoStock::where('envio_interno_id', $envio->id)
+            ->where('tipo', 'traslado_multiple')
+            ->first();
+
+        $consumosPorDetalle = collect($movimientoOrigen->detalle['detalles'] ?? [])
+            ->groupBy('detalle_envio_id');
+
+        $resumenMovimiento = [];
+
+        foreach ($detallesPayload as $item) {
+            $detalleId = $item['detalle_id'] ?? null;
+            $detalle = $detallesEnvio->get($detalleId);
+
+            if (!$detalle) {
+                throw new \Exception("El detalle {$detalleId} no pertenece a este traslado.");
+            }
+
+            $bodegaDestinoId = (int) ($item['bodega_destino_id'] ?? 0);
+            $cantidadRecibida = (float) ($item['cantidad_recibida'] ?? 0);
+            $nombreProducto = $detalle->descripcion ?: "producto {$detalle->product_id}";
+
+            if ($bodegaDestinoId <= 0) {
+                throw new \Exception("Debe indicar la bodega destino para {$nombreProducto}.");
+            }
+            if ($cantidadRecibida <= 0) {
+                throw new \Exception("La cantidad recibida debe ser mayor que 0 para {$nombreProducto}.");
+            }
+
+            $bodegaDestino = bodega::find($bodegaDestinoId);
+            if (!$bodegaDestino || (int) $bodegaDestino->sede_id !== (int) $envio->sede_destino_id) {
+                throw new \Exception("La bodega seleccionada no pertenece a la sede destino del traslado.");
+            }
+
+            // Reparte lo recibido entre las mismas empresas de las que salió el
+            // stock en origen (puede haber más de una si esa bodega tenía
+            // inventario mezclado). Si no hay consumos originales registrados
+            // (envíos antiguos) o sobra cantidad recibida frente a lo que
+            // consta como descontado, el excedente se acredita a la empresa
+            // del envío, igual que antes.
+            $consumosDetalle = $consumosPorDetalle->get($detalle->id, collect());
+            $restanteRecibido = $cantidadRecibida;
+
+            foreach ($consumosDetalle as $consumo) {
+                if ($restanteRecibido <= 0) {
+                    break;
+                }
+
+                $cantidadEmpresa = min((float) $consumo['cantidad'], $restanteRecibido);
+                if ($cantidadEmpresa <= 0) {
+                    continue;
+                }
+
+                $inventarioDestino = $this->acreditarInventarioDestino(
+                    $detalle->product_id,
+                    $envio->sede_destino_id,
+                    $bodegaDestinoId,
+                    $consumo['empresa_id'] ?? $envio->empresa_id,
+                    $cantidadEmpresa,
+                    $user->id
+                );
+
+                $resumenMovimiento[] = [
+                    'detalle_id'        => $detalle->id,
+                    'producto_id'       => $detalle->product_id,
+                    'bodega_destino_id' => $bodegaDestinoId,
+                    'cantidad_recibida' => $cantidadEmpresa,
+                    'inventario_id'     => $inventarioDestino->id,
+                ];
+
+                $restanteRecibido -= $cantidadEmpresa;
+            }
+
+            if ($restanteRecibido > 0) {
+                $inventarioDestino = $this->acreditarInventarioDestino(
+                    $detalle->product_id,
+                    $envio->sede_destino_id,
+                    $bodegaDestinoId,
+                    $envio->empresa_id,
+                    $restanteRecibido,
+                    $user->id
+                );
+
+                $resumenMovimiento[] = [
+                    'detalle_id'        => $detalle->id,
+                    'producto_id'       => $detalle->product_id,
+                    'bodega_destino_id' => $bodegaDestinoId,
+                    'cantidad_recibida' => $restanteRecibido,
+                    'inventario_id'     => $inventarioDestino->id,
+                ];
+            }
+
+            $detalle->update([
+                'bodega_destino_id' => $bodegaDestinoId,
+                'cantidad_recibida' => $cantidadRecibida,
+            ]);
+        }
+
+        MovimientoStock::create([
+            'tipo'             => 'recepcion_traslado',
+            'envio_interno_id' => $envio->id,
+            'usuario_id'       => $user->id,
+            'sede_origen_id'   => $envio->sede_origen_id,
+            'sede_destino_id'  => $envio->sede_destino_id,
+            'cantidad'         => collect($resumenMovimiento)->sum('cantidad_recibida'),
+            'detalle'          => [
+                'envio_id' => $envio->id,
+                'detalles' => $resumenMovimiento,
+                'fecha'    => now()->toDateTimeString(),
+                'observacion' => "Recepción confirmada del traslado #{$envio->id}",
+            ],
+        ]);
+
+        $envio->update([
+            'estado_id'       => EstadoEnum::COMPLETADO->value,
+            'fecha_recepcion' => now(),
+        ]);
+
+        DB::commit();
+
+        return [
+            'success' => true,
+            'message' => 'Recepción confirmada, el stock ya está disponible en la sede destino.',
+            'envio'   => $envio->fresh([
+                'sedeOrigen',
+                'sedeDestino',
+                'empresa',
+                'usuario',
+                'responsable',
+                'detalles.product',
+                'detalles.bodegaOrigen',
+                'detalles.bodegaDestino',
+            ]),
+        ];
+    } catch (\Throwable $e) {
+        DB::rollBack();
+
+        return [
+            'success' => false,
+            'message' => $e->getMessage(),
+        ];
+    }
+}
+
+
+/**
+ * Si el inventario descontado pertenece a una empresa distinta a la dueña
+ * de la orden, deja anotado el préstamo para registrarlo una vez exista
+ * el MovimientoStock al que va a quedar asociado.
+ */
+private function registrarPrestamoPendiente(array &$prestamosPendientes, Inventario $inv, ?int $empresaOrdenId, float $cantidad): void
+{
+    if (!$empresaOrdenId || (int) $inv->empresa_id === (int) $empresaOrdenId) {
+        return;
+    }
+
+    $prestamosPendientes[] = [
+        'producto_id'            => $inv->producto_id,
+        'bodega_id'              => $inv->bodega_id,
+        'inventario_id'          => $inv->id,
+        'empresa_prestamista_id' => $inv->empresa_id,
+        'cantidad'               => $cantidad,
+    ];
+}
 
 public function descontarStockMasivo(array $items, $user)
 {
@@ -585,11 +838,20 @@ public function descontarStockMasivo(array $items, $user)
             $ordenTrabajoId  = $item['orden_trabajo_id'] ?? null;
             $ordenCompraId   = $item['orden_compra_id'] ?? null;
             $detalleId = $item['detalle_id'] ?? null;
-            $sedeId          = $user->sede_id;
+
+            // El stock a descontar es el de la sede de la orden, no el de la sede
+            // del usuario que cierra la orden (pueden ser distintas).
+            $ordenCompra = $ordenCompraId ? Orden_Compra::find($ordenCompraId) : null;
+            $sedeId = $ordenCompra?->sede_id ?? $user->sede_id;
+            $empresaOrdenId = $ordenCompra?->empresa_id;
 
             $cantidadCubierta = 0;
             $detalleOriginal  = [];
             $equivalentesResp = [];
+            // Decrementos que salieron del inventario de otra empresa distinta a
+            // la dueña de la orden: quedan pendientes de registrar como préstamo
+            // una vez se resuelva el movimiento de stock más abajo.
+            $prestamosPendientes = [];
             $errores          = [];
 
             // 1. Descontar bodegas del producto original
@@ -619,7 +881,7 @@ public function descontarStockMasivo(array $items, $user)
                         'producto_id' => $productoId,
                         'bodega_id'   => $bodegaId,
                         'mensaje'     => "Stock insuficiente: Disponible {$stockTotal}, Requerido {$cantDescontar}",
-                    
+
                     ];
                     continue;
                 }
@@ -632,6 +894,7 @@ public function descontarStockMasivo(array $items, $user)
 
                     if ($disponible >= $restante) {
                         $inv->decrement('stock', $restante);
+                        $this->registrarPrestamoPendiente($prestamosPendientes, $inv, $empresaOrdenId, $restante);
                         $detalleOriginal[] = [
                             'detalle_id'         => $detalleId,
                             'producto_id'        => $productoId,
@@ -644,6 +907,7 @@ public function descontarStockMasivo(array $items, $user)
                         $restante = 0;
                     } else {
                         $inv->decrement('stock', $disponible);
+                        $this->registrarPrestamoPendiente($prestamosPendientes, $inv, $empresaOrdenId, $disponible);
                         $detalleOriginal[] = [
                             'detalle_id'         => $detalleId,
                             'producto_id'        => $productoId,
@@ -658,7 +922,7 @@ public function descontarStockMasivo(array $items, $user)
                 }
             }
 
-     
+
             if (!empty($equivalentes)) {
                 foreach ($equivalentes as $equivalente) {
                     $eqId   = (int) $equivalente['id'];
@@ -710,6 +974,7 @@ public function descontarStockMasivo(array $items, $user)
 
                             if ($disponible >= $restante) {
                                 $invEq->decrement('stock', $restante);
+                                $this->registrarPrestamoPendiente($prestamosPendientes, $invEq, $empresaOrdenId, $restante);
                                 $eqResp['bodegas'][] = [
                                     'bodega_id'          => $bodegaId,
                                     'inventario_id'      => $invEq->id,
@@ -720,6 +985,7 @@ public function descontarStockMasivo(array $items, $user)
                                 $restante = 0;
                             } else {
                                 $invEq->decrement('stock', $disponible);
+                                $this->registrarPrestamoPendiente($prestamosPendientes, $invEq, $empresaOrdenId, $disponible);
                                 $eqResp['bodegas'][] = [
                                     'bodega_id'          => $bodegaId,
                                     'inventario_id'      => $invEq->id,
@@ -753,8 +1019,8 @@ if (!$movimiento) {
             'equivalentes' => [],
             'errores'      => [],
         ],
-        'sede_origen_id'   => $user->sede_id ?? null,
-        'sede_destino_id'  => $user->sede_id ?? null,
+        'sede_origen_id'   => $sedeId ?? null,
+        'sede_destino_id'  => $sedeId ?? null,
         'envio_interno_id' => null,
         'razon'            => 'Descuento masivo',
     ]);
@@ -783,6 +1049,19 @@ if ($detalleId && $cantidadCubierta > 0) {
         ->increment('cantidad_ejecutada_kg', $cantidadCubierta);
 }
 
+foreach ($prestamosPendientes as $prestamo) {
+    PrestamoStockEmpresa::create([
+        'movimiento_stock_id'    => $movimiento->id,
+        'orden_compra_id'        => $ordenCompraId,
+        'producto_id'            => $prestamo['producto_id'],
+        'bodega_id'              => $prestamo['bodega_id'],
+        'inventario_id'          => $prestamo['inventario_id'],
+        'empresa_prestamista_id' => $prestamo['empresa_prestamista_id'],
+        'empresa_prestataria_id' => $empresaOrdenId,
+        'cantidad'               => $prestamo['cantidad'],
+    ]);
+}
+
             $resultados[] = [
                 'producto_id'        => $productoId,
                 'cantidad_requerida' => $cantidadTotal,
@@ -791,12 +1070,13 @@ if ($detalleId && $cantidadCubierta > 0) {
                 'errores'            => $errores,
                 'faltante'           => $faltante,
                 'orden_trabajo_id'   => $ordenTrabajoId,
+                'prestamos_entre_empresas' => $prestamosPendientes,
                 'movimiento_global'  => [
                     'id'   => $movimiento->id,
                     'pdf'  => isset($movimiento->pdf_path) ? asset("storage/{$movimiento->pdf_path}") : null,
                 ],
                 'success'            => $faltante === 0,
-                'message'            => $faltante === 0 
+                'message'            => $faltante === 0
                     ? "Stock descontado exitosamente"
                     : "Faltan {$faltante} unidades por cubrir",
             ];
@@ -1009,7 +1289,12 @@ else {
 
 // En InventarioService.php - método listarMovimientos
 
-public function listarMovimientos(Request $request, $user)
+/**
+ * Filtros compartidos entre listarMovimientos() y exportarMovimientos(), para
+ * que la exportación siempre traiga exactamente lo que el usuario ve filtrado
+ * en pantalla.
+ */
+private function construirQueryMovimientos(Request $request, $user)
 {
     $rolesPermitidos = [1, 4];
     $isAdmin = in_array($user->role_id, $rolesPermitidos);
@@ -1017,6 +1302,10 @@ public function listarMovimientos(Request $request, $user)
     $query = MovimientoStock::with([
         'producto:id,name,code',
         'usuario:id,name',
+        'ordenTrabajo:id',
+        'ordenCompra:id,orden_compra_cliente',
+        'prestamos.empresaPrestamista:id,nombre',
+        'prestamos.empresaPrestataria:id,nombre',
     ]);
 
     // ======================
@@ -1085,6 +1374,13 @@ public function listarMovimientos(Request $request, $user)
     }
 
     // ======================
+    // 🔹 Solo movimientos con préstamo entre empresas
+    // ======================
+    if ($request->boolean('solo_prestamos')) {
+        $query->whereHas('prestamos');
+    }
+
+    // ======================
     // 🔹 Estado (anulado / activo)
     // ======================
     if ($request->filled('estado')) {
@@ -1106,10 +1402,12 @@ public function listarMovimientos(Request $request, $user)
         });
     }
 
-    // ======================
-    // 🔹 Orden y paginado
-    // ======================
-    $query->orderBy('created_at', 'DESC');
+    return $query->orderBy('created_at', 'DESC');
+}
+
+public function listarMovimientos(Request $request, $user)
+{
+    $query = $this->construirQueryMovimientos($request, $user);
 
     $movimientos = $query->paginate($request->get('per_page', 20));
 
@@ -1138,6 +1436,167 @@ public function listarMovimientos(Request $request, $user)
             'next_page_url' => $movimientos->nextPageUrl(),
         ]
     ];
+}
+
+/**
+ * Mismos filtros que listarMovimientos(), sin paginar, para exportar a Excel.
+ */
+public function exportarMovimientos(Request $request, $user)
+{
+    return $this->construirQueryMovimientos($request, $user)->get();
+}
+
+/**
+ * Listado paginado de préstamos de stock entre empresas, agrupado por
+ * movimiento (un movimiento de descuento/traslado puede haber tomado stock
+ * prestado de varios items/bodegas a la vez). El detalle item por item queda
+ * para el PDF de cada movimiento, no para esta tabla.
+ */
+public function listarPrestamosEntreEmpresas(Request $request)
+{
+    $filtro = $this->filtrosPrestamosEntreEmpresas($request);
+
+    $grupos = (clone $filtro)
+        ->select('movimiento_stock_id')
+        ->selectRaw('MAX(created_at) as fecha')
+        ->selectRaw('COUNT(*) as total_items')
+        ->selectRaw('SUM(cantidad) as total_cantidad')
+        ->groupBy('movimiento_stock_id')
+        ->orderByDesc('fecha')
+        ->paginate($request->get('per_page', 20));
+
+    $movimientoIds = collect($grupos->items())->pluck('movimiento_stock_id');
+
+    $movimientos = MovimientoStock::whereIn('id', $movimientoIds)
+        ->with(['usuario:id,name', 'ordenCompra:id,orden_compra_cliente'])
+        ->get()
+        ->keyBy('id');
+
+    $empresasPorMovimiento = PrestamoStockEmpresa::with([
+        'empresaPrestamista:id,nombre',
+        'empresaPrestataria:id,nombre',
+    ])
+        ->whereIn('movimiento_stock_id', $movimientoIds)
+        ->get()
+        ->groupBy('movimiento_stock_id');
+
+    $data = collect($grupos->items())->map(function ($g) use ($movimientos, $empresasPorMovimiento) {
+        $mov = $movimientos->get($g->movimiento_stock_id);
+
+        $empresas = $empresasPorMovimiento->get($g->movimiento_stock_id, collect())
+            ->map(fn ($p) => [
+                'empresa_prestamista' => $p->empresaPrestamista?->nombre,
+                'empresa_prestataria' => $p->empresaPrestataria?->nombre,
+            ])
+            ->unique()
+            ->values();
+
+        return [
+            'movimiento_stock_id' => $g->movimiento_stock_id,
+            'tipo' => $mov?->tipo,
+            'usuario' => $mov?->usuario,
+            'orden_trabajo_id' => $mov?->orden_trabajo_id,
+            'orden_compra' => $mov?->ordenCompra,
+            'orden_compra_id' => $mov?->orden_compra_id,
+            'total_items' => $g->total_items,
+            'total_cantidad' => $g->total_cantidad,
+            'empresas' => $empresas,
+            'fecha' => $g->fecha,
+        ];
+    });
+
+    return [
+        'success' => true,
+        'data' => $data,
+        'meta' => [
+            'current_page' => $grupos->currentPage(),
+            'last_page' => $grupos->lastPage(),
+            'per_page' => $grupos->perPage(),
+            'total' => $grupos->total(),
+        ],
+    ];
+}
+
+/**
+ * Mismos filtros que listarPrestamosEntreEmpresas(), sin agrupar ni paginar,
+ * para exportar a Excel (ahí sí interesa el detalle item por item).
+ */
+public function exportarPrestamosEntreEmpresas(Request $request)
+{
+    return $this->filtrosPrestamosEntreEmpresas($request)
+        ->with([
+            'producto:id,name,code',
+            'bodega:id,nombre',
+            'empresaPrestamista:id,nombre',
+            'empresaPrestataria:id,nombre',
+            'ordenCompra:id,orden_compra_cliente',
+            'movimientoStock:id,tipo,orden_trabajo_id,created_at',
+        ])
+        ->orderBy('created_at', 'DESC')
+        ->get();
+}
+
+/**
+ * Genera (sin guardar en disco) el PDF con todos los items de préstamo entre
+ * empresas que ocurrieron dentro de un mismo movimiento de stock.
+ */
+public function generarPdfPrestamosPorMovimiento(int $movimientoStockId)
+{
+    $movimiento = MovimientoStock::with(['usuario:id,name', 'ordenTrabajo:id', 'ordenCompra:id,orden_compra_cliente'])
+        ->findOrFail($movimientoStockId);
+
+    $items = PrestamoStockEmpresa::with([
+        'producto:id,name,code',
+        'bodega:id,nombre',
+        'empresaPrestamista:id,nombre',
+        'empresaPrestataria:id,nombre',
+    ])
+        ->where('movimiento_stock_id', $movimientoStockId)
+        ->get();
+
+    if ($items->isEmpty()) {
+        throw new \Exception('Este movimiento no tiene préstamos entre empresas registrados.');
+    }
+
+    return Pdf::loadView('pdf.prestamo_stock_empresa', [
+        'movimiento' => $movimiento,
+        'items' => $items,
+    ]);
+}
+
+private function filtrosPrestamosEntreEmpresas(Request $request)
+{
+    $query = PrestamoStockEmpresa::query();
+
+    if ($request->filled('empresa_prestamista_id')) {
+        $query->where('empresa_prestamista_id', $request->empresa_prestamista_id);
+    }
+
+    if ($request->filled('empresa_prestataria_id')) {
+        $query->where('empresa_prestataria_id', $request->empresa_prestataria_id);
+    }
+
+    if ($request->filled('producto_id')) {
+        $query->where('producto_id', $request->producto_id);
+    }
+
+    if ($request->filled('orden_compra_id')) {
+        $query->where('orden_compra_id', $request->orden_compra_id);
+    }
+
+    if ($request->filled('desde')) {
+        $query->whereDate('created_at', '>=', $request->desde);
+    }
+
+    if ($request->filled('hasta')) {
+        $query->whereDate('created_at', '<=', $request->hasta);
+    }
+
+    if ($request->filled('compensado')) {
+        $query->where('compensado', $request->boolean('compensado'));
+    }
+
+    return $query;
 }
 
 }

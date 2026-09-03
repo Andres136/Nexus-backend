@@ -60,7 +60,10 @@ public function getPrioridadesActivas($filters = [])
                 // origen.sede_id — ese campo se puebla a veces con la sede de
                 // la OC proveedor según el flujo (anexar vs priorizar
                 // existente) y no siempre coincide con lo que se ve en pantalla.
-                ->when(!empty($filters['sede_id']), fn($sede) => $sede->where('sede_id', $filters['sede_id']));
+                ->when(!empty($filters['sede_id']), fn($sede) => $sede->where('sede_id', $filters['sede_id']))
+                // Filtro por semana: rango sobre la fecha de entrega de la OC del cliente.
+                ->when(!empty($filters['fecha_inicio']), fn($f) => $f->whereDate('fecha_entrega', '>=', $filters['fecha_inicio']))
+                ->when(!empty($filters['fecha_fin']), fn($f) => $f->whereDate('fecha_entrega', '<=', $filters['fecha_fin']));
         })
         ->where('cantidad_prioridad', '>', 0)
         ->when(!empty($filters['proveedor_id']), function ($q) use ($filters) {
@@ -88,7 +91,13 @@ public function getPrioridadesActivas($filters = [])
         'ordenCompra.cliente',
         'ordenCompra.sede',
         'producto',
-    ])->paginate($perPage, ['*'], 'page', $page);
+    ])
+        // Primero las prioridades cuya OC tiene la fecha de entrega más próxima.
+        ->orderBy(
+            Orden_Compra::select('fecha_entrega')
+                ->whereColumn('id', 'orden_compra_proveedor_detalle_origenes.orden_compra_id')
+        )
+        ->paginate($perPage, ['*'], 'page', $page);
 
     $origenes = collect($paginador->items());
 
@@ -152,6 +161,7 @@ $sedeId = $filters['sede_id'] ?? null;
 $ordenes = Orden_Compra::with([
         'cliente',
         'detalles.product',
+        'detalles.observacionCalidadUsuario:id,name',
         'sede'
     ])
     ->whereIn('estado_id', [
@@ -255,7 +265,11 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
         ->filter(fn($items) => $items->isNotEmpty());
 
     // Flujo de Trabajo (OT)
-    $ordenesTrabajo = DB::table('orden_de_trabajos')->whereIn('orden_compra_id', $ordenIds)->get()->keyBy('orden_compra_id');
+    $ordenesTrabajo = DB::table('orden_de_trabajos')
+        ->leftJoin('users', 'orden_de_trabajos.revisada_por', '=', 'users.id')
+        ->whereIn('orden_compra_id', $ordenIds)
+        ->select('orden_de_trabajos.*', 'users.name as revisada_por_nombre')
+        ->get()->keyBy('orden_compra_id');
 
     // Despachos
     $despachos = DB::table('delivery_events')
@@ -347,7 +361,7 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
 
         // --- LÓGICA DE INVENTARIO Y PRODUCTOS ---
         $stockDisponible = 0;
-        $productosData = $detalles->map(function ($d) use (
+        $productosData = $detalles->values()->map(function ($d, $idx) use (
             $oc,
             $origenesCompra,
             $proveedorDetallesFallback,
@@ -420,6 +434,7 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
 
             return [
                 'detalle_id' => $d->id,
+                'numero_item' => $idx + 1,
                 'producto_id' => $d->product_id,
                 'codigo' => $d->product?->code,
                 'producto' => optional($d->product)->name,
@@ -430,7 +445,9 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
                 'stock' => $stock,
                 'estado' => $estadoItem,
                 'tiene_equivalente' => $tieneEquivalente,
-                'observaciones' => $d->observaciones,
+                'observaciones' => $d->observaciones_calidad,
+                'observaciones_usuario' => optional($d->observacionCalidadUsuario)->name,
+                'observaciones_at' => $d->observaciones_calidad_at,
                 'compra_proveedor' => [
                     'trazabilidad' => $usaTrazabilidadExactaProducto ? 'exacta' : 'estimada',
                     'total_solicitado' => $compraSolicitada,
@@ -489,6 +506,7 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
             'orden_trabajo_id'   => $ot->id ?? null,
             'revisada' => $ot ? ($ot->revisada ==1 ? true : false) : null,
             'revisada_at' => $ot->revisada_at ?? null,
+            'revisada_por_nombre' => $ot->revisada_por_nombre ?? null,
             'numero'          => $oc->numero,
             'fecha_entrega'     => $oc->fecha_entrega,
             'cliente'         => optional($oc->cliente)->nombre,

@@ -19,6 +19,7 @@ class RequerimientoCompra extends Model
     public const ESTADO_APROBADO = 'aprobado';
     public const ESTADO_RECHAZADO = 'rechazado';
     public const ESTADO_OC_GENERADA = 'oc_generada';
+    public const ESTADO_OC_PARCIAL = 'oc_parcial';
     public const ESTADO_CANCELADO = 'cancelado';
 
     protected $table = 'requerimientos_compra';

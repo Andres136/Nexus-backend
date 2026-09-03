@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Departamentos extends Model
 {
+
     protected $fillable =
      ['nombre', 'descripcion', 'macroprocesos_id', 'icono', 'responsable_id'];
 

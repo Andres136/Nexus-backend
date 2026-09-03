@@ -27,7 +27,14 @@ class Orden_Compra_Detalle extends Model
         'observaciones',
         'tipo_embalaje',
         'codigo_embalaje',
-        'cantidad_ejecutada_kg'
+        'cantidad_ejecutada_kg',
+        'observaciones_calidad',
+        'observaciones_calidad_usuario_id',
+        'observaciones_calidad_at',
+    ];
+
+    protected $casts = [
+        'observaciones_calidad_at' => 'datetime',
     ];
 
 
@@ -56,6 +63,12 @@ public function product()
 public function comprasProveedorOrigenes()
 {
     return $this->hasMany(OrdenCompraProveedorDetalleOrigen::class, 'orden_compra_detalle_id');
+}
+
+// Usuario de calidad que dejó la última observación de este ítem
+public function observacionCalidadUsuario()
+{
+    return $this->belongsTo(\App\Models\User::class, 'observaciones_calidad_usuario_id');
 }
 
 

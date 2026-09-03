@@ -17,15 +17,26 @@ class FacturaCompraResource extends JsonResource
         return [
             'id' => $this->id,
             'numero' => $this->numero_factura,
+            'numero_factura_proveedor' => $this->numero_factura_proveedor,
             'proveedor' => $this->proveedor->nombre ?? null,
+            'empresa' => $this->empresa->nombre ?? null,
+            'fecha_emision' => $this->fecha_emision,
+            'fecha_vencimiento' => $this->fecha_vencimiento,
+            'subtotal' => $this->subtotal,
+            'total_impuestos' => $this->total_impuestos,
+            'total_gastos' => $this->total_gastos,
             'total' => $this->total,
+            'saldo_pendiente' => $this->saldo_pendiente,
+            'observaciones' => $this->observaciones,
             'estado' => $this->estado->nombre ?? null,
 
             'detalles' => $this->detalles->map(function ($d) {
                 return [
                     'producto_id' => $d->producto_id,
+                    'producto' => $d->producto->name ?? null,
                     'cantidad' => $d->cantidad,
-                    'precio' => $d->precio_unitario
+                    'precio' => $d->precio_unitario,
+                    'total' => $d->total,
                 ];
             }),
 

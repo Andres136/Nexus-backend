@@ -15,14 +15,17 @@ class Envio_internos extends Model
         'sede_origen_id',
         'sede_destino_id',
         'usuario_id',
+        'responsable_id',
         'estado_id',
         'fecha_envio',
+        'fecha_recepcion',
         'notas',
         'empresa_id'
     ];
 
     protected $casts = [
         'fecha_envio' => 'date',
+        'fecha_recepcion' => 'datetime',
     ];
 
     // Relaciones
@@ -45,6 +48,11 @@ class Envio_internos extends Model
     public function usuario()
     {
         return $this->belongsTo(User::class, 'usuario_id');
+    }
+    //Relacion con el responsable que recibe el traslado
+    public function responsable()
+    {
+        return $this->belongsTo(User::class, 'responsable_id');
     }
     //relacion  con empresa
     public function empresa()

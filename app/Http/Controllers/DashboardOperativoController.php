@@ -20,7 +20,7 @@ class DashboardOperativoController extends Controller
     }
     public function getPrioridades(Request $request)
     {
-        $filters = $request->only(['sede_id', 'proveedor_id', 'solo_pendientes', 'search', 'page', 'per_page']);
+        $filters = $request->only(['sede_id', 'proveedor_id', 'solo_pendientes', 'search', 'fecha_inicio', 'fecha_fin', 'page', 'per_page']);
         $data = $this->service->getPrioridadesActivas($filters);
         return response()->json($data);
     }
@@ -60,6 +60,27 @@ $filters = $request->all();
         return response()->json(['message' => 'Prioridad actualizada correctamente']);
     }
 
+    /**
+     * DELETE /vsm/origenes/{id} — elimina el vínculo de trazabilidad de
+     * compra (Trazabilidad de Prioridades). Bloqueado si ya tiene kg
+     * recibidos aplicados: borrarlo dejaría esa cantidad recibida sin
+     * origen de compra registrado en el resto del sistema (VSM, dashboard).
+     */
+    public function destroyOrigen($id)
+    {
+        $origen = OrdenCompraProveedorDetalleOrigen::findOrFail($id);
+
+        if ($origen->cantidad_recibida_aplicada > 0) {
+            return response()->json([
+                'message' => 'No se puede eliminar: ya tiene cantidad recibida aplicada.',
+            ], 422);
+        }
+
+        $origen->delete();
+
+        return response()->json(['message' => 'Registro eliminado correctamente']);
+    }
+
     public function update(Request $request, string $id)
     {
         //
@@ -71,6 +92,12 @@ $filters = $request->all();
      */
     public function exportarPdf(Request $request)
     {
+        // Con muchas órdenes/detalles, dompdf agota el memory_limit (128M)
+        // o el max_execution_time (30s) por defecto y la petición muere con
+        // 500 antes de generar el PDF. Se amplían solo para esta acción.
+        ini_set('memory_limit', '512M');
+        set_time_limit(120);
+
         $filters = $request->all();
         $ordenes = $this->service->obtenerOrdenesCompraVSM($filters);
 
@@ -88,11 +115,17 @@ $filters = $request->all();
         $request->validate(['observaciones' => 'nullable|string|max:2000']);
 
         $detalle = Orden_Compra_Detalle::findOrFail($id);
-        $detalle->update(['observaciones' => $request->observaciones]);
+        $detalle->update([
+            'observaciones_calidad' => $request->observaciones,
+            'observaciones_calidad_usuario_id' => $request->user()->id,
+            'observaciones_calidad_at' => now(),
+        ]);
 
         return response()->json([
             'message' => 'Observación guardada correctamente',
-            'observaciones' => $detalle->observaciones,
+            'observaciones' => $detalle->observaciones_calidad,
+            'observaciones_usuario' => $request->user()->name,
+            'observaciones_at' => $detalle->observaciones_calidad_at,
         ]);
     }
 

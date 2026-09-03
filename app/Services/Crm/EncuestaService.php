@@ -2,6 +2,7 @@
 
 namespace App\Services\Crm;
 
+use App\EstadoEnum;
 use App\Mail\EncuestaEnviadaMail;
 use App\Models\Crm\Cliente;
 use App\Models\Crm\Encuesta;
@@ -142,13 +143,17 @@ class EncuestaService
     {
         $puedeVerTodosLosClientes = in_array($user->role_id, $this->rolesClientesGlobales, true);
 
-        $clienteIds = Cliente::query()
+        // Clientes elegibles: los del usuario (o todos, según rol) que NO estén desactivados
+        // (estado Inactivo). Los de estado nulo se mantienen.
+        $base = fn () => Cliente::query()
             ->when(!$puedeVerTodosLosClientes, fn ($q) => $q->where('user_id', $user->id))
-            ->whereHas('ordenes')
-            ->pluck('id');
+            ->where(fn ($q) => $q
+                ->where('estado_id', '!=', EstadoEnum::INACTIVO->value)
+                ->orWhereNull('estado_id'));
 
-        return Cliente::query()
-            ->when(!$puedeVerTodosLosClientes, fn ($q) => $q->where('user_id', $user->id))
+        $clienteIds = $base()->whereHas('ordenes')->pluck('id');
+
+        return $base()
             ->orderBy('nombre')
             ->get(['id', 'nombre', 'email'])
             ->map(function ($c) use ($clienteIds) {
@@ -172,6 +177,13 @@ class EncuestaService
                     'razon'      => $razon,
                 ];
             })
+            // Un mismo cliente suele estar registrado varias veces con el mismo correo; para el
+            // envío es la misma persona, así que se deja una sola fila por correo (la habilitada
+            // si existe). Los clientes sin correo no se pueden deduplicar y quedan tal cual.
+            ->sortByDesc('habilitado')
+            ->unique(fn ($c) => $c['email'] ? mb_strtolower(trim($c['email'])) : 'sin-correo-'.$c['id'])
+            ->sortBy('nombre', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values()
             ->toArray();
     }
 
@@ -198,11 +210,13 @@ class EncuestaService
         $excluidos = [];
 
         foreach ($todosClientes as $cliente) {
-            $tieneOrdenes = $idsConOrdenes->has($cliente->id);
-            $tieneEmail   = !empty($cliente->email);
+            $tieneOrdenes  = $idsConOrdenes->has($cliente->id);
+            $tieneEmail    = !empty($cliente->email);
+            $estaInactivo  = (int) $cliente->estado_id === EstadoEnum::INACTIVO->value;
 
-            if (!$tieneOrdenes || !$tieneEmail) {
+            if ($estaInactivo || !$tieneOrdenes || !$tieneEmail) {
                 $razon = match (true) {
+                    $estaInactivo                  => 'Cliente desactivado',
                     !$tieneOrdenes && !$tieneEmail => 'Sin órdenes de compra ni correo electrónico',
                     !$tieneOrdenes                 => 'Sin órdenes de compra',
                     default                        => 'Sin correo electrónico',
@@ -401,6 +415,7 @@ class EncuestaService
                 'nombre'        => $e->cliente?->nombre,
                 'email'         => $e->cliente?->email,
                 'estado'        => $e->estado,
+                'token'         => $e->token,
                 'enviado_el'    => $e->sent_at?->format('Y-m-d H:i'),
                 'respondido_el' => $e->responded_at?->format('Y-m-d H:i'),
             ];

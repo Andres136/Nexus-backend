@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Storage;
 
 class RegistroIndicador extends Model
 {
+
     protected $table = 'registro_indicadores';
 
 protected $appends = ['documento_url'];
@@ -16,7 +17,12 @@ protected $appends = ['documento_url'];
          'valor',
          'observaciones',
          'documento',
-         'user_id'
+         'user_id',
+         // --- Balanced Scorecard ---
+         'origen',       // 'manual' | 'automatico'
+         'periodo',      // 'YYYY-MM'
+         'numerador',
+         'denominador',
     ];
     
      //funcion para relacionar registros con indicadores

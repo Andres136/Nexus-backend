@@ -14,6 +14,7 @@ class CapacitacionRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'tipo' => 'required|string|in:capacitacion,reunion',
             'titulo' => 'required|string|max:255',
             'descripcion' => 'nullable|string|max:5000',
             'fecha_realizacion' => 'required|date|after_or_equal:today',
@@ -28,6 +29,8 @@ class CapacitacionRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'tipo.required' => 'Debe indicar si el registro es una capacitación o una reunión.',
+            'tipo.in' => 'El tipo debe ser capacitación o reunión.',
             'titulo.required' => 'El título de la capacitación es obligatorio.',
             'fecha_realizacion.required' => 'La fecha de realización es obligatoria.',
             'fecha_realizacion.after_or_equal' => 'No se puede programar una capacitación en una fecha que ya pasó.',

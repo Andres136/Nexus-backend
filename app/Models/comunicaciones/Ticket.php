@@ -17,6 +17,7 @@ class Ticket extends Model
         'user_asignado_id',
         'producto_id',
         'departamento_id',
+        'tipo',
         'descripcion',
         'estado',
         'archivo',

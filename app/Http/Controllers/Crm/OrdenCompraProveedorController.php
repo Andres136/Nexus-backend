@@ -180,6 +180,11 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
                 'fecha_entrega' => $request->fecha_entrega,
             ]);
 
+            // Un item puede traer su propio requerimiento_compra_uuid (cola local, items
+            // agregados desde distintos requerimientos) o heredar el de cabecera (flujo
+            // viejo de un solo requerimiento). Agrupamos por uuid para vincular cada
+            // requerimiento involucrado, no solo el primero.
+            $mapaPorRequerimiento = [];
             foreach ($request->detalles as $i => $detalle) {
              $nuevoDetalle=   $ordenCompra->detalles()->create([
                     'item' => $i + 1,
@@ -191,6 +196,14 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
                     'code' => $detalle['code'] ?? null, // Nuevo campo código
                     'producto_id' => $detalle['producto_id'] ?? null, // Nuevo campo producto_id
                 ]);
+
+                if (!empty($detalle['requerimiento_compra_detalle_id'])) {
+                    $uuidEfectivo = $detalle['requerimiento_compra_uuid'] ?? $request->requerimiento_compra_uuid;
+                    if ($uuidEfectivo) {
+                        $mapaPorRequerimiento[$uuidEfectivo][$detalle['requerimiento_compra_detalle_id']] = $nuevoDetalle->id;
+                    }
+                }
+
                 $this->crearOrigenesDetalleProveedor(
                     $nuevoDetalle,
                     $detalle['origenes'] ?? [],
@@ -213,20 +226,21 @@ if ($request->filled('fecha_inicio') || $request->filled('fecha_fin')) {
 
             DB::commit();
 
-            // Si esta OC se creó desde el formulario prellenado de un requerimiento de compra
-            // aprobado, vinculamos el requerimiento (estado -> oc_generada) sin afectar la OC
-            // ya creada si algo falla aquí.
-            if ($request->filled('requerimiento_compra_uuid')) {
+            // Si algún item viene de un requerimiento de compra aprobado (por cabecera o
+            // por item), vinculamos cada requerimiento involucrado con SUS items en esta OC,
+            // sin afectar la OC ya creada si algo falla aquí.
+            foreach ($mapaPorRequerimiento as $uuidRequerimiento => $mapaDetalles) {
                 try {
                     $requerimientoCompraService->vincularOrdenCompraGenerada(
-                        $request->requerimiento_compra_uuid,
+                        $uuidRequerimiento,
                         $ordenCompra,
-                        $user
+                        $user,
+                        $mapaDetalles
                     );
                 } catch (\Exception $e) {
                     Log::warning('No se pudo vincular la OC al requerimiento de compra', [
                         'orden_id' => $ordenCompra->id,
-                        'requerimiento_compra_uuid' => $request->requerimiento_compra_uuid,
+                        'requerimiento_compra_uuid' => $uuidRequerimiento,
                         'error' => $e->getMessage(),
                     ]);
                 }
@@ -685,7 +699,7 @@ public function entregasShow($id)
     // para el mismo producto, suma la cantidad ahí en vez de crear otra línea
     // duplicada; si no, crea la línea nueva. También registra/actualiza el
     // origen (trazabilidad hacia la OT del cliente) sumando sobre lo existente.
-    public function anexarItemProducto(Request $request, $id)
+    public function anexarItemProducto(Request $request, $id, RequerimientoCompraService $requerimientoCompraService)
     {
         $data = $request->validate([
             'producto_id' => 'required|exists:products,id',
@@ -698,9 +712,11 @@ public function entregasShow($id)
             'origen.sede_id' => 'nullable|exists:sedes,id',
             'origen.bodega_id' => 'nullable|exists:bodegas,id',
             'origen.prioridad_snapshot' => 'nullable|array',
+            'requerimiento_compra_uuid' => 'nullable|uuid|exists:requerimientos_compra,uuid',
+            'requerimiento_compra_detalle_id' => 'nullable|integer|exists:requerimiento_compra_detalles,id',
         ]);
 
-        return DB::transaction(function () use ($data, $id) {
+        return DB::transaction(function () use ($data, $id, $requerimientoCompraService, $request) {
             $orden = OrdenCompraProveedor::with('detalles')->lockForUpdate()->findOrFail($id);
 
             $detalle = $orden->detalles()->where('producto_id', $data['producto_id'])->first();
@@ -735,6 +751,17 @@ public function entregasShow($id)
                 $origen->cantidad_prioridad = (float) ($origen->cantidad_prioridad ?? 0) + (float) $data['cantidad'];
                 $origen->prioridad_snapshot = $origenData['prioridad_snapshot'] ?? $origen->prioridad_snapshot;
                 $origen->save();
+            }
+
+            // Si el item viene de un requerimiento de compra aprobado, marcamos ESE item como
+            // cubierto por esta OC (misma lógica que al crear una OC nueva desde el requerimiento).
+            if (!empty($data['requerimiento_compra_uuid']) && !empty($data['requerimiento_compra_detalle_id'])) {
+                $requerimientoCompraService->vincularOrdenCompraGenerada(
+                    $data['requerimiento_compra_uuid'],
+                    $orden,
+                    $request->user(),
+                    [$data['requerimiento_compra_detalle_id'] => $detalle->id]
+                );
             }
 
             return response()->json([
@@ -859,6 +886,42 @@ public function entregasShow($id)
         }
     }
 
+    // Un ítem con entregas ya registradas movió inventario real: cambiar su producto o
+    // cantidad después de eso dejaría la trazabilidad y el stock ya descontado
+    // inconsistentes con lo que quedó guardado en la orden. En vez de ignorar el cambio
+    // en silencio (como antes), se rechaza la actualización completa y se avisa cuál ítem.
+    $erroresBloqueo = [];
+    foreach ($request->detalles as $index => $detalleRequest) {
+        if (empty($detalleRequest['id'])) {
+            continue;
+        }
+
+        $detalleExistente = $orden->detalles->firstWhere('id', $detalleRequest['id']);
+        if (! $detalleExistente || $detalleExistente->entregas->count() === 0) {
+            continue;
+        }
+
+        $cambioProducto = isset($detalleRequest['producto_id'])
+            && (int) $detalleRequest['producto_id'] !== (int) $detalleExistente->producto_id;
+        $cambioCantidad = isset($detalleRequest['cantidad_solicitada'])
+            && round((float) $detalleRequest['cantidad_solicitada'], 2) !== round((float) $detalleExistente->cantidad_solicitada, 2);
+        $cambioCode = array_key_exists('code', $detalleRequest)
+            && (string) ($detalleRequest['code'] ?? '') !== (string) ($detalleExistente->code ?? '');
+
+        if ($cambioProducto || $cambioCantidad || $cambioCode) {
+            $erroresBloqueo["detalles.{$index}.producto_id"] = [
+                "El ítem #{$detalleExistente->item} ya tiene entregas registradas (inventario descontado) y no se puede cambiar de producto ni de cantidad.",
+            ];
+        }
+    }
+
+    if (! empty($erroresBloqueo)) {
+        return response()->json([
+            'message' => 'Hay ítems con inventario ya registrado que no se pueden modificar.',
+            'errors' => $erroresBloqueo,
+        ], 422);
+    }
+
     DB::beginTransaction();
 
     try {
@@ -903,6 +966,13 @@ public function entregasShow($id)
                         'proveedor_id'        => $detalleRequest['proveedor_id'] ?? null,
                         'proceso_bolsas_id'   => $detalleRequest['proceso_bolsas_id'] ?? null,
                     ]);
+
+                    // El producto del ítem pudo cambiar (ej. se reemplazó por un equivalente).
+                    // Si no se sincroniza, la trazabilidad hacia la orden de compra del cliente
+                    // sigue apuntando al producto viejo: el faltante muestra esta orden como
+                    // "pedida" pero al abrirla el producto buscado ya no está ahí.
+                    OrdenCompraProveedorDetalleOrigen::where('orden_compra_proveedor_detalle_id', $detalle->id)
+                        ->update(['producto_id' => $detalleRequest['producto_id']]);
                 }
 
                 $idsAConservar[] = $detalle->id;

@@ -19,10 +19,11 @@ class ProductoNoConformeService
         'comercial:id,name',
         'proceso:id,nombre',
         'items.producto:id,name',
-        'ordenCompra:id,code',
+        'ordenCompra:id,orden_compra_cliente',
         'ordenCompraProveedor:id,numero_orden',
         'estado:id,nombre',
         'analisis',
+        'archivos',
     ];
 
     public function listar(array $filtros)
@@ -78,7 +79,7 @@ class ProductoNoConformeService
         return $query->latest()->paginate($perPage);
     }
 
-    public function crear(array $data): ProductoNoConforme
+    public function crear(array $data, array $archivos = []): ProductoNoConforme
     {
         $productos = $data['productos'] ?? [];
         unset($data['productos']);
@@ -90,6 +91,11 @@ class ProductoNoConformeService
                 'producto_id' => $item['producto_id'],
                 'cantidad_afectada' => $item['cantidad_afectada'],
             ]);
+        }
+
+        foreach ($archivos as $archivo) {
+            $ruta = $archivo->store('productos_no_conformes', 'public');
+            $reporte->archivos()->create(['archivo' => $ruta]);
         }
 
         $this->notificarResponsablesCalidad($reporte);
@@ -291,9 +297,15 @@ class ProductoNoConformeService
             ]);
 
         // 🔹 Con análisis vs sin análisis
-        $conAnalisis    = DB::table('analisis_productos_no_conformes')->whereIn('producto_no_conforme_id', $ids)->count();
+        // distinct() porque un producto puede tener más de una fila de análisis
+        // (la tabla no tiene restricción única sobre producto_no_conforme_id);
+        // contar filas en vez de productos distintos podía dar sin_analisis negativo.
+        $conAnalisis    = DB::table('analisis_productos_no_conformes')
+            ->whereIn('producto_no_conforme_id', $ids)
+            ->distinct()
+            ->count('producto_no_conforme_id');
         $total          = $ids->count();
-        $sinAnalisis    = $total - $conAnalisis;
+        $sinAnalisis    = max(0, $total - $conAnalisis);
 
         return [
             'resumen' => [
