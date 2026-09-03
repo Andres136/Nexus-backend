@@ -86,9 +86,17 @@ class OrdenTrabajoService
         // Procesar detalles
         $resultado = $this->procesarDetalles($ordenCompra, $ordenTrabajo, $data['detalles'] ?? [], $userId);
 
+        // El estado se decide sobre TODOS los ítems de la OC (no solo los que
+        // vinieron en este guardado): así una orden ya entregada completa no
+        // queda como "Entrega Parcial" porque el payload traía un subconjunto.
+        $this->recalcularFaltantesDetalles($ordenCompra);
+        $totalFaltantes = (float) $ordenCompra->detalles()->sum('faltantes');
+        $resultado['totalFaltantes'] = $totalFaltantes;
+        $resultado['ordenCompleta'] = $totalFaltantes <= 0;
+
         // Actualizar orden de trabajo con totales
         $ordenTrabajo->update([
-            'faltantes' => $resultado['totalFaltantes'],
+            'faltantes' => $totalFaltantes,
             'observaciones' => $data['observaciones'] ?? ''
         ]);
 
@@ -141,10 +149,12 @@ class OrdenTrabajoService
         $detalle = $ordenCompra->detalles()->find($detalleData['id']);
         if (!$detalle) return ['faltantes' => 0];
 
-        // Calcular cantidades - LÓGICA EXACTA DEL CONTROLLER
-        $nuevaCantidadEnviada = (int) ($detalleData['cantidad_enviada'] ?? 0);
-        $cantidadAnteriorEnviada = (int) $detalle->cantidad_enviada;
-        $cantidadRequerida = (int) ($detalleData['cantidad'] ?? $detalle->cantidad);
+        // Las cantidades se manejan como enteros (número de bolsas). Se redondea
+        // en lugar de truncar: antes un "50.5" enviado se guardaba como 50 y una
+        // orden entregada completa terminaba mostrándose como "Entrega Parcial".
+        $nuevaCantidadEnviada = (int) round((float) ($detalleData['cantidad_enviada'] ?? 0));
+        $cantidadAnteriorEnviada = (int) round((float) $detalle->cantidad_enviada);
+        $cantidadRequerida = (int) round((float) ($detalleData['cantidad'] ?? $detalle->cantidad));
 
         // No se puede enviar más de lo requerido. Antes se recortaba en silencio
         // (min()) y la fila de entrega quedaba inflada; ahora se rechaza.
@@ -208,9 +218,9 @@ class OrdenTrabajoService
             'valor_total' => $detalleData['valor_total'] ?? 0,
         ]);
 
-        // Manejo de cantidad_enviada y faltantes - LÓGICA EXACTA
-        $nuevaCantidadEnviada = (int) ($detalleData['cantidad_enviada'] ?? 0);
-        $cantidadRequerida = (int) ($detalleData['cantidad'] ?? 0);
+        // Manejo de cantidad_enviada y faltantes (enteros; se redondea, no se trunca)
+        $nuevaCantidadEnviada = (int) round((float) ($detalleData['cantidad_enviada'] ?? 0));
+        $cantidadRequerida = (int) round((float) ($detalleData['cantidad'] ?? 0));
 
         if ($nuevaCantidadEnviada > 0 && $nuevaCantidadEnviada > $cantidadRequerida) {
             throw ValidationException::withMessages([
@@ -266,8 +276,10 @@ class OrdenTrabajoService
                 ->where('orden_compra_id', $ordenCompra->id)
                 ->firstOrFail();
 
-            $requerido = (float) $detalle->cantidad;
-            $anterior = (float) $detalle->cantidad_enviada;
+            // Cantidades enteras (bolsas): se redondea para no truncar.
+            $nuevoTotal = (float) round($nuevoTotal);
+            $requerido = (float) round((float) $detalle->cantidad);
+            $anterior = (float) round((float) $detalle->cantidad_enviada);
 
             if ($nuevoTotal < 0) {
                 throw ValidationException::withMessages([
@@ -337,6 +349,40 @@ class OrdenTrabajoService
             ['ordenCompleta' => $ordenCompleta],
             []
         );
+    }
+
+    /**
+     * Resincroniza faltantes y estado (OT + OC) cuando la Orden de Compra se
+     * editó después de generada la OT: se cambió la cantidad de un ítem, o se
+     * agregó/quitó un ítem. Antes esos cambios no tocaban faltantes ni estado,
+     * así que una orden ya entregada completa podía quedar como "Entrega Parcial"
+     * (o al revés) hasta el siguiente guardado de la OT.
+     */
+    public function resincronizarPorCambioEnOrdenCompra(Orden_Compra $ordenCompra): void
+    {
+        $ordenTrabajo = OrdenDeTrabajo::where('orden_compra_id', $ordenCompra->id)->first();
+
+        if (!$ordenTrabajo) {
+            return;
+        }
+
+        $this->recalcularFaltantesDetalles($ordenCompra);
+        $this->recalcularEstado($ordenCompra, $ordenTrabajo);
+    }
+
+    /**
+     * Deja el campo `faltantes` de cada ítem consistente con
+     * `cantidad` - `cantidad_enviada` (nunca negativo).
+     */
+    private function recalcularFaltantesDetalles(Orden_Compra $ordenCompra): void
+    {
+        foreach ($ordenCompra->detalles()->get() as $detalle) {
+            $faltantes = max(0, (int) round((float) $detalle->cantidad) - (int) round((float) $detalle->cantidad_enviada));
+
+            if ((int) $detalle->faltantes !== $faltantes) {
+                $detalle->update(['faltantes' => $faltantes]);
+            }
+        }
     }
 
     private function actualizarEstados($ordenCompra, $ordenTrabajo, $resultado, $data)

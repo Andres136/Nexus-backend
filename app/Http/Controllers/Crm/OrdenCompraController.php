@@ -572,6 +572,13 @@ $path = $request->file('cliente_documento')->store('documentos_clientes', 'publi
             $valorTotal = $oc->detalles()->sum('valor_total');
             $oc->update(['valor_total' => $valorTotal]);
 
+            // 4. Si ya existe OT, resincronizar faltantes y estado con las
+            //    cantidades editadas (evita que quede en "Entrega Parcial"
+            //    una orden que en realidad ya se entregó completa).
+            if ($oc->ordenTrabajo()->exists()) {
+                app(OrdenTrabajoService::class)->resincronizarPorCambioEnOrdenCompra($oc);
+            }
+
             DB::commit();
 
             return response()->json([
