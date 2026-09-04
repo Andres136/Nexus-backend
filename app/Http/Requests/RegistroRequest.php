@@ -15,6 +15,24 @@ class RegistroRequest extends FormRequest
     }
 
     /**
+     * El checkbox del frontend viaja dentro de un FormData (multipart), así
+     * que "false" llega como el string "false", no como booleano real. La
+     * regla `boolean` de Laravel solo acepta '0'/'1'/0/1/true/false, y
+     * rechaza "true"/"false" como string — se normaliza antes de validar.
+     */
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('es_asesor_externo')) {
+            $this->merge([
+                'es_asesor_externo' => filter_var(
+                    $this->input('es_asesor_externo'),
+                    FILTER_VALIDATE_BOOLEAN
+                ),
+            ]);
+        }
+    }
+
+    /**
      * Get the validation rules that apply to the request.
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
