@@ -112,6 +112,15 @@ class OrdenCompraController extends Controller
 
         try {
 
+            // Una cotización solo puede tener una Orden de Compra asociada.
+            if ($request->filled('cotizacion_id')
+                && Orden_Compra::where('cotizacion_id', $request->cotizacion_id)->exists()) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'Esta cotización ya tiene una Orden de Compra generada.',
+                ], 422);
+            }
+
             // Manejo de archivo subido
             $rutaArchivo = null;
             if ($request->hasFile('cliente_documento')) {
@@ -131,6 +140,7 @@ class OrdenCompraController extends Controller
                 'descripcion_embalaje' => $request->descripcion_embalaje,
                 'observaciones' => $request->observaciones,
                 'empresa_id' => $request->empresa_id,
+                'cotizacion_id' => $request->cotizacion_id,
                 'cliente_documento' => $rutaArchivo,
                 'orden_compra_cliente' => $request->orden_compra_cliente,
                 'valor_total' => 0, // Inicialmente 0
@@ -561,6 +571,13 @@ $path = $request->file('cliente_documento')->store('documentos_clientes', 'publi
             // 3. Recalcular valor_total
             $valorTotal = $oc->detalles()->sum('valor_total');
             $oc->update(['valor_total' => $valorTotal]);
+
+            // 4. Si ya existe OT, resincronizar faltantes y estado con las
+            //    cantidades editadas (evita que quede en "Entrega Parcial"
+            //    una orden que en realidad ya se entregó completa).
+            if ($oc->ordenTrabajo()->exists()) {
+                app(OrdenTrabajoService::class)->resincronizarPorCambioEnOrdenCompra($oc);
+            }
 
             DB::commit();
 

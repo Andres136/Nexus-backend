@@ -2,14 +2,22 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Configuracion;
 use App\Models\Crm\Orden_Compra_Detalle;
 use App\Models\Crm\OrdenCompraProveedorDetalleOrigen;
+use App\RolEnum;
 use App\Services\Crm\DhasboardOperativoService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 
 class DashboardOperativoController extends Controller
 {
+    /**
+     * Bandera global: si está activa, el "Historial de cambios" de la tarjeta
+     * VSM se muestra a todos los usuarios. Solo el administrador la cambia.
+     */
+    private const CONFIG_HISTORIAL_VISIBLE = 'vsm.historial_cambios_visible';
+
     /**
      * Display a listing of the resource.
      */
@@ -135,5 +143,36 @@ $filters = $request->all();
     public function destroy(string $id)
     {
         //
+    }
+
+    /**
+     * GET /vsm/configuracion-historial — estado de la bandera y si el usuario
+     * actual puede cambiarla (solo administrador).
+     */
+    public function configuracionHistorial(Request $request)
+    {
+        return response()->json([
+            'historial_visible' => (bool) Configuracion::obtener(self::CONFIG_HISTORIAL_VISIBLE, false),
+            'puede_configurar'  => (int) $request->user()->role_id === RolEnum::ADMINISTRADOR->value,
+        ]);
+    }
+
+    /**
+     * PUT /vsm/configuracion-historial — solo el administrador puede activar o
+     * desactivar la visibilidad del historial de cambios para todos.
+     */
+    public function actualizarConfiguracionHistorial(Request $request)
+    {
+        abort_unless(
+            (int) $request->user()->role_id === RolEnum::ADMINISTRADOR->value,
+            403,
+            'Solo el administrador del sistema puede cambiar esta configuración.'
+        );
+
+        $data = $request->validate(['historial_visible' => 'required|boolean']);
+
+        Configuracion::guardar(self::CONFIG_HISTORIAL_VISIBLE, $data['historial_visible']);
+
+        return response()->json(['historial_visible' => $data['historial_visible']]);
     }
 }

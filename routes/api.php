@@ -421,6 +421,8 @@ Route::post('/orden-trabajo/{id}/marcar-revisada', [ordenTrabajoController::clas
 Route::post('/orden-trabajo/{id}/revisar', [ordenTrabajoController::class, 'revisarOrdenTrabajo']);
 //Revisar orden de trabajo al momento del despacho (detalle de orden de trabajo)
 Route::post('/orden-trabajo/{id}/marcar-despacho-revisado', [ordenTrabajoController::class, 'marcarDespachoRevisado']);
+//Corregir el total enviado de un detalle (queda en el historial de correcciones)
+Route::post('/orden-trabajo/{id}/detalles/{detalleId}/corregir-total', [ordenTrabajoController::class, 'corregirTotalEnviado']);
 
 // Trazabilidad: orden de compra -> orden de trabajo/entrega, y producto -> orden a proveedor/alistamiento
 Route::get('/trazabilidad/ordenes-compra/buscar', [TrazabilidadController::class, 'buscarOrdenesCompra']);
@@ -788,6 +790,10 @@ Route::patch('/vsm/origenes/{id}/prioridad', [DashboardOperativoController::clas
 Route::delete('/vsm/origenes/{id}', [DashboardOperativoController::class, 'destroyOrigen']);
 Route::patch('/vsm/orden-compra-detalles/{id}/observacion', [DashboardOperativoController::class, 'updateObservacionItem']);
 Route::get('/vsm/ordenes-pdf', [DashboardOperativoController::class, 'exportarPdf']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/vsm/configuracion-historial', [DashboardOperativoController::class, 'configuracionHistorial']);
+    Route::put('/vsm/configuracion-historial', [DashboardOperativoController::class, 'actualizarConfiguracionHistorial']);
+});
 Route::apiResource('/vsm/ordenes', DashboardOperativoController::class);
 
 //RUTAS  PARA CONTABILIDAD

@@ -49,6 +49,12 @@ class Cotizacion extends Model
         return $this->hasMany(CotizacionDetalles::class);
     }
 
+    // Orden de Compra generada a partir de esta cotización (si existe)
+    public function ordenCompra()
+    {
+        return $this->hasOne(Orden_Compra::class, 'cotizacion_id');
+    }
+
     public function responsable()
     {
         return $this->belongsTo(User::class, 'responsable_id');

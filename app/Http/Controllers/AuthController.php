@@ -68,6 +68,7 @@ class AuthController extends Controller
             'password' => bcrypt($request->password),
             'telefono' => $request->telefono,
             'role_id' => $request->role_id,
+            'es_asesor_externo' => $request->boolean('es_asesor_externo'),
             'estado_id' => 3,
             'departamento_id' => $request->departamento_id,
             'sede_id' => $request->sede_id ?? null,
@@ -145,6 +146,9 @@ class AuthController extends Controller
         $user->email           = $request->email;
         $user->telefono        = $request->telefono;
         $user->role_id         = $request->role_id;
+        if ($request->has('es_asesor_externo')) {
+            $user->es_asesor_externo = $request->boolean('es_asesor_externo');
+        }
         $user->departamento_id = $request->departamento_id;
         $user->estado_id = $request->estado_id ?? $user->estado_id;
         $user->sede_id = $request->sede_id ?? $user->sede_id;

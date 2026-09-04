@@ -18,6 +18,12 @@ class OrdenTrabajoEntrega extends Model
         'fecha_entrega',
         'usuario_id',
         'observaciones',
+        'es_correccion',
+    ];
+
+    protected $casts = [
+        'es_correccion' => 'boolean',
+        'fecha_entrega' => 'datetime',
     ];
 //Relacion con la tabla orden_de_trabajos
 public function ordenTrabajo()
