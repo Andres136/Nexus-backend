@@ -28,7 +28,9 @@ class InspeccionUpdateRequest extends FormRequest
             'responsable' => 'required|string|max:255',
             'observaciones' => 'required|string|max:1000',
             'estado_general' => 'required|string|max:255',
-            'documento' => 'nullable|file|mimes:pdf,doc,docx,xlsx,xls|max:10240',
+            'documento' => 'required|file|mimes:pdf,doc,docx,xlsx,xls|max:10240',
+            'fotos' => 'nullable|array|max:12',
+            'fotos.*' => 'file|image|mimes:jpg,jpeg,png,webp|max:8192',
         ];
     }
 
@@ -41,7 +43,12 @@ class InspeccionUpdateRequest extends FormRequest
             'responsable.required' => 'Debes ingresar el responsable.',
             'observaciones.required' => 'Debes ingresar las observaciones.',
             'estado_general.required' => 'Selecciona un estado general.',
+            'documento.required' => 'Debes adjuntar el soporte de la inspección.',
             'documento.file' => 'El documento debe ser un archivo.',
+            'fotos.max' => 'Puedes subir máximo 12 fotos a la vez.',
+            'fotos.*.image' => 'Cada archivo de fotos debe ser una imagen.',
+            'fotos.*.mimes' => 'Las fotos deben ser JPG, PNG o WEBP.',
+            'fotos.*.max' => 'Cada foto no debe exceder los 8MB.',
             'documento.mimes' => 'El documento debe ser un archivo PDF, DOC o DOCX, XLS o XLSX',
             'documento.max' => 'El documento no debe exceder los 10MB de tamaño.',
         ];

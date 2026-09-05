@@ -90,8 +90,26 @@ class MantenimientoController extends Controller
             $mantenimiento->archivo = $request->file('archivo')->storeAs('mantenimientos', $uniqueName, 'public');
         }
         $mantenimiento->save();
+
+        // Al completar, el kilometraje real del odómetro alimenta el del vehículo.
+        // No bloquea el guardado: solo avanza (nunca retrocede el odómetro).
+        $avisoKm = null;
+        if ($request->filled('fecha_realizado') && $request->filled('kilometraje_actual')) {
+            $vehiculo = $mantenimiento->vehiculo;
+            if ($vehiculo) {
+                $kmNuevo = (int) $request->kilometraje_actual;
+                if ($kmNuevo >= $vehiculo->kilometraje_actual) {
+                    $vehiculo->kilometraje_actual = $kmNuevo;
+                    $vehiculo->save();
+                } else {
+                    $avisoKm = "El kilometraje registrado ({$kmNuevo}) es menor al del vehículo ({$vehiculo->kilometraje_actual}); no se actualizó el odómetro del vehículo.";
+                }
+            }
+        }
+
         return response()->json([
             'message' => 'Mantenimiento actualizado exitosamente',
+            'aviso' => $avisoKm,
             'mantenimiento' => $mantenimiento
         ], 200);
       

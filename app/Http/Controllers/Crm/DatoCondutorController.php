@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Crm;
 
+use App\EstadoEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Crm\ConductorDatoRequest;
 use App\Http\Requests\Crm\UpdateDatosConuctoresRequest;
@@ -16,8 +17,13 @@ class DatoCondutorController extends Controller
      */
     public function index()
     {
-        //
-        $conductores = DatoConductor::with('user')->get();
+        // Solo conductores cuyo usuario esté activo
+        $conductores = DatoConductor::with('user')
+            ->whereHas('user', function ($q) {
+                $q->where('estado_id', EstadoEnum::ACTIVO->value);
+            })
+            ->get();
+
         return response()->json([
             'success' => true,
             'data' => $conductores,

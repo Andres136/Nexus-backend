@@ -12,7 +12,6 @@ use App\Models\Crm\Vehiculo;
 use Carbon\Carbon;
 use GuzzleHttp\Promise\Create;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class VehiculoController extends Controller
 {
@@ -171,78 +170,111 @@ public function options()
    
    public function getDashboardVehiculos()
    {
-       
     $now = Carbon::now();
-    $mesActual = $now->month;
-    $mesAnterior = $now->copy()->subMonth()->month;
+    $hoy = $now->copy()->startOfDay();
+    $inicioMesActual = $now->copy()->startOfMonth();
+    $inicioMesAnterior = $now->copy()->subMonthNoOverflow()->startOfMonth();
+    $finMesAnterior = $inicioMesActual->copy()->subDay()->endOfDay();
+    $en30dias = $hoy->copy()->addDays(30);
+    $en15dias = $hoy->copy()->addDays(15);
 
-        // Lista de meses abreviados
-        $meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-            // Generar histórico de gastos por mes del año actual
+    $meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+    // Histórico de gastos del año en curso (por mes de ejecución del mantenimiento).
+    $gastosPorMes = Mantenimiento::query()
+        ->whereNotNull('fecha_realizado')
+        ->whereYear('fecha_realizado', $now->year)
+        ->selectRaw('MONTH(fecha_realizado) as mes, SUM(costo) as total')
+        ->groupBy('mes')
+        ->pluck('total', 'mes');
+
     $historico_gastos = [];
     for ($i = 1; $i <= 12; $i++) {
-     $total = Mantenimiento::whereYear('fecha_realizado', $now->year)
-    ->whereMonth('fecha_realizado', $i)
-    ->sum('costo');
-
-
         $historico_gastos[] = [
             'mes' => $meses[$i - 1],
-            'total' => $total,
+            'total' => (float) ($gastosPorMes[$i] ?? 0),
         ];
     }
+
+    // Gasto real ejecutado en un rango de fechas (fecha_realizado).
+    $gastoEnRango = fn ($desde, $hasta) => (float) Mantenimiento::whereNotNull('fecha_realizado')
+        ->whereBetween('fecha_realizado', [$desde, $hasta])
+        ->sum('costo');
+
+    // Inspecciones realizadas en un rango (fecha_realizado).
+    $inspeccionesEnRango = fn ($desde, $hasta) => Inspeccion::whereNotNull('fecha_realizado')
+        ->whereBetween('fecha_realizado', [$desde, $hasta])
+        ->count();
+
+    // Mantenimientos ejecutados en un rango (fecha_realizado).
+    $mttoRealizadosEnRango = fn ($desde, $hasta) => Mantenimiento::whereNotNull('fecha_realizado')
+        ->whereBetween('fecha_realizado', [$desde, $hasta])
+        ->count();
 
     return response()->json([
         'total_vehiculos' => Vehiculo::count(),
 
-        'mantenimientos_pendientes' => Mantenimiento::whereNull('fecha_realizado')->count(),
+        'vehiculos_por_estado' => Vehiculo::selectRaw('estado, COUNT(*) as total')
+            ->groupBy('estado')
+            ->pluck('total', 'estado'),
 
+        // Backlog acumulado (no depende del periodo).
+        'mantenimientos_pendientes' => Mantenimiento::whereNull('fecha_realizado')->count(),
         'mantenimientos_realizados' => Mantenimiento::whereNotNull('fecha_realizado')->count(),
 
+        'mantenimientos_vencidos' => Mantenimiento::whereNull('fecha_realizado')
+            ->whereNotNull('fecha_programada')
+            ->whereDate('fecha_programada', '<', $hoy)
+            ->count(),
+
         'mantenimientos_proximos' => Mantenimiento::whereNull('fecha_realizado')
-            ->whereBetween('fecha_programada', [$now, $now->copy()->addDays(15)])
+            ->whereBetween('fecha_programada', [$hoy, $en15dias])
             ->count(),
 
         'soat' => [
             'vencidos' => DocumentoVehiculo::where('tipo_documento', 'SOAT')
-                ->where('fecha_vencimiento', '<', $now)
+                ->whereDate('fecha_vencimiento', '<', $hoy)
                 ->count(),
-
             'por_vencer' => DocumentoVehiculo::where('tipo_documento', 'SOAT')
-                ->whereBetween('fecha_vencimiento', [$now, $now->copy()->addDays(30)])
+                ->whereDate('fecha_vencimiento', '>=', $hoy)
+                ->whereDate('fecha_vencimiento', '<=', $en30dias)
                 ->count(),
         ],
 
-        'gastos' => [
-            'actual' => Mantenimiento::whereMonth('created_at', $mesActual)->sum('costo'),
-            'anterior' => Mantenimiento::whereMonth('created_at', $mesAnterior)->sum('costo'),
-        ],
-
-        'inspecciones' => [
-            'actual' => Inspeccion::whereMonth('created_at', $mesActual)->count(),
-            'anterior' => Inspeccion::whereMonth('created_at', $mesAnterior)->count(),
-        ],
-        'historico_gastos' => $historico_gastos,
         'documentos_estado' => [
-    'vencidos' => DocumentoVehiculo::where('fecha_vencimiento', '<', $now)->count(),
-    'por_vencer' => DocumentoVehiculo::whereBetween('fecha_vencimiento', [$now, $now->copy()->addDays(30)])->count(),
-    'vigentes' => DocumentoVehiculo::where('fecha_vencimiento', '>', $now->copy()->addDays(30))->count(),
-],
-'ultimos_mantenimientos' => Mantenimiento::whereNotNull('fecha_realizado')
-    ->latest('fecha_realizado')
-    ->take(3)
-    ->with('vehiculo') // Asegúrate de tener la relación en el modelo
-    ->get(['id', 'vehiculo_id', 'fecha_realizado', 'tipo_mantenimiento', 'costo']),
-    'tipos_mantenimiento' => Mantenimiento::select('tipo_mantenimiento', DB::raw('count(*) as total'))
-    ->groupBy('tipo_mantenimiento')
-    ->get(),
+            'vencidos' => DocumentoVehiculo::whereDate('fecha_vencimiento', '<', $hoy)->count(),
+            'por_vencer' => DocumentoVehiculo::whereDate('fecha_vencimiento', '>=', $hoy)
+                ->whereDate('fecha_vencimiento', '<=', $en30dias)
+                ->count(),
+            'vigentes' => DocumentoVehiculo::whereDate('fecha_vencimiento', '>', $en30dias)->count(),
+        ],
 
-'tipos_mantenimiento' => Mantenimiento::select('tipo_mantenimiento', DB::raw('count(*) as total'))
-    ->groupBy('tipo_mantenimiento')
-    ->get(),
+        // Comparativa mes actual vs mes anterior (todo por fecha de ejecución real).
+        'gastos' => [
+            'actual' => $gastoEnRango($inicioMesActual, $now),
+            'anterior' => $gastoEnRango($inicioMesAnterior, $finMesAnterior),
+        ],
+        'inspecciones' => [
+            'actual' => $inspeccionesEnRango($inicioMesActual, $now),
+            'anterior' => $inspeccionesEnRango($inicioMesAnterior, $finMesAnterior),
+        ],
+        'mantenimientos_mes' => [
+            'actual' => $mttoRealizadosEnRango($inicioMesActual, $now),
+            'anterior' => $mttoRealizadosEnRango($inicioMesAnterior, $finMesAnterior),
+        ],
 
+        'historico_gastos' => $historico_gastos,
+
+        'ultimos_mantenimientos' => Mantenimiento::whereNotNull('fecha_realizado')
+            ->latest('fecha_realizado')
+            ->take(5)
+            ->with('vehiculo:id,placa,marca,modelo')
+            ->get(['id', 'vehiculo_id', 'fecha_realizado', 'tipo_mantenimiento', 'costo']),
+
+        'tipos_mantenimiento' => Mantenimiento::selectRaw('tipo_mantenimiento, COUNT(*) as total')
+            ->groupBy('tipo_mantenimiento')
+            ->get(),
     ]);
-
    }
    
 

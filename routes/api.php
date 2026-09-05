@@ -380,6 +380,7 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
 Route::apiResource('vehiculos', VehiculoController::class);
 Route::apiResource('mantenimientos', MantenimientoController::class);
 Route::apiResource('inspecciones', InspeccionController::class);
+Route::delete('inspecciones/{inspeccion}/fotos/{foto}', [InspeccionController::class, 'destroyFoto']);
 Route::apiResource('documentos-vehiculos', DocumentoVehiculoController::class);
 Route::get('dashboard-vehiculos', [VehiculoController::class, 'getDashboardVehiculos']);
 Route::get('vehiculos-all', [VehiculoController::class, 'vehiculosAll']);

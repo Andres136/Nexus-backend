@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Crm\InspeccionesRequest;
 use App\Http\Requests\Crm\InspeccionUpdateRequest;
 use App\Models\Crm\Inspeccion;
+use App\RolEnum;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class InspeccionController extends Controller
@@ -15,7 +17,7 @@ class InspeccionController extends Controller
      */
     public function index()
     {
-        $inspecciones = Inspeccion::with('vehiculo')
+        $inspecciones = Inspeccion::with(['vehiculo', 'fotos'])
             ->orderBy('fecha')
             ->get();
 
@@ -44,9 +46,11 @@ class InspeccionController extends Controller
             'documento' => $rutaDocumento,
         ]);
 
+        $this->guardarFotos($request, $inspeccion);
+
         return response()->json([
             'message' => 'Inspección creada correctamente',
-            'inspeccion' => $inspeccion,
+            'inspeccion' => $inspeccion->load('fotos'),
         ], 201);
     }
 
@@ -55,7 +59,7 @@ class InspeccionController extends Controller
      */
     public function show(string $id)
     {
-        $inspeccion = Inspeccion::with('vehiculo')->findOrFail($id);
+        $inspeccion = Inspeccion::with(['vehiculo', 'fotos'])->findOrFail($id);
 
         return response()->json($inspeccion);
     }
@@ -86,9 +90,12 @@ class InspeccionController extends Controller
 
         $inspeccion->save();
 
+        // Las fotos nuevas se agregan a las existentes (no reemplazan).
+        $this->guardarFotos($request, $inspeccion);
+
         return response()->json([
             'message' => 'Inspección actualizada correctamente',
-            'inspeccion' => $inspeccion,
+            'inspeccion' => $inspeccion->load('fotos'),
         ], 200);
     }
 
@@ -97,18 +104,66 @@ class InspeccionController extends Controller
      */
     public function destroy(string $id)
     {
-        $inspeccion = Inspeccion::findOrFail($id);
+        if (auth()->user()?->role_id !== RolEnum::ADMINISTRADOR->value) {
+            return response()->json([
+                'message' => 'No tienes permiso para eliminar inspecciones',
+            ], 403);
+        }
+
+        $inspeccion = Inspeccion::with('fotos')->findOrFail($id);
 
         // Eliminar el archivo del sistema de archivos
         if ($inspeccion->documento && Storage::disk('public')->exists($inspeccion->documento)) {
             Storage::disk('public')->delete($inspeccion->documento);
         }
 
-        // Eliminar el registro de la base de datos
+        // Eliminar las fotos asociadas del disco
+        foreach ($inspeccion->fotos as $foto) {
+            if ($foto->ruta && Storage::disk('public')->exists($foto->ruta)) {
+                Storage::disk('public')->delete($foto->ruta);
+            }
+        }
+
+        // Eliminar el registro de la base de datos (las fotos caen por cascade)
         $inspeccion->delete();
 
         return response()->json([
             'message' => 'Inspección eliminada correctamente',
         ]);
+    }
+
+    /**
+     * Elimina una foto puntual de una inspección.
+     */
+    public function destroyFoto(string $id, string $fotoId)
+    {
+        $inspeccion = Inspeccion::findOrFail($id);
+        $foto = $inspeccion->fotos()->findOrFail($fotoId);
+
+        if ($foto->ruta && Storage::disk('public')->exists($foto->ruta)) {
+            Storage::disk('public')->delete($foto->ruta);
+        }
+
+        $foto->delete();
+
+        return response()->json([
+            'message' => 'Foto eliminada correctamente',
+        ]);
+    }
+
+    /**
+     * Guarda las fotos enviadas en `fotos[]` asociándolas a la inspección.
+     */
+    private function guardarFotos(Request $request, Inspeccion $inspeccion): void
+    {
+        if (! $request->hasFile('fotos')) {
+            return;
+        }
+
+        foreach ($request->file('fotos') as $foto) {
+            $uniqueName = time() . '_' . uniqid() . '.' . $foto->getClientOriginalExtension();
+            $ruta = $foto->storeAs('inspecciones/fotos', $uniqueName, 'public');
+            $inspeccion->fotos()->create(['ruta' => $ruta]);
+        }
     }
 }

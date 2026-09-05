@@ -22,4 +22,9 @@ class Inspeccion extends Model
     {
         return $this->belongsTo(Vehiculo::class, 'vehiculo_id');
     }
+
+    public function fotos()
+    {
+        return $this->hasMany(InspeccionFoto::class, 'inspeccion_id');
+    }
 }

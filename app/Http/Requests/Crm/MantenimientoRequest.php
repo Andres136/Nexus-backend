@@ -30,7 +30,7 @@ class MantenimientoRequest extends FormRequest
             'descripcion_trabajo' => 'nullable|string|max:1000',
             'costo' => 'nullable|numeric|min:0',
             'kilometro_programado' => 'nullable|string|max:255',
-            'archivo' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240', // Validar el archivo
+            'archivo' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10240', // Validar el archivo
             'kilometraje_actual' => 'nullable|integer|min:0',
         ];
     }
@@ -44,7 +44,9 @@ class MantenimientoRequest extends FormRequest
             'fecha_programada.date' => 'La fecha programada debe ser una fecha válida.',
             'fecha_realizado.date' => 'El campo fecha_realizado debe ser una fecha válida.',
             'tipo_mantenimiento.required' => 'Debes colocar el tipo de mantenimiento.',
+
             'archivo.file' => 'El campo archivo debe ser un archivo.',
+            'archivo.required' => 'El campo archivo es obligatorio.',
             'archivo.mimes' => 'El campo archivo debe ser un archivo de tipo: pdf, jpg, jpeg, png.',
             'archivo.max' => 'El tamaño máximo del archivo es de 10MB.',
             'kilometraje_actual.integer' => 'El kilometraje actual debe ser un número entero.',

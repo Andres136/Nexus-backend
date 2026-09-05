@@ -29,6 +29,8 @@ class InspeccionesRequest extends FormRequest
             'observaciones' => 'nullable|string|max:1000',
             'estado_general' => 'nullable|string|max:255',
             'documento' => 'nullable|file|mimes:pdf,doc,docx,xlsx,xls|max:10240', // Tamaño máximo de 10MB
+            'fotos' => 'nullable|array|max:12',
+            'fotos.*' => 'file|image|mimes:jpg,jpeg,png,webp|max:8192',
         ];
     }
     public function messages()
@@ -41,6 +43,10 @@ class InspeccionesRequest extends FormRequest
             'documento.file' => 'El documento debe ser un archivo.',
             'documento.mimes' => 'El documento debe ser un archivo PDF, DOC o DOCX, XLS o XLSX',
             'documento.max' => 'El documento no debe exceder los 10MB de tamaño.',
+            'fotos.max' => 'Puedes subir máximo 12 fotos a la vez.',
+            'fotos.*.image' => 'Cada archivo de fotos debe ser una imagen.',
+            'fotos.*.mimes' => 'Las fotos deben ser JPG, PNG o WEBP.',
+            'fotos.*.max' => 'Cada foto no debe exceder los 8MB.',
         ];
     }
 }
