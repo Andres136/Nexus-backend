@@ -406,6 +406,8 @@ class NominaService
                 'empleados_con_error' => count($errores),
                 'horas_extras_diurnas' => $sumar('horas_extras_diurnas'),
                 'horas_extras_nocturnas' => $sumar('horas_extras_nocturnas'),
+                'horas_extras_diurnas_aprobadas' => $sumar('horas_extras_diurnas_aprobadas'),
+                'horas_extras_nocturnas_aprobadas' => $sumar('horas_extras_nocturnas_aprobadas'),
                 'horas_festivas' => $sumar('horas_festivas'),
                 'horas_nocturnas_festivas' => $sumar('horas_nocturnas_festivas'),
                 'valor_horas_extras_diurnas' => $sumar('valor_horas_extras_diurnas'),

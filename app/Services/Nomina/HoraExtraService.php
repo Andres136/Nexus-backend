@@ -16,11 +16,11 @@ use Carbon\Carbon;
 class HoraExtraService
 {
     private const WITH = [
-        'empleado:id,name,email,sede_id',
+        'empleado:id,name,apellidos,email,sede_id',
         'sede:id,nombre',
         'kiosko:id,uuid,name,code,sede_id',
-        'solicitante:id,name,email',
-        'supervisor:id,name,email',
+        'solicitante:id,name,apellidos,email',
+        'supervisor:id,name,apellidos,email',
     ];
 
     private function aplicarFiltros(Builder $query, array $filters): Builder
@@ -59,6 +59,8 @@ class HoraExtraService
         $perPage = $filters['per_page'] ?? 15;
 
         return $this->aplicarFiltros(HoraExtra::with(self::WITH), $filters)
+            // Pendientes primero (son las que hay que gestionar), luego por fecha.
+            ->orderByRaw("CASE WHEN status = 'pendiente' THEN 0 WHEN status = 'rechazada' THEN 1 ELSE 2 END")
             ->orderByDesc('fecha')
             ->paginate($perPage);
     }
@@ -96,16 +98,84 @@ class HoraExtraService
     }
 
     /**
-     * Horas extras ya aprobadas que cumplen los filtros, para exportar a Excel.
-     * El filtro de status se fuerza a 'aprobada'.
+     * Horas extras que cumplen los filtros aplicados (cualquier estado, o el que
+     * venga en $filters['status']), para exportar a Excel con información completa.
      */
-    public function getAprobadasParaExportar(array $filters): Collection
+    public function getParaExportar(array $filters): Collection
     {
-        $filters['status'] = 'aprobada';
-
-        return $this->aplicarFiltros(HoraExtra::with(self::WITH), $filters)
+        return $this->aplicarFiltros(
+            HoraExtra::with(array_merge(self::WITH, [
+                'empleado.contratacionActivaNomina' => fn ($q) => $q->select(
+                    'contrataciones.id',
+                    'contrataciones.users_id',
+                    'contrataciones.numero_documento',
+                    'contrataciones.cargo',
+                ),
+            ])),
+            $filters
+        )
             ->orderBy('fecha')
+            ->orderBy('user_id')
             ->get();
+    }
+
+    /**
+     * Minutos de cada hora extra que REALMENTE respalda la marcación de asistencia
+     * de ese día (lo que la nómina reconocería). Misma idea que
+     * NominaService: reconocido = min(aprobado, exceso real del día), repartido
+     * entre las horas extra aprobadas del mismo día. Devuelve [hora_extra_id => minutos];
+     * las que no están aprobadas quedan en null (aún no aplican).
+     *
+     * @param  Collection<int, HoraExtra>  $horasExtras
+     * @return array<int, int|null>
+     */
+    public function minutosReconocidosPorAsistencia(Collection $horasExtras): array
+    {
+        $reconocidos = [];
+        $jornadaActiva = \App\Models\Nomina\JornadaLaboral::where('status', true)
+            ->orderByDesc('updated_at')->first();
+
+        $porUsuarioFecha = $horasExtras->groupBy(fn (HoraExtra $h) => $h->user_id.'|'.optional($h->fecha)->toDateString());
+
+        foreach ($porUsuarioFecha as $clave => $grupo) {
+            [$userId, $fecha] = explode('|', $clave);
+
+            $aprobadas = $grupo->where('status', 'aprobada')->sortBy('id')->values();
+            foreach ($grupo->whereNotIn('status', ['aprobada']) as $h) {
+                $reconocidos[$h->id] = null;
+            }
+
+            if ($aprobadas->isEmpty() || ! $fecha) {
+                continue;
+            }
+
+            $sesiones = \App\Models\Nomina\WorkSession::with('jornadaLaboral')
+                ->where('user_id', $userId)
+                ->whereDate('registro_diario', $fecha)
+                ->get();
+
+            $trabajados = (int) $sesiones->sum('minutos_trabajados');
+            $festivo = (int) round((float) $sesiones->sum('festivo_minutos'));
+            $sabado = (int) round((float) $sesiones->sum('sabado_minutos'));
+            $ordinarios = max(0, $trabajados - $festivo - $sabado);
+
+            $jornada = $sesiones->first(fn ($s) => $s->jornadaLaboral)?->jornadaLaboral ?? $jornadaActiva;
+            $esperadosDiarios = $jornada?->horas_semanales
+                ? (int) round(((float) $jornada->horas_semanales / 5) * 60)
+                : 480;
+
+            $esFestivo = Carbon::parse($fecha)->isSunday() || $festivo > 0;
+            $presupuesto = $esFestivo ? ($festivo + $sabado) : max(0, $ordinarios - $esperadosDiarios);
+
+            foreach ($aprobadas as $h) {
+                $pedidos = (int) round((float) $h->horas * 60);
+                $rec = min($pedidos, $presupuesto);
+                $reconocidos[$h->id] = $rec;
+                $presupuesto -= $rec;
+            }
+        }
+
+        return $reconocidos;
     }
 
     public function getByUuid(string $uuid): HoraExtra

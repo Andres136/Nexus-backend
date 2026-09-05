@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Nomina;
 
-use App\Exports\GenericExport;
+use App\Exports\HorasExtrasExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Nomina\GestionHoraExtraRequest;
 use App\Http\Requests\Nomina\StoreHoraExtraRequest;
@@ -102,40 +102,63 @@ class HoraExtraController extends Controller
     public function exportar(Request $request): BinaryFileResponse|JsonResponse
     {
         try {
-            $registros = $this->horaExtraService->getAprobadasParaExportar($this->filtrosDesde($request));
+            $filtros = $this->filtrosDesde($request);
+            $registros = $this->horaExtraService->getParaExportar($filtros);
 
             if ($registros->isEmpty()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'No hay horas extras aprobadas para exportar con los filtros seleccionados.',
+                    'message' => 'No hay horas extras para exportar con los filtros seleccionados.',
                 ], 422);
             }
 
-            $filas = $registros->map(fn (HoraExtra $h) => [
-                'Empleado' => $h->empleado?->name,
-                'Email' => $h->empleado?->email,
-                'Sede' => $h->sede?->nombre,
-                'Fecha' => optional($h->fecha)->format('Y-m-d'),
-                'Hora inicio' => $h->hora_inicio,
-                'Hora fin' => $h->hora_fin,
-                'Horas' => $h->horas,
-                'Tipo' => $h->tipo,
-                'Motivo' => $h->motivo,
-                'Solicitado por' => $h->solicitante?->name,
-                'Autorizado por' => $h->supervisor?->name,
-                'Fecha gestión' => optional($h->fecha_gestion)->format('Y-m-d H:i'),
-                'Observación' => $h->observacion_gestion,
-            ]);
+            $reconocidos = $this->horaExtraService->minutosReconocidosPorAsistencia($registros);
+            $filename = 'horas_extras_' . now()->format('Y-m-d_His') . '.xlsx';
 
-            $headings = ['Empleado', 'Email', 'Sede', 'Fecha', 'Hora inicio', 'Hora fin', 'Horas', 'Tipo', 'Motivo', 'Solicitado por', 'Autorizado por', 'Fecha gestión', 'Observación'];
-            $filename = 'horas_extras_aprobadas_' . now()->format('Y-m-d_His') . '.xlsx';
-
-            return Excel::download(new GenericExport($filas, $headings), $filename);
+            return Excel::download(
+                new HorasExtrasExport($registros, $this->resumenFiltros($filtros), $reconocidos),
+                $filename
+            );
         } catch (\Exception $e) {
             Log::error('Error al exportar horas extras', ['error' => $e->getMessage()]);
 
             return response()->json(['success' => false, 'message' => 'Error al exportar las horas extras.'], 500);
         }
+    }
+
+    /**
+     * Texto legible con los filtros aplicados, para el encabezado del Excel.
+     */
+    private function resumenFiltros(array $filtros): string
+    {
+        $partes = [];
+
+        $estado = $filtros['status'] ?? null;
+        $partes[] = 'Estado: ' . ($estado ? ucfirst($estado) : 'Todos');
+
+        if (! empty($filtros['fecha_desde']) || ! empty($filtros['fecha_hasta'])) {
+            $partes[] = 'Fechas: ' . ($filtros['fecha_desde'] ?? '…') . ' a ' . ($filtros['fecha_hasta'] ?? '…');
+        } else {
+            $partes[] = 'Fechas: todas';
+        }
+
+        if (! empty($filtros['sede_id'])) {
+            $partes[] = 'Sede: ' . (\App\Models\Crm\Sede::whereKey($filtros['sede_id'])->value('nombre') ?? $filtros['sede_id']);
+        }
+
+        if (! empty($filtros['user_id'])) {
+            $partes[] = 'Empleado: ' . (\App\Models\User::whereKey($filtros['user_id'])->value('name') ?? $filtros['user_id']);
+        }
+
+        if (! empty($filtros['tipo'])) {
+            $partes[] = 'Tipo: ' . ucfirst(str_replace('_', ' ', $filtros['tipo']));
+        }
+
+        if (! empty($filtros['search'])) {
+            $partes[] = 'Búsqueda: "' . $filtros['search'] . '"';
+        }
+
+        return implode('  ·  ', $partes);
     }
 
     public function show(string $uuid): JsonResponse

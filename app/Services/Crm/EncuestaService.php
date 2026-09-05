@@ -331,9 +331,17 @@ class EncuestaService
             ->when($filtroUserId, fn ($q) => $q->where('user_id', $filtroUserId));
 
         $envios = (clone $baseEnvios)
-            ->with('cliente:id,nombre,email')
+            ->with('cliente:id,nombre,email,estado_id')
             ->orderByDesc('sent_at')
             ->get();
+
+        // Un envío pendiente a un cliente que después fue desactivado nunca se
+        // podrá responder ni reenviar, así que se excluye por completo de los
+        // resultados. Los que ya respondieron se conservan (dato histórico real).
+        $envios = $envios
+            ->reject(fn ($e) => $e->estado === 'pendiente'
+                && (int) $e->cliente?->estado_id === EstadoEnum::INACTIVO->value)
+            ->values();
 
         $totalEnvios = $envios->count();
         $totalRespondidas = $envios->where('estado', 'respondida')->count();

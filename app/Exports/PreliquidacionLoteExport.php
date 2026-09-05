@@ -17,7 +17,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 
 class PreliquidacionLoteExport implements FromCollection, WithHeadings, WithEvents, ShouldAutoSize, WithColumnFormatting
 {
-    private const HOUR_COLUMNS = ['E', 'F', 'G', 'H', 'I'];
+    private const HOUR_COLUMNS = ['E', 'F', 'G', 'H', 'I', 'Y', 'Z'];
 
     private const MONEY_COLUMNS = ['J', 'K', 'L', 'M', 'O', 'R', 'T', 'U', 'V', 'W', 'X'];
 
@@ -147,6 +147,8 @@ class PreliquidacionLoteExport implements FromCollection, WithHeadings, WithEven
                     $sheet->setCellValue("V{$totalRow}", $this->totales['total_devengado']);
                     $sheet->setCellValue("W{$totalRow}", $this->totales['total_deducciones']);
                     $sheet->setCellValue("X{$totalRow}", $this->totales['salario_neto']);
+                    $sheet->setCellValue("Y{$totalRow}", $this->totales['horas_extras_diurnas_aprobadas'] ?? 0);
+                    $sheet->setCellValue("Z{$totalRow}", $this->totales['horas_extras_nocturnas_aprobadas'] ?? 0);
 
                     foreach (self::HOUR_COLUMNS as $column) {
                         $sheet->getStyle("{$column}{$totalRow}")->getNumberFormat()->setFormatCode('0.00');
@@ -170,6 +172,14 @@ class PreliquidacionLoteExport implements FromCollection, WithHeadings, WithEven
 
                 $sheet->getColumnDimension('A')->setWidth(26);
                 $sheet->getColumnDimension('B')->setWidth(28);
+
+                // "Advertencias" (última columna): texto largo, alineado a la izquierda.
+                $advCol = Coordinate::stringFromColumnIndex(count($this->headings));
+                $sheet->getColumnDimension($advCol)->setWidth(60);
+                $sheet->getStyle("{$advCol}5:{$advCol}".($this->filas->count() + 5))
+                    ->getAlignment()
+                    ->setHorizontal(Alignment::HORIZONTAL_LEFT)
+                    ->setWrapText(true);
             },
         ];
     }
