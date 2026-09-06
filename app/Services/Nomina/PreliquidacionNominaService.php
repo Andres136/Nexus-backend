@@ -164,6 +164,7 @@ class PreliquidacionNominaService
                     'descontar_tardanzas' => $calculo['descuenta_tardanzas'],
                     'descontar_permisos' => $calculo['descuenta_permisos'],
                     'permisos_descontar_ids' => $calculo['permisos_descontar_ids'] ?? [],
+                    'pagar_extra_sin_respaldo' => $calculo['paga_extra_sin_respaldo'] ?? false,
                 ]);
 
                 $generados[] = [

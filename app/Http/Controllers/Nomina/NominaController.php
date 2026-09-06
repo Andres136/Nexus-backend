@@ -332,6 +332,8 @@ class NominaController extends Controller
             'excluir_tardanza_ids.*' => 'integer',
             'excluir_permiso_ids' => 'nullable|array',
             'excluir_permiso_ids.*' => 'integer',
+            'pagar_extra_sin_respaldo_ids' => 'nullable|array',
+            'pagar_extra_sin_respaldo_ids.*' => 'integer',
         ]);
 
         if ($validator->fails()) {
@@ -353,7 +355,8 @@ class NominaController extends Controller
                 'Minutos tardanza', 'Valor tardanzas', '¿Tardanzas descontadas?',
                 'Minutos permisos no remunerados', 'Valor permisos no remunerados', '¿Permisos descontados?',
                 'Préstamos', 'Salario base devengado', 'Total devengado', 'Total deducciones', 'Neto a pagar',
-                'Horas extra diurnas aprobadas', 'Horas extra nocturnas aprobadas', 'Advertencias',
+                'Horas extra diurnas aprobadas', 'Horas extra nocturnas aprobadas',
+                'Horas extra sin respaldo de asistencia', '¿Horas sin respaldo pagadas?', 'Advertencias',
             ];
 
             $filas = collect($resultado['empleados'])->map(fn (array $calculo) => [
@@ -383,6 +386,8 @@ class NominaController extends Controller
                 $calculo['salario_neto'],
                 $calculo['horas_extras_diurnas_aprobadas'] ?? 0,
                 $calculo['horas_extras_nocturnas_aprobadas'] ?? 0,
+                $calculo['horas_extra_sin_respaldo'] ?? 0,
+                ($calculo['paga_extra_sin_respaldo'] ?? false) ? 'Sí' : 'No',
                 implode(' | ', $calculo['advertencias'] ?? []),
             ]);
 

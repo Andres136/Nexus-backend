@@ -17,7 +17,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 
 class PreliquidacionLoteExport implements FromCollection, WithHeadings, WithEvents, ShouldAutoSize, WithColumnFormatting
 {
-    private const HOUR_COLUMNS = ['E', 'F', 'G', 'H', 'I', 'Y', 'Z'];
+    private const HOUR_COLUMNS = ['E', 'F', 'G', 'H', 'I', 'Y', 'Z', 'AA'];
 
     private const MONEY_COLUMNS = ['J', 'K', 'L', 'M', 'O', 'R', 'T', 'U', 'V', 'W', 'X'];
 
@@ -149,6 +149,7 @@ class PreliquidacionLoteExport implements FromCollection, WithHeadings, WithEven
                     $sheet->setCellValue("X{$totalRow}", $this->totales['salario_neto']);
                     $sheet->setCellValue("Y{$totalRow}", $this->totales['horas_extras_diurnas_aprobadas'] ?? 0);
                     $sheet->setCellValue("Z{$totalRow}", $this->totales['horas_extras_nocturnas_aprobadas'] ?? 0);
+                    $sheet->setCellValue("AA{$totalRow}", $this->totales['horas_extra_sin_respaldo'] ?? 0);
 
                     foreach (self::HOUR_COLUMNS as $column) {
                         $sheet->getStyle("{$column}{$totalRow}")->getNumberFormat()->setFormatCode('0.00');

@@ -28,6 +28,8 @@ class PreliquidarLoteNominaRequest extends FormRequest
             'decisiones_permisos.*.user_id' => 'required|integer|exists:users,id',
             'decisiones_permisos.*.permisos_descontar_ids' => 'present|array',
             'decisiones_permisos.*.permisos_descontar_ids.*' => 'integer|exists:permisos,id',
+            'pagar_extra_sin_respaldo_ids' => 'nullable|array',
+            'pagar_extra_sin_respaldo_ids.*' => 'integer',
         ];
     }
 
