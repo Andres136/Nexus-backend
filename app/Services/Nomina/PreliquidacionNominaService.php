@@ -169,7 +169,7 @@ class PreliquidacionNominaService
 
                 $generados[] = [
                     'user_id' => $calculo['user_id'],
-                    'empleado' => $calculo['empleado']['name'],
+                    'empleado' => $calculo['empleado']['nombre_completo'] ?? $calculo['empleado']['name'],
                     'preliquidacion_id' => $preliquidacion->id,
                     'preliquidacion_uuid' => $preliquidacion->uuid,
                     'salario_neto' => $preliquidacion->salario_neto_ajustado,
@@ -177,7 +177,7 @@ class PreliquidacionNominaService
             } catch (\Throwable $e) {
                 $errores[] = [
                     'user_id' => $calculo['user_id'],
-                    'empleado' => $calculo['empleado']['name'],
+                    'empleado' => $calculo['empleado']['nombre_completo'] ?? $calculo['empleado']['name'],
                     'message' => $e->getMessage(),
                 ];
             }

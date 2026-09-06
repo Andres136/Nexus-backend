@@ -17,9 +17,9 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 
 class PreliquidacionLoteExport implements FromCollection, WithHeadings, WithEvents, ShouldAutoSize, WithColumnFormatting
 {
-    private const HOUR_COLUMNS = ['E', 'F', 'G', 'H', 'I', 'Y', 'Z', 'AA'];
+    private const HOUR_COLUMNS = ['E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 
-    private const MONEY_COLUMNS = ['J', 'K', 'L', 'M', 'O', 'R', 'T', 'U', 'V', 'W', 'X'];
+    private const MONEY_COLUMNS = ['N', 'O', 'P', 'Q', 'S', 'V', 'X', 'Y', 'Z', 'AA', 'AB'];
 
     public function __construct(
         private readonly Collection $filas,
@@ -135,21 +135,21 @@ class PreliquidacionLoteExport implements FromCollection, WithHeadings, WithEven
                     $sheet->setCellValue("G{$totalRow}", $this->totales['horas_extras_nocturnas']);
                     $sheet->setCellValue("H{$totalRow}", $this->totales['horas_festivas']);
                     $sheet->setCellValue("I{$totalRow}", $this->totales['horas_nocturnas_festivas']);
-                    $sheet->setCellValue("J{$totalRow}", $this->totales['valor_horas_extras_diurnas']);
-                    $sheet->setCellValue("K{$totalRow}", $this->totales['valor_horas_extras_nocturnas']);
-                    $sheet->setCellValue("L{$totalRow}", $this->totales['valor_horas_festivas']);
-                    $sheet->setCellValue("M{$totalRow}", $this->totales['valor_horas_nocturnas_festivas']);
-                    $sheet->setCellValue("N{$totalRow}", $this->totales['minutos_tardanza']);
-                    $sheet->setCellValue("O{$totalRow}", $this->totales['valor_tardanzas']);
-                    $sheet->setCellValue("Q{$totalRow}", $this->totales['minutos_permisos_no_remunerados']);
-                    $sheet->setCellValue("R{$totalRow}", $this->totales['valor_permisos_no_remunerados']);
-                    $sheet->setCellValue("T{$totalRow}", $this->totales['valor_prestamos']);
-                    $sheet->setCellValue("V{$totalRow}", $this->totales['total_devengado']);
-                    $sheet->setCellValue("W{$totalRow}", $this->totales['total_deducciones']);
-                    $sheet->setCellValue("X{$totalRow}", $this->totales['salario_neto']);
-                    $sheet->setCellValue("Y{$totalRow}", $this->totales['horas_extras_diurnas_aprobadas'] ?? 0);
-                    $sheet->setCellValue("Z{$totalRow}", $this->totales['horas_extras_nocturnas_aprobadas'] ?? 0);
-                    $sheet->setCellValue("AA{$totalRow}", $this->totales['horas_extra_sin_respaldo'] ?? 0);
+                    $sheet->setCellValue("J{$totalRow}", $this->totales['horas_extras_diurnas_aprobadas'] ?? 0);
+                    $sheet->setCellValue("K{$totalRow}", $this->totales['horas_extras_nocturnas_aprobadas'] ?? 0);
+                    $sheet->setCellValue("L{$totalRow}", $this->totales['horas_extra_sin_respaldo'] ?? 0);
+                    $sheet->setCellValue("N{$totalRow}", $this->totales['valor_horas_extras_diurnas']);
+                    $sheet->setCellValue("O{$totalRow}", $this->totales['valor_horas_extras_nocturnas']);
+                    $sheet->setCellValue("P{$totalRow}", $this->totales['valor_horas_festivas']);
+                    $sheet->setCellValue("Q{$totalRow}", $this->totales['valor_horas_nocturnas_festivas']);
+                    $sheet->setCellValue("R{$totalRow}", $this->totales['minutos_tardanza']);
+                    $sheet->setCellValue("S{$totalRow}", $this->totales['valor_tardanzas']);
+                    $sheet->setCellValue("U{$totalRow}", $this->totales['minutos_permisos_no_remunerados']);
+                    $sheet->setCellValue("V{$totalRow}", $this->totales['valor_permisos_no_remunerados']);
+                    $sheet->setCellValue("X{$totalRow}", $this->totales['valor_prestamos']);
+                    $sheet->setCellValue("Z{$totalRow}", $this->totales['total_devengado']);
+                    $sheet->setCellValue("AA{$totalRow}", $this->totales['total_deducciones']);
+                    $sheet->setCellValue("AB{$totalRow}", $this->totales['salario_neto']);
 
                     foreach (self::HOUR_COLUMNS as $column) {
                         $sheet->getStyle("{$column}{$totalRow}")->getNumberFormat()->setFormatCode('0.00');

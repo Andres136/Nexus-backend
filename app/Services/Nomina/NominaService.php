@@ -339,7 +339,7 @@ class NominaService
                 )
             )
             ->orderBy('name')
-            ->get(['id', 'name', 'email']);
+            ->get(['id', 'name', 'apellidos', 'email']);
 
         $descontarTardanzasGlobal = (bool) ($data['descontar_tardanzas'] ?? false);
         $excluirTardanzaIds = array_map('intval', $data['excluir_tardanza_ids'] ?? []);
@@ -374,19 +374,21 @@ class NominaService
                 $calculo['empleado'] = [
                     'id' => $empleado->id,
                     'name' => $empleado->name,
+                    'apellidos' => $empleado->apellidos,
+                    'nombre_completo' => $empleado->nombre_completo,
                     'email' => $empleado->email,
                 ];
                 $resultados[] = $calculo;
             } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
                 $errores[] = [
                     'user_id' => $empleado->id,
-                    'empleado' => $empleado->name,
+                    'empleado' => $empleado->nombre_completo,
                     'message' => 'No se encontró contrato activo o configuración de tarifas para el empleado.',
                 ];
             } catch (\LogicException $e) {
                 $errores[] = [
                     'user_id' => $empleado->id,
-                    'empleado' => $empleado->name,
+                    'empleado' => $empleado->nombre_completo,
                     'message' => $e->getMessage(),
                 ];
             }
