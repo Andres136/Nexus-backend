@@ -28,7 +28,7 @@ class InspeccionUpdateRequest extends FormRequest
             'responsable' => 'required|string|max:255',
             'observaciones' => 'required|string|max:1000',
             'estado_general' => 'required|string|max:255',
-            'documento' => 'required|file|mimes:pdf,doc,docx,xlsx,xls|max:10240',
+            'documento' => 'nullable|file|mimes:pdf,doc,docx,xlsx,xls|max:10240',
             'fotos' => 'nullable|array|max:12',
             'fotos.*' => 'file|image|mimes:jpg,jpeg,png,webp|max:8192',
         ];
