@@ -80,6 +80,13 @@ class EncuestaController extends Controller
         );
     }
 
+    public function detalleEnvio(string $id, string $envio)
+    {
+        return response()->json(
+            $this->encuestaService->detalleEnvio((int) $id, (int) $envio, auth()->user())
+        );
+    }
+
     public function indiceGeneral()
     {
         return response()->json(
