@@ -34,6 +34,16 @@ class TareaController extends Controller
         ], 201);
     }
 
+    public function completadas(Request $request): JsonResponse
+    {
+        return response()->json($this->tareaService->listarCompletadas($request, $request->user()));
+    }
+
+    public function asignadas(Request $request): JsonResponse
+    {
+        return response()->json($this->tareaService->listarAsignadas($request, $request->user()));
+    }
+
     public function show(string $id): JsonResponse
     {
         return response()->json($this->tareaService->obtener((int) $id));

@@ -369,6 +369,8 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
   Route::get('stock-global', [SiigoGlobalController::class, 'stock']);
   //Siigo facturas de compra
 
+  Route::get('tareas/completadas', [TareaController::class, 'completadas']);
+  Route::get('tareas/asignadas', [TareaController::class, 'asignadas']);
   Route::patch('tareas/estado/{id}/', [TareaController::class, 'update']);
   Route::apiResource('tareas', TareaController::class);
   Route::put('/tareas/update/{id}', [TareaController::class, 'actualizarTarea']);

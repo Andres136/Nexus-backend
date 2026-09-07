@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Hseq\SoporteTarea;
 use Illuminate\Database\Eloquent\Model;
 
 class Tareas extends Model
@@ -15,6 +16,17 @@ class Tareas extends Model
     public function usuario()
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    //relacion con el usuario que asignó/creó la tarea
+    public function creador()
+    {
+        return $this->belongsTo(User::class, 'user_id_creo');
+    }
+
+    public function soportes()
+    {
+        return $this->hasMany(SoporteTarea::class, 'tarea_id');
     }
 
     //relacion con el modelo Departamento
