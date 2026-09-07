@@ -77,7 +77,7 @@ class ConsumoServicioController extends Controller
 public function estadisticasAnuales(Request $request)
 {
     $filters = [
-        'anio' => $request->query('year', date('Y')),
+        'anio' => $request->query('anio', date('Y')),
         'tipo_servicio_id' => $request->query('tipo_servicio_id'),
         'sede_id' => $request->query('sede_id'),
         'search' => $request->query('search'),
