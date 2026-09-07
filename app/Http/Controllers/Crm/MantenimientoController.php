@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Crm\MantenimientoRequest;
 use App\Http\Requests\Crm\MantenimientoUpdateRequest;
 use App\Models\Crm\Mantenimiento;
+use App\RolEnum;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -16,7 +17,7 @@ class MantenimientoController extends Controller
      */
     public function index()
     {
-        $mantenimientos = Mantenimiento::with('vehiculo')
+        $mantenimientos = Mantenimiento::with(['vehiculo', 'programadoPor:id,name', 'realizadoPor:id,name'])
             ->orderBy('fecha_programada')
             ->get();
 
@@ -37,6 +38,8 @@ class MantenimientoController extends Controller
 
             $mantenimiento = Mantenimiento::create([
                 'vehiculo_id'=> $request->vehiculo_id,
+                'programado_por_id'=> auth()->id(),
+                'realizado_por_id'=> $request->filled('fecha_realizado') ? auth()->id() : null,
                 'fecha_programada'=> $request->fecha_programada,
                 'fecha_realizado'=> $request->fecha_realizado,
                 'taller'=> $request->taller,
@@ -59,7 +62,7 @@ class MantenimientoController extends Controller
      */
     public function show(string $id)
     {
-        $mantenimiento = Mantenimiento::with('vehiculo')->findOrFail($id);
+        $mantenimiento = Mantenimiento::with(['vehiculo', 'programadoPor:id,name', 'realizadoPor:id,name'])->findOrFail($id);
 
         return response()->json($mantenimiento);
     }
@@ -78,6 +81,11 @@ class MantenimientoController extends Controller
      $mantenimiento->kilometro_programado = $request->kilometro_programado;
      $mantenimiento->tipo_mantenimiento = $request->tipo_mantenimiento;
      $mantenimiento->kilometraje_actual = $request->kilometraje_actual;
+
+     // Al marcarse como realizado por primera vez, se deja registrado quién lo ejecutó.
+     if ($request->filled('fecha_realizado') && ! $mantenimiento->realizado_por_id) {
+         $mantenimiento->realizado_por_id = auth()->id();
+     }
 
      // Verificar si se ha subido un nuevo archivo
         if ($request->hasFile('archivo')) {
@@ -120,6 +128,12 @@ class MantenimientoController extends Controller
      */
     public function destroy(string $id)
     {
+        if (auth()->user()?->role_id !== RolEnum::ADMINISTRADOR->value) {
+            return response()->json([
+                'message' => 'No tienes permiso para eliminar mantenimientos',
+            ], 403);
+        }
+
         $mantenimiento = Mantenimiento::findOrFail($id);
 
         // Eliminar el archivo del sistema de archivos
