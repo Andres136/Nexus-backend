@@ -455,6 +455,51 @@ class EncuestaService
         ];
     }
 
+    // ─── DETALLE DE UN ENVÍO (respuestas puntuales de un cliente) ─────────────
+
+    public function detalleEnvio(int $encuestaId, int $envioId, $user): array
+    {
+        $puedeVerResultadosGlobales = in_array($user->role_id, $this->rolesResultados, true);
+
+        $envio = EncuestaEnvio::where('encuesta_id', $encuestaId)
+            ->where('id', $envioId)
+            ->with([
+                'cliente:id,nombre,email',
+                'usuario:id,name',
+                'encuesta.preguntas' => fn ($q) => $q->orderBy('orden'),
+                'respuestas',
+            ])
+            ->firstOrFail();
+
+        // Un remitente común solo puede ver el detalle de sus propios envíos.
+        if (! $puedeVerResultadosGlobales && (int) $envio->user_id !== (int) $user->id) {
+            abort(403, 'Solo puedes ver los envíos que hayas realizado.');
+        }
+
+        $respuestasPorPregunta = $envio->respuestas->keyBy('pregunta_id');
+
+        $respuestas = $envio->encuesta->preguntas->map(fn ($pregunta) => [
+            'pregunta_id' => $pregunta->id,
+            'texto'       => $pregunta->texto,
+            'tipo'        => $pregunta->tipo,
+            'max_escala'  => $pregunta->max_escala ?? 5,
+            'valor'       => $respuestasPorPregunta->get($pregunta->id)?->valor,
+        ])->values();
+
+        return [
+            'envio_id'      => $envio->id,
+            'estado'        => $envio->estado,
+            'cliente'       => [
+                'nombre' => $envio->cliente?->nombre,
+                'email'  => $envio->cliente?->email,
+            ],
+            'enviado_por'   => $envio->usuario?->name,
+            'enviado_el'    => $envio->sent_at?->format('Y-m-d H:i'),
+            'respondido_el' => $envio->responded_at?->format('Y-m-d H:i'),
+            'respuestas'    => $respuestas,
+        ];
+    }
+
     // ─── HELPERS ─────────────────────────────────────────────────────────────
 
     private function sincronizarPreguntas(Encuesta $encuesta, array $preguntas): void
