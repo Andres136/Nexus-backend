@@ -15,6 +15,7 @@ class Certificacion extends Model
     protected $fillable = [
         'uuid',
         'titulo',
+        'titulo_color',
         'subtitulo',
         'descripcion',
         'logo',

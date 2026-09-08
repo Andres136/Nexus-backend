@@ -25,6 +25,7 @@ class CertificacionRequest extends FormRequest
 
         return [
             'titulo' => [$required, 'string', 'max:255'],
+            'titulo_color' => ['sometimes', 'nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'subtitulo' => [$required, 'string', 'max:255'],
             'descripcion' => [$required, 'string'],
             'logo' => [$required, 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:2048'],
@@ -47,6 +48,7 @@ class CertificacionRequest extends FormRequest
             'titulo.required' => 'El título es obligatorio.',
             'titulo.string' => 'El título debe ser una cadena de texto.',
             'titulo.max' => 'El título no puede exceder los 255 caracteres.',
+            'titulo_color.regex' => 'El color del título debe ser un valor hexadecimal (ej: #1e293b).',
             'subtitulo.required' => 'El subtítulo es obligatorio.',
             'subtitulo.string' => 'El subtítulo debe ser una cadena de texto.',
             'subtitulo.max' => 'El subtítulo no puede exceder los 255 caracteres.',
