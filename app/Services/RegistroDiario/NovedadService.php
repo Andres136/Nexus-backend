@@ -48,6 +48,11 @@ public function getNovedades($filters = [])
                 $query->where('fuentes', $filters['fuentes']);
             }
 
+            // 🔹 FILTRO POR CLASIFICACIÓN (No Conformidad / Oportunidad de Mejora)
+            if (!empty($filters['clasificacion'])) {
+                $query->where('clasificacion', $filters['clasificacion']);
+            }
+
             // 🔥 SEARCH GLOBAL BIEN AGRUPADO
             if (!empty($filters['search'])) {
                 $query->where(function ($q) use ($filters) {
@@ -175,10 +180,12 @@ public function getIndicadorSemestral($fechaInicio = null, $fechaFin = null)
         }
     }
 
-    // 🔹 Query base
-    $query = Novedades::whereHas('registroDiario', function ($q) use ($fechaInicio, $fechaFin) {
-        $q->whereBetween('fecha', [$fechaInicio, $fechaFin]);
-    });
+    // 🔹 Query base — solo No Conformidades (las Oportunidades de Mejora
+    // no entran en este indicador de cierre de NC).
+    $query = Novedades::where('clasificacion', 'NO_CONFORMIDAD')
+        ->whereHas('registroDiario', function ($q) use ($fechaInicio, $fechaFin) {
+            $q->whereBetween('fecha', [$fechaInicio, $fechaFin]);
+        });
 
     // 🔹 Conteos
     $total = (clone $query)->count();

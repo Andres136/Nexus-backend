@@ -142,6 +142,7 @@ use App\Http\Controllers\Productividad\AdminProductividadController;
 use App\Http\Controllers\Productividad\MiDiaController;
 use App\Http\Controllers\ProcesoController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\RegistroDiario\AnalisisReincidenciaController;
 use App\Http\Controllers\RegistroDiario\NovedadController;
 use App\Http\Controllers\RegistroDiario\PreguntaController;
 use App\Http\Controllers\RegistroDiario\RegistroDiarioController;
@@ -676,6 +677,8 @@ Route::get('/estadisticas-anuales-verificacion/{anio}', [VerificacionDiariaContr
 Route::get('/estadisticas-anuales-departamentos/{anio}', [RegistroDiarioController::class, 'index']);
 
 //RUTAS  PARA NOVEDADES PRODUCTOS  NO CONFORMES
+Route::post('novedades/analisis-reincidencia', [AnalisisReincidenciaController::class, 'analizar'])
+    ->middleware('role:1,2');
 Route::apiResource('novedades', NovedadController::class);
 
 
