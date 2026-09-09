@@ -296,6 +296,66 @@ public function hallazgosParaPdf($filters)
     ->orderByDesc('i.fecha')
     ->get();
 }
+/**
+ * 🔹 Checklist completo de cada inspección para el PDF (todas las preguntas
+ * con su resultado, no solo los hallazgos). Respeta los mismos filtros.
+ */
+public function checklistParaPdf($filters)
+{
+    $inspeccionesQuery = DB::table('inspecciones_hseq as i')
+        ->join('tipo_inspecciones as ti', 'ti.id', '=', 'i.tipo_inspeccion_id')
+        ->join('sedes as s', 's.id', '=', 'i.sede_id')
+        ->leftJoin('users as u', 'u.id', '=', 'i.responsable_id')
+        ->leftJoin('bodegas as bo', 'bo.id', '=', 'i.bodega_id');
+
+    $inspeccionesQuery = $this->applyFilters($inspeccionesQuery, $filters);
+
+    if (!empty($filters['inspeccion_id'])) {
+        $inspeccionesQuery->where('i.id', $filters['inspeccion_id']);
+    }
+
+    $inspecciones = $inspeccionesQuery->select(
+        'i.id',
+        'i.fecha',
+        'i.observaciones',
+        'i.estado',
+        'ti.nombre as tipo_inspeccion',
+        's.nombre as sede',
+        'bo.nombre as bodega',
+        'u.name as responsable'
+    )
+        ->orderByDesc('i.fecha')
+        ->limit(50) // tope de seguridad para no generar un PDF gigante
+        ->get();
+
+    if ($inspecciones->isEmpty()) {
+        return collect();
+    }
+
+    $respuestasPorInspeccion = DB::table('respuesta_inspecciones as r')
+        ->join('preguntas_inspecciones as p', 'p.id', '=', 'r.pregunta_inspeccion_id')
+        ->whereIn('r.inspeccion_id', $inspecciones->pluck('id'))
+        ->select('r.inspeccion_id', 'p.pregunta', 'p.orden', 'r.respuesta', 'r.observaciones', 'r.cerrado_en')
+        ->orderBy('p.orden')
+        ->orderBy('p.id')
+        ->get()
+        ->groupBy('inspeccion_id');
+
+    return $inspecciones->map(function ($insp) use ($respuestasPorInspeccion) {
+        $items = $respuestasPorInspeccion->get($insp->id, collect())->values();
+        $total = $items->count();
+        $cumple = $items->where('respuesta', 1)->count();
+
+        $insp->items = $items;
+        $insp->total_preguntas = $total;
+        $insp->cumple = $cumple;
+        $insp->no_cumple = $total - $cumple;
+        $insp->cumplimiento = $total > 0 ? round(($cumple / $total) * 100, 1) : null;
+
+        return $insp;
+    });
+}
+
 public function getInspeccionesFinalizadas($search = null, $filters = [])
 {
     $query = DB::table('inspecciones_hseq as i')

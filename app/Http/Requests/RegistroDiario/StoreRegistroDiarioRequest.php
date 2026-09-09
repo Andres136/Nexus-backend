@@ -29,6 +29,8 @@ class StoreRegistroDiarioRequest extends FormRequest
             'tipo' => 'required|string|in:si,no',
             'novedad' => 'nullable|string',
             'clasificacion' => 'nullable|string|in:NO_CONFORMIDAD,OPORTUNIDAD_MEJORA',
+            'es_reiterativa' => 'nullable|boolean',
+            'reiterativa_nota' => 'nullable|string|max:2000',
             'numero_no_conformidad' => 'nullable|string|max:255',
             'fuentes' => 'nullable|string|max:255',
             'tipo_accion' => 'nullable|string|max:255',

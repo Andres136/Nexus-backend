@@ -15,6 +15,8 @@ class Novedades extends Model
         'registro_diario_id',
         'descripcion',
         'clasificacion',
+        'es_reiterativa',
+        'reiterativa_nota',
         'numero_no_conformidad',
         'correccion',
         'estado',
@@ -25,6 +27,10 @@ class Novedades extends Model
         'responsable_id',
         'fuentes',
         'causa'
+    ];
+
+    protected $casts = [
+        'es_reiterativa' => 'boolean',
     ];
 
     public function registroDiario()

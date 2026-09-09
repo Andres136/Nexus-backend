@@ -679,6 +679,7 @@ Route::get('/estadisticas-anuales-departamentos/{anio}', [RegistroDiarioControll
 //RUTAS  PARA NOVEDADES PRODUCTOS  NO CONFORMES
 Route::post('novedades/analisis-reincidencia', [AnalisisReincidenciaController::class, 'analizar'])
     ->middleware('role:1,2');
+Route::post('novedades/verificar-reincidencia', [AnalisisReincidenciaController::class, 'verificar']);
 Route::apiResource('novedades', NovedadController::class);
 
 

@@ -33,6 +33,10 @@ class RegistroDiarioService
                 'registro_diario_id'     => $registroDiario->id,
                 'descripcion'            => $data['novedad'],
                 'clasificacion'          => $data['clasificacion'] ?? 'NO_CONFORMIDAD',
+                // Marca de reincidencia: aplica tanto a No Conformidades como a
+                // Oportunidades de Mejora (el usuario la confirma tras la revisión con IA).
+                'es_reiterativa'         => $data['es_reiterativa'] ?? null,
+                'reiterativa_nota'       => $data['reiterativa_nota'] ?? null,
                 'numero_no_conformidad'  => $data['numero_no_conformidad'] ?? null,
                 'fuentes'                => $data['fuentes'] ?? null,
                 'tipo_accion'            => $data['tipo_accion'] ?? null,
