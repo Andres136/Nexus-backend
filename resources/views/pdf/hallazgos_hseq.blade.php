@@ -201,6 +201,73 @@
             color: #94a3b8;
             font-size: 11px;
         }
+
+        /* CHECKLIST POR INSPECCIÓN */
+        .section-title {
+            margin: 26px 0 10px;
+            font-size: 13px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #1e293b;
+            border-bottom: 2px solid #3b82f6;
+            padding-bottom: 5px;
+        }
+
+        .insp-block {
+            margin-bottom: 16px;
+        }
+
+        .insp-head {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #f1f5f9;
+            border: 1px solid #e2e8f0;
+        }
+
+        .insp-head td {
+            border: none;
+            padding: 6px 10px;
+            font-size: 8.5px;
+            color: #64748b;
+            vertical-align: top;
+        }
+
+        .insp-head .insp-value {
+            display: block;
+            margin-top: 1px;
+            font-size: 10px;
+            font-weight: bold;
+            color: #1e293b;
+        }
+
+        table.checklist-items {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        table.checklist-items th {
+            background-color: #334155;
+            font-size: 8px;
+        }
+
+        table.checklist-items td {
+            font-size: 9px;
+        }
+
+        .res-ok {
+            color: #166534;
+            font-weight: bold;
+        }
+
+        .res-nc {
+            color: #991b1b;
+            font-weight: bold;
+        }
+
+        tr.row-nc td {
+            background-color: #fef2f2;
+        }
     </style>
 </head>
 
@@ -299,6 +366,71 @@
             @endforelse
         </tbody>
     </table>
+
+    @if(!empty($checklist) && count($checklist))
+        <div class="section-title">Checklist por inspección</div>
+
+        @foreach($checklist as $insp)
+            <div class="insp-block">
+                <table class="insp-head">
+                    <tr>
+                        <td width="26%">
+                            Inspección
+                            <span class="insp-value">{{ $insp->tipo_inspeccion ?? '—' }}</span>
+                        </td>
+                        <td width="14%">
+                            Fecha
+                            <span class="insp-value">{{ $insp->fecha ?? '—' }}</span>
+                        </td>
+                        <td width="24%">
+                            Sede
+                            <span class="insp-value">{{ $insp->sede ?? '—' }}{{ $insp->bodega ? ' / ' . $insp->bodega : '' }}</span>
+                        </td>
+                        <td width="20%">
+                            Responsable
+                            <span class="insp-value">{{ $insp->responsable ?? '—' }}</span>
+                        </td>
+                        <td width="16%">
+                            Cumplimiento
+                            <span class="insp-value">
+                                {{ $insp->cumplimiento !== null ? $insp->cumplimiento . '%' : 's/d' }}
+                                <span style="font-weight: normal; color: #94a3b8;">({{ $insp->cumple }}/{{ $insp->total_preguntas }})</span>
+                            </span>
+                        </td>
+                    </tr>
+                </table>
+
+                <table class="checklist-items">
+                    <thead>
+                        <tr>
+                            <th width="5%">#</th>
+                            <th width="52%">Ítem verificado</th>
+                            <th width="13%">Resultado</th>
+                            <th width="30%">Observaciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($insp->items as $idx => $it)
+                        <tr class="{{ $it->respuesta ? '' : 'row-nc' }}">
+                            <td>{{ $idx + 1 }}</td>
+                            <td>{{ $it->pregunta }}</td>
+                            <td class="{{ $it->respuesta ? 'res-ok' : 'res-nc' }}">
+                                {{ $it->respuesta ? 'Cumple' : 'No cumple' }}
+                            </td>
+                            <td style="color: #64748b;">{{ $it->observaciones ?: '—' }}</td>
+                        </tr>
+                        @empty
+                        <tr>
+                            <td colspan="4" style="color:#94a3b8; text-align:center; padding:14px;">
+                                Esta inspección aún no tiene respuestas registradas.
+                            </td>
+                        </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        @endforeach
+    @endif
 
 </body>
 </html>

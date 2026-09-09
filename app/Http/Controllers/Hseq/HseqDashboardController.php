@@ -76,6 +76,7 @@ public function descargarHallazgosPdf(Request $request)
     $filters = $request->all();
 
     $hallazgos = $this->dashboardService->hallazgosParaPdf($filters);
+    $checklist = $this->dashboardService->checklistParaPdf($filters);
 
     $inspeccionFiltro = null;
     $empresaLogo = null;
@@ -99,6 +100,7 @@ public function descargarHallazgosPdf(Request $request)
 
     $pdf = Pdf::loadView('pdf.hallazgos_hseq', [
         'hallazgos' => $hallazgos,
+        'checklist' => $checklist,
         'filters' => $filters,
         'inspeccionFiltro' => $inspeccionFiltro,
         'bodegaFiltro' => $bodegaFiltro,
