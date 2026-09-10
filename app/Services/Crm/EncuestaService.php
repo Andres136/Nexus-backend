@@ -2,6 +2,7 @@
 
 namespace App\Services\Crm;
 
+use App\EstadoEnum;
 use App\Mail\EncuestaEnviadaMail;
 use App\Models\Crm\Cliente;
 use App\Models\Crm\Encuesta;
@@ -33,6 +34,12 @@ class EncuestaService
     {
         return Encuesta::with(['preguntas'])
             ->withCount(['envios', 'envios as envios_respondidas_count' => fn ($q) => $q->where('estado', 'respondida')])
+            ->withCount([
+                'envios as mis_envios_count' => fn ($q) => $q->where('user_id', $user->id),
+                'envios as mis_envios_respondidas_count' => fn ($q) => $q
+                    ->where('user_id', $user->id)
+                    ->where('estado', 'respondida'),
+            ])
             ->latest()
             ->get()
             ->map(fn (Encuesta $encuesta) => $this->marcarPermisos($encuesta, $user))
@@ -136,13 +143,17 @@ class EncuestaService
     {
         $puedeVerTodosLosClientes = in_array($user->role_id, $this->rolesClientesGlobales, true);
 
-        $clienteIds = Cliente::query()
+        // Clientes elegibles: los del usuario (o todos, según rol) que NO estén desactivados
+        // (estado Inactivo). Los de estado nulo se mantienen.
+        $base = fn () => Cliente::query()
             ->when(!$puedeVerTodosLosClientes, fn ($q) => $q->where('user_id', $user->id))
-            ->whereHas('ordenes')
-            ->pluck('id');
+            ->where(fn ($q) => $q
+                ->where('estado_id', '!=', EstadoEnum::INACTIVO->value)
+                ->orWhereNull('estado_id'));
 
-        return Cliente::query()
-            ->when(!$puedeVerTodosLosClientes, fn ($q) => $q->where('user_id', $user->id))
+        $clienteIds = $base()->whereHas('ordenes')->pluck('id');
+
+        return $base()
             ->orderBy('nombre')
             ->get(['id', 'nombre', 'email'])
             ->map(function ($c) use ($clienteIds) {
@@ -166,6 +177,13 @@ class EncuestaService
                     'razon'      => $razon,
                 ];
             })
+            // Un mismo cliente suele estar registrado varias veces con el mismo correo; para el
+            // envío es la misma persona, así que se deja una sola fila por correo (la habilitada
+            // si existe). Los clientes sin correo no se pueden deduplicar y quedan tal cual.
+            ->sortByDesc('habilitado')
+            ->unique(fn ($c) => $c['email'] ? mb_strtolower(trim($c['email'])) : 'sin-correo-'.$c['id'])
+            ->sortBy('nombre', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values()
             ->toArray();
     }
 
@@ -192,11 +210,13 @@ class EncuestaService
         $excluidos = [];
 
         foreach ($todosClientes as $cliente) {
-            $tieneOrdenes = $idsConOrdenes->has($cliente->id);
-            $tieneEmail   = !empty($cliente->email);
+            $tieneOrdenes  = $idsConOrdenes->has($cliente->id);
+            $tieneEmail    = !empty($cliente->email);
+            $estaInactivo  = (int) $cliente->estado_id === EstadoEnum::INACTIVO->value;
 
-            if (!$tieneOrdenes || !$tieneEmail) {
+            if ($estaInactivo || !$tieneOrdenes || !$tieneEmail) {
                 $razon = match (true) {
+                    $estaInactivo                  => 'Cliente desactivado',
                     !$tieneOrdenes && !$tieneEmail => 'Sin órdenes de compra ni correo electrónico',
                     !$tieneOrdenes                 => 'Sin órdenes de compra',
                     default                        => 'Sin correo electrónico',
@@ -209,12 +229,20 @@ class EncuestaService
                 continue;
             }
 
-            $envio = EncuestaEnvio::firstOrNew([
+            $envio = EncuestaEnvio::where([
                 'encuesta_id' => $encuestaId,
                 'cliente_id'  => $cliente->id,
-            ]);
+                'user_id'     => $user->id,
+            ])->latest('id')->first();
 
-            if (!$envio->exists || $envio->estado === 'respondida') {
+            // Si ya respondió, un nuevo envío representa una nueva gestión y conserva
+            // intactas las respuestas anteriores. Si está pendiente, se reenvía el mismo link.
+            if (! $envio || $envio->estado === 'respondida') {
+                $envio = new EncuestaEnvio([
+                    'encuesta_id' => $encuestaId,
+                    'cliente_id'  => $cliente->id,
+                    'user_id'     => $user->id,
+                ]);
                 $envio->token        = Str::uuid()->toString();
                 $envio->estado       = 'pendiente';
                 $envio->responded_at = null;
@@ -283,24 +311,49 @@ class EncuestaService
 
     public function resultados(int $encuestaId, $user, ?int $filtroUserId = null): array
     {
-        if (!in_array($user->role_id, $this->rolesResultados)) {
-            abort(403, 'No tienes permiso para ver los resultados');
-        }
-
         $encuesta = Encuesta::with('preguntas')->findOrFail($encuestaId);
+        $puedeVerResultadosGlobales = in_array($user->role_id, $this->rolesResultados, true);
+
+        if (! $puedeVerResultadosGlobales) {
+            $haEnviado = EncuestaEnvio::where('encuesta_id', $encuestaId)
+                ->where('user_id', $user->id)
+                ->exists();
+
+            if (! $haEnviado) {
+                abort(403, 'Solo puedes gestionar encuestas que hayas enviado.');
+            }
+
+            // Un remitente común siempre queda limitado a sus propios envíos.
+            $filtroUserId = (int) $user->id;
+        }
 
         $baseEnvios = EncuestaEnvio::where('encuesta_id', $encuestaId)
             ->when($filtroUserId, fn ($q) => $q->where('user_id', $filtroUserId));
 
-        $totalEnvios      = (clone $baseEnvios)->count();
-        $totalRespondidas = (clone $baseEnvios)->where('estado', 'respondida')->count();
+        $envios = (clone $baseEnvios)
+            ->with('cliente:id,nombre,email,estado_id')
+            ->orderByDesc('sent_at')
+            ->get();
 
-        $envioIds = (clone $baseEnvios)->pluck('id');
+        // Un envío pendiente a un cliente que después fue desactivado nunca se
+        // podrá responder ni reenviar, así que se excluye por completo de los
+        // resultados. Los que ya respondieron se conservan (dato histórico real).
+        $envios = $envios
+            ->reject(fn ($e) => $e->estado === 'pendiente'
+                && (int) $e->cliente?->estado_id === EstadoEnum::INACTIVO->value)
+            ->values();
 
-        $resultadosPorPregunta = $encuesta->preguntas->map(function ($pregunta) use ($envioIds) {
-            $respuestas = EncuestaRespuesta::whereIn('envio_id', $envioIds)
-                ->where('pregunta_id', $pregunta->id)
-                ->pluck('valor');
+        $totalEnvios = $envios->count();
+        $totalRespondidas = $envios->where('estado', 'respondida')->count();
+        $envioIds = $envios->pluck('id');
+
+        // Una sola consulta para todas las respuestas, agrupadas en memoria por pregunta.
+        $respuestasPorPregunta = EncuestaRespuesta::whereIn('envio_id', $envioIds)
+            ->get(['pregunta_id', 'valor'])
+            ->groupBy('pregunta_id');
+
+        $resultadosPorPregunta = $encuesta->preguntas->map(function ($pregunta) use ($respuestasPorPregunta) {
+            $respuestas = $respuestasPorPregunta->get($pregunta->id, collect())->pluck('valor');
 
             $maxEscala = $pregunta->max_escala ?? 5;
 
@@ -341,9 +394,7 @@ class EncuestaService
                 $maxEscala = $pregunta->max_escala ?? 5;
                 $umbral    = (int) ceil($maxEscala * 0.7); // 70% del máximo = "satisfecho"
 
-                $vals = EncuestaRespuesta::whereIn('envio_id', $envioIds)
-                    ->where('pregunta_id', $pregunta->id)
-                    ->pluck('valor');
+                $vals = $respuestasPorPregunta->get($pregunta->id, collect())->pluck('valor');
 
                 $totalEscala     += $vals->count();
                 $positivasEscala += $vals->filter(fn ($v) => (int) $v >= $umbral)->count();
@@ -355,25 +406,37 @@ class EncuestaService
         }
 
         // Usuarios que han enviado esta encuesta (para el filtro)
-        $usuariosRemitentes = EncuestaEnvio::where('encuesta_id', $encuestaId)
-            ->distinct('user_id')
-            ->pluck('user_id')
-            ->filter()
-            ->pipe(fn ($ids) => User::whereIn('id', $ids)->get(['id', 'name']))
-            ->values()
-            ->toArray();
+        $usuariosRemitentes = $puedeVerResultadosGlobales
+            ? EncuestaEnvio::where('encuesta_id', $encuestaId)
+                ->distinct()
+                ->pluck('user_id')
+                ->filter()
+                ->pipe(fn ($ids) => User::whereIn('id', $ids)->get(['id', 'name']))
+                ->values()
+                ->toArray()
+            : [];
 
         // Clientes pendientes (enviados pero sin responder)
-        $clientesPendientes = (clone $baseEnvios)
-            ->where('estado', 'pendiente')
-            ->with('cliente:id,nombre,email')
-            ->get()
-            ->map(fn ($e) => [
+        $mapearCliente = fn ($e) => [
+                'envio_id'      => $e->id,
                 'cliente_id'    => $e->cliente_id,
                 'nombre'        => $e->cliente?->nombre,
                 'email'         => $e->cliente?->email,
+                'estado'        => $e->estado,
+                'token'         => $e->token,
                 'enviado_el'    => $e->sent_at?->format('Y-m-d H:i'),
-            ])
+                'respondido_el' => $e->responded_at?->format('Y-m-d H:i'),
+            ];
+
+        $clientesPendientes = $envios
+            ->where('estado', 'pendiente')
+            ->map($mapearCliente)
+            ->values()
+            ->toArray();
+
+        $clientesRespondieron = $envios
+            ->where('estado', 'respondida')
+            ->map($mapearCliente)
             ->values()
             ->toArray();
 
@@ -386,7 +449,54 @@ class EncuestaService
             'indice_satisfaccion' => $indicesSatisfaccion,
             'usuarios_remitentes' => $usuariosRemitentes,
             'clientes_pendientes' => $clientesPendientes,
+            'clientes_respondieron'=> $clientesRespondieron,
+            'puede_ver_global'     => $puedeVerResultadosGlobales,
             'preguntas'           => $resultadosPorPregunta,
+        ];
+    }
+
+    // ─── DETALLE DE UN ENVÍO (respuestas puntuales de un cliente) ─────────────
+
+    public function detalleEnvio(int $encuestaId, int $envioId, $user): array
+    {
+        $puedeVerResultadosGlobales = in_array($user->role_id, $this->rolesResultados, true);
+
+        $envio = EncuestaEnvio::where('encuesta_id', $encuestaId)
+            ->where('id', $envioId)
+            ->with([
+                'cliente:id,nombre,email',
+                'usuario:id,name',
+                'encuesta.preguntas' => fn ($q) => $q->orderBy('orden'),
+                'respuestas',
+            ])
+            ->firstOrFail();
+
+        // Un remitente común solo puede ver el detalle de sus propios envíos.
+        if (! $puedeVerResultadosGlobales && (int) $envio->user_id !== (int) $user->id) {
+            abort(403, 'Solo puedes ver los envíos que hayas realizado.');
+        }
+
+        $respuestasPorPregunta = $envio->respuestas->keyBy('pregunta_id');
+
+        $respuestas = $envio->encuesta->preguntas->map(fn ($pregunta) => [
+            'pregunta_id' => $pregunta->id,
+            'texto'       => $pregunta->texto,
+            'tipo'        => $pregunta->tipo,
+            'max_escala'  => $pregunta->max_escala ?? 5,
+            'valor'       => $respuestasPorPregunta->get($pregunta->id)?->valor,
+        ])->values();
+
+        return [
+            'envio_id'      => $envio->id,
+            'estado'        => $envio->estado,
+            'cliente'       => [
+                'nombre' => $envio->cliente?->nombre,
+                'email'  => $envio->cliente?->email,
+            ],
+            'enviado_por'   => $envio->usuario?->name,
+            'enviado_el'    => $envio->sent_at?->format('Y-m-d H:i'),
+            'respondido_el' => $envio->responded_at?->format('Y-m-d H:i'),
+            'respuestas'    => $respuestas,
         ];
     }
 
@@ -428,8 +538,23 @@ class EncuestaService
 
     private function marcarPermisos(Encuesta $encuesta, $user): Encuesta
     {
+        $puedeVerGlobal = in_array($user->role_id, $this->rolesResultados, true);
+
+        if (! $puedeVerGlobal) {
+            // No exponer estadísticas agregadas de otros remitentes.
+            $encuesta->setAttribute('envios_count', (int) ($encuesta->mis_envios_count ?? 0));
+            $encuesta->setAttribute(
+                'envios_respondidas_count',
+                (int) ($encuesta->mis_envios_respondidas_count ?? 0)
+            );
+        }
+
         $encuesta->setAttribute('fecha_pasada', $this->fechaYaPaso($encuesta));
         $encuesta->setAttribute('puede_eliminar', $this->esAdministrador($user));
+        $encuesta->setAttribute(
+            'puede_ver_resultados',
+            $puedeVerGlobal || (int) ($encuesta->mis_envios_count ?? 0) > 0
+        );
 
         return $encuesta;
     }

@@ -15,18 +15,28 @@ class UpdateTicketRequest extends FormRequest
     {
         return [
             'user_asignado_id' => ['nullable', 'integer', 'exists:users,id'],
-            'producto_id'      => ['nullable', 'integer', 'exists:products,id'],
+            'producto_id'      => ['nullable', 'integer', 'exists:products,id', 'required_if:tipo,soporte_equipo'],
             'departamento_id'  => ['nullable', 'integer', 'exists:departamentos,id'],
+            'tipo'             => ['sometimes', 'required', 'in:solicitud,soporte_equipo,desarrollo_nexus'],
             'descripcion'      => ['sometimes', 'required', 'string', 'max:5000'],
             'estado'           => ['sometimes', 'in:pendiente,en_proceso,cerrado'],
             'archivo'          => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx,txt,zip', 'max:10240'],
             'archivos'         => ['nullable', 'array'],
             'archivos.*'       => ['file', 'mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx,txt,zip', 'max:10240'],
             'prioridad'        => ['sometimes', 'in:baja,media,alta'],
-            'fecha_entrega'    => ['sometimes', 'required', 'date'],
+            'fecha_entrega'    => ['sometimes', 'required', 'date_format:Y-m-d'],
             'hora_entrega'     => ['sometimes', 'required', 'date_format:H:i'],
             'fecha_solucion'   => ['nullable', 'date'],
             'comentario'       => ['nullable', 'string', 'max:5000'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'fecha_entrega.date_format' => 'La fecha de entrega no es válida.',
+            'tipo.in'                   => 'El tipo debe ser solicitud, soporte de equipo o desarrollo Nexus.',
+            'producto_id.required_if'   => 'Selecciona el equipo asignado para un ticket de soporte de equipo.',
         ];
     }
 }

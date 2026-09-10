@@ -26,13 +26,20 @@ class ProductQueryService
         });
     }
 
+    if ($request->usuario_asignacion_id) {
+        $productoIds = Asignaciones::where('activo', true)
+            ->where('usuario_asignacion_id', $request->usuario_asignacion_id)
+            ->pluck('producto_id');
+        $query->whereIn('producto_id', $productoIds);
+    }
+
     return response()->json([
         'data' => $query->get()->map(function ($inv) {
     $asignacion = Asignaciones::with('usuarioRecibe')
                 ->where('producto_id', $inv->producto->id)
                 ->where('activo', true)
                 ->first();
-    
+
             return [
                 'inventario_id' => $inv->id,
                 'producto_id' => $inv->producto->id,
@@ -41,6 +48,7 @@ class ProductQueryService
                 'code' => $inv->producto->code,
                 'stock' => $inv->stock,
                 'asignado_a' => $asignacion ? $asignacion->usuarioRecibe->name : null,
+                'sede_id' => $asignacion->sede_id ?? null,
             ];
         })
     ]);

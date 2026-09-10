@@ -43,7 +43,8 @@ class User extends Authenticatable
         'departamento_id',
         'imagen',
         'foto_perfil',
-        'role_id',  
+        'role_id',
+        'es_asesor_externo',
         'estado_id'
         ,'sede_id'
     ];
@@ -52,6 +53,10 @@ class User extends Authenticatable
         'nombre_completo',
         'foto_perfil_url',
         'es_responsable_departamento',
+        'es_administrador',
+        'puede_gestionar_calidad',
+        'puede_asignar_tareas',
+        'es_responsable_inventario',
     ];
 
     public function getNombreCompletoAttribute(): string
@@ -103,6 +108,48 @@ class User extends Authenticatable
     {
         return $this->role_id === \App\RolEnum::ADMINISTRADOR->value
             || $this->esResponsableDeSuDepartamento();
+    }
+
+    /**
+     * Mismo criterio que TrasladoBodegaService::validarResponsableInventario():
+     * la responsabilidad "inventario" se asigna vía el módulo de Responsabilidades
+     * (tabla responsabilidades_user, pivot "activo"), no por role_id ni departamento.
+     */
+    public function getEsResponsableInventarioAttribute(): bool
+    {
+        if ($this->role_id === \App\RolEnum::ADMINISTRADOR->value) {
+            return true;
+        }
+
+        $idInventario = \App\Models\Traslados\Responsabilidad::where('codigo', 'inventario')->value('id');
+
+        return $idInventario && $this->responsabilidades()
+            ->where('responsabilidad_id', $idInventario)
+            ->wherePivot('activo', true)
+            ->exists();
+    }
+
+    public function getEsAdministradorAttribute(): bool
+    {
+        return $this->role_id === \App\RolEnum::ADMINISTRADOR->value;
+    }
+
+    public function getPuedeGestionarCalidadAttribute(): bool
+    {
+        return in_array($this->role_id, [
+            \App\RolEnum::ADMINISTRADOR->value,
+            \App\RolEnum::HSEQ->value,
+        ], true);
+    }
+
+    public function getPuedeAsignarTareasAttribute(): bool
+    {
+        return in_array($this->role_id, [
+            \App\RolEnum::ADMINISTRADOR->value,
+            \App\RolEnum::HSEQ->value,
+            \App\RolEnum::ADMINISTRATIVO->value,
+            \App\RolEnum::COMPRAS->value,
+        ], true);
     }
 
     //funcion para relacionar usuarios con roles
@@ -247,6 +294,7 @@ public function actividadesOperativas()
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'es_asesor_externo' => 'boolean',
         ];
     }
 

@@ -63,4 +63,19 @@ class OrdenCompraProveedorDetalle extends Model
     {
         return $this->hasMany(OrdenCompraProveedorDetalleOrigen::class, 'orden_compra_proveedor_detalle_id');
     }
+
+    // Lo que algún conductor registró como recogido en el proveedor (Rutas), informativo,
+    // no confundir con `entregas` (recepción formal en bodega que sí mueve inventario).
+    public function recogidas()
+    {
+        return $this->hasMany(\App\Models\Rutas\DeliveryRecordDetalle::class, 'orden_compra_proveedor_detalle_id');
+    }
+
+    public function ordenesServicioDetalles()
+    {
+        return $this->hasMany(
+            \App\Models\Crm\Orden_servicio\OrdenServicioDetalle::class,
+            'orden_compra_detalle_id'
+        );
+    }
 }

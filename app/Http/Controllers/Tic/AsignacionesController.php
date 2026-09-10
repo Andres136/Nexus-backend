@@ -2,14 +2,15 @@
 
 namespace App\Http\Controllers\Tic;
 
+use App\Exports\GenericExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tic\StoreAsignacionEquipoRequest;
-use App\Models\Crm\empresa;
-use App\Models\Crm\product;
-use App\Models\User;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\Tic\Asignaciones;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class AsignacionesController extends Controller
 {
@@ -23,20 +24,89 @@ class AsignacionesController extends Controller
     {
         $this->asignacionesService = $asignacionesService;
     }
+
+    private function filtrosDesde(Request $request): array
+    {
+        return $request->only([
+            'usuario_id',
+            'empresa_id',
+            'activo',
+            'search',
+            'per_page',
+            'sede_id',
+        ]);
+    }
+
 public function index(Request $request)
 {
-$filters = $request->only([
-    'usuario_id',
-    'empresa_id',
-    'activo',
-    'search',
-    'per_page'
-]);
-
-    $data = $this->asignacionesService->getAllAsignaciones($filters);
+    $data = $this->asignacionesService->getAllAsignaciones($this->filtrosDesde($request));
 
     return response()->json($data);
 }
+
+    /**
+     * GET /asignaciones/exportar
+     * Exporta a Excel las asignaciones que cumplan los filtros aplicados en la vista.
+     */
+    public function exportar(Request $request): BinaryFileResponse|JsonResponse
+    {
+        try {
+            $registros = $this->asignacionesService->getAllAsignacionesParaExportar($this->filtrosDesde($request));
+
+            if ($registros->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No hay asignaciones para exportar con los filtros seleccionados.',
+                ], 422);
+            }
+
+            $filas = $registros->map(fn (Asignaciones $a) => [
+                'ID' => $a->id,
+                'Empresa' => $a->empresa?->nombre,
+                'Usuario' => $a->usuario?->name,
+                'Producto' => $a->producto?->name,
+                'Recibe' => $a->usuarioRecibe?->name,
+                'Sede' => $a->sede?->nombre,
+                'Accesorios' => $a->accesorios,
+                'Fecha asignación' => optional($a->created_at)->format('Y-m-d'),
+                'Fecha devolución' => optional($a->fecha_devolucion)->format('Y-m-d'),
+                'Estado' => $a->activo ? 'Activo' : 'Inactivo',
+            ]);
+
+            $headings = ['ID', 'Empresa', 'Usuario', 'Producto', 'Recibe', 'Sede', 'Accesorios', 'Fecha asignación', 'Fecha devolución', 'Estado'];
+            $filename = 'asignaciones_' . now()->format('Y-m-d_His') . '.xlsx';
+
+            return Excel::download(new GenericExport($filas, $headings), $filename);
+        } catch (\Exception $e) {
+            Log::error('Error al exportar asignaciones', ['error' => $e->getMessage()]);
+
+            return response()->json(['success' => false, 'message' => 'Error al exportar las asignaciones.'], 500);
+        }
+    }
+
+    /**
+     * PATCH /asignaciones/{id}/accesorios
+     */
+    public function actualizarAccesorios(Request $request, string $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'accesorios' => 'nullable|string|max:1000',
+        ]);
+
+        try {
+            $asignacion = $this->asignacionesService->actualizarAccesorios((int) $id, $validated['accesorios'] ?? null);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Accesorios actualizados.',
+                'data' => $asignacion,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al actualizar accesorios de asignación', ['error' => $e->getMessage()]);
+
+            return response()->json(['success' => false, 'message' => 'Error al actualizar los accesorios.'], 500);
+        }
+    }
 
 public function byUsuario(Request $request, int $userId)
 {
@@ -52,48 +122,10 @@ public function byUsuario(Request $request, int $userId)
   public function store(StoreAsignacionEquipoRequest $request)
 {
     $asignacion = $this->asignacionesService->asignarProducto($request->all());
-    $usuarioRecibe = User::find($request->usuario_asignacion_id);
-
-    $empresa = empresa::find($request->empresa_id);
-    $producto = product::find($request->producto_id);
-    $usuario = auth()->user();
-
-   $logoPath = null;
-
-if ($empresa->logo) {
-    $possiblePath = public_path('storage/' . $empresa->logo);
-
-    if (file_exists($possiblePath) && !is_dir($possiblePath)) {
-        $logoPath = $possiblePath;
-    }
-}
-    $pdf = Pdf::loadView('pdf.asignacion_equipo', [
-        'asignacion' => $asignacion,
-        'empresa' => $empresa,
-        'producto' => $producto,
-        'usuario' => $usuario,
-        'usuarioRecibe' => $usuarioRecibe,
-        'logoPath' => $logoPath
-
-    ]);
-
-    $fileName = 'acta_asignacion_'.$asignacion->id.'.pdf';
-
- // Crear carpeta si no existe
-Storage::disk('public')->makeDirectory('asignaciones');
-
-$fileName = 'acta_asignacion_'.$asignacion->id.'.pdf';
-
-// Guardar PDF
-Storage::disk('public')->put(
-    'asignaciones/'.$fileName,
-    $pdf->output()
-);
 
     return response()->json([
         'message' => 'Producto asignado exitosamente',
-        'pdf_url' => asset('storage/asignaciones/'.$fileName),
-        'data' => $asignacion
+        'data' => $asignacion,
     ]);
 }
 
@@ -121,38 +153,9 @@ Storage::disk('public')->put(
         $observaciones = $request->input('observaciones');
         $asignacion = $this->asignacionesService->desactivarAsignacion($id, $observaciones);
 
-    $empresa = $asignacion->empresa;
-    $producto = $asignacion->producto;
-    $usuario = auth()->user();
-    $usuarioRecibe = $asignacion->usuarioRecibe;
-
-    $logoPath = null;
-
-    if ($empresa->logo) {
-        $possiblePath = public_path('storage/' . $empresa->logo);
-
-        if (file_exists($possiblePath) && !is_dir($possiblePath)) {
-            $logoPath = $possiblePath;
-        }
+        return response()->json([
+            'message' => 'Asignación desactivada correctamente',
+            'data' => $asignacion,
+        ]);
     }
-
-    $pdf = Pdf::loadView('pdf.acta_devolucion_equipo', [
-        'asignacion' => $asignacion,
-        'empresa' => $empresa,
-        'producto' => $producto,
-        'usuario' => $usuario,
-        'usuarioRecibe' => $usuarioRecibe,
-        'logoPath' => $logoPath
-    ]);
-
-    $fileName = 'acta_devolucion_'.$asignacion->id.'.pdf';
-
-    $pdf->save(storage_path('app/public/asignaciones/'.$fileName));
-
-    return response()->json([
-        'message' => 'Asignación desactivada correctamente',
-        'pdf_url' => asset('storage/asignaciones/'.$fileName),
-        'data' => $asignacion
-    ]);
-}               
-    }
+}

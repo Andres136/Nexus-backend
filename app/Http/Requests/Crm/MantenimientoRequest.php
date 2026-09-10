@@ -23,15 +23,15 @@ class MantenimientoRequest extends FormRequest
     {
         return [
             'vehiculo_id' => 'required|exists:vehiculos,id',
-            'fecha_programada' => 'required|date',
-            'fecha_realizado' => 'required|date',
-            'taller' => 'required|string|max:255',
-            'descripcion_trabajo' => 'required|string|max:1000',
-            'costo' => 'required|numeric|min:0',
-            'kilometro_programado' => 'required|string|max:255',
             'tipo_mantenimiento' => 'required|string|max:255',
-            'archivo' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10240', // Validar el archivo
-            'kilometraje_actual' => 'required|integer|min:0', // Permitir que el kilometraje actual sea opcional
+            'fecha_programada' => 'required|date',
+            'fecha_realizado' => 'nullable|date',
+            'taller' => 'nullable|string|max:255',
+            'descripcion_trabajo' => 'nullable|string|max:1000',
+            'costo' => 'nullable|numeric|min:0',
+            'kilometro_programado' => 'nullable|string|max:255',
+            'archivo' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240', // El soporte solo es obligatorio al ejecutar (update)
+            'kilometraje_actual' => 'nullable|integer|min:0',
         ];
     }
 
@@ -42,18 +42,12 @@ class MantenimientoRequest extends FormRequest
             'vehiculo_id.exists' => 'El vehiculo_id no existe en la base de datos.',
             'fecha_programada.required' => 'La fecha programada es obligatorio.',
             'fecha_programada.date' => 'La fecha programada debe ser una fecha válida.',
-            'fecha_realizado.required' => 'Debes colocar la fecha de realizado.',
             'fecha_realizado.date' => 'El campo fecha_realizado debe ser una fecha válida.',
-            'taller.required' => 'El campo taller es obligatorio.',
-            'descripcion_trabajo.required' => 'Debes colocar una descripcion del trabajo realizado.',
-            'costo.required' => 'El campo costo es obligatorio.',
-            'kilometro_programado.required' => 'Debes colocar el kilometraje programado.',
             'tipo_mantenimiento.required' => 'Debes colocar el tipo de mantenimiento.',
-            'archivo.required' => 'Debes subir un soporte del mantenimiento.',
+
             'archivo.file' => 'El campo archivo debe ser un archivo.',
             'archivo.mimes' => 'El campo archivo debe ser un archivo de tipo: pdf, jpg, jpeg, png.',
             'archivo.max' => 'El tamaño máximo del archivo es de 10MB.',
-            'kilometraje_actual.required' => 'El kilometraje actual es obligatorio.',
             'kilometraje_actual.integer' => 'El kilometraje actual debe ser un número entero.',
             'kilometraje_actual.min' => 'El kilometraje actual no puede ser menor a 0.',
         ];

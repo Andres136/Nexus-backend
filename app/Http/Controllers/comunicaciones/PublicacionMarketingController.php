@@ -21,7 +21,10 @@ class PublicacionMarketingController extends Controller
      */
     public function index(Request $request)
     {
-        $publicaciones = $this->publicacionService->all($request->query('search'));
+        $publicaciones = $this->publicacionService->all(
+            $request->query('search'),
+            $request->query('anio'),
+        );
         return response()->json([
             'data' => $publicaciones,
         ]);

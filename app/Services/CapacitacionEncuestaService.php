@@ -119,10 +119,28 @@ class CapacitacionEncuestaService
 
     public function usuarios(array $filters): Collection
     {
+        $incluirExternos = filter_var($filters['incluir_externos'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
         return User::query()
-            ->select('id', 'name', 'apellidos', 'email', 'sede_id')
+            ->select('id', 'name', 'apellidos', 'email', 'sede_id', 'es_asesor_externo')
             ->with('contratacionActivaNomina.empresa:id,nombre')
             ->where('estado_id', 3)
+            // estado_id solo refleja si la cuenta está habilitada para
+            // iniciar sesión — se apaga/enciende manualmente y es
+            // independiente de la nómina. Al liquidar un contrato
+            // (ContratacionService::cambiarEstado) solo se actualiza
+            // contrataciones.status, nunca users.estado_id, así que un
+            // empleado ya liquidado seguía apareciendo aquí como activo.
+            //
+            // Los asesores externos no tienen contrato de nómina; solo se
+            // incluyen cuando quien consume la lista lo pide explícitamente
+            // (actas de capacitación), no en el envío de encuestas.
+            ->where(function ($query) use ($incluirExternos) {
+                $query->whereHas('contratacionActivaNomina');
+                if ($incluirExternos) {
+                    $query->orWhere('es_asesor_externo', true);
+                }
+            })
             ->whereNotNull('email')
             ->when(!empty($filters['search']), function ($query) use ($filters) {
                 $search = trim($filters['search']);

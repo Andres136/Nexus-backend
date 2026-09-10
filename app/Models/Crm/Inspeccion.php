@@ -11,14 +11,20 @@ class Inspeccion extends Model
     protected $fillable = [
         'vehiculo_id',
         'fecha',
+        'fecha_realizado',
         'responsable',
         'estado_general',
         'observaciones',
-        'documento',    
-      
+        'documento',
+
     ];
     public function vehiculo()
     {
         return $this->belongsTo(Vehiculo::class, 'vehiculo_id');
+    }
+
+    public function fotos()
+    {
+        return $this->hasMany(InspeccionFoto::class, 'inspeccion_id');
     }
 }

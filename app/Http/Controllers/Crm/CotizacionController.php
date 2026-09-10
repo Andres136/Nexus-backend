@@ -100,7 +100,7 @@ class CotizacionController extends Controller
 
     public function show(string $id)
     {
-        $cotizacion = Cotizacion::with(['detalles', 'cliente', 'user', 'empresaReal'])->findOrFail($id);
+        $cotizacion = Cotizacion::with(['detalles', 'cliente', 'user', 'empresaReal', 'ordenCompra:id,cotizacion_id'])->findOrFail($id);
         return response()->json($cotizacion);
   
     }
@@ -110,7 +110,7 @@ class CotizacionController extends Controller
         $search = $request->input('search');
         $esPrivilegiado = $user->role_id == RolEnum::ADMINISTRADOR->value || $user->esResponsableDeSuDepartamento();
 
-        $cotizaciones = Cotizacion::with('cliente')
+        $cotizaciones = Cotizacion::with('cliente', 'ordenCompra:id,cotizacion_id')
             ->when(!$esPrivilegiado, fn ($query) => $query->where('user_id', $user->id))
             ->when($search, function ($query, $search) {
                 $query->whereHas('cliente', fn($q) => $q->where('nombre', 'like', "%$search%"));

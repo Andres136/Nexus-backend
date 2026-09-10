@@ -737,6 +737,12 @@ public function getFaltantesOrdenesPendientes()
                     $q->where('id', 'like', "%{$search}%")
                         ->orWhereHas('cliente', function ($clienteQuery) use ($search) {
                             $clienteQuery->where('nombre', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('detalles.product', function ($productoQuery) use ($search) {
+                            $productoQuery
+                                ->where('name', 'like', "%{$search}%")
+                                ->orWhere('code', 'like', "%{$search}%")
+                                ->orWhere('description', 'like', "%{$search}%");
                         });
                 });
             })
@@ -848,18 +854,39 @@ public function getFaltantesOrdenesPendientes()
                 $disponibleTotal = round($stockTotal + $pendienteProveedor, 2);
                 $faltanteReal = round(max(0, $cantidadPendienteKg - $disponibleTotal), 2);
 
-                $ordenesServicio = OrdenServicioDetalle::with([
+                $ordenesServicioQuery = OrdenServicioDetalle::with([
                     'ordenServicio.proveedor',
                     'ordenCompraDetalle.producto',
                 ])
-                    ->whereHas('ordenCompraDetalle', function ($query) use ($productoId, $sedeStockId) {
-                        $query->where('producto_id', $productoId)
-                            ->whereHas('orden', fn($ordenProveedor) => $ordenProveedor
-                                ->where('sede_id', $sedeStockId));
-                    })
                     ->whereHas('ordenServicio', fn($query) => $query
-                        ->whereIn('estado', ['pendiente', 'en_proceso']))
-                    ->get();
+                        ->whereIn('estado', ['pendiente', 'en_proceso']));
+
+                $detallesProveedorTrazados = $origenesProveedor
+                    ->pluck('orden_compra_proveedor_detalle_id')
+                    ->filter()
+                    ->unique()
+                    ->values();
+
+                if ($detallesProveedorTrazados->isNotEmpty()) {
+                    // La referencia del cliente tiene trazabilidad directa hacia el detalle
+                    // comprado al proveedor: solo esas OS representan su ubicación real.
+                    $ordenesServicioQuery->whereIn(
+                        'orden_compra_detalle_id',
+                        $detallesProveedorTrazados
+                    );
+                } else {
+                    // Compatibilidad con órdenes históricas que aún no tienen tabla de orígenes.
+                    $ordenesServicioQuery->whereHas(
+                        'ordenCompraDetalle',
+                        function ($query) use ($productoId, $sedeStockId) {
+                            $query->where('producto_id', $productoId)
+                                ->whereHas('orden', fn($ordenProveedor) => $ordenProveedor
+                                    ->where('sede_id', $sedeStockId));
+                        }
+                    );
+                }
+
+                $ordenesServicio = $ordenesServicioQuery->get();
 
                 $enProduccion = round((float) $ordenesServicio->sum('cantidad'), 2);
 
@@ -905,15 +932,19 @@ public function getFaltantesOrdenesPendientes()
                     ])->values(),
                     'ordenes_servicio' => $ordenesServicio->map(fn($os) => [
                         'id' => $os->ordenServicio?->id,
-                        'codigo' => $os->ordenServicio
-                            ? 'OS-'.str_pad($os->ordenServicio->id, 4, '0', STR_PAD_LEFT)
-                            : null,
+                        'codigo' => $os->ordenServicio?->numero_os,
                         'estado' => $os->ordenServicio?->estado,
+                        'cantidad' => round((float) $os->cantidad, 2),
+                        'pdf_url' => $os->ordenServicio
+                            ? asset("storage/ordenes_servicio/orden_servicio_{$os->ordenServicio->numero_os}.pdf")
+                            : null,
                         'proveedor' => [
                             'id' => $os->ordenServicio?->proveedor?->id,
                             'nombre' => $os->ordenServicio?->proveedor?->nombre,
                         ],
-                    ])->values(),
+                    ])->filter(fn($os) => $os['id'])
+                        ->unique('id')
+                        ->values(),
                     'resumen_bodegas' => $stockInfo['resumen_por_bodega'],
                 ];
             }

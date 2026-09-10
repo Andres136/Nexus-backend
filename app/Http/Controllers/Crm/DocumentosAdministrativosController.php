@@ -60,9 +60,11 @@ class DocumentosAdministrativosController extends Controller
      public function show($id)
      {
          $perPage = min(max((int) request('per_page', 10), 1), 50);
+         $search = request('search');
 
          return response()->json(
              Documentos_Administrativos::where('carpeta_id', $id)
+                 ->when($search, fn ($q) => $q->where('nombre', 'like', "%{$search}%"))
                  ->orderByDesc('created_at')
                  ->paginate($perPage),
              200
@@ -85,6 +87,29 @@ class DocumentosAdministrativosController extends Controller
     }
 return response()->download($filepath, basename($documentos->archivo));
 
+}
+
+// Vista previa: sirve el archivo inline (Content-Disposition: inline) en
+// vez de forzar la descarga, para que el navegador lo muestre directamente
+// (funciona sobre todo para PDF; otros formatos dependen del visor del
+// navegador/SO). Mismo patrón que IncapacidadController::soporte().
+public function preview($id)
+{
+    $documento = Documentos_Administrativos::findOrFail($id);
+
+    $filepath = storage_path('app/public/' . $documento->archivo);
+    if (!file_exists($filepath)) {
+        return response()->json([
+            'message' => 'Documento no encontrado'
+        ], 404);
+    }
+
+    $mime = Storage::disk('public')->mimeType($documento->archivo) ?: 'application/octet-stream';
+
+    return response()->file($filepath, [
+        'Content-Type' => $mime,
+        'Content-Disposition' => 'inline; filename="' . basename($documento->archivo) . '"',
+    ]);
 }
 
 //Eliminar un documento administrativo

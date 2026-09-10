@@ -29,6 +29,7 @@ class NovedadController extends Controller
         'usuario',
         'numero_no_conformidad',
         'fuentes',
+        'clasificacion',
         'per_page',
         'page'
     ]);

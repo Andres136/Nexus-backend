@@ -4,6 +4,8 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CapacitacionController;
 use App\Http\Controllers\CapacitacionActaController;
 use App\Http\Controllers\CapacitacionEncuestaController;
+use App\Http\Controllers\comunicaciones\CertificacionController;
+use App\Http\Controllers\comunicaciones\VentanaWebController;
 use App\Http\Controllers\comunicaciones\PlantillaController;
 use App\Http\Controllers\comunicaciones\PublicacionMarketingController;
 use App\Http\Controllers\comunicaciones\RedSocialController;
@@ -52,6 +54,7 @@ use App\Http\Controllers\Crm\ordenTrabajoController;
 use App\Http\Controllers\Crm\procesoBolsasController;
 use App\Http\Controllers\Crm\ProductController as CrmProductController;
 use App\Http\Controllers\Crm\ProveedorController;
+use App\Http\Controllers\Crm\TrazabilidadController;
 use App\Http\Controllers\Crm\RevisionComparendoController;
 use App\Http\Controllers\Crm\SedeController;
 use App\Http\Controllers\Crm\SeguimientoController;
@@ -62,13 +65,21 @@ use App\Http\Controllers\Crm\VehiculoFotoController;
 use App\Http\Controllers\DashboardOperativoController;
 use App\Http\Controllers\DepartamentoController;
 use App\Http\Controllers\DocumentoController;
+use App\Http\Controllers\DocumentoDiligenciadoController;
+use App\Http\Controllers\DocumentoMaestroController;
+use App\Http\Controllers\TipoDocumentoMaestroController;
 use App\Http\Controllers\ErrorController;
 use App\Http\Controllers\EstadoController;
 use App\Http\Controllers\Hseq\ConsumoServicioController;
 use App\Http\Controllers\Hseq\AnalisisProductoNoConformeController;
+use App\Http\Controllers\Hseq\NormaIsoController;
+use App\Http\Controllers\Hseq\ClausulaIsoController;
+use App\Http\Controllers\Hseq\AuditoriaController;
+use App\Http\Controllers\Hseq\AuditoriaPreguntaController;
 use App\Http\Controllers\Hseq\ProductoNoConformeController;
 use App\Http\Controllers\Hseq\HallazgoNovedadController;
 use App\Http\Controllers\Hseq\HallazgoSeguimientoController;
+use App\Http\Controllers\Hseq\EficaciaEvaluacionController;
 use App\Http\Controllers\Hseq\HseqDashboardController;
 use App\Http\Controllers\Hseq\InspeccionHseqController;
 use App\Http\Controllers\Hseq\PreguntaInspeccionController;
@@ -87,6 +98,7 @@ use App\Http\Controllers\Nomina\ConfiguracionNominaController;
 use App\Http\Controllers\Nomina\ComisionController;
 use App\Http\Controllers\Nomina\DescuentoController;
 use App\Http\Controllers\Nomina\HorarioOperacionDiariaController;
+use App\Http\Controllers\Nomina\HorarioUsuarioBloqueController;
 use App\Http\Controllers\Nomina\HorarioUsuarioSemanalController;
 use App\Http\Controllers\Nomina\IncapacidadController;
 use App\Http\Controllers\Nomina\JornadaLaboralController;
@@ -103,11 +115,13 @@ use App\Http\Controllers\Nomina\UsersFacePhotoController;
 use App\Http\Controllers\Nomina\ValorController;
 use App\Http\Controllers\Nomina\WorkSessionController;
 use App\Http\Controllers\Nomina\HoraExtraController;
+use App\Http\Controllers\Nomina\AlmuerzoOmitidoController;
 use App\Http\Controllers\Nomina\RecuperacionTiempoController;
 use App\Http\Controllers\Nomina\PermisoController;
 use App\Http\Controllers\Nomina\VacacionController;
 use App\Http\Controllers\Nomina\LlamadoAtencionController;
 use App\Http\Controllers\Nomina\DescargoController;
+use App\Http\Controllers\Nomina\DescargoActaController;
 use App\Http\Controllers\Nomina\LicenciaController;
 use App\Http\Controllers\Nomina\LiquidacionPrestacionController;
 use App\Http\Controllers\Nomina\LiquidacionRetiroController;
@@ -116,13 +130,19 @@ use App\Http\Controllers\Nomina\NominaConceptoContableController;
 use App\Http\Controllers\Nomina\NominaParametroLaboralController;
 use App\Http\Controllers\Nomina\PortalEmpleadoController;
 use App\Http\Controllers\Nomina\SolicitudPrestamoController;
+use App\Http\Controllers\Nomina\ConvocatoriaController;
+use App\Http\Controllers\Nomina\PostulacionConvocatoriaController;
+use App\Http\Controllers\Nomina\CuestionarioController;
+use App\Http\Controllers\Nomina\CuestionarioRespuestaController;
 use App\Http\Controllers\NotificacionOrdenController;
+use App\Http\Controllers\ImplementacionModuloController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PqrController;
 use App\Http\Controllers\Productividad\AdminProductividadController;
 use App\Http\Controllers\Productividad\MiDiaController;
 use App\Http\Controllers\ProcesoController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\RegistroDiario\AnalisisReincidenciaController;
 use App\Http\Controllers\RegistroDiario\NovedadController;
 use App\Http\Controllers\RegistroDiario\PreguntaController;
 use App\Http\Controllers\RegistroDiario\RegistroDiarioController;
@@ -133,7 +153,11 @@ use App\Http\Controllers\Rutas\DeliveryEventController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\TareaController;
 use App\Http\Controllers\Tic\AsignacionesController;
+use App\Http\Controllers\Tic\AsignacionActaController;
+use App\Http\Controllers\Tic\SalidaTemporalController;
+use App\Http\Controllers\Tic\SalidaTemporalActaController;
 use App\Http\Controllers\Tic\MantenimientoEquiposController;
+use App\Http\Controllers\Tic\MantenimientoActaController;
 use App\Http\Controllers\Traslados\EnvioInternoController;
 use App\Http\Controllers\Traslados\ResponsabilidadesController;
 use App\Http\Controllers\Traslados\TrasladosBodegaController;
@@ -158,6 +182,14 @@ Route::post('/r/{token}', [EncuestaController::class, 'responder']);
 Route::get('capacitacion-encuestas/publica/{token}', [CapacitacionEncuestaController::class, 'showPublica']);
 Route::get('capacitacion-actas/publica/{token}', [CapacitacionActaController::class, 'publica']);
 Route::post('capacitacion-actas/publica/{token}/firmar', [CapacitacionActaController::class, 'firmar']);
+Route::get('mantenimiento-actas/publica/{token}', [MantenimientoActaController::class, 'publica']);
+Route::post('mantenimiento-actas/publica/{token}/firmar', [MantenimientoActaController::class, 'firmar']);
+Route::get('asignacion-actas/publica/{token}', [AsignacionActaController::class, 'publica']);
+Route::post('asignacion-actas/publica/{token}/firmar', [AsignacionActaController::class, 'firmar']);
+Route::get('salida-temporal-actas/publica/{token}', [SalidaTemporalActaController::class, 'publica']);
+Route::post('salida-temporal-actas/publica/{token}/firmar', [SalidaTemporalActaController::class, 'firmar']);
+Route::get('descargo-actas/publica/{token}', [DescargoActaController::class, 'publica']);
+Route::post('descargo-actas/publica/{token}/firmar', [DescargoActaController::class, 'firmar']);
 Route::get('corporate-documents', [CorporateDocumentController::class, 'index']);
 Route::get('corporate-documents/{slug}/download', [CorporateDocumentController::class, 'downloadFile']);
 Route::post('corporate-documents/{slug}/download', [CorporateDocumentController::class, 'download']);
@@ -222,7 +254,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
   Route::get('/user', function (Request $request) {
     return $request->user();
-  });  
+  });
 
   //Usuarios
   Route::apiResource('users', AuthController::class);
@@ -288,9 +320,11 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
   Route::apiResource('requerimientos-compra', RequerimientoCompraController::class)->only(['index', 'store', 'show']);
   Route::get('/notificaciones', [NotificacionOrdenController::class, 'listarNotificaciones']);
   Route::post('/notificaciones/{id}/marcar-leida', [NotificacionOrdenController::class, 'marcarComoLeida']);
+  Route::get('/implementaciones-modulos/vigentes', [ImplementacionModuloController::class, 'vigentes']);
  Route::get('ordenes-compra-facturar', [OrdenCompraController::class, 'ordenesFacturar']);
 
   Route::post('/orden-trabajo/{id}', [OrdenCompraController::class, 'generarOrdenTrabajo']);
+  Route::post('/orden-trabajo/{id}/entrega', [OrdenCompraController::class, 'actualizarOrdenTrabajo']);
   Route::get('tareas-vencidas', [NotificacionOrdenController::class, 'EnviarTaskVencida']);
   Route::apiResource('macroprocesos', MacroProcesoController::class);
   Route::apiResource('estados', EstadoController::class);
@@ -304,6 +338,7 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
   Route::apiResource('encuestas', EncuestaController::class);
   Route::post('encuestas/{id}/enviar', [EncuestaController::class, 'enviar']);
   Route::get('encuestas/{id}/resultados', [EncuestaController::class, 'resultados']);
+  Route::get('encuestas/{id}/envios/{envio}/respuestas', [EncuestaController::class, 'detalleEnvio']);
   Route::get('encuestas-clientes', [EncuestaController::class, 'clientesParaEncuesta']);
   Route::get('encuestas-indice-general', [EncuestaController::class, 'indiceGeneral']);
 
@@ -315,14 +350,15 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
   Route::get('capacitaciones/{capacitacionUuid}/acta/pdf', [CapacitacionActaController::class, 'pdf']);
   Route::put('capacitaciones/{capacitacionUuid}/acta', [CapacitacionActaController::class, 'guardar']);
   Route::post('capacitaciones/{capacitacionUuid}/acta/enviar', [CapacitacionActaController::class, 'enviar']);
+  Route::put('capacitaciones/{capacitacionUuid}/acta/reasignar', [CapacitacionActaController::class, 'reasignar']);
   Route::get('capacitacion-encuestas-usuarios', [CapacitacionEncuestaController::class, 'usuarios']);
   Route::get('capacitacion-encuestas/{uuid}/resultados', [CapacitacionEncuestaController::class, 'resultados']);
   Route::post('capacitacion-encuestas/{uuid}/enviar', [CapacitacionEncuestaController::class, 'enviar']);
   Route::apiResource('capacitacion-encuestas', CapacitacionEncuestaController::class);
-  
 
-  
- 
+
+
+
   Route::apiResource('registrar-documentacion', DocumentosAdministrativosController::class);
   Route::post('/documentos/mover-obseletos/{id}', [DocumentoController::class, 'moverAObseletos']);
 
@@ -335,6 +371,8 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
   Route::get('stock-global', [SiigoGlobalController::class, 'stock']);
   //Siigo facturas de compra
 
+  Route::get('tareas/completadas', [TareaController::class, 'completadas']);
+  Route::get('tareas/asignadas', [TareaController::class, 'asignadas']);
   Route::patch('tareas/estado/{id}/', [TareaController::class, 'update']);
   Route::apiResource('tareas', TareaController::class);
   Route::put('/tareas/update/{id}', [TareaController::class, 'actualizarTarea']);
@@ -346,6 +384,7 @@ Route::delete('/sessions/others', [SessionController::class, 'destroyOthers']);
 Route::apiResource('vehiculos', VehiculoController::class);
 Route::apiResource('mantenimientos', MantenimientoController::class);
 Route::apiResource('inspecciones', InspeccionController::class);
+Route::delete('inspecciones/{inspeccion}/fotos/{foto}', [InspeccionController::class, 'destroyFoto']);
 Route::apiResource('documentos-vehiculos', DocumentoVehiculoController::class);
 Route::get('dashboard-vehiculos', [VehiculoController::class, 'getDashboardVehiculos']);
 Route::get('vehiculos-all', [VehiculoController::class, 'vehiculosAll']);
@@ -384,8 +423,17 @@ Route::apiResource('alistamientos-ot', AlistamientoOtController::class);
 
 //Marcar orden de trabajo como revisada
 Route::post('/orden-trabajo/{id}/marcar-revisada', [ordenTrabajoController::class, 'marcarRevisada']);
-//Revisar orden de trabajo
+//Revisar orden de trabajo (barrido diario del dashboard operativo/VSM)
 Route::post('/orden-trabajo/{id}/revisar', [ordenTrabajoController::class, 'revisarOrdenTrabajo']);
+//Revisar orden de trabajo al momento del despacho (detalle de orden de trabajo)
+Route::post('/orden-trabajo/{id}/marcar-despacho-revisado', [ordenTrabajoController::class, 'marcarDespachoRevisado']);
+//Corregir el total enviado de un detalle (queda en el historial de correcciones)
+Route::post('/orden-trabajo/{id}/detalles/{detalleId}/corregir-total', [ordenTrabajoController::class, 'corregirTotalEnviado']);
+
+// Trazabilidad: orden de compra -> orden de trabajo/entrega, y producto -> orden a proveedor/alistamiento
+Route::get('/trazabilidad/ordenes-compra/buscar', [TrazabilidadController::class, 'buscarOrdenesCompra']);
+Route::get('/trazabilidad/ordenes-compra/{id}', [TrazabilidadController::class, 'ordenCompraDetalle']);
+Route::get('/trazabilidad/productos/{producto}', [TrazabilidadController::class, 'productoTrazabilidad']);
 
 Route::get('pqrs', [PqrController::class, 'index']);
 Route::delete('/pqrs/{id}', [PqrController::class, 'destroy']);
@@ -398,7 +446,7 @@ Route::apiResource('datos-conductores', DatoCondutorController::class);
 Route::apiResource('/vehiculos/{vehiculo}/fotos',VehiculoFotoController::class);
 Route::get('/usuarios/all', [AuthController::class, 'indexUsuarios']);
 Route::get('/vehiculos-options', [VehiculoController::class, 'options']);
-Route::post('clientes/importar-excel', [ClienteController::class, 'importExcel']);   
+Route::post('clientes/importar-excel', [ClienteController::class, 'importExcel']);
 Route::apiResource('revision-comparendos',RevisionComparendoController::class);
 Route::get('/revision-comparendos/conductor/{id}', [RevisionComparendoController::class, 'porConductor']);
 //Crear plantilla de correo
@@ -409,6 +457,15 @@ Route::get('/plantillas/{id}/edit', [PlantillaController::class, 'edit']);
 Route::apiResource('redes-sociales', RedSocialController::class);
 Route::apiResource('tipos-post', TipoPostController::class);
 Route::apiResource('publicaciones-marketing', PublicacionMarketingController::class);
+//Certificaciones de la empresa
+Route::patch('certificaciones/{id}/activo', [CertificacionController::class, 'toggleActivo']);
+Route::apiResource('certificaciones', CertificacionController::class);
+//Ventana web pública (configuración única + registros del formulario)
+Route::get('ventana-web', [VentanaWebController::class, 'show']);
+Route::post('ventana-web', [VentanaWebController::class, 'update']);
+Route::get('ventana-web/registros', [VentanaWebController::class, 'registros']);
+Route::patch('ventana-web/registros/{id}/leido', [VentanaWebController::class, 'marcarLeido']);
+Route::delete('ventana-web/registros/{id}', [VentanaWebController::class, 'eliminarRegistro']);
 Route::get('tickets/estadisticas-paradas', [TicketController::class, 'estadisticasParadas']);
 Route::get('tickets/estadisticas-generales', [TicketController::class, 'estadisticasGenerales']);
 Route::get('tickets/resumen-asignados', [TicketController::class, 'resumenAsignados']);
@@ -421,6 +478,7 @@ Route::post('/detalles-orden/prioridad-existente', [OrdenCompraProveedorControll
 Route::put('/detalles-orden/{id}', [EntregaProveedorController::class, 'updateDetalle']);
 Route::put('/ordenes-compra-proveedor/{id}/update-proveedor', [OrdenCompraProveedorController::class, 'updateProveedor']);
 Route::get('/ordenes-compra-proveedor-abiertas', [OrdenCompraProveedorController::class, 'buscarAbiertas']);
+Route::get('/ordenes-compra-proveedor-abiertas/buscar-item', [OrdenCompraProveedorController::class, 'buscarItemEnAbiertas']);
 Route::post('/ordenes-compra-proveedor/{id}/anexar-item', [OrdenCompraProveedorController::class, 'anexarItemProducto']);
 Route::delete('/detalles-orden/{id}', [EntregaProveedorController::class, 'eliminarItem']);
 //Entregas proveedor
@@ -483,8 +541,12 @@ Route::get('inventarios-exportar-exel', [InventorieController::class, 'exportarI
 Route::get('movimientos-stock/{id}/pdf', [CrmProductController::class, 'getMovimientoPDF']);
 //TRASLADOS INTERNOS
 Route::apiResource('traslados-internos', EnvioInternoController::class);
-  
+
 Route::get('traslados-internos-sedes', [EnvioInternoController::class, 'traerSedes']);
+Route::get('traslados-internos-usuarios-sede', [EnvioInternoController::class, 'traerUsuariosPorSede']);
+Route::get('traslados-internos-bodegas-sede', [EnvioInternoController::class, 'traerBodegasPorSede']);
+Route::get('mis-traslados', [EnvioInternoController::class, 'misTraslados']);
+Route::post('traslados-internos/{id}/confirmar-recepcion', [EnvioInternoController::class, 'confirmarRecepcion']);
 Route::get('traslados-internos-ordenes-compra', [EnvioInternoController::class, 'traerOrdenesCompra']);
 Route::get('/oc-traslados/{id}', [EnvioInternoController::class, 'mostrarOC']);
 Route::get('ordenes-compra-pendientes', [EnvioInternoController::class, 'traerOrdenesCompraPendientes']);
@@ -503,9 +565,18 @@ Route::put('productos/{id}', [CrmProductController::class, 'edit']);
 
 Route::apiResource('inventarios',InventorieController::class);
 //Anular movimiento de stock
-Route::post('anular-movimiento-stock/{movimientoId}', [InventorieController::class, 'importar']);
+Route::post('anular-movimiento-stock/{movimientoId}', [InventorieController::class, 'anularMovimiento']);
 //Consultar movimientos de stock
 Route::get('movimientos-stock', [InventorieController::class, 'listarMovimientosStock']);
+Route::get('movimientos-stock/exportar', [InventorieController::class, 'exportarMovimientosStock']);
+//Préstamos de stock entre empresas (trazabilidad de descuentos/traslados que cruzaron inventario de otra empresa)
+Route::get('prestamos-entre-empresas', [InventorieController::class, 'listarPrestamosEntreEmpresas']);
+Route::get('prestamos-entre-empresas/exportar', [InventorieController::class, 'exportarPrestamosEntreEmpresas']);
+Route::get('prestamos-entre-empresas/movimiento/{movimientoStockId}/pdf', [InventorieController::class, 'descargarPdfPrestamosMovimiento']);
+
+//Kardex de inventario (costo promedio ponderado, entradas/salidas con saldo corriente)
+Route::get('kardex', [InventorieController::class, 'listarKardex']);
+Route::get('kardex/exportar', [InventorieController::class, 'exportarKardex']);
 
 /*DESCONTAR STOCK VIA EXCEL*/
 
@@ -516,8 +587,13 @@ Route::apiResource('/eventos-entrega', DeliveryEventController::class);
 Route::get('/eventos-entrega-por-usuario', [DeliveryEventController::class, 'listarEntregasPorUsuario']);
 //Cambio de estado de la entrega
 Route::post('/eventos-entrega/{deliveryEvent}/change-status', [DeliveryEventController::class, 'changeStatus']);
+//Registrar lo recogido en el proveedor (no toca inventario)
+Route::post('/eventos-entrega/{deliveryEvent}/registrar-recogida', [DeliveryEventController::class, 'registrarRecogida']);
+//Vincular una OC encontrada por búsqueda de item a una recogida ya creada (sin desvincular las demás)
+Route::post('/eventos-entrega/{deliveryEvent}/anexar-orden', [DeliveryEventController::class, 'anexarOrden']);
 
 Route::apiResource('procesos', ProcesoController::class);
+Route::get('procesos-todos', [ProcesoController::class, 'todos']);
 
 //Guardar Rutas y permisos
 Route::post('/guardar-rutas', [PermissionController::class, 'guardarRutas']);
@@ -578,7 +654,7 @@ Route::post('/alistamientos/{alistamiento_id}/agregar-usuario', [AlistamientoCon
 
 //**RUTAS PARA GESTIONAR RESPONSABILIDADES */
 
-Route::apiResource('responsabilidades', ResponsabilidadesController::class); 
+Route::apiResource('responsabilidades', ResponsabilidadesController::class);
 Route::post('responsabilidades/{id}/asignar', [ResponsabilidadesController::class, 'asignarResponsabilidad']);
 Route::put('responsabilidades/{pivotId}/update', [ResponsabilidadesController::class, 'actualizarAsignacion']);
 Route::delete('responsabilidades/{pivotId}/remover', [ResponsabilidadesController::class, 'desactivarAsignacion']);
@@ -601,11 +677,18 @@ Route::get('/estadisticas-anuales-verificacion/{anio}', [VerificacionDiariaContr
 Route::get('/estadisticas-anuales-departamentos/{anio}', [RegistroDiarioController::class, 'index']);
 
 //RUTAS  PARA NOVEDADES PRODUCTOS  NO CONFORMES
+Route::post('novedades/analisis-reincidencia', [AnalisisReincidenciaController::class, 'analizar'])
+    ->middleware('role:1,2');
+Route::post('novedades/verificar-reincidencia', [AnalisisReincidenciaController::class, 'verificar']);
 Route::apiResource('novedades', NovedadController::class);
 
 
 //RUTAS DE ASGINACION DE EQUIPOS TIC
+Route::get('asignaciones/exportar', [AsignacionesController::class, 'exportar']);
 Route::get('asignaciones/usuario/{userId}', [AsignacionesController::class, 'byUsuario']);
+Route::patch('asignaciones/{id}/accesorios', [AsignacionesController::class, 'actualizarAccesorios']);
+Route::post('asignaciones/{asignacion}/salidas-temporales', [SalidaTemporalController::class, 'store']);
+Route::post('salidas-temporales/{salidaTemporal}/retorno', [SalidaTemporalController::class, 'retorno']);
 Route::apiResource('asignaciones', AsignacionesController::class);
 
 Route::get('/productos-asignar', [CrmProductController::class, 'productQuery']);
@@ -624,6 +707,8 @@ Route::apiResource('categorias',CategoriaController::class);
 
 Route::get('obtener-mantenimientos-tic', [MantenimientoEquiposController::class, 'obtenerMantenimientos']);
 Route::put('mantenimiento-equipos-tic/{id}/actualizar-estado', [MantenimientoEquiposController::class, 'actualizarEstado']);
+Route::post('mantenimiento-equipos-tic/{mantenimiento}/acta', [MantenimientoActaController::class, 'generar']);
+Route::get('mantenimiento-equipos-tic/{mantenimiento}/acta', [MantenimientoActaController::class, 'show']);
 
 //RUTAS PARA ACTUALIZAR DEPARTAMENTOSRUTAS PARA ORDENES DE SERVICIO
 Route::apiResource('ordenes-servicio', OrdenesServicioController::class);
@@ -654,14 +739,39 @@ Route::apiResource('preguntas-inspecciones', PreguntaInspeccionController::class
 Route::get('preguntas-tipo-inspecciones', [PreguntaInspeccionController::class, 'preguntasPorTipoInspeccion']);
 Route::apiResource('inspecciones-hseq', InspeccionHseqController::class);
 Route::apiResource('respuestas-inspecciones', RespuestaInspeccionController::class);
+
+Route::apiResource('normas-iso', NormaIsoController::class);
+Route::get('normas-iso-paginado', [NormaIsoController::class, 'paginado']);
+Route::apiResource('clausulas-iso', ClausulaIsoController::class);
+Route::get('clausulas-iso/norma/{norma_iso_id}', [ClausulaIsoController::class, 'porNorma']);
+
+Route::apiResource('auditorias', AuditoriaController::class);
+Route::post('auditorias/{auditoria}/finalizar', [AuditoriaController::class, 'finalizar']);
+Route::post('auditorias/{auditoria}/reabrir', [AuditoriaController::class, 'reabrir']);
+Route::post('auditorias/{auditoria}/participantes', [AuditoriaController::class, 'agregarParticipante']);
+Route::delete('auditorias/{auditoria}/participantes/{userId}', [AuditoriaController::class, 'quitarParticipante']);
+Route::apiResource('auditoria-preguntas', AuditoriaPreguntaController::class)->only(['store', 'update', 'destroy']);
+Route::patch('auditoria-preguntas/{auditoriaPregunta}/calificar', [AuditoriaPreguntaController::class, 'calificar']);
+// Sugerencia de preguntas con IA a partir de los requisitos ISO (+ proceso opcional). Solo rol 1 y 2.
+Route::post('auditorias/{auditoria}/preguntas-sugeridas', [AuditoriaPreguntaController::class, 'sugerir'])
+    ->middleware('role:' . RolEnum::ADMINISTRADOR->value . ',' . RolEnum::HSEQ->value);
+
 Route::get('indicador-semestral', [HallazgoNovedadController::class, 'indicadorSemestral']);
 
 Route::apiResource('hallazgo-inspecciones', HallazgoNovedadController::class);
-Route::apiResource('hseq-dashboard', HseqDashboardController::class);
 Route::get('hseq-descargar-hallazgos-pdf', [HseqDashboardController::class, 'descargarHallazgosPdf']);
 Route::get('hseq-dashboard/inspecciones/finalizadas', [HseqDashboardController::class, 'inspeccionesFinalizadas']);
+Route::get('hseq-dashboard/hallazgos', [HseqDashboardController::class, 'hallazgos']);
+Route::post('hseq-dashboard/hallazgos/{id}/cerrar', [HseqDashboardController::class, 'cerrarHallazgo']);
+Route::apiResource('hseq-dashboard', HseqDashboardController::class);
 Route::apiResource('hallazgos', HallazgoNovedadController::class);
-Route::apiResource('seguimiento-hallazgos', HallazgoSeguimientoController::class);
+Route::apiResource('seguimiento-hallazgos', HallazgoSeguimientoController::class)->except(['destroy']);
+Route::middleware('es_responsable_del_departamento')->group(function () {
+    Route::delete('seguimiento-hallazgos/{id}', [HallazgoSeguimientoController::class, 'destroy']);
+});
+Route::get('novedades/{novedad}/eficacia', [EficaciaEvaluacionController::class, 'index']);
+Route::post('novedades/{novedad}/eficacia', [EficaciaEvaluacionController::class, 'store']);
+Route::patch('novedades/{novedad}/eficacia/{eficacia}/proxima-verificacion', [EficaciaEvaluacionController::class, 'actualizarProximaVerificacion']);
 Route::apiResource('soporte-tareas', SoporteTareaController::class);
 Route::get('soporte-tarea/{tarea_id}', [SoporteTareaController::class, 'getByTareaId']);
 Route::get('soporte-tareas/hallazgo/{soporte_id}', [SoporteTareaController::class, 'getByHallazgoId']);
@@ -686,8 +796,13 @@ Route::middleware('es_responsable_del_departamento')->group(function () {
 
 Route::get('/vsm/prioridades', [DashboardOperativoController::class, 'getPrioridades']);
 Route::patch('/vsm/origenes/{id}/prioridad', [DashboardOperativoController::class, 'updatePrioridad']);
+Route::delete('/vsm/origenes/{id}', [DashboardOperativoController::class, 'destroyOrigen']);
 Route::patch('/vsm/orden-compra-detalles/{id}/observacion', [DashboardOperativoController::class, 'updateObservacionItem']);
 Route::get('/vsm/ordenes-pdf', [DashboardOperativoController::class, 'exportarPdf']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/vsm/configuracion-historial', [DashboardOperativoController::class, 'configuracionHistorial']);
+    Route::put('/vsm/configuracion-historial', [DashboardOperativoController::class, 'actualizarConfiguracionHistorial']);
+});
 Route::apiResource('/vsm/ordenes', DashboardOperativoController::class);
 
 //RUTAS  PARA CONTABILIDAD
@@ -737,14 +852,42 @@ Route::prefix('nomina/portal')->group(function () {
 
 //Rutas tipos de contratos nomina
 Route::prefix('nomina')->group(function () {
-        
+
     Route::get('configuracion', [ConfiguracionNominaController::class, 'show']);
     Route::put('configuracion', [ConfiguracionNominaController::class, 'update']);
     Route::post('configuracion/firma', [ConfiguracionNominaController::class, 'subirFirma']);
+    Route::get('convocatorias/activa', [ConvocatoriaController::class, 'activa']);
+    Route::get('convocatorias/activas', [ConvocatoriaController::class, 'activas']);
+    Route::get('convocatorias', [ConvocatoriaController::class, 'index']);
+    Route::post('convocatorias', [ConvocatoriaController::class, 'store']);
+    Route::get('convocatorias/{uuid}', [ConvocatoriaController::class, 'show']);
+    Route::post('convocatorias/{uuid}', [ConvocatoriaController::class, 'update']);
+    Route::patch('convocatorias/{uuid}/activar', [ConvocatoriaController::class, 'activar']);
+    Route::patch('convocatorias/{uuid}/desactivar', [ConvocatoriaController::class, 'desactivar']);
+    Route::delete('convocatorias/{uuid}', [ConvocatoriaController::class, 'destroy']);
+    Route::get('convocatorias/{convocatoria}/postulaciones/mia', [PostulacionConvocatoriaController::class, 'mine']);
+    Route::get('convocatorias/{convocatoria}/postulaciones', [PostulacionConvocatoriaController::class, 'index']);
+    Route::post('convocatorias/{convocatoria}/postulaciones', [PostulacionConvocatoriaController::class, 'store']);
+
+    Route::get('convocatorias/{convocatoria}/cuestionario', [CuestionarioController::class, 'show']);
+    Route::post('convocatorias/{convocatoria}/cuestionario', [CuestionarioController::class, 'store']);
+    Route::get('convocatorias/{convocatoria}/cuestionario/mio', [CuestionarioRespuestaController::class, 'show']);
+    Route::get('cuestionarios/pendiente', [CuestionarioRespuestaController::class, 'pendiente']);
+    Route::post('cuestionarios/{uuid}/publicar', [CuestionarioController::class, 'publicar']);
+    Route::post('cuestionarios/{uuid}/cerrar', [CuestionarioController::class, 'cerrar']);
+    Route::post('cuestionarios/{uuid}/despublicar', [CuestionarioController::class, 'despublicar']);
+    Route::get('cuestionarios/{uuid}/respuestas', [CuestionarioController::class, 'respuestas']);
+    Route::get('cuestionarios/{uuid}/respuestas/{userId}', [CuestionarioController::class, 'respuestasUsuario']);
+    Route::post('cuestionarios/{cuestionario}/respuestas', [CuestionarioRespuestaController::class, 'store']);
+    Route::put('cuestionarios/{cuestionario}/respuestas/borrador', [CuestionarioRespuestaController::class, 'guardarBorrador']);
+    Route::patch('cuestionarios/respuestas/{respuesta}/calificar', [CuestionarioController::class, 'calificar']);
     Route::get('horario-operacion/hoy', [HorarioOperacionDiariaController::class, 'show']);
     Route::put('horario-operacion/hoy', [HorarioOperacionDiariaController::class, 'update']);
     Route::get('horarios-usuario-semanales', [HorarioUsuarioSemanalController::class, 'index']);
     Route::post('horarios-usuario-semanales', [HorarioUsuarioSemanalController::class, 'store']);
+    Route::get('horarios-usuario-bloques', [HorarioUsuarioBloqueController::class, 'index']);
+    Route::post('horarios-usuario-bloques', [HorarioUsuarioBloqueController::class, 'store']);
+    Route::patch('horarios-usuario-bloques/estado', [HorarioUsuarioBloqueController::class, 'cambiarEstado']);
     Route::apiResource('tipo-contratos', TipoContratoController::class);
     Route::get('contratacion/empleados', [ContratacionController::class, 'getEmpleados']);
     Route::get('contratacion/{uuid}/certificado', [ContratacionController::class, 'certificado']);
@@ -787,45 +930,49 @@ Route::prefix('nomina')->group(function () {
     Route::get('conceptos-contables/plantilla-puc-faltante', [NominaConceptoContableController::class, 'plantillaPucFaltante']);
     Route::post('conceptos-contables/sincronizar-puc', [NominaConceptoContableController::class, 'sincronizarPuc']);
     Route::apiResource('conceptos-contables', NominaConceptoContableController::class)->only(['index', 'show', 'update']);
-    Route::get('nominas/resumen',              [NominaController::class, 'resumen']);
-    Route::get('nominas/exportar-plano',        [NominaController::class, 'exportarPlano']);
-    Route::get('nominas/permisos-liquidacion',  [NominaController::class, 'permisosLiquidacion']);
-    Route::post('nominas/preliquidar',         [NominaController::class, 'preliquidar']);
-    Route::post('nominas/preliquidar-todos',   [NominaController::class, 'preliquidarLote']);
-    Route::get('nominas/exportar-preliquidacion-masiva', [NominaController::class, 'exportarPreliquidacionLote']);
-    Route::get('nominas/excepcion-descuento', [NominaController::class, 'excepcionDescuento']);
-    Route::get('nominas/lotes-aprobacion/responsables', [LoteAprobacionNominaController::class, 'responsables']);
-    Route::post('nominas/lotes-aprobacion', [LoteAprobacionNominaController::class, 'store']);
-    Route::get('nominas/lotes-aprobacion/{uuid}', [LoteAprobacionNominaController::class, 'show']);
-    Route::post('nominas/lotes-aprobacion/{uuid}/aprobar', [LoteAprobacionNominaController::class, 'aprobar']);
-    Route::get('nominas/preliquidaciones/{uuid}', [NominaController::class, 'showPreliquidacion']);
-    Route::post('nominas/preliquidaciones/{uuid}/ajustes', [NominaController::class, 'agregarAjustePreliquidacion']);
-    Route::delete('nominas/preliquidaciones/{uuid}/ajustes/{ajusteUuid}', [NominaController::class, 'eliminarAjustePreliquidacion']);
-    Route::patch('nominas/preliquidaciones/{uuid}/revision', [NominaController::class, 'enviarRevisionPreliquidacion']);
-    Route::patch('nominas/preliquidaciones/{uuid}/aprobar', [NominaController::class, 'aprobarPreliquidacion']);
-    Route::post('nominas/preliquidaciones/{uuid}/liquidar', [NominaController::class, 'liquidarPreliquidacion']);
-    Route::post('nominas/preliquidar-retiro',  [LiquidacionRetiroController::class, 'preliquidar']);
-    Route::post('nominas/liquidar-retiro',      [LiquidacionRetiroController::class, 'liquidar']);
-    Route::get('liquidaciones-retiro', [LiquidacionRetiroController::class, 'index']);
-    Route::get('liquidaciones-retiro/{uuid}/pdf', [LiquidacionRetiroController::class, 'pdf']);
+    // Liquidación de nómina y sus datos: solo responsables de departamento (y admin).
     Route::middleware('es_responsable_del_departamento')->group(function () {
+        Route::get('nominas/resumen',              [NominaController::class, 'resumen']);
+        Route::get('nominas/exportar-plano',        [NominaController::class, 'exportarPlano']);
+        Route::get('nominas/permisos-liquidacion',  [NominaController::class, 'permisosLiquidacion']);
+        Route::post('nominas/preliquidar',         [NominaController::class, 'preliquidar']);
+        Route::post('nominas/preliquidar-todos',   [NominaController::class, 'preliquidarLote']);
+        Route::get('nominas/exportar-preliquidacion-masiva', [NominaController::class, 'exportarPreliquidacionLote']);
+        Route::get('nominas/excepcion-descuento', [NominaController::class, 'excepcionDescuento']);
+        Route::get('nominas/lotes-aprobacion/responsables', [LoteAprobacionNominaController::class, 'responsables']);
+        Route::post('nominas/lotes-aprobacion', [LoteAprobacionNominaController::class, 'store']);
+        Route::get('nominas/lotes-aprobacion/{uuid}', [LoteAprobacionNominaController::class, 'show']);
+        Route::post('nominas/lotes-aprobacion/{uuid}/aprobar', [LoteAprobacionNominaController::class, 'aprobar']);
+        Route::get('nominas/preliquidaciones/{uuid}', [NominaController::class, 'showPreliquidacion']);
+        Route::post('nominas/preliquidaciones/{uuid}/ajustes', [NominaController::class, 'agregarAjustePreliquidacion']);
+        Route::delete('nominas/preliquidaciones/{uuid}/ajustes/{ajusteUuid}', [NominaController::class, 'eliminarAjustePreliquidacion']);
+        Route::patch('nominas/preliquidaciones/{uuid}/revision', [NominaController::class, 'enviarRevisionPreliquidacion']);
+        Route::patch('nominas/preliquidaciones/{uuid}/aprobar', [NominaController::class, 'aprobarPreliquidacion']);
+        Route::post('nominas/preliquidaciones/{uuid}/liquidar', [NominaController::class, 'liquidarPreliquidacion']);
+        Route::post('nominas/preliquidar-retiro',  [LiquidacionRetiroController::class, 'preliquidar']);
+        Route::post('nominas/liquidar-retiro',      [LiquidacionRetiroController::class, 'liquidar']);
+        Route::get('liquidaciones-retiro', [LiquidacionRetiroController::class, 'index']);
+        Route::get('liquidaciones-retiro/{uuid}/pdf', [LiquidacionRetiroController::class, 'pdf']);
         Route::get('liquidaciones-prestaciones/tipos', [LiquidacionPrestacionController::class, 'tipos']);
         Route::get('liquidaciones-prestaciones/vacaciones-aprobadas/{userId}', [LiquidacionPrestacionController::class, 'vacacionesAprobadas']);
         Route::post('nominas/preliquidar-prestacion', [LiquidacionPrestacionController::class, 'preliquidar']);
         Route::post('nominas/liquidar-prestacion',    [LiquidacionPrestacionController::class, 'liquidar']);
         Route::get('liquidaciones-prestaciones',      [LiquidacionPrestacionController::class, 'index']);
+        Route::get('nominas/{uuid}/desprendible', [NominaController::class, 'desprendible']);
+        Route::post('nominas/{uuid}/desprendible/enviar', [NominaController::class, 'enviarDesprendible']);
+        Route::get('nominas/{uuid}/puc-payload', [NominaController::class, 'pucPayload']);
+        Route::post('nominas/{uuid}/revertir', [NominaController::class, 'revertir']);
+        Route::patch('nominas/{uuid}/aprobar-contabilidad', [NominaController::class, 'aprobarContabilidad']);
+        Route::post('nominas/cerrar-periodo', [NominaController::class, 'cerrarPeriodo']);
+        Route::get('nominas/exportar-puc/excel', [NominaController::class, 'exportarPucExcel']);
+        Route::get('nominas/exportar-puc/pdf', [NominaController::class, 'exportarPucPdf']);
+        Route::apiResource('nominas', NominaController::class)->only(['index', 'show']);
     });
-    Route::get('nominas/{uuid}/desprendible', [NominaController::class, 'desprendible']);
-    Route::post('nominas/{uuid}/desprendible/enviar', [NominaController::class, 'enviarDesprendible']);
-    Route::get('nominas/{uuid}/puc-payload', [NominaController::class, 'pucPayload']);
-    Route::post('nominas/{uuid}/revertir', [NominaController::class, 'revertir']);
-    Route::patch('nominas/{uuid}/aprobar-contabilidad', [NominaController::class, 'aprobarContabilidad']);
-    Route::post('nominas/cerrar-periodo', [NominaController::class, 'cerrarPeriodo']);
-    Route::get('nominas/exportar-puc/excel', [NominaController::class, 'exportarPucExcel']);
-    Route::get('nominas/exportar-puc/pdf', [NominaController::class, 'exportarPucPdf']);
-    Route::apiResource('nominas', NominaController::class)->only(['index', 'show']);
 
     Route::get('horas-extras/exportar', [HoraExtraController::class, 'exportar']);
+    Route::get('horas-extras/empleados-frecuentes', [HoraExtraController::class, 'empleadosFrecuentes']);
+    Route::get('horas-extras/almuerzos-no-tomados', [AlmuerzoOmitidoController::class, 'index']);
+    Route::post('horas-extras/almuerzos-no-tomados/generar', [AlmuerzoOmitidoController::class, 'generar']);
     Route::patch('horas-extras/aprobar-todas', [HoraExtraController::class, 'aprobarTodas']);
     Route::apiResource('horas-extras', HoraExtraController::class)->except(['update']);
     Route::patch('horas-extras/{uuid}', [HoraExtraController::class, 'update']);
@@ -864,6 +1011,8 @@ Route::prefix('nomina')->group(function () {
 
      Route::get('descargos/{uuid}/pdf', [DescargoController::class, 'pdf']);
      Route::apiResource('descargos', DescargoController::class)->except(['update']);
+     Route::post('descargos/{descargo}/acta', [DescargoActaController::class, 'generar']);
+     Route::get('descargos/{descargo}/acta', [DescargoActaController::class, 'show']);
 });
 
 
@@ -881,11 +1030,26 @@ Route::middleware(['auth:sanctum', 'es_responsable_del_departamento'])->group(fu
 
    Route::get ('/indicadoresAdmin',[IndicadoresProcesosController::class,'indexAdmin']);
    //Inventarios
-   
+
     //Categorias
 
     //Productos
-    
+
+    // ---- CUADRO DE MANDO INTEGRAL (BSC) ----
+    Route::prefix('bsc')->group(function () {
+        Route::get('/dashboard', [\App\Http\Controllers\Bsc\BscController::class, 'dashboard']);
+        Route::get('/perspectivas', [\App\Http\Controllers\Bsc\BscPerspectivaController::class, 'index']);
+        Route::match(['patch', 'post'], '/perspectivas/{perspectiva}', [\App\Http\Controllers\Bsc\BscPerspectivaController::class, 'update']);
+        Route::delete('/perspectivas/{perspectiva}/icono', [\App\Http\Controllers\Bsc\BscPerspectivaController::class, 'eliminarIcono']);
+        Route::get('/indicadores', [\App\Http\Controllers\Bsc\BscController::class, 'indicadores']);
+        Route::patch('/indicadores/{indicador}/clasificar', [\App\Http\Controllers\Bsc\BscController::class, 'clasificar']);
+        Route::get('/calculators', [\App\Http\Controllers\Bsc\BscController::class, 'calculators']);
+        Route::get('/objetivos', [\App\Http\Controllers\Bsc\BscController::class, 'objetivos']);
+        Route::post('/snapshot', [\App\Http\Controllers\Bsc\BscController::class, 'snapshot']);
+        Route::get('/etapas', [\App\Http\Controllers\Bsc\BscEtapaController::class, 'index']);
+        Route::patch('/etapas/{etapa}', [\App\Http\Controllers\Bsc\BscEtapaController::class, 'update']);
+        Route::get('/planes', [\App\Http\Controllers\Bsc\BscPlanController::class, 'index']);
+    });
 });
 
 
@@ -893,6 +1057,11 @@ Route::middleware(['auth:sanctum', 'es_responsable_del_departamento'])->group(fu
 Route::middleware(['auth:sanctum', 'role:1'])->group(function () {
   Route::apiResource('empresas', EmpresaController::class);
 
+});
+
+//**RUTAS PARA ADMINISTRAR IMPLEMENTACIONES DE MÓDULOS — SOLO ADMINISTRADOR */
+Route::middleware(['auth:sanctum', 'role:1'])->group(function () {
+  Route::apiResource('implementaciones-modulos', ImplementacionModuloController::class)->except(['show']);
 });
 
 //**RUTA PARA INFORME DE RENDIMIENTO CON IA — SOLO ADMINISTRADOR */
@@ -952,8 +1121,26 @@ Route::get('dashboard-entregas-hoy', [DashboardController::class, 'ordenesEntreg
 
 
 Route::get('documentos/descargar/{id}', [DocumentoController::class, 'download']);
+Route::get('documentos/preview/{id}', [DocumentoController::class, 'preview']);
 
 Route::apiResource('documentos', DocumentoController::class);
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('tipos-documento-maestro', [TipoDocumentoMaestroController::class, 'index']);
+    Route::apiResource('documentos-maestros', DocumentoMaestroController::class)->only(['index', 'show']);
+    Route::middleware('es_responsable_del_departamento')->group(function () {
+        Route::post('tipos-documento-maestro', [TipoDocumentoMaestroController::class, 'store']);
+        Route::apiResource('documentos-maestros', DocumentoMaestroController::class)->only(['store', 'update', 'destroy']);
+    });
+
+    Route::get('documentos/{documentoId}/diligenciados', [DocumentoDiligenciadoController::class, 'index']);
+    Route::get('documentos/diligenciados/{id}/descargar', [DocumentoDiligenciadoController::class, 'descargar']);
+
+    Route::middleware('es_responsable_del_departamento')->group(function () {
+        Route::post('documentos/{documentoId}/diligenciados', [DocumentoDiligenciadoController::class, 'store']);
+        Route::delete('documentos/diligenciados/{id}', [DocumentoDiligenciadoController::class, 'destroy']);
+    });
+});
 
 
 Route::apiResource('errores', ErrorController::class);
@@ -967,7 +1154,10 @@ Route::get('/seguimientos', [SeguimientoController::class, 'index']);
 
 Route::get('procesos/departamento/{departamento_id}', [ProcesoController::class, 'index']);
 
-Route::get('download/{id}', [DocumentosAdministrativosController::class, 'downloand']);
+Route::get('download/{id}', [DocumentosAdministrativosController::class, 'downloand'])
+    ->middleware('auth:sanctum');
+Route::get('documentos-administrativos/{id}/preview', [DocumentosAdministrativosController::class, 'preview'])
+    ->middleware('auth:sanctum');
 Route::delete('documentos-administrativos/{id}', [DocumentosAdministrativosController::class, 'destroy'])
     ->middleware('auth:sanctum');
 Route::apiResource('carpetas', CarpetaController::class)
@@ -1005,3 +1195,8 @@ Route::post('/qrs/productos/pdf', [EventoController::class, 'crearQrMasivoConPdf
 
 Route::get('/orden-compras/{orden}/preview-documento', [OrdenCompraController::class, 'previewDocumento']);
 Route::get('obtener-reportes-bic', [ReporteBicConttroller::class, 'index']);
+Route::get('obtener-certificaciones',[CertificacionController::class,'publicas']);
+//Ventana web pública (sitio externo)
+Route::get('ventana-web-publica', [VentanaWebController::class, 'publica']);
+Route::post('ventana-web-registros', [VentanaWebController::class, 'registrar']);
+

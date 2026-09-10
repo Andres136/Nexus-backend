@@ -50,4 +50,9 @@ class OrdenServicio extends Model
     {
         return $this->belongsTo(empresa::class, 'empresa_id');
     }   
+
+    public function recogidaOrigen()
+    {
+        return $this->hasOne(\App\Models\Rutas\DeliveryEvent::class, 'orden_servicio_id');
+    }
 }

@@ -50,14 +50,22 @@ public function getPrioridadesActivas($filters = [])
     $page    = max(1, (int)($filters['page']     ?? 1));
 
     $base = OrdenCompraProveedorDetalleOrigen::query()
-        ->whereHas('ordenCompra', function ($q) {
+        ->whereHas('ordenCompra', function ($q) use ($filters) {
             $q->whereIn('estado_id', [
                 EstadoEnum::PENDIENTE->value,
                 EstadoEnum::ENTREGA_PARCIAL->value,
-            ]);
+            ])
+                // Filtramos por la sede de la OT del cliente (la misma que se
+                // muestra en la columna "Sede" de la tabla), no por
+                // origen.sede_id — ese campo se puebla a veces con la sede de
+                // la OC proveedor según el flujo (anexar vs priorizar
+                // existente) y no siempre coincide con lo que se ve en pantalla.
+                ->when(!empty($filters['sede_id']), fn($sede) => $sede->where('sede_id', $filters['sede_id']))
+                // Filtro por semana: rango sobre la fecha de entrega de la OC del cliente.
+                ->when(!empty($filters['fecha_inicio']), fn($f) => $f->whereDate('fecha_entrega', '>=', $filters['fecha_inicio']))
+                ->when(!empty($filters['fecha_fin']), fn($f) => $f->whereDate('fecha_entrega', '<=', $filters['fecha_fin']));
         })
         ->where('cantidad_prioridad', '>', 0)
-        ->when(!empty($filters['sede_id']), fn($q) => $q->where('sede_id', $filters['sede_id']))
         ->when(!empty($filters['proveedor_id']), function ($q) use ($filters) {
             $q->whereHas('detalleProveedor.orden', function ($oc) use ($filters) {
                 $oc->where('proveedor_id', $filters['proveedor_id']);
@@ -83,7 +91,13 @@ public function getPrioridadesActivas($filters = [])
         'ordenCompra.cliente',
         'ordenCompra.sede',
         'producto',
-    ])->paginate($perPage, ['*'], 'page', $page);
+    ])
+        // Primero las prioridades cuya OC tiene la fecha de entrega más próxima.
+        ->orderBy(
+            Orden_Compra::select('fecha_entrega')
+                ->whereColumn('id', 'orden_compra_proveedor_detalle_origenes.orden_compra_id')
+        )
+        ->paginate($perPage, ['*'], 'page', $page);
 
     $origenes = collect($paginador->items());
 
@@ -147,6 +161,7 @@ $sedeId = $filters['sede_id'] ?? null;
 $ordenes = Orden_Compra::with([
         'cliente',
         'detalles.product',
+        'detalles.observacionCalidadUsuario:id,name',
         'sede'
     ])
     ->whereIn('estado_id', [
@@ -250,7 +265,11 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
         ->filter(fn($items) => $items->isNotEmpty());
 
     // Flujo de Trabajo (OT)
-    $ordenesTrabajo = DB::table('orden_de_trabajos')->whereIn('orden_compra_id', $ordenIds)->get()->keyBy('orden_compra_id');
+    $ordenesTrabajo = DB::table('orden_de_trabajos')
+        ->leftJoin('users', 'orden_de_trabajos.revisada_por', '=', 'users.id')
+        ->whereIn('orden_compra_id', $ordenIds)
+        ->select('orden_de_trabajos.*', 'users.name as revisada_por_nombre')
+        ->get()->keyBy('orden_compra_id');
 
     // Despachos
     $despachos = DB::table('delivery_events')
@@ -267,29 +286,38 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
        $equivalentes, $alistamientosOtPorDetalle, $ordenesTrabajo, $despachos, $historial
     ) {
         
-        $detalles = !empty($filters['producto_id']) 
-            ? $oc->detalles->where('product_id', $filters['producto_id']) 
+        $detalles = !empty($filters['producto_id'])
+            // ->values() reindexa: sin esto, si queda un solo detalle y no
+            // es el primero de la colección, la llave no-consecutiva hace
+            // que json_encode serialice "productos" como objeto {} en vez
+            // de arreglo [], y el frontend truena en productos.map().
+            ? $oc->detalles->where('product_id', $filters['producto_id'])->values()
             : $oc->detalles;
 
         $totalRequerido = $detalles->sum('cantidad_requerida_kg');
 
         // --- LÓGICA DE COMPRA ---
+        // Por producto: si ESE detalle específico tiene un origen (trazabilidad
+        // exacta) se usa ese; si no, se cae al estimado (fallback por
+        // producto_id). Antes se decidía una sola vez para toda la OT: si UN
+        // producto de la orden tenía trazabilidad exacta, los demás productos
+        // de esa misma orden dejaban de mirar el fallback aunque no tuvieran
+        // origen propio — ocultando compras reales (incluidas OC en Entrega
+        // Parcial) que sí existían para esos otros productos.
         $origenesCompra = $comprasExactasPorOc[$oc->id] ?? collect();
-        $usaTrazabilidadExacta = $origenesCompra->isNotEmpty();
 
-        if ($usaTrazabilidadExacta) {
-            $totalSolicitado = $origenesCompra->sum(fn($origen) => $origen->cantidad_prioridad ?: $origen->cantidad_solicitada);
-            $totalRecibido = $origenesCompra->sum('cantidad_recibida_aplicada');
-        } else {
-            $detallesProveedorEstimados = $detalles
-                ->flatMap(function ($d) use ($proveedorDetallesFallback) {
-                    return $proveedorDetallesFallback[$d->product_id] ?? collect();
-                })
-                ->unique('id')
-                ->values();
-
-            $totalSolicitado = $detallesProveedorEstimados->sum('cantidad_solicitada');
-            $totalRecibido = $detallesProveedorEstimados->sum('cantidad_entregada');
+        $totalSolicitado = 0;
+        $totalRecibido = 0;
+        foreach ($detalles as $d) {
+            $origenesProducto = $origenesCompra->where('orden_compra_detalle_id', $d->id);
+            if ($origenesProducto->isNotEmpty()) {
+                $totalSolicitado += $origenesProducto->sum(fn($origen) => $origen->cantidad_prioridad ?: $origen->cantidad_solicitada);
+                $totalRecibido += $origenesProducto->sum('cantidad_recibida_aplicada');
+            } else {
+                $detallesProveedor = ($proveedorDetallesFallback[$d->product_id] ?? collect())->unique('id');
+                $totalSolicitado += $detallesProveedor->sum('cantidad_solicitada');
+                $totalRecibido += $detallesProveedor->sum('cantidad_entregada');
+            }
         }
         $faltanteCompra = max($totalSolicitado - $totalRecibido, 0);
 
@@ -333,10 +361,9 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
 
         // --- LÓGICA DE INVENTARIO Y PRODUCTOS ---
         $stockDisponible = 0;
-        $productosData = $detalles->map(function ($d) use (
+        $productosData = $detalles->values()->map(function ($d, $idx) use (
             $oc,
             $origenesCompra,
-            $usaTrazabilidadExacta,
             $proveedorDetallesFallback,
             $inventarioPorProductoSede,
             $inventarioPorProducto,
@@ -349,10 +376,10 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
                 ?? 0;
             $stockDisponible += $stock;
 
-            if ($usaTrazabilidadExacta) {
-                $origenesProducto = $origenesCompra
-                    ->where('orden_compra_detalle_id', $d->id)
-                    ->values();
+            $origenesProducto = $origenesCompra->where('orden_compra_detalle_id', $d->id)->values();
+            $usaTrazabilidadExactaProducto = $origenesProducto->isNotEmpty();
+
+            if ($usaTrazabilidadExactaProducto) {
                 $compraSolicitada = $origenesProducto->sum(fn($origen) => $origen->cantidad_prioridad ?: $origen->cantidad_solicitada);
                 $compraRecibida = $origenesProducto->sum('cantidad_recibida_aplicada');
                 $prioridades = $origenesProducto->map(fn($origen) => [
@@ -407,6 +434,7 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
 
             return [
                 'detalle_id' => $d->id,
+                'numero_item' => $idx + 1,
                 'producto_id' => $d->product_id,
                 'codigo' => $d->product?->code,
                 'producto' => optional($d->product)->name,
@@ -417,9 +445,11 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
                 'stock' => $stock,
                 'estado' => $estadoItem,
                 'tiene_equivalente' => $tieneEquivalente,
-                'observaciones' => $d->observaciones,
+                'observaciones' => $d->observaciones_calidad,
+                'observaciones_usuario' => optional($d->observacionCalidadUsuario)->name,
+                'observaciones_at' => $d->observaciones_calidad_at,
                 'compra_proveedor' => [
-                    'trazabilidad' => $usaTrazabilidadExacta ? 'exacta' : 'estimada',
+                    'trazabilidad' => $usaTrazabilidadExactaProducto ? 'exacta' : 'estimada',
                     'total_solicitado' => $compraSolicitada,
                     'total_recibido' => $compraRecibida,
                     'pendiente' => max($compraSolicitada - $compraRecibida, 0),
@@ -476,6 +506,7 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
             'orden_trabajo_id'   => $ot->id ?? null,
             'revisada' => $ot ? ($ot->revisada ==1 ? true : false) : null,
             'revisada_at' => $ot->revisada_at ?? null,
+            'revisada_por_nombre' => $ot->revisada_por_nombre ?? null,
             'numero'          => $oc->numero,
             'fecha_entrega'     => $oc->fecha_entrega,
             'cliente'         => optional($oc->cliente)->nombre,
@@ -494,7 +525,10 @@ $historial = OrdenComprasHistorial::whereIn('orden_compra_id', $ordenIds)
                 'total_recibido'   => $totalRecibido,
                 'faltante'         => $faltanteCompra,
                 'estado'           => $estadoCompra,
-                'trazabilidad'     => $usaTrazabilidadExacta ? 'exacta' : 'estimada',
+                // Indicador a nivel de OT completa: si al menos un producto
+                // tiene trazabilidad exacta (el detalle por producto vive en
+                // 'productos'.*.compra_proveedor.trazabilidad).
+                'trazabilidad'     => $origenesCompra->isNotEmpty() ? 'exacta' : 'estimada',
             ],
             'alistamiento'    => [
                 'estado'           => $estadoAlistamiento,

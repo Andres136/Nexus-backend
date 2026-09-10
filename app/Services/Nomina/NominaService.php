@@ -339,13 +339,14 @@ class NominaService
                 )
             )
             ->orderBy('name')
-            ->get(['id', 'name', 'email']);
+            ->get(['id', 'name', 'apellidos', 'email']);
 
         $descontarTardanzasGlobal = (bool) ($data['descontar_tardanzas'] ?? false);
         $excluirTardanzaIds = array_map('intval', $data['excluir_tardanza_ids'] ?? []);
         $excluirPermisoIds = array_map('intval', $data['excluir_permiso_ids'] ?? []);
         $decisionesPermisos = collect($data['decisiones_permisos'] ?? [])
             ->keyBy(fn (array $decision) => (int) $decision['user_id']);
+        $pagarExtraSinRespaldoIds = array_map('intval', $data['pagar_extra_sin_respaldo_ids'] ?? []);
 
         $resultados = [];
         $errores = [];
@@ -359,6 +360,7 @@ class NominaService
                     'jornada_laboral_id' => $jornada->id,
                     'descontar_tardanzas' => $descontarTardanzasGlobal && ! in_array($empleado->id, $excluirTardanzaIds, true),
                     'descontar_permisos' => ! in_array($empleado->id, $excluirPermisoIds, true),
+                    'pagar_extra_sin_respaldo' => in_array($empleado->id, $pagarExtraSinRespaldoIds, true),
                 ];
                 if ($decisionesPermisos->has($empleado->id)) {
                     $payloadEmpleado['permisos_descontar_ids'] = array_map(
@@ -372,19 +374,21 @@ class NominaService
                 $calculo['empleado'] = [
                     'id' => $empleado->id,
                     'name' => $empleado->name,
+                    'apellidos' => $empleado->apellidos,
+                    'nombre_completo' => $empleado->nombre_completo,
                     'email' => $empleado->email,
                 ];
                 $resultados[] = $calculo;
             } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
                 $errores[] = [
                     'user_id' => $empleado->id,
-                    'empleado' => $empleado->name,
+                    'empleado' => $empleado->nombre_completo,
                     'message' => 'No se encontró contrato activo o configuración de tarifas para el empleado.',
                 ];
             } catch (\LogicException $e) {
                 $errores[] = [
                     'user_id' => $empleado->id,
-                    'empleado' => $empleado->name,
+                    'empleado' => $empleado->nombre_completo,
                     'message' => $e->getMessage(),
                 ];
             }
@@ -406,8 +410,11 @@ class NominaService
                 'empleados_con_error' => count($errores),
                 'horas_extras_diurnas' => $sumar('horas_extras_diurnas'),
                 'horas_extras_nocturnas' => $sumar('horas_extras_nocturnas'),
+                'horas_extras_diurnas_aprobadas' => $sumar('horas_extras_diurnas_aprobadas'),
+                'horas_extras_nocturnas_aprobadas' => $sumar('horas_extras_nocturnas_aprobadas'),
                 'horas_festivas' => $sumar('horas_festivas'),
                 'horas_nocturnas_festivas' => $sumar('horas_nocturnas_festivas'),
+                'horas_extra_sin_respaldo' => $sumar('horas_extra_sin_respaldo'),
                 'valor_horas_extras_diurnas' => $sumar('valor_horas_extras_diurnas'),
                 'valor_horas_extras_nocturnas' => $sumar('valor_horas_extras_nocturnas'),
                 'valor_horas_festivas' => $sumar('valor_horas_festivas'),
@@ -744,6 +751,28 @@ class NominaService
             $advertencias[] = "Hay {$horasNocturnasFestivasAprobadas} horas festivas nocturnas autorizadas, pero solo {$horasNocturnasFestivasDetectadas} fueron trabajadas.";
         }
 
+        // Horas extra aprobadas que la asistencia del período no respalda: por defecto
+        // solo se paga lo reconocido (el mínimo entre aprobado y detectado). El lote
+        // puede decidir, empleado por empleado, pagarlas de todas formas.
+        $horasExtrasDiurnasSinRespaldo = max(0, round($horasExtrasDiurnasAprobadas - $horasExtrasDiurnas, 2));
+        $horasExtrasNocturnasSinRespaldo = max(0, round($horasExtrasNocturnasAprobadas - $horasExtrasNocturnas, 2));
+        $horasFestivasSinRespaldo = max(0, round($horasFestivasAprobadas - $horasFestivasTotal, 2));
+        $horasNocturnasFestivasSinRespaldo = max(0, round($horasNocturnasFestivasAprobadas - $horasNocturnasFestivas, 2));
+        $horasExtraSinRespaldoTotal = round(
+            $horasExtrasDiurnasSinRespaldo + $horasExtrasNocturnasSinRespaldo
+            + $horasFestivasSinRespaldo + $horasNocturnasFestivasSinRespaldo,
+            2
+        );
+
+        $pagarExtraSinRespaldo = (bool) ($data['pagar_extra_sin_respaldo'] ?? false);
+        if ($pagarExtraSinRespaldo && $horasExtraSinRespaldoTotal > 0) {
+            $horasExtrasDiurnas = $horasExtrasDiurnasAprobadas;
+            $horasExtrasNocturnas = $horasExtrasNocturnasAprobadas;
+            $horasFestivasTotal = $horasFestivasAprobadas;
+            $horasNocturnasFestivas = $horasNocturnasFestivasAprobadas;
+            $advertencias[] = "Se pagaron {$horasExtraSinRespaldoTotal} horas extra aprobadas sin respaldo de asistencia por decisión manual.";
+        }
+
         $salarioMensual = (float) $baseSalarial['salario_mensual'];
         $valorDia = round($salarioMensual / 30, 6);
         $valorConfigurado = Valor::where('status', true)->latest()->first();
@@ -932,6 +961,12 @@ class NominaService
             'horas_extras_diurnas' => $horasExtrasDiurnas,
             'horas_festivas' => $horasFestivasTotal,
             'horas_nocturnas_festivas' => $horasNocturnasFestivas,
+            'horas_extras_diurnas_sin_respaldo' => $horasExtrasDiurnasSinRespaldo,
+            'horas_extras_nocturnas_sin_respaldo' => $horasExtrasNocturnasSinRespaldo,
+            'horas_festivas_sin_respaldo' => $horasFestivasSinRespaldo,
+            'horas_nocturnas_festivas_sin_respaldo' => $horasNocturnasFestivasSinRespaldo,
+            'horas_extra_sin_respaldo' => $horasExtraSinRespaldoTotal,
+            'paga_extra_sin_respaldo' => $pagarExtraSinRespaldo,
             'valor_hora_normal' => $valorHoraBase,
             'valor_hora_nocturna' => $valorHoraNocturna,
             'valor_hora_dominical' => $valorHoraDominical,

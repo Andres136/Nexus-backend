@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Traslados;
 use App\EstadoEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Traslados\EnvioRequest;
+use App\Models\Crm\bodega;
 use App\Models\Crm\OrdenCompraProveedor;
 use App\Models\Crm\OrdenCompraProveedorDetalle;
 use App\Models\Crm\Sede;
 use App\Models\Traslados\Envio_internos;
+use App\Models\User;
 use App\Services\Crm\InventarioService;
 
 use Illuminate\Http\JsonResponse;
@@ -48,6 +50,7 @@ class EnvioInternoController extends Controller
                 'sedeDestino:id,nombre',
                 'empresa:id,nombre',
                 'usuario:id,name',
+                'responsable:id,name',
                 'detalles.product:id,name,code',
                 'detalles.bodegaOrigen:id,nombre',
                 'detalles.ordenCompra:id,numero_orden',
@@ -132,7 +135,9 @@ class EnvioInternoController extends Controller
             'detalles.product:id,name,code',
             'detalles.ordenCompra:id,numero_orden,fecha',
             'detalles.bodegaOrigen:id,nombre',
+            'detalles.bodegaDestino:id,nombre',
             'usuario:id,name',
+            'responsable:id,name',
             'sedeOrigen:id,nombre',
             'sedeDestino:id,nombre',
             'empresa:id,nombre',
@@ -204,6 +209,7 @@ class EnvioInternoController extends Controller
                 'sedeDestino:id,nombre',
                 'empresa:id,nombre',
                 'usuario:id,name',
+                'responsable:id,name',
                 'detalles.product:id,name,code',
                 'detalles.bodegaOrigen:id,nombre',
                 'detalles.ordenCompra:id,numero_orden',
@@ -226,6 +232,20 @@ class EnvioInternoController extends Controller
         $sedes = Sede::select('id', 'nombre')
             ->get();
         return response()->json($sedes);
+    }
+
+    //Traer usuarios de una sede para asignar como responsable que recibe
+    public function traerUsuariosPorSede(Request $request): JsonResponse
+    {
+        $request->validate([
+            'sede_id' => 'required|integer|exists:sedes,id',
+        ]);
+
+        $usuarios = User::where('sede_id', $request->sede_id)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return response()->json($usuarios);
     }
     //Traer Ordenes de Compra para el envio
   public function traerOrdenesCompra(Request $request): JsonResponse
@@ -287,7 +307,75 @@ public function traerOrdenesCompraPendientes(Request $request): JsonResponse
     return response()->json($ordenes);
 }
 
+    //Traer bodegas de una sede (para armar la recepción en la sede destino)
+    public function traerBodegasPorSede(Request $request): JsonResponse
+    {
+        $request->validate([
+            'sede_id' => 'required|integer|exists:sedes,id',
+        ]);
 
+        $bodegas = bodega::where('sede_id', $request->sede_id)
+            ->orderBy('nombre')
+            ->get(['id', 'nombre']);
 
+        return response()->json($bodegas);
+    }
+
+    //Traslados pendientes de recibir donde el usuario autenticado es el responsable
+    public function misTraslados(Request $request): JsonResponse
+    {
+        $request->validate([
+            'estado' => 'nullable|in:pendientes,recibidos,todos',
+            'per_page' => 'nullable|integer|min:1|max:100',
+        ]);
+
+        $user = auth()->user();
+        $estado = $request->input('estado', 'pendientes');
+
+        $query = Envio_internos::query()
+            ->where('responsable_id', $user->id)
+            ->with([
+                'sedeOrigen:id,nombre',
+                'sedeDestino:id,nombre',
+                'empresa:id,nombre',
+                'usuario:id,name',
+                'detalles.product:id,name,code',
+                'detalles.bodegaOrigen:id,nombre',
+                'detalles.bodegaDestino:id,nombre',
+            ])
+            ->withCount('detalles')
+            ->withSum('detalles as cantidad_total', 'cantidad');
+
+        if ($estado === 'pendientes') {
+            $query->where('estado_id', EstadoEnum::PENDIENTE->value);
+        } elseif ($estado === 'recibidos') {
+            $query->where('estado_id', EstadoEnum::COMPLETADO->value);
+        }
+
+        $query->orderByDesc('fecha_envio')->orderByDesc('id');
+
+        return response()->json(
+            $query->paginate($request->integer('per_page', 15))->withQueryString()
+        );
+    }
+
+    //Confirmar la recepción de un traslado: asigna bodega destino + cantidad y alimenta el inventario
+    public function confirmarRecepcion(Request $request, string $id): JsonResponse
+    {
+        $data = $request->validate([
+            'detalles' => 'required|array|min:1',
+            'detalles.*.detalle_id' => 'required|integer',
+            'detalles.*.bodega_destino_id' => 'required|integer|exists:bodegas,id',
+            'detalles.*.cantidad_recibida' => 'required|numeric|min:0.01',
+        ]);
+
+        $resultado = $this->inventarioService->confirmarRecepcionEnvio(
+            (int) $id,
+            $data['detalles'],
+            auth()->user()
+        );
+
+        return response()->json($resultado, $resultado['success'] ? 200 : 422);
+    }
 
 }

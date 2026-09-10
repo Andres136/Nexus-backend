@@ -11,6 +11,7 @@ use App\Models\Crm\Inventario;
 use App\Models\Crm\MovimientoStock;
 use App\Models\Crm\product;
 use App\Services\Crm\InventarioService;
+use App\Services\Crm\KardexService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -33,15 +34,18 @@ protected $inventarioService;
 protected $movimientoPDFService;
 protected $anularMovimientoService;
 protected $movimientoStockService;
+protected $kardexService;
 
 
     public function __construct(InventarioService $inventarioService,
-     InventarioService $movimientoPDFService, InventarioService $anularMovimientoService, InventarioService $movimientoStockService)
+     InventarioService $movimientoPDFService, InventarioService $anularMovimientoService, InventarioService $movimientoStockService,
+     KardexService $kardexService)
     {
         $this->inventarioService = $inventarioService;
         $this->movimientoPDFService = $movimientoPDFService;
         $this->anularMovimientoService = $anularMovimientoService;
         $this->movimientoStockService = $movimientoStockService;
+        $this->kardexService = $kardexService;
     }
 
  public function index(Request $request)
@@ -479,9 +483,15 @@ public function anularMovimiento(int $movimientoId)
 {
     $user = auth()->user();
 
+    if (!$user->es_responsable_inventario) {
+        return response()->json([
+            'message' => 'Solo el responsable de inventario puede anular movimientos de stock.',
+        ], 403);
+    }
+
     $resultado = $this->anularMovimientoService->anularMovimiento($movimientoId, $user);
 
-    return response()->json($resultado, $resultado['success'] ? 200 : 400); 
+    return response()->json($resultado, $resultado['success'] ? 200 : 400);
 
 }
 //Consultar movimientos de stock
@@ -500,6 +510,169 @@ public  function listarMovimientosStock(Request $request)
     $resultado = $this->movimientoStockService->listarMovimientos($request, $user);
 
     return response()->json($resultado, 200);
+}
+
+/**
+ * GET /movimientos-stock/exportar
+ * Exporta a Excel los movimientos que cumplan los mismos filtros que la lista.
+ */
+public function exportarMovimientosStock(Request $request)
+{
+    $user = auth()->user();
+    $movimientos = $this->movimientoStockService->exportarMovimientos($request, $user);
+
+    if ($movimientos->isEmpty()) {
+        return response()->json([
+            'message' => 'No hay movimientos para exportar con los filtros seleccionados.',
+        ], 422);
+    }
+
+    $sedes = \App\Models\Crm\Sede::pluck('nombre', 'id');
+    $bodegas = bodega::pluck('nombre', 'id');
+
+    $filas = $movimientos->map(function (MovimientoStock $mov) use ($sedes, $bodegas) {
+        $prestamos = $mov->prestamos->map(function ($p) {
+            return sprintf(
+                '%s → %s (%s u.)',
+                $p->empresaPrestamista?->nombre ?? '—',
+                $p->empresaPrestataria?->nombre ?? '—',
+                $p->cantidad
+            );
+        })->implode(' | ');
+
+        return [
+            'ID' => $mov->id,
+            'Tipo' => $mov->tipo,
+            'Producto' => $mov->producto?->name,
+            'Usuario' => $mov->usuario?->name,
+            'Sede origen' => $sedes[$mov->sede_origen_id] ?? null,
+            'Sede destino' => $sedes[$mov->sede_destino_id] ?? null,
+            'Bodega origen' => $bodegas[$mov->bodega_origen_id] ?? null,
+            'Orden de trabajo' => $mov->orden_trabajo_id,
+            'Orden de compra' => $mov->ordenCompra?->orden_compra_cliente ?? $mov->orden_compra_id,
+            'Cantidad' => $mov->cantidad,
+            'Préstamo entre empresas' => $prestamos ?: '',
+            'Anulado' => $mov->anulado ? 'Sí' : 'No',
+            'Fecha' => optional($mov->created_at)->format('Y-m-d H:i'),
+        ];
+    });
+
+    $headings = ['ID', 'Tipo', 'Producto', 'Usuario', 'Sede origen', 'Sede destino', 'Bodega origen', 'Orden de trabajo', 'Orden de compra', 'Cantidad', 'Préstamo entre empresas', 'Anulado', 'Fecha'];
+    $filename = 'movimientos_stock_' . now()->format('Y-m-d_His') . '.xlsx';
+
+    return Excel::download(new \App\Exports\GenericExport($filas, $headings), $filename);
+}
+
+/**
+ * GET /prestamos-entre-empresas
+ */
+public function listarPrestamosEntreEmpresas(Request $request)
+{
+    $resultado = $this->movimientoStockService->listarPrestamosEntreEmpresas($request);
+
+    return response()->json($resultado, 200);
+}
+
+/**
+ * GET /prestamos-entre-empresas/exportar
+ */
+public function exportarPrestamosEntreEmpresas(Request $request)
+{
+    $prestamos = $this->movimientoStockService->exportarPrestamosEntreEmpresas($request);
+
+    if ($prestamos->isEmpty()) {
+        return response()->json([
+            'message' => 'No hay préstamos entre empresas para exportar con los filtros seleccionados.',
+        ], 422);
+    }
+
+    $filas = $prestamos->map(fn ($p) => [
+        'ID' => $p->id,
+        'Producto' => $p->producto?->name,
+        'Bodega' => $p->bodega?->nombre,
+        'Empresa prestamista' => $p->empresaPrestamista?->nombre,
+        'Empresa prestataria' => $p->empresaPrestataria?->nombre,
+        'Cantidad' => $p->cantidad,
+        'Orden de compra' => $p->ordenCompra?->orden_compra_cliente ?? $p->orden_compra_id,
+        'Movimiento' => $p->movimientoStock?->tipo,
+        'Compensado' => $p->compensado ? 'Sí' : 'No',
+        'Fecha' => optional($p->created_at)->format('Y-m-d H:i'),
+    ]);
+
+    $headings = ['ID', 'Producto', 'Bodega', 'Empresa prestamista', 'Empresa prestataria', 'Cantidad', 'Orden de compra', 'Movimiento', 'Compensado', 'Fecha'];
+    $filename = 'prestamos_entre_empresas_' . now()->format('Y-m-d_His') . '.xlsx';
+
+    return Excel::download(new \App\Exports\GenericExport($filas, $headings), $filename);
+}
+
+/**
+ * GET /kardex
+ */
+public function listarKardex(Request $request)
+{
+    $kardex = $this->kardexService->listar($request);
+
+    return response()->json([
+        'success' => true,
+        'data' => $kardex->items(),
+        'meta' => [
+            'current_page' => $kardex->currentPage(),
+            'last_page' => $kardex->lastPage(),
+            'per_page' => $kardex->perPage(),
+            'total' => $kardex->total(),
+        ],
+    ], 200);
+}
+
+/**
+ * GET /kardex/exportar
+ */
+public function exportarKardex(Request $request)
+{
+    $movimientos = $this->kardexService->exportar($request);
+
+    if ($movimientos->isEmpty()) {
+        return response()->json([
+            'message' => 'No hay movimientos de kardex para exportar con los filtros seleccionados.',
+        ], 422);
+    }
+
+    $filas = $movimientos->map(fn ($k) => [
+        'ID' => $k->id,
+        'Producto' => $k->inventario?->producto?->name,
+        'Bodega' => $k->inventario?->bodega?->nombre,
+        'Sede' => $k->inventario?->sede?->nombre,
+        'Empresa' => $k->inventario?->empresa?->nombre,
+        'Tipo' => $k->tipo,
+        'Cantidad' => $k->cantidad,
+        'Costo unitario' => $k->costo_unitario,
+        'Costo total' => $k->costo_total,
+        'Saldo cantidad' => $k->saldo_cantidad,
+        'Saldo costo unitario' => $k->saldo_costo_unitario,
+        'Saldo costo total' => $k->saldo_costo_total,
+        'Usuario' => $k->usuario?->name,
+        'Fecha' => optional($k->created_at)->format('Y-m-d H:i'),
+    ]);
+
+    $headings = ['ID', 'Producto', 'Bodega', 'Sede', 'Empresa', 'Tipo', 'Cantidad', 'Costo unitario', 'Costo total', 'Saldo cantidad', 'Saldo costo unitario', 'Saldo costo total', 'Usuario', 'Fecha'];
+    $filename = 'kardex_' . now()->format('Y-m-d_His') . '.xlsx';
+
+    return Excel::download(new \App\Exports\GenericExport($filas, $headings), $filename);
+}
+
+/**
+ * GET /prestamos-entre-empresas/movimiento/{movimientoStockId}/pdf
+ * PDF con todos los items de préstamo entre empresas de un mismo movimiento.
+ */
+public function descargarPdfPrestamosMovimiento(int $movimientoStockId)
+{
+    try {
+        $pdf = $this->movimientoStockService->generarPdfPrestamosPorMovimiento($movimientoStockId);
+
+        return $pdf->download("prestamos_movimiento_{$movimientoStockId}.pdf");
+    } catch (\Throwable $e) {
+        return response()->json(['message' => $e->getMessage()], 422);
+    }
 }
 
 

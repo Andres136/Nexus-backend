@@ -15,11 +15,21 @@ use Illuminate\Support\Str;
 
 class CapacitacionActaService
 {
-    public function listar(array $filters)
+    /** Empresa "virtual" bajo la que se agrupan los asesores externos (sin contrato de nómina). */
+    public const EMPRESA_EXTERNOS = 'Asesores externos';
+
+    /** Valor que identifica el grupo de asesores externos en el parámetro empresa_id del PDF. */
+    public const EMPRESA_EXTERNOS_KEY = 'externos';
+
+    public function __construct(private readonly TareaService $tareaService) {}
+
+    public function listar(array $filters, User $user)
     {
         $perPage = min(max((int) ($filters['per_page'] ?? 20), 1), 100);
 
         return CapacitacionActa::query()
+            // Un acta solo la ve quien la elaboró; los administradores ven todas.
+            ->when(!$this->esAdmin($user), fn ($query) => $query->where('elaborada_por', $user->id))
             ->with([
                 'capacitacion:id,uuid,titulo,fecha_realizacion,estado',
                 'elaborador:id,name,email',
@@ -73,6 +83,16 @@ class CapacitacionActaService
             'envios.empresa:id,nombre',
         ])->where('capacitacion_id', $capacitacion->id)->first();
 
+        // El acta solo la puede ver quien la elaboró (o un administrador). Para
+        // delegarla a otra persona se usa "reasignar", que la pasa a su nombre.
+        if ($acta) {
+            abort_unless(
+                (int) $acta->elaborada_por === (int) $user->id || $this->esAdmin($user),
+                403,
+                'Solo el usuario que elaboró el acta puede consultarla.'
+            );
+        }
+
         return [
             'capacitacion' => $capacitacion,
             'acta' => $acta,
@@ -110,6 +130,51 @@ class CapacitacionActaService
                 'elaborada_por' => $user->id,
             ])->save();
 
+            // Si ya existe acta, la capacitación se da por realizada (salvo que esté cancelada).
+            if ($capacitacion->estado !== 'cancelada' && $capacitacion->estado !== 'realizada') {
+                $capacitacion->update(['estado' => 'realizada']);
+            }
+
+            return $acta->fresh(['elaborador:id,name,email', 'envios.usuario:id,name,email']);
+        });
+    }
+
+    /**
+     * Transfiere quién gestiona el acta (elaborada_por) a otro usuario. Solo
+     * quien ya puede gestionarla (o un administrador) puede reasignarla. Si
+     * el acta todavía no existe, se crea vacía ya asignada a ese usuario —
+     * así se puede delegar antes de empezar a llenarla.
+     */
+    public function reasignar(string $capacitacionUuid, int $nuevoElaboradorId, User $user): CapacitacionActa
+    {
+        return DB::transaction(function () use ($capacitacionUuid, $nuevoElaboradorId, $user) {
+            $capacitacion = Capacitacion::where('uuid', $capacitacionUuid)->lockForUpdate()->firstOrFail();
+
+            $acta = CapacitacionActa::where('capacitacion_id', $capacitacion->id)
+                ->lockForUpdate()
+                ->first();
+
+            $esAdmin = (int) $user->role_id === RolEnum::ADMINISTRADOR->value;
+            $puedeGestionar = $acta
+                ? (int) $acta->elaborada_por === (int) $user->id
+                : $this->puedeCrear($capacitacion, $user);
+
+            abort_unless($esAdmin || $puedeGestionar, 403, 'No puedes reasignar el acta de esta capacitación.');
+
+            if (!$acta) {
+                $acta = new CapacitacionActa([
+                    'capacitacion_id' => $capacitacion->id,
+                    'numero' => $this->siguienteNumero(),
+                    // titulo/desarrollo son NOT NULL en la tabla; se reemplazan en
+                    // cuanto el responsable asignado guarde el contenido real.
+                    'titulo' => "Acta de capacitación — {$capacitacion->titulo}",
+                    'desarrollo' => '',
+                ]);
+            }
+
+            $acta->elaborada_por = $nuevoElaboradorId;
+            $acta->save();
+
             return $acta->fresh(['elaborador:id,name,email', 'envios.usuario:id,name,email']);
         });
     }
@@ -123,6 +188,7 @@ class CapacitacionActaService
             403,
             'Solo el usuario que creó el acta puede enviarla.'
         );
+        $primeraPublicacion = $acta->publicada_at === null;
         $usuarios = User::with('contratacionActivaNomina.empresa:id,nombre')
             ->whereIn('id', $userIds)
             ->where('estado_id', 3)
@@ -144,10 +210,15 @@ class CapacitacionActaService
                 continue;
             }
 
+            // Los asesores externos no tienen contrato de nómina (empresa_id
+            // queda null); se agrupan bajo una empresa "virtual" para el
+            // control de firmas y el PDF por empresa.
             $envio->fill([
                 'enviado_por' => $remitente->id,
                 'empresa_id' => $usuario->contratacionActivaNomina?->empresa_id,
-                'empresa_nombre' => $usuario->contratacionActivaNomina?->empresa?->nombre,
+                'empresa_nombre' => $usuario->es_asesor_externo
+                    ? self::EMPRESA_EXTERNOS
+                    : $usuario->contratacionActivaNomina?->empresa?->nombre,
                 'usuario_apellidos' => $usuario->apellidos,
                 'numero_documento' => $usuario->contratacionActivaNomina?->numero_documento,
                 'token' => Str::uuid()->toString(),
@@ -162,19 +233,82 @@ class CapacitacionActaService
             $enviados[] = ['user_id' => $usuario->id, 'nombre' => $usuario->name, 'email' => $usuario->email, 'link' => $link];
         }
 
-        if ($enviados) $acta->update(['publicada_at' => now()]);
+        if ($enviados) {
+            $acta->update(['publicada_at' => now()]);
+
+            if ($primeraPublicacion) {
+                $this->crearTareasDeCompromisos($acta, $remitente);
+            }
+        }
 
         return ['enviados' => $enviados, 'excluidos' => $excluidos];
     }
 
+    private function crearTareasDeCompromisos(CapacitacionActa $acta, User $remitente): void
+    {
+        $responsableIds = collect($acta->compromisos ?? [])
+            ->pluck('responsable')
+            ->filter()
+            ->unique();
+
+        if ($responsableIds->isEmpty()) {
+            return;
+        }
+
+        $responsables = User::whereIn('id', $responsableIds)->get()->keyBy('id');
+
+        foreach ($acta->compromisos as $compromiso) {
+            $responsable = $responsables->get($compromiso['responsable'] ?? null);
+
+            if (!$responsable || !$responsable->departamento_id) {
+                continue;
+            }
+
+            $this->tareaService->crear([
+                'nombre' => "Compromiso: {$acta->titulo}",
+                'descripcion' => $compromiso['descripcion'],
+                'fecha_fin' => $compromiso['fecha'] ?: null,
+                'departamento_id' => $responsable->departamento_id,
+                'user_id' => $responsable->id,
+            ], $remitente->id);
+        }
+    }
+
     public function publica(string $token): CapacitacionActaEnvio
     {
-        return CapacitacionActaEnvio::with([
+        $envio = CapacitacionActaEnvio::with([
             'usuario:id,name,email',
             'empresa:id,nombre',
             'acta.capacitacion:id,uuid,titulo,fecha_realizacion,hora_inicio,hora_fin,lugar,modalidad',
             'acta.elaborador:id,name,email',
         ])->where('token', $token)->firstOrFail();
+
+        if ($envio->acta) {
+            $envio->acta->setAttribute('compromisos', $this->compromisosConNombre($envio->acta));
+        }
+
+        return $envio;
+    }
+
+    // compromisos guarda el user_id del responsable (para poder generar
+    // tareas al publicar), así que para mostrarlo hay que resolver el
+    // nombre aparte — el frontend de edición del acta sí necesita el id
+    // crudo (para preseleccionar el <select>), por eso esto solo se aplica
+    // en las vistas de solo lectura (PDF y acta pública), no en show().
+    private function compromisosConNombre(CapacitacionActa $acta): array
+    {
+        $responsables = User::whereIn('id', collect($acta->compromisos ?? [])->pluck('responsable')->filter()->unique())
+            ->get(['id', 'name', 'apellidos'])
+            ->keyBy('id');
+
+        return collect($acta->compromisos ?? [])->map(function ($compromiso) use ($responsables) {
+            $responsable = $responsables->get($compromiso['responsable'] ?? null);
+
+            return [
+                ...$compromiso,
+                'responsable_nombre' => $responsable ? trim("{$responsable->name} {$responsable->apellidos}") : null,
+            ];
+        })->all();
     }
 
     public function firmar(string $token, array $data, string $ip, ?string $userAgent): CapacitacionActaEnvio
@@ -186,10 +320,14 @@ class CapacitacionActaService
                 ->firstOrFail();
             abort_if($envio->estado === 'firmada', 422, 'Esta acta ya fue firmada.');
 
+            $empresaNombreExterno = $envio->usuario?->es_asesor_externo ? self::EMPRESA_EXTERNOS : null;
+
             $envio->update([
                 'estado' => 'firmada',
                 'empresa_id' => $envio->empresa_id ?? $envio->usuario?->contratacionActivaNomina?->empresa_id,
-                'empresa_nombre' => $envio->empresa_nombre ?? $envio->usuario?->contratacionActivaNomina?->empresa?->nombre,
+                'empresa_nombre' => $envio->empresa_nombre
+                    ?? $envio->usuario?->contratacionActivaNomina?->empresa?->nombre
+                    ?? $empresaNombreExterno,
                 'usuario_apellidos' => $envio->usuario_apellidos ?? $envio->usuario?->apellidos,
                 'numero_documento' => $envio->numero_documento ?? $envio->usuario?->contratacionActivaNomina?->numero_documento,
                 'firmada_at' => now(),
@@ -206,27 +344,46 @@ class CapacitacionActaService
     private function puedeCrear(Capacitacion $capacitacion, User $user): bool
     {
         return (int) $capacitacion->user_id === (int) $user->id
-            || (int) $user->role_id === RolEnum::ADMINISTRADOR->value;
+            || $this->esAdmin($user);
     }
 
-    public function datosPdf(string $capacitacionUuid, ?int $empresaId): array
+    private function esAdmin(User $user): bool
     {
+        return (int) $user->role_id === RolEnum::ADMINISTRADOR->value;
+    }
+
+    public function datosPdf(string $capacitacionUuid, int|string|null $empresaId, User $user): array
+    {
+        $externos = $empresaId === self::EMPRESA_EXTERNOS_KEY;
+        $empresaIdInt = $externos ? null : ($empresaId !== null ? (int) $empresaId : null);
+
         $capacitacion = Capacitacion::where('uuid', $capacitacionUuid)->firstOrFail();
         $acta = CapacitacionActa::with([
             'elaborador:id,name,apellidos,email',
             'capacitacion',
             'envios' => fn ($query) => $query
                 ->with(['usuario:id,name,apellidos,email', 'empresa'])
-                ->when($empresaId, fn ($envio) => $envio->where('empresa_id', $empresaId))
+                ->when($externos, fn ($envio) => $envio->whereNull('empresa_id'))
+                ->when($empresaIdInt, fn ($envio) => $envio->where('empresa_id', $empresaIdInt))
                 ->orderBy('empresa_nombre')
                 ->orderBy('id'),
         ])->where('capacitacion_id', $capacitacion->id)->firstOrFail();
 
-        $empresa = $empresaId
-            ? \App\Models\Crm\empresa::findOrFail($empresaId)
-            : $acta->envios->pluck('empresa')->filter()->unique('id')->sole();
+        abort_unless(
+            (int) $acta->elaborada_por === (int) $user->id || $this->esAdmin($user),
+            403,
+            'Solo el usuario que elaboró el acta puede descargarla.'
+        );
+
+        $empresa = match (true) {
+            $externos => (object) ['nombre' => self::EMPRESA_EXTERNOS, 'logo' => null, 'nit' => null, 'direccion' => null, 'email' => null],
+            (bool) $empresaIdInt => \App\Models\Crm\empresa::findOrFail($empresaIdInt),
+            default => $acta->envios->pluck('empresa')->filter()->unique('id')->sole(),
+        };
 
         abort_if($acta->envios->isEmpty(), 422, 'No hay destinatarios de esta empresa en el acta.');
+
+        $acta->setAttribute('compromisos', $this->compromisosConNombre($acta));
 
         return compact('acta', 'empresa');
     }

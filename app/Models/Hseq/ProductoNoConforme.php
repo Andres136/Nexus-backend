@@ -77,4 +77,9 @@ class ProductoNoConforme extends Model
     {
         return $this->hasOne(AnalisisProductoNoConforme::class, 'producto_no_conforme_id');
     }
+
+    public function archivos()
+    {
+        return $this->hasMany(ProductoNoConformeArchivo::class, 'producto_no_conforme_id');
+    }
 }

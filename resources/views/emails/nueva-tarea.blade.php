@@ -11,74 +11,42 @@
 
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;margin:0 auto;">
   <tr>
-    <td style="background:#e6f3ff; padding:20px; border-radius:8px;">
-      <h2 style="margin:0 0 8px 0; font-size:22px; color:#208040;">✅ Nueva tarea asignada</h2>
-      <p style="margin:0; font-size:16px;">
+    <td style="padding-bottom:12px;">
+      <h2 style="margin:0 0 4px 0; font-size:18px; color:#1f2937;">Nueva tarea asignada</h2>
+      <p style="margin:0; font-size:14px; color:#374151;">
         Hola {{ $usuario->name ?? 'equipo' }}, tienes una nueva tarea:
         <strong>{{ $tarea->nombre ?? 'Sin título' }}</strong>
       </p>
     </td>
   </tr>
 
-  <tr><td height="16"></td></tr>
-
   <tr>
-    <td style="background:#ffffff; border:1px solid #e9ecef; border-radius:8px; padding:16px;">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-        <tr>
-          <td style="padding:6px 0;">
-            <strong>Fecha límite:</strong> {{ $fechaLegible }}
-            @if($humano) <span style="color:#6c757d;">({{ $humano }})</span> @endif
-          </td>
-        </tr>
+    <td style="border:1px solid #e5e7eb; border-radius:8px; padding:14px; font-size:14px; color:#374151;">
+      <p style="margin:0 0 6px 0;">
+        <strong>Fecha límite:</strong> {{ $fechaLegible }}
+        @if($humano) <span style="color:#6b7280;">({{ $humano }})</span> @endif
+      </p>
 
-        @if(optional($tarea->cliente)->nombre)
-        <tr>
-          <td style="padding:6px 0;">
-            <strong>Cliente:</strong> {{ $tarea->cliente->nombre }}
-          </td>
-        </tr>
-        @endif
+      @if(optional($tarea->cliente)->nombre)
+      <p style="margin:0 0 6px 0;"><strong>Cliente:</strong> {{ $tarea->cliente->nombre }}</p>
+      @endif
 
-        <tr>
-          <td style="padding:6px 0;">
-            <strong>Estado:</strong> {{ ucfirst($tarea->estado ?? 'pendiente') }}
-          </td>
-        </tr>
+      <p style="margin:0; @if(!empty($tarea->descripcion)) margin-bottom:6px; @endif"><strong>Estado:</strong> {{ ucfirst($tarea->estado ?? 'pendiente') }}</p>
 
-        @if(!empty($tarea->descripcion))
-        <tr>
-          <td style="padding:10px; background:#f8f9fa; border-radius:6px; line-height:1.5;">
-            <strong>Descripción:</strong>
-            <div style="margin-top:6px;">{{ $tarea->descripcion }}</div>
-          </td>
-        </tr>
-        @endif
-      </table>
+      @if(!empty($tarea->descripcion))
+      <p style="margin:0;"><strong>Descripción:</strong> {{ $tarea->descripcion }}</p>
+      @endif
     </td>
   </tr>
 
-  <tr><td height="16"></td></tr>
+  <tr><td height="14"></td></tr>
 
   <tr>
     <td align="center">
-      <!-- Botón principal: ocupa todo el ancho en móvil -->
-  
-
-      <div style="height:10px; line-height:10px;">&nbsp;</div>
-
       <a href="{{ $appUrl }}/auth/tareas"
-         style="display:block; max-width:320px; width:100%; background:#3498db; color:#ffffff; text-decoration:none; padding:12px 24px; border-radius:6px; font-weight:600; text-align:center; margin:0 auto;">
-        📋 Ver todas
+         style="display:inline-block; background:#2563eb; color:#ffffff; text-decoration:none; padding:10px 22px; border-radius:6px; font-weight:600; font-size:14px;">
+        Ver todas las tareas
       </a>
-    </td>
-  </tr>
-
-  <tr><td height="16"></td></tr>
-
-  <tr>
-    <td style="background:#e8f5e8; padding:12px 16px; border-radius:8px; color:#208040; font-size:14px; line-height:1.5;">
-      <strong>Tip:</strong> Trabaja en bloques sin interrupciones y actualiza el estado con cada avance.
     </td>
   </tr>
 </table>

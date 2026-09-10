@@ -4,11 +4,15 @@ namespace App\Http\Controllers\Crm;
 
 use App\EstadoEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Crm\CorregirEntregaTotalRequest;
+use App\Models\Crm\AlistamientoOt;
 use App\Models\Crm\OrdenDeTrabajo;
 use App\Services\Crm\GestionCarteraService;
+use App\Services\Crm\OrdenTrabajoService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class ordenTrabajoController extends Controller
 {
@@ -19,9 +23,13 @@ class ordenTrabajoController extends Controller
             'user',
             'estado',
             'usuarioRevisor',
+            'usuarioReviso',
+            'usuarioDespachoRevisor',
             'ordenCompra.cliente',
             'ordenCompra.sede',
             'ordenCompra.detalles.product',
+            'ordenCompra.detalles.observacionCalidadUsuario:id,name',
+            'ordenCompra.detalles.entregaCorrecciones',
 
         ])
             ->whereHas('ordenCompra', function ($q) {
@@ -36,7 +44,7 @@ class ordenTrabajoController extends Controller
     public function generarPDF($id)
     {
           $orden = OrdenDeTrabajo::with([
-            'ordenCompra.detalles.producto',
+            'ordenCompra.detalles.product',
             'ordenCompra.estado',
             'cliente',
             'user',
@@ -56,16 +64,21 @@ class ordenTrabajoController extends Controller
             return $d;
         });
 
+        $alistamientos = AlistamientoOt::where('orden_trabajo_id', $orden->id)
+            ->with(['producto', 'bodega.sede'])
+            ->get();
+
         $totalKg = $detalles->sum(fn($d) => (float) ($d->cantidad_requerida_kg ?? 0));
         $valorTotal = $orden->ordenCompra->valor_total ?? $detalles->sum('valor_total');
 
         $pdf = Pdf::loadView('pdf.orden_trabajo', [
             'orden' => $orden,
             'detalles' => $detalles,
+            'alistamientos' => $alistamientos,
             'totalKg' => $totalKg,
             'valorTotal' => $valorTotal,
             'observaciones' => $orden->observaciones ?? 'Sin observaciones',
-            'empresa' => $orden->empresa->nombre ?? 'N/A',
+            'empresa' => $orden->ordenCompra->empresa->nombre ?? 'N/A',
             'carteraInfo' => app(GestionCarteraService::class)->resumenCarteraCliente($orden->ordenCompra->cliente_id),
         ]);
 
@@ -96,7 +109,26 @@ public function marcarRevisada($id)
     ]);
 }
 
-//Funcion revisar orden de trabajo 
+// Revisión al momento del despacho: distinta de revisarOrdenTrabajo() (barrido
+// diario del dashboard operativo/VSM). Aquí se confirma quién revisó la OT en
+// el flujo de esta pantalla (detalle de orden de trabajo), típicamente al
+// momento de despachar.
+public function marcarDespachoRevisado($id)
+{
+    $orden = OrdenDeTrabajo::findOrFail($id);
+
+    $orden->update([
+        'despacho_revisado_at'  => now(),
+        'despacho_revisado_por' => auth()->id(),
+    ]);
+
+    return response()->json([
+        'message' => 'Orden de trabajo revisada para despacho',
+        'orden'   => $orden,
+    ]);
+}
+
+//Funcion revisar orden de trabajo
 public function revisarOrdenTrabajo($id)
 {
     $orden = OrdenDeTrabajo::findOrFail($id);
@@ -116,5 +148,32 @@ public function revisarOrdenTrabajo($id)
     ]);
 }
 
+/**
+ * Corregir el total enviado de un detalle de la OT (cuando alguien se equivocó).
+ * Deja registro en el historial de correcciones de quién lo hizo y por qué.
+ */
+public function corregirTotalEnviado(CorregirEntregaTotalRequest $request, $id, $detalleId, OrdenTrabajoService $service)
+{
+    try {
+        $resultado = $service->corregirTotalEnviado(
+            (int) $id,
+            (int) $detalleId,
+            (float) $request->validated()['cantidad_total'],
+            $request->validated()['motivo'],
+            auth()->id()
+        );
+
+        return response()->json([
+            'message' => 'Total enviado corregido correctamente',
+            'correccion' => $resultado['correccion'],
+            'detalle' => $resultado['detalle'],
+        ]);
+    } catch (ValidationException $e) {
+        return response()->json([
+            'message' => 'No se pudo corregir el total enviado.',
+            'errors' => $e->errors(),
+        ], 422);
+    }
+}
 
     }

@@ -14,7 +14,10 @@ class CapacitacionActaController extends Controller
     public function index(Request $request)
     {
         return response()->json(
-            $this->service->listar($request->only(['search', 'estado', 'empresa_id', 'page', 'per_page']))
+            $this->service->listar(
+                $request->only(['search', 'estado', 'empresa_id', 'page', 'per_page']),
+                $request->user()
+            )
         );
     }
 
@@ -25,11 +28,26 @@ class CapacitacionActaController extends Controller
 
     public function pdf(Request $request, string $capacitacionUuid)
     {
-        $validated = $request->validate(['empresa_id' => 'nullable|integer|exists:empresas,id']);
-        $data = $this->service->datosPdf(
-            $capacitacionUuid,
-            isset($validated['empresa_id']) ? (int) $validated['empresa_id'] : null
-        );
+        $validated = $request->validate([
+            'empresa_id' => [
+                'nullable',
+                function ($attribute, $value, $fail) {
+                    if ($value === CapacitacionActaService::EMPRESA_EXTERNOS_KEY) {
+                        return;
+                    }
+                    if (!ctype_digit((string) $value) || !\App\Models\Crm\empresa::whereKey($value)->exists()) {
+                        $fail('La empresa seleccionada no es válida.');
+                    }
+                },
+            ],
+        ]);
+
+        $empresaId = $validated['empresa_id'] ?? null;
+        if ($empresaId !== null && $empresaId !== CapacitacionActaService::EMPRESA_EXTERNOS_KEY) {
+            $empresaId = (int) $empresaId;
+        }
+
+        $data = $this->service->datosPdf($capacitacionUuid, $empresaId, $request->user());
 
         $nombre = "acta_{$data['acta']->numero}_" . str($data['empresa']->nombre)->slug('_') . '.pdf';
 
@@ -52,7 +70,7 @@ class CapacitacionActaController extends Controller
             'desarrollo' => 'required|string|max:30000',
             'compromisos' => 'nullable|array',
             'compromisos.*.descripcion' => 'required|string|max:1000',
-            'compromisos.*.responsable' => 'nullable|string|max:255',
+            'compromisos.*.responsable' => 'nullable|integer|exists:users,id',
             'compromisos.*.fecha' => 'nullable|date',
             'conclusiones' => 'nullable|string|max:5000',
         ]);
@@ -70,6 +88,18 @@ class CapacitacionActaController extends Controller
             'user_ids.*' => 'integer|exists:users,id',
         ]);
         return response()->json($this->service->enviar($capacitacionUuid, $data['user_ids'], $request->user()));
+    }
+
+    public function reasignar(Request $request, string $capacitacionUuid)
+    {
+        $data = $request->validate([
+            'user_id' => 'required|integer|exists:users,id',
+        ]);
+
+        return response()->json([
+            'message' => 'Acta reasignada correctamente.',
+            'acta' => $this->service->reasignar($capacitacionUuid, $data['user_id'], $request->user()),
+        ]);
     }
 
     public function publica(string $token)

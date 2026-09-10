@@ -16,6 +16,8 @@
             border-left: 4px solid #ffc107;
             padding-left: 6px;
         }
+        .os-info { font-size: 9px; line-height: 1.35; }
+        .os-item { margin-bottom: 4px; }
     </style>
 </head>
 <body>
@@ -55,7 +57,7 @@
                             <th>Cant.</th>
                             <th>Enviada</th>
                             <th>Faltantes</th>
-                         
+                            <th>Orden de Servicio / Ubicación</th>
                             <th>Observaciones</th>
                         </tr>
                     </thead>
@@ -83,7 +85,22 @@
                                 <td>
                                     {{ rtrim(rtrim(number_format($detalle->faltantes ?? 0, 2, '.', ''), '0'), '.') }}
                                 </td>
-                        
+
+                                <td class="os-info">
+                                    @forelse($detalle->ordenes_servicio_info ?? [] as $os)
+                                        <div class="os-item">
+                                            <strong>{{ $os['numero_os'] }}</strong> · {{ strtoupper($os['estado']) }}<br>
+                                            Proveedor: {{ $os['proveedor'] }}<br>
+                                            Cantidad: {{ rtrim(rtrim(number_format($os['cantidad'], 2, '.', ''), '0'), '.') }} kg<br>
+                                            Fecha: {{ $os['fecha'] ?: 'N/A' }}<br>
+                                            Conductor: {{ $os['conductor'] }}<br>
+                                            Vehículo: {{ $os['vehiculo'] }}
+                                        </div>
+                                    @empty
+                                        Sin OS activa
+                                    @endforelse
+                                </td>
+
                                 <td></td>
                             </tr>
                         @endforeach

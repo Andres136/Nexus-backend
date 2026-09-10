@@ -110,8 +110,8 @@ class ContratacionService
     public function create(array $data): Contratacion
     {
         return DB::transaction(function () use ($data) {
-            if ($this->tieneContratoActivo((int) $data['users_id'])) {
-                throw new LogicException('Este empleado ya tiene un contrato activo. Debes inactivar o finalizar el contrato actual antes de registrar uno nuevo.');
+            if ($this->tieneContratoActivo((int) $data['users_id'], (int) $data['empresa_id'])) {
+                throw new LogicException('Este empleado ya tiene un contrato activo con esta empresa. Debes inactivar o finalizar el contrato actual antes de registrar uno nuevo.');
             }
 
             $data = $this->normalizarEconomicos($data, true);
@@ -125,9 +125,10 @@ class ContratacionService
         });
     }
 
-    private function tieneContratoActivo(int $userId, ?string $excludeUuid = null): bool
+    private function tieneContratoActivo(int $userId, int $empresaId, ?string $excludeUuid = null): bool
     {
         return Contratacion::where('users_id', $userId)
+            ->where('empresa_id', $empresaId)
             ->where('status', true)
             ->when($excludeUuid, fn($q) => $q->where('uuid', '!=', $excludeUuid))
             ->exists();
@@ -155,6 +156,19 @@ class ContratacionService
             $contratacion = Contratacion::where('uuid', $uuid)->firstOrFail();
 
             $contratacion->update(['status' => $status ? 1 : 0]);
+
+            // Al liquidar/terminar el contrato, el usuario deja de ser
+            // empleado de la empresa: se apaga su cuenta (users.estado_id)
+            // para que no siga apareciendo como activo en ningún selector
+            // del sistema (era la causa de que ex-empleados siguieran
+            // saliendo en buscadores de usuarios en toda la app). No se hace
+            // lo inverso al reactivar un contrato, para no pisar una
+            // suspensión de cuenta hecha por otro motivo (ej. seguridad).
+            if (!$status) {
+                User::where('id', $contratacion->users_id)
+                    ->where('estado_id', EstadoEnum::ACTIVO->value)
+                    ->update(['estado_id' => EstadoEnum::INACTIVO->value]);
+            }
 
             Log::info('Estado de contratación actualizado', [
                 'uuid' => $contratacion->uuid,

@@ -164,11 +164,12 @@ class PreliquidacionNominaService
                     'descontar_tardanzas' => $calculo['descuenta_tardanzas'],
                     'descontar_permisos' => $calculo['descuenta_permisos'],
                     'permisos_descontar_ids' => $calculo['permisos_descontar_ids'] ?? [],
+                    'pagar_extra_sin_respaldo' => $calculo['paga_extra_sin_respaldo'] ?? false,
                 ]);
 
                 $generados[] = [
                     'user_id' => $calculo['user_id'],
-                    'empleado' => $calculo['empleado']['name'],
+                    'empleado' => $calculo['empleado']['nombre_completo'] ?? $calculo['empleado']['name'],
                     'preliquidacion_id' => $preliquidacion->id,
                     'preliquidacion_uuid' => $preliquidacion->uuid,
                     'salario_neto' => $preliquidacion->salario_neto_ajustado,
@@ -176,7 +177,7 @@ class PreliquidacionNominaService
             } catch (\Throwable $e) {
                 $errores[] = [
                     'user_id' => $calculo['user_id'],
-                    'empleado' => $calculo['empleado']['name'],
+                    'empleado' => $calculo['empleado']['nombre_completo'] ?? $calculo['empleado']['name'],
                     'message' => $e->getMessage(),
                 ];
             }

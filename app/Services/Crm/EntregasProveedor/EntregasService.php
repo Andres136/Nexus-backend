@@ -140,11 +140,30 @@ class EntregasService
             // 5️ Actualizar inventario
             $this->actualizarInventario($data, $data['producto_id'], 0);
 
+            // 6️ Si la OC de este ítem tenía una recogida agendada en Rutas, ya llegó a bodega:
+            // se cierra el ciclo marcándola completada (no se compara cantidad, el peso puede
+            // variar levemente entre báscula del proveedor y de bodega).
+            $this->marcarRecogidaComoCompletada($detalle);
+
             return [
                 'entrega' => $entrega,
                 'detalle' => $detalle
             ];
         });
+    }
+
+    // Cierra el ciclo recogida→entrega: si la OC de este ítem tiene recogida(s) agendadas en
+    // Rutas (delivery_events tipo=recogida) que siguen activas (no completadas ni canceladas),
+    // las marca como completadas apenas bodega registra la entrega de lo que llegó. No exige que
+    // la cantidad coincida con lo recogido: puede llegar menos peso por diferencias de báscula.
+    private function marcarRecogidaComoCompletada(OrdenCompraProveedorDetalle $detalle): void
+    {
+        $detalle->orden
+            ->deliveryEvents()
+            ->where('tipo', 'recogida')
+            ->whereNotIn('estado', ['completado', 'cancelado'])
+            ->get()
+            ->each(fn ($evento) => $evento->update(['estado' => 'completado']));
     }
 
     private function aplicarEntregaAPrioridades(int $detalleProveedorId, float $cantidadEntregada): void
@@ -204,12 +223,13 @@ class EntregasService
             $productoId = $this->resolverProductoId($data);
             $this->actualizarInventario($data, $productoId, $cantidadAnterior);
 
-            $detalle = OrdenCompraProveedorDetalle::findOrFail($entrega->detalle_id);
+            $detalle = OrdenCompraProveedorDetalle::with('orden')->findOrFail($entrega->detalle_id);
             $detalle->cantidad_entregada += ($data['cantidad_entregada'] - $cantidadAnterior);
             $detalle->save();
 
             $this->verificarDetalleCompleto(['detalle_id' => $entrega->detalle_id]);
             $this->actualizarEstadoOrden($detalle->orden_id);
+            $this->marcarRecogidaComoCompletada($detalle);
 
             return $entrega;
         });

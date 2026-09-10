@@ -18,10 +18,12 @@ class OrdenComprasRequest extends FormRequest
             'fecha_entrega' => 'required',
             'cliente_id' => 'required',
             'ubicacion_entrega' => 'required',
+            'descripcion_embalaje' => 'required|string',
             'observaciones' => 'required',
             'empresa_id' => 'required|exists:empresas,id',
             'cliente_documento' =>  'required|mimes:pdf,doc,docx,xls,xlsx|max:10240', // 10MB in KB
             'orden_compra_cliente' => 'required|string|max:100',
+            'cotizacion_id' => 'nullable|integer|exists:cotizaciones,id',
         ];
 
         // Validaciones condicionales para detalles
@@ -57,6 +59,7 @@ class OrdenComprasRequest extends FormRequest
             'fecha_entrega.required' => 'La fecha de entrega es obligatoria',
             'cliente_id.required' => 'El cliente es obligatorio',
             'ubicacion_entrega.required' => 'La ubicación de entrega es obligatoria',
+            'descripcion_embalaje.required' => 'Debes describir el embalaje',
             'observaciones.required' => 'Las observaciones son obligatorias',
             'empresa_id.required' => 'La empresa es obligatoria',
             'empresa_id.exists' => 'La empresa seleccionada no es válida',
@@ -93,6 +96,7 @@ class OrdenComprasRequest extends FormRequest
             'detalles.*.cantidad_requerida_kg.required_with' => 'La cantidad requerida en kg es obligatoria',
 
             'detalles.*.unidad_empaque.required_with' => 'La unidad de empaque es obligatoria',
+            'detalles.*.tipo_embalaje.required_with' => 'Debes seleccionar el tipo de embalaje',
             'detalles.*.descripcion.required_with' => 'La descripcion es Obligatoria',
             'detalles.*.valor_total.required_with' => 'El valor total es obligatorio',
 

@@ -332,6 +332,8 @@ class NominaController extends Controller
             'excluir_tardanza_ids.*' => 'integer',
             'excluir_permiso_ids' => 'nullable|array',
             'excluir_permiso_ids.*' => 'integer',
+            'pagar_extra_sin_respaldo_ids' => 'nullable|array',
+            'pagar_extra_sin_respaldo_ids.*' => 'integer',
         ]);
 
         if ($validator->fails()) {
@@ -346,17 +348,20 @@ class NominaController extends Controller
 
             $headings = [
                 'Empleado', 'Correo', 'Periodo inicio', 'Periodo fin',
-                'Horas normales', 'Horas extra diurnas', 'Horas extra nocturnas',
+                'Horas normales', 'Horas extra diurnas (reconocidas)', 'Horas extra nocturnas (reconocidas)',
                 'Horas festivas', 'Horas nocturnas festivas',
+                'Horas extra diurnas aprobadas', 'Horas extra nocturnas aprobadas',
+                'Horas extra sin respaldo de asistencia', '¿Horas sin respaldo pagadas?',
                 'Valor horas extra diurnas', 'Valor horas extra nocturnas',
                 'Valor horas festivas', 'Valor horas nocturnas festivas',
                 'Minutos tardanza', 'Valor tardanzas', '¿Tardanzas descontadas?',
                 'Minutos permisos no remunerados', 'Valor permisos no remunerados', '¿Permisos descontados?',
                 'Préstamos', 'Salario base devengado', 'Total devengado', 'Total deducciones', 'Neto a pagar',
+                'Advertencias',
             ];
 
             $filas = collect($resultado['empleados'])->map(fn (array $calculo) => [
-                $calculo['empleado']['name'],
+                $calculo['empleado']['nombre_completo'] ?? $calculo['empleado']['name'],
                 $calculo['empleado']['email'],
                 $calculo['periodo_inicio'],
                 $calculo['periodo_fin'],
@@ -365,6 +370,10 @@ class NominaController extends Controller
                 $calculo['horas_extras_nocturnas'],
                 $calculo['horas_festivas'],
                 $calculo['horas_nocturnas_festivas'],
+                $calculo['horas_extras_diurnas_aprobadas'] ?? 0,
+                $calculo['horas_extras_nocturnas_aprobadas'] ?? 0,
+                $calculo['horas_extra_sin_respaldo'] ?? 0,
+                ($calculo['paga_extra_sin_respaldo'] ?? false) ? 'Sí' : 'No',
                 $calculo['valor_horas_extras_diurnas'],
                 $calculo['valor_horas_extras_nocturnas'],
                 $calculo['valor_horas_festivas'],
@@ -380,6 +389,7 @@ class NominaController extends Controller
                 $calculo['total_devengado'],
                 $calculo['total_deducciones'],
                 $calculo['salario_neto'],
+                implode(' | ', $calculo['advertencias'] ?? []),
             ]);
 
             $empresaId = $validator->validated()['empresa_id'] ?? null;

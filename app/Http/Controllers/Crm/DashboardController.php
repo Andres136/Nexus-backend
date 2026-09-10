@@ -288,47 +288,49 @@ public function descargarOrdenesCriticasHoy(Request $request)
         ? Carbon::parse($request->input('fecha'))->startOfDay()
         : now()->startOfDay();
 
-    // ===============================
-    // 1. VENCIDAS (NO ENVIADAS)
-    // ===============================
-    $vencidas = Orden_Compra::with(['detalles.product', 'cliente'])
-        ->whereDate('fecha_entrega', '<', $fecha)
+    // Una sola consulta trae las órdenes candidatas y toda la trazabilidad necesaria
+    // para el PDF. Esto evita repetir las consultas de órdenes y elimina N+1 de sede,
+    // orden de trabajo, proveedor, recogida, conductor y vehículo.
+    $ordenes = Orden_Compra::with([
+        'cliente',
+        'sede',
+        'ordenTrabajo',
+        'detalles.product',
+        'detalles.comprasProveedorOrigenes.detalleProveedor.ordenesServicioDetalles.ordenServicio.proveedor',
+        'detalles.comprasProveedorOrigenes.detalleProveedor.ordenesServicioDetalles.ordenServicio.recogidaOrigen.usuario',
+        'detalles.comprasProveedorOrigenes.detalleProveedor.ordenesServicioDetalles.ordenServicio.recogidaOrigen.vehiculo',
+    ])
+        ->whereDate('fecha_entrega', '<=', $fecha)
         ->whereNot('estado_id', EstadoEnum::INACTIVO->value)
-        ->whereHas('detalles', function ($q) {
-            $q->where('cantidad_enviada', 0);
+        ->where(function ($query) use ($fecha) {
+            $query->whereDate('fecha_entrega', $fecha)
+                ->orWhereHas('detalles', fn($detalle) => $detalle
+                    ->where('cantidad_enviada', 0)
+                    ->orWhere('faltantes', '>', 0));
         })
         ->get()
         ->unique('id')
+        ->values();
+
+    $vencidas = $ordenes
+        ->filter(fn($orden) => Carbon::parse($orden->fecha_entrega)->lt($fecha)
+            && $orden->detalles->contains(fn($detalle) => (float) ($detalle->cantidad_enviada ?? 0) === 0.0))
         ->values();
 
     $idsUsados = $vencidas->pluck('id');
 
-    // ===============================
-    // 2. HOY (NO COMPLETADAS)
-    // ===============================
-    $hoy = Orden_Compra::with(['detalles.product', 'cliente'])
-        ->whereDate('fecha_entrega', $fecha)
-        ->where('estado_id', '!=', 2)
-        ->whereNot('estado_id', EstadoEnum::INACTIVO->value)
-        ->get()
-        ->reject(fn($o) => $idsUsados->contains($o->id))
-        ->unique('id')
+    $hoy = $ordenes
+        ->filter(fn($orden) => Carbon::parse($orden->fecha_entrega)->isSameDay($fecha)
+            && (int) $orden->estado_id !== 2)
+        ->reject(fn($orden) => $idsUsados->contains($orden->id))
         ->values();
 
     $idsUsados = $idsUsados->merge($hoy->pluck('id'));
 
-    // ===============================
-    // 3. CON FALTANTES
-    // ===============================
-    $conFaltantes = Orden_Compra::with(['detalles.product', 'cliente'])
-        ->whereDate('fecha_entrega', '<=', $fecha)
-        ->whereNot('estado_id', EstadoEnum::INACTIVO->value)
-        ->whereHas('detalles', function ($q) {
-            $q->where('faltantes', '>', 0);
-        })
-        ->get()
-        ->reject(fn($o) => $idsUsados->contains($o->id))
-        ->unique('id')
+    $conFaltantes = $ordenes
+        ->filter(fn($orden) => $orden->detalles
+            ->contains(fn($detalle) => (float) ($detalle->faltantes ?? 0) > 0))
+        ->reject(fn($orden) => $idsUsados->contains($orden->id))
         ->values();
 
     // ===============================
@@ -351,6 +353,44 @@ public function descargarOrdenesCriticasHoy(Request $request)
                 ->values()
         );
     });
+
+    // Preparar las OS activas por cada referencia usando la relación exacta entre
+    // detalle de cliente y detalle comprado al proveedor.
+    $vencidas->concat($conFaltantes)->concat($hoy)
+        ->unique('id')
+        ->each(function ($orden) {
+            $orden->detalles->each(function ($detalle) {
+                $ordenesServicio = $detalle->comprasProveedorOrigenes
+                    ->flatMap(fn($origen) => $origen->detalleProveedor?->ordenesServicioDetalles ?? collect())
+                    ->map(function ($detalleOs) {
+                        $os = $detalleOs->ordenServicio;
+
+                        if (! $os || ! in_array($os->estado, ['pendiente', 'en_proceso'], true)) {
+                            return null;
+                        }
+
+                        $recogida = $os->recogidaOrigen;
+
+                        return [
+                            'id' => $os->id,
+                            'numero_os' => $os->numero_os,
+                            'proveedor' => $os->proveedor?->nombre ?? 'N/A',
+                            'cantidad' => (float) $detalleOs->cantidad,
+                            'fecha' => $os->fecha
+                                ? Carbon::parse($os->fecha)->format('Y-m-d')
+                                : null,
+                            'estado' => $os->estado,
+                            'conductor' => $recogida?->usuario?->name ?? 'No asignado',
+                            'vehiculo' => $recogida?->vehiculo?->placa ?? 'No asignado',
+                        ];
+                    })
+                    ->filter()
+                    ->unique('id')
+                    ->values();
+
+                $detalle->setAttribute('ordenes_servicio_info', $ordenesServicio);
+            });
+        });
 
     // ===============================
     // 5. VALIDACIÓN

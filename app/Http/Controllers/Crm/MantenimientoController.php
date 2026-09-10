@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Crm\MantenimientoRequest;
 use App\Http\Requests\Crm\MantenimientoUpdateRequest;
 use App\Models\Crm\Mantenimiento;
+use App\RolEnum;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -16,7 +17,11 @@ class MantenimientoController extends Controller
      */
     public function index()
     {
-        //
+        $mantenimientos = Mantenimiento::with(['vehiculo', 'programadoPor:id,name', 'realizadoPor:id,name'])
+            ->orderBy('fecha_programada')
+            ->get();
+
+        return response()->json($mantenimientos);
     }
 
     /**
@@ -24,14 +29,17 @@ class MantenimientoController extends Controller
      */
     public function store(MantenimientoRequest $request)
     {
-      //obtener el nombre del archivo
-      $nombreArchivo = $request->file('archivo')->getClientOriginalName();
+        $nombreArchivo = null;
 
-      $uniqueName = time() . $nombreArchivo;
-        $nombreArchivo = $request->file('archivo')->storeAs('mantenimientos', $uniqueName, 'public');
- 
+        if ($request->hasFile('archivo')) {
+            $uniqueName = time() . $request->file('archivo')->getClientOriginalName();
+            $nombreArchivo = $request->file('archivo')->storeAs('mantenimientos', $uniqueName, 'public');
+        }
+
             $mantenimiento = Mantenimiento::create([
                 'vehiculo_id'=> $request->vehiculo_id,
+                'programado_por_id'=> auth()->id(),
+                'realizado_por_id'=> $request->filled('fecha_realizado') ? auth()->id() : null,
                 'fecha_programada'=> $request->fecha_programada,
                 'fecha_realizado'=> $request->fecha_realizado,
                 'taller'=> $request->taller,
@@ -42,7 +50,7 @@ class MantenimientoController extends Controller
                 'archivo' => $nombreArchivo, // Guardar el nombre del archivo en la base de datos
                 'kilometraje_actual' => $request->kilometraje_actual, // Guardar el kilometraje actual
             ]);
-    
+
             return response()->json([
                 'message' => 'Mantenimiento creado exitosamente',
                 'mantenimiento' => $mantenimiento
@@ -54,7 +62,9 @@ class MantenimientoController extends Controller
      */
     public function show(string $id)
     {
-        //
+        $mantenimiento = Mantenimiento::with(['vehiculo', 'programadoPor:id,name', 'realizadoPor:id,name'])->findOrFail($id);
+
+        return response()->json($mantenimiento);
     }
 
     /**
@@ -72,18 +82,42 @@ class MantenimientoController extends Controller
      $mantenimiento->tipo_mantenimiento = $request->tipo_mantenimiento;
      $mantenimiento->kilometraje_actual = $request->kilometraje_actual;
 
+     // Al marcarse como realizado por primera vez, se deja registrado quién lo ejecutó.
+     if ($request->filled('fecha_realizado') && ! $mantenimiento->realizado_por_id) {
+         $mantenimiento->realizado_por_id = auth()->id();
+     }
+
      // Verificar si se ha subido un nuevo archivo
         if ($request->hasFile('archivo')) {
-            // Obtener el nombre del nuevo archivo
-            $nombreArchivo = time() . '.' . $request->archivo->getClientOriginalExtension();
-            // Mover el nuevo archivo a la carpeta public/archivos
-            $request->archivo->move(public_path('archivos'), $nombreArchivo);
-            // Actualizar el campo archivo en la base de datos
-            $mantenimiento->archivo = $nombreArchivo;
+            // Eliminar el archivo anterior si existía
+            if ($mantenimiento->archivo && Storage::disk('public')->exists($mantenimiento->archivo)) {
+                Storage::disk('public')->delete($mantenimiento->archivo);
+            }
+
+            $uniqueName = time() . $request->file('archivo')->getClientOriginalName();
+            $mantenimiento->archivo = $request->file('archivo')->storeAs('mantenimientos', $uniqueName, 'public');
         }
         $mantenimiento->save();
+
+        // Al completar, el kilometraje real del odómetro alimenta el del vehículo.
+        // No bloquea el guardado: solo avanza (nunca retrocede el odómetro).
+        $avisoKm = null;
+        if ($request->filled('fecha_realizado') && $request->filled('kilometraje_actual')) {
+            $vehiculo = $mantenimiento->vehiculo;
+            if ($vehiculo) {
+                $kmNuevo = (int) $request->kilometraje_actual;
+                if ($kmNuevo >= $vehiculo->kilometraje_actual) {
+                    $vehiculo->kilometraje_actual = $kmNuevo;
+                    $vehiculo->save();
+                } else {
+                    $avisoKm = "El kilometraje registrado ({$kmNuevo}) es menor al del vehículo ({$vehiculo->kilometraje_actual}); no se actualizó el odómetro del vehículo.";
+                }
+            }
+        }
+
         return response()->json([
             'message' => 'Mantenimiento actualizado exitosamente',
+            'aviso' => $avisoKm,
             'mantenimiento' => $mantenimiento
         ], 200);
       
@@ -94,6 +128,12 @@ class MantenimientoController extends Controller
      */
     public function destroy(string $id)
     {
+        if (auth()->user()?->role_id !== RolEnum::ADMINISTRADOR->value) {
+            return response()->json([
+                'message' => 'No tienes permiso para eliminar mantenimientos',
+            ], 403);
+        }
+
         $mantenimiento = Mantenimiento::findOrFail($id);
 
         // Eliminar el archivo del sistema de archivos

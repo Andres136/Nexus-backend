@@ -9,6 +9,15 @@ use Illuminate\Http\Request;
 class ProcesoController extends Controller
 {
     /**
+     * Listado plano de todos los procesos, sin filtrar por departamento (para selects que no
+     * necesitan la cascada Departamento→Proceso, ej. seleccionar el proceso auditado).
+     */
+    public function todos()
+    {
+        return response()->json(Procesos::orderBy('nombre')->get(), 200);
+    }
+
+    /**
      * Display a listing of the resource.
      */
     public function index($departamento_id)

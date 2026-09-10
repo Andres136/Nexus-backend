@@ -36,6 +36,8 @@ class CapacitacionService
                 $query->whereDate('fecha_realizacion', '<=', $filters['fecha_hasta']))
             ->when(!empty($filters['estado']), fn ($query) =>
                 $query->where('estado', $filters['estado']))
+            ->when(!empty($filters['tipo']), fn ($query) =>
+                $query->where('tipo', $filters['tipo']))
             ->when(!empty($filters['user_id']), fn ($query) =>
                 $query->where('user_id', $filters['user_id']))
             ->when(!empty($filters['propias']), fn ($query) =>
@@ -64,6 +66,7 @@ class CapacitacionService
     {
         $capacitacion = Capacitacion::create([
             ...Arr::only($data, [
+                'tipo',
                 'titulo',
                 'descripcion',
                 'fecha_realizacion',
@@ -88,6 +91,7 @@ class CapacitacionService
             $this->validarPuedeModificar($capacitacion, $user);
 
             $capacitacion->update(Arr::only($data, [
+                'tipo',
                 'titulo',
                 'descripcion',
                 'fecha_realizacion',

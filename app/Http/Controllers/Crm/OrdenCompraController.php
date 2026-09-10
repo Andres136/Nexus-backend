@@ -75,15 +75,20 @@ class OrdenCompraController extends Controller
             'user',
             'estado',
             'detalles.product',
-            'ordenTrabajo'
+            'ordenTrabajo',
+            'actualizadoPor:id,name'
         )
         ->withExists('ordenTrabajo') // ✅ agrega flag booleano
         ->when($search, function ($query, $search) {
             return $query->whereHas('cliente', function ($query) use ($search) {
                 $query->where('nombre', 'LIKE', "%$search%");
             })
+                ->orWhere('id', 'LIKE', "%$search%")
                 ->orWhere('fecha_entrega', 'LIKE', "%$search%")
-                ->orWhere('orden_compra_cliente', 'LIKE', "%$search%");
+                ->orWhere('orden_compra_cliente', 'LIKE', "%$search%")
+                ->orWhereHas('ordenTrabajo', function ($query) use ($search) {
+                    $query->where('id', 'LIKE', "%$search%");
+                });
         })
         ->orderBy('orden_trabajo_exists', 'asc') // ✅ primero sin OT
         ->orderBy('created_at', 'desc') // ✅ más recientes dentro del grupo
@@ -107,6 +112,15 @@ class OrdenCompraController extends Controller
 
         try {
 
+            // Una cotización solo puede tener una Orden de Compra asociada.
+            if ($request->filled('cotizacion_id')
+                && Orden_Compra::where('cotizacion_id', $request->cotizacion_id)->exists()) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'Esta cotización ya tiene una Orden de Compra generada.',
+                ], 422);
+            }
+
             // Manejo de archivo subido
             $rutaArchivo = null;
             if ($request->hasFile('cliente_documento')) {
@@ -123,8 +137,10 @@ class OrdenCompraController extends Controller
                 'user_id' => auth()->id(),
                 'estado_id' => 1,
                 'ubicacion_entrega' => $request->ubicacion_entrega,
+                'descripcion_embalaje' => $request->descripcion_embalaje,
                 'observaciones' => $request->observaciones,
                 'empresa_id' => $request->empresa_id,
+                'cotizacion_id' => $request->cotizacion_id,
                 'cliente_documento' => $rutaArchivo,
                 'orden_compra_cliente' => $request->orden_compra_cliente,
                 'valor_total' => 0, // Inicialmente 0
@@ -181,28 +197,83 @@ public function generarOrdenTrabajo(OrdenTrabajoRequest $request, $id)
         
         $this->validarDocumentoCliente($ordenCompra);
         
-        // Determinar sede (mantener lógica exacta)
+        // Determinar sede (mantener lógica exacta). Solo se usa en memoria para
+        // esta ejecución (notificaciones, descuento de stock); no se persiste en
+        // la Orden de Compra: generar/actualizar la OT no debe modificar la OC.
         $sedeId = $this->determinarSede($request, $ordenCompra, $user);
         $ordenCompra->sede_id = $sedeId;
-        $ordenCompra->save();
-        
-        // ✅ Usar el service con toda la lógica
+
+        // ✅ Usar el service con toda la lógica (solo creación)
         $ordenTrabajoService = app(OrdenTrabajoService::class);
-        $resultado = $ordenTrabajoService->generarOrdenTrabajo(
-            $ordenCompra, 
+        $resultado = $ordenTrabajoService->crearOrdenTrabajo(
+            $ordenCompra,
             $request->all(), // Pasar todos los datos del request
             $user->id
         );
-        
+
         return response()->json([
-            'message' => 'Orden de Trabajo generada/actualizada con éxito',
+            'message' => 'Orden de Trabajo generada con éxito',
+            'fue_creada' => true,
             'ordenTrabajo' => $resultado['ordenTrabajo'],
             'pdf_url' => $resultado['pdf_url'],
         ], 201);
-        
+
+    } catch (ValidationException $e) {
+        return response()->json([
+            'message' => 'Hay errores de validación en la Orden de Trabajo.',
+            'errors' => $e->errors(),
+        ], 422);
     } catch (Exception $e) {
         return response()->json([
-            'message' => 'Error al generar/actualizar la Orden de Trabajo',
+            'message' => 'Error al generar la Orden de Trabajo',
+            'error' => $e->getMessage(),
+        ], 500);
+    }
+}
+
+/**
+ * Flujo 2: registrar una entrega/actualización sobre una OT ya generada.
+ */
+public function actualizarOrdenTrabajo(OrdenTrabajoRequest $request, $id)
+{
+    $user = auth()->user();
+
+    try {
+        $ordenCompra = Orden_Compra::findOrFail($id);
+
+        if ((int) $ordenCompra->estado_id === EstadoEnum::INACTIVO->value) {
+            return response()->json([
+                'message' => 'No se puede actualizar la Orden de Trabajo de una Orden de Compra inactiva.',
+            ], 422);
+        }
+
+        // Determinar sede solo en memoria (notificaciones/descuento de stock);
+        // no se persiste en la Orden de Compra.
+        $sedeId = $this->determinarSede($request, $ordenCompra, $user);
+        $ordenCompra->sede_id = $sedeId;
+
+        $ordenTrabajoService = app(OrdenTrabajoService::class);
+        $resultado = $ordenTrabajoService->actualizarOrdenTrabajo(
+            $ordenCompra,
+            $request->all(),
+            $user->id
+        );
+
+        return response()->json([
+            'message' => 'Orden de Trabajo actualizada con éxito',
+            'fue_creada' => false,
+            'ordenTrabajo' => $resultado['ordenTrabajo'],
+            'pdf_url' => $resultado['pdf_url'],
+        ], 200);
+
+    } catch (ValidationException $e) {
+        return response()->json([
+            'message' => 'Hay errores de validación en la Orden de Trabajo.',
+            'errors' => $e->errors(),
+        ], 422);
+    } catch (Exception $e) {
+        return response()->json([
+            'message' => 'Error al actualizar la Orden de Trabajo',
             'error' => $e->getMessage(),
         ], 500);
     }
@@ -251,10 +322,9 @@ public function obtenerOrdenesTrabajo(Request $request)
         'cliente',
         'estado',
         'user',
-      
         'entregas.usuario:id,name',
-        'movimientosStock:id,orden_trabajo_id,created_at,usuario_id',
     ])
+        ->conEstadoStock()
         ->whereNot('estado_id', EstadoEnum::INACTIVO->value)
         ->whereHas('ordenCompra', function ($q) {
             $q->whereNot('estado_id', EstadoEnum::INACTIVO->value);
@@ -340,6 +410,12 @@ public function obtenerOrdenesTrabajo(Request $request)
         ->paginate(10)
         
         ->appends(request()->query());
+
+    $ordenesTrabajo->getCollection()->transform(function ($orden) {
+        $orden->stock_descontado_completo = $orden->calcularStockDescontadoCompleto();
+
+        return $orden;
+    });
 
 
     return response()->json($ordenesTrabajo);
@@ -448,9 +524,11 @@ $path = $request->file('cliente_documento')->store('documentos_clientes', 'publi
                 'fecha_entrega'     => $request->fecha_entrega,
                 'cliente_id'        => $request->cliente_id,
                 'ubicacion_entrega' => $request->ubicacion_entrega,
+                'descripcion_embalaje' => $request->descripcion_embalaje,
                 'observaciones'     => $request->observaciones,
                 'empresa_id'        => $request->empresa_id,
                 'orden_compra_cliente' => $request->orden_compra_cliente,
+                'actualizado_por'   => auth()->id(),
 
             ]);
 
@@ -493,6 +571,13 @@ $path = $request->file('cliente_documento')->store('documentos_clientes', 'publi
             // 3. Recalcular valor_total
             $valorTotal = $oc->detalles()->sum('valor_total');
             $oc->update(['valor_total' => $valorTotal]);
+
+            // 4. Si ya existe OT, resincronizar faltantes y estado con las
+            //    cantidades editadas (evita que quede en "Entrega Parcial"
+            //    una orden que en realidad ya se entregó completa).
+            if ($oc->ordenTrabajo()->exists()) {
+                app(OrdenTrabajoService::class)->resincronizarPorCambioEnOrdenCompra($oc);
+            }
 
             DB::commit();
 

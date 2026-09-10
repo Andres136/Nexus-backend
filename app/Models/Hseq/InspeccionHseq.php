@@ -3,6 +3,8 @@
 namespace App\Models\Hseq;
 
 use App\Models\Crm\Sede;
+use App\Models\Crm\bodega;
+use App\Models\Crm\empresa;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
@@ -11,6 +13,8 @@ class InspeccionHseq extends Model
     protected $table = "inspecciones_hseq";
     protected $fillable = [
         'sede_id',
+        'empresa_id',
+        'bodega_id',
         'tipo_inspeccion_id',
         'fecha',
         'responsable_id',
@@ -23,6 +27,16 @@ class InspeccionHseq extends Model
     public function sede()
     {
         return $this->belongsTo(Sede::class);
+    }
+
+    public function empresa()
+    {
+        return $this->belongsTo(empresa::class);
+    }
+
+    public function bodega()
+    {
+        return $this->belongsTo(bodega::class);
     }
 
     public function tipoInspeccion()

@@ -200,7 +200,11 @@
             <td class="info-label">Sede Destino:</td>
             <td>{{ $envio->sedeDestino->nombre ?? 'Sede no encontrada' }}</td>
         </tr>
-     
+        <tr>
+            <td class="info-label">Responsable que recibe:</td>
+            <td colspan="3">{{ $envio->responsable->name ?? 'Sin asignar' }}</td>
+        </tr>
+
     </table>
 
    
@@ -209,19 +213,16 @@
         <thead>
             <tr>
                 <th style="width: 8%;">Item</th>
-                <th style="width: 30%;">N#O</th>
-                <th style="width: 15%;">Código</th>
-                <th style="width: 32%;">Descripción</th>
-                <th style="width: 10%;">Cantidad</th>
+                <th style="width: 20%;">Código</th>
+                <th style="width: 52%;">Descripción</th>
+                <th style="width: 20%;">Cantidad</th>
             </tr>
         </thead>
         <tbody>
             @foreach ($detalles as $detalle)
                 <tr>
                     <td class="text-center">{{ $detalle->item }}</td>
-                    <td>{{ $detalle->ordenCompra->numero_orden ?? 'Orden no encontrada' }}</td>
                     <td>{{ $detalle->code_id ?? ($detalle->product->code ?? 'N/A') }}</td>
-                 
                     <td>{{ $detalle->descripcion ?? 'Sin descripción' }}</td>
                     <td class="text-center">{{ $detalle->cantidad }}</td>
                 </tr>
@@ -254,7 +255,7 @@
             <div class="signature-cell">
                 <div class="signature-line">
                     <strong>RECIBE</strong><br>
-                    _________________________<br>
+                    {{ $envio->responsable->name ?? 'Sin asignar' }}<br>
                     <small>Nombre y Firma</small>
                 </div>
             </div>

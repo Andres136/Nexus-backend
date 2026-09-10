@@ -23,6 +23,7 @@ class TicketController extends Controller
             'search',
             'estado',
             'prioridad',
+            'tipo',
             'user_solicitante_id',
             'user_asignado_id',
             'producto_id',
@@ -86,6 +87,7 @@ class TicketController extends Controller
             'fecha_desde' => ['nullable', 'date'],
             'fecha_hasta' => ['nullable', 'date'],
             'departamento_id' => ['nullable', 'integer', 'exists:departamentos,id'],
+            'tipo' => ['nullable', 'in:solicitud,soporte_equipo,desarrollo_nexus'],
         ]);
 
         return response()->json([

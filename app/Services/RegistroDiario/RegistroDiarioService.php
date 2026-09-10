@@ -32,6 +32,11 @@ class RegistroDiarioService
             Novedades::create([
                 'registro_diario_id'     => $registroDiario->id,
                 'descripcion'            => $data['novedad'],
+                'clasificacion'          => $data['clasificacion'] ?? 'NO_CONFORMIDAD',
+                // Marca de reincidencia: aplica tanto a No Conformidades como a
+                // Oportunidades de Mejora (el usuario la confirma tras la revisión con IA).
+                'es_reiterativa'         => $data['es_reiterativa'] ?? null,
+                'reiterativa_nota'       => $data['reiterativa_nota'] ?? null,
                 'numero_no_conformidad'  => $data['numero_no_conformidad'] ?? null,
                 'fuentes'                => $data['fuentes'] ?? null,
                 'tipo_accion'            => $data['tipo_accion'] ?? null,
@@ -250,9 +255,12 @@ class RegistroDiarioService
         ->groupBy(['departamento_id', 'mes']);
 
     // 🔹 NOVEDADES (1 SOLO LOOP)
+    // Los indicadores de novedades/estabilidad/resolución cuentan SOLO No
+    // Conformidades. Las Oportunidades de Mejora se cuentan aparte.
     $novedadesPorMes = [];
     $novedadesEstabilidadPorMes = [];
     $novedadesResolucionPorMes = [];
+    $oportunidadesMejoraPorMes = [];
 
     for ($mes = 1; $mes <= 12; $mes++) {
 
@@ -266,6 +274,7 @@ class RegistroDiarioService
         DB::raw('COUNT(novedad_diaria.id) as total_novedades')
     )
     ->whereBetween('registro_diario.fecha', [$inicioMes, $finMes])
+    ->where('novedad_diaria.clasificacion', 'NO_CONFORMIDAD')
     ->whereIn('novedad_diaria.estado', ['ABIERTA', 'EN_PROCESO'])
     ->groupBy('registro_diario.departamento_id')
     ->get()
@@ -278,6 +287,7 @@ class RegistroDiarioService
         DB::raw('COUNT(DISTINCT novedad_diaria.registro_diario_id) as registros_con_novedad_mes')
     )
     ->whereBetween('registro_diario.fecha', [$inicioMes, $finMes])
+    ->where('novedad_diaria.clasificacion', 'NO_CONFORMIDAD')
     ->whereIn('novedad_diaria.estado', ['ABIERTA', 'EN_PROCESO'])
     ->groupBy('registro_diario.departamento_id')
     ->get()
@@ -291,6 +301,19 @@ class RegistroDiarioService
         DB::raw("SUM(CASE WHEN novedad_diaria.estado = 'CERRADA' THEN 1 ELSE 0 END) as cerradas")
     )
     ->whereBetween('registro_diario.fecha', [$inicioMes, $finMes])
+    ->where('novedad_diaria.clasificacion', 'NO_CONFORMIDAD')
+    ->groupBy('registro_diario.departamento_id')
+    ->get()
+    ->keyBy('departamento_id');
+
+        $oportunidadesMejoraPorMes[$mes] = DB::table('novedad_diaria')
+    ->join('registro_diario', 'registro_diario.id', '=', 'novedad_diaria.registro_diario_id')
+    ->select(
+        'registro_diario.departamento_id',
+        DB::raw('COUNT(novedad_diaria.id) as total_om')
+    )
+    ->whereBetween('registro_diario.fecha', [$inicioMes, $finMes])
+    ->where('novedad_diaria.clasificacion', 'OPORTUNIDAD_MEJORA')
     ->groupBy('registro_diario.departamento_id')
     ->get()
     ->keyBy('departamento_id');
@@ -312,6 +335,7 @@ class RegistroDiarioService
             $n = $novedadesPorMes[$mes][$dep->id] ?? null;
             $nEstabilidad = $novedadesEstabilidadPorMes[$mes][$dep->id] ?? null;
             $nResolucion = $novedadesResolucionPorMes[$mes][$dep->id] ?? null;
+            $om = $oportunidadesMejoraPorMes[$mes][$dep->id] ?? null;
 
             $totalRegistros = $r->total_registros ?? 0;
             $si = $r->si ?? 0;
@@ -378,6 +402,7 @@ class RegistroDiarioService
                 ],
 
                 'novedades' => $totalNovedades,
+                'oportunidades_mejora' => $om->total_om ?? 0,
                 'no_conformidades' => $noConformidades,
 
                 'estabilidad' => $totalRegistros > 0

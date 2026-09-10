@@ -18,6 +18,8 @@ class Detalles_envio_internos extends Model
         'descripcion',
         'cantidad',
         'bodega_origen_id',
+        'bodega_destino_id',
+        'cantidad_recibida',
         'orden_compra_id',
         'item',
     ];
@@ -35,6 +37,10 @@ class Detalles_envio_internos extends Model
     public function bodegaOrigen()
     {
         return $this->belongsTo(bodega::class, 'bodega_origen_id');
+    }
+    public function bodegaDestino()
+    {
+        return $this->belongsTo(bodega::class, 'bodega_destino_id');
     }
 
     public function ordenCompra()

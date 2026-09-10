@@ -97,6 +97,53 @@ table.detalle td {
     font-size: 8px;
 }
 table.detalle td.izq { text-align: left; }
+
+.oc-badge {
+    display: inline-block;
+    margin: 1px;
+    padding: 1px 4px;
+    border-radius: 6px;
+    font-size: 7px;
+    font-weight: bold;
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+.prioridad-line {
+    display: block;
+    margin: 1px 0;
+    padding: 1px 3px;
+    border-radius: 4px;
+    font-size: 7px;
+    font-weight: bold;
+}
+.prioridad-line.completa {
+    background: #dcfce7;
+    color: #15803d;
+}
+.prioridad-line.pendiente {
+    background: #ffedd5;
+    color: #c2410c;
+}
+.compra-pendiente {
+    font-weight: bold;
+    color: #1f6fd2;
+}
+.trazabilidad-badge {
+    display: inline-block;
+    margin-left: 3px;
+    padding: 0 3px;
+    border-radius: 4px;
+    font-size: 6.5px;
+    text-transform: uppercase;
+}
+.trazabilidad-badge.exacta {
+    background: #dcfce7;
+    color: #15803d;
+}
+.trazabilidad-badge.estimada {
+    background: #fef3c7;
+    color: #b45309;
+}
 </style>
 </head>
 
@@ -140,13 +187,14 @@ table.detalle td.izq { text-align: left; }
     <table class="detalle">
         <thead>
         <tr>
-            <th style="width: 20%;">Producto</th>
-            <th style="width: 10%;">Requerido</th>
-            <th style="width: 10%;">Entregado</th>
-            <th style="width: 10%;">Faltante</th>
-            <th style="width: 10%;">Stock</th>
-            <th style="width: 10%;">Estado</th>
-            <th style="width: 30%;">Observaciones</th>
+            <th style="width: 16%;">Producto</th>
+            <th style="width: 8%;">Requerido</th>
+            <th style="width: 8%;">Entregado</th>
+            <th style="width: 8%;">Faltante</th>
+            <th style="width: 8%;">Stock</th>
+            <th style="width: 8%;">Estado</th>
+            <th style="width: 22%;">Compra / Prioridad</th>
+            <th style="width: 22%;">Observaciones</th>
         </tr>
         </thead>
         <tbody>
@@ -158,6 +206,34 @@ table.detalle td.izq { text-align: left; }
             <td>{{ number_format($prod['faltante'], 1) }}</td>
             <td>{{ number_format($prod['stock'], 1) }}</td>
             <td>{{ $prod['estado'] }}</td>
+            <td class="izq">
+                @php $compra = $prod['compra_proveedor'] ?? null; @endphp
+                @if($compra && $compra['pendiente'] > 0)
+                    <span class="compra-pendiente">{{ number_format($compra['pendiente'], 1) }} kg</span>
+                    <span class="trazabilidad-badge {{ $compra['trazabilidad'] }}">{{ $compra['trazabilidad'] }}</span>
+                    @if(!empty($compra['ordenes']))
+                        <div>
+                        @foreach($compra['ordenes'] as $op)
+                            <span class="oc-badge">{{ $op['numero_orden'] ?? ('OP-' . $op['id']) }}</span>
+                        @endforeach
+                        </div>
+                    @endif
+                    @if(!empty($compra['prioridades']))
+                        <div>
+                        @foreach($compra['prioridades'] as $prioridad)
+                            <span class="prioridad-line {{ $prioridad['completa'] ? 'completa' : 'pendiente' }}">
+                                @if(!empty($prioridad['oc_proveedor_numero']))
+                                    {{ $prioridad['oc_proveedor_numero'] }}:
+                                @endif
+                                Prioridad {{ number_format($prioridad['cantidad_recibida'] ?? 0, 1) }} / {{ number_format($prioridad['cantidad_prioridad'] ?? 0, 1) }} kg
+                            </span>
+                        @endforeach
+                        </div>
+                    @endif
+                @else
+                    <span>Sin compra</span>
+                @endif
+            </td>
             <td class="izq">{{ $prod['observaciones'] ?? '-' }}</td>
         </tr>
         @endforeach

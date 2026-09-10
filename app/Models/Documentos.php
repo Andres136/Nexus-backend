@@ -24,5 +24,10 @@ class Documentos extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    // funcion para relacionar documentos con sus diligenciados (versiones llenas)
+    public function diligenciados()
+    {
+        return $this->hasMany(DocumentoDiligenciado::class, 'documento_id')->latest();
+    }
 
 }
